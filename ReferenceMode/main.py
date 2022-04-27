@@ -889,7 +889,7 @@ if __name__ == '__main__':
     starttime = time.time()
     log.logger.debug('Start step8: get classified consensus sequence')
     sample_name = alias
-    TEClass_home = '/public/home/hpc194701009/repeat_detect_tools/WebTE/classification'
+    TEClass_home = os.getcwd() + '/classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                       + ' --consensus ' + merge_repeat_consensus + ' --genome ' + reference \
                       + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
