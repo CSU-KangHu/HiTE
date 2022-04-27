@@ -104,29 +104,15 @@ optional arguments:
 ```
 
 
-## <a name="input_output"></a>Input
-TideHunter works with FASTA, FASTQ, gzip'd FASTA(.fa.gz) and gzip'd FASTQ(.fq.gz) formats.
-
-### <a name="adapter"></a>Adapter sequence
-Additional adapter sequence files can be provided to TideHunter with `-5` and `-3` options.
-
-TideHunter uses adapter information to search for the full-length sequence from the generated consensus.
-
-Once two adapters are found, TideHunter trims and reorients the consensus sequence.
+## <a name="input"></a>Input
+KmerRepFinder works with genome assemblies in FASTA, FA, and FNA formats.
 
 ## <a name="output"></a>Output
-TideHunter can output consensus sequence in FASTA format by default, 
-it can also provide output in tabular format.
+KmerRepFinder can output an annotated consensus TE library in FASTA format.
 
-### <a name="fasta"></a>FASTA format
-For FASTA output format, the read name and the comment provide detailed information of the detected tandem repeat, 
-i.e., the above columns 1 \~ 10.
-The sequence is the consensus sequence.
+### <a name="repeatmasker_annotation_info"></a>Annotation information using RepeatMasker
+Annotation information using RepeatMasker
 
-The read name and comment of each consensus sequence have the following format:
-```
->readName_repN_copyNum readLen_start_end_consLen_aveMatch_fullLen_subPos
-```
 
 
 ## <a name="contact"></a>Contact
