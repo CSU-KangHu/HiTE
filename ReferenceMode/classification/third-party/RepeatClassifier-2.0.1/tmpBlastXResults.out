@@ -1,0 +1,432 @@
+BLASTX 2.9.0+
+
+
+Reference: Stephen F. Altschul, Thomas L. Madden, Alejandro A.
+Schaffer, Jinghui Zhang, Zheng Zhang, Webb Miller, and David J.
+Lipman (1997), "Gapped BLAST and PSI-BLAST: a new generation of
+protein database search programs", Nucleic Acids Res. 25:3389-3402.
+
+
+
+Database: /public/home/hpc194701009/repeat_detect_tools/RepeatMasker-
+4.1.2/RepeatMasker/Libraries/RepeatPeps.lib
+           18,011 sequences; 16,150,283 total letters
+
+
+
+Query= Node_239
+
+Length=97
+                                                                      Score        E
+Sequences producing significant alignments:                          (Bits)     Value
+
+Gypsy-1_DSe_gag#LTR/Gypsy RBRM:Gypsy-1_DSe-I cds_range:150-1377 [...  26.9       0.22 
+Gypsy-6_DEu_gag#LTR/Gypsy RBRM:Gypsy-6_DEu-I cds_range:907-2182 [...  25.0       1.4  
+ERV41_MD_pol#LTR/ERVK RBRM:ERV41_MD_I cds_range:2711-5366 [Didelp...  23.5       4.1  
+Copia-23_BRa#LTR/Copia RBRM:Copia-23_BRa-I cds_range:73-4474 [Bra...  23.5       4.5  
+Copia-54_ST#LTR/Copia RBRM:Copia-54_ST-I frameshifts:1 stops:2 cd...  23.1       5.0  
+Chouto_gag#LTR/Gypsy Dfam:DF0001556 cds_range:558-1890 [Drosophil...  23.1       5.4  
+BEL-56_DRe_pol#LTR/Pao Dfam:DF0004059 cds_range:560-6530 [Danio r...  23.1       5.5  
+SFV1-18_AMi_env#LTR/ERV4 RBRM:SFV1-18_AMi-I cds_range:6830-8774 [...  23.1       5.6  
+Copia19-NVi#LTR/Copia RBRM:Copia19-NVi_I frameshifts:1 cds_range:...  23.1       6.5  
+Copia-123_BRa#LTR/Copia RBRM:Copia-123_BRa-I stops:1 cds_range:59...  23.1       6.5  
+Gypsy-31_DEl_gag#LTR/Gypsy RBRM:Gypsy-31_DEl-I cds_range:900-2244...  23.1       6.6  
+UN-EnSpm3_OS_p2#DNA/CMC-EnSpm putative transposon protein (perhap...  22.7       7.9  
+Transib-5_HM#DNA/CMC-Transib RBRM:Transib-5_HM cds_range:636-2625...  22.7       8.0  
+
+
+>Gypsy-1_DSe_gag#LTR/Gypsy RBRM:Gypsy-1_DSe-I cds_range:150-1377 
+[Drosophila sechellia]
+Length=409
+
+ Score = 26.9 bits (58),  Expect = 0.22, Method: Composition-based stats.
+ Identities = 15/32 (47%), Positives = 21/32 (66%), Gaps = 0/32 (0%)
+ Frame = +2
+
+Query  2   AAISADLDGEKIQFDKKLETIRGKLNLLKKKK  97
+           AAI+  L  ++  F+ KL  I G+L+LLK KK
+Sbjct  49  AAIACALQRQEELFEAKLTAIMGELSLLKNKK  80
+
+
+>Gypsy-6_DEu_gag#LTR/Gypsy RBRM:Gypsy-6_DEu-I cds_range:907-2182 
+[Drosophila eugracilis]
+Length=425
+
+ Score = 25.0 bits (53),  Expect = 1.4, Method: Compositional matrix adjust.
+ Identities = 14/31 (45%), Positives = 20/31 (65%), Gaps = 0/31 (0%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKLNLLKKK  94
+            AAI++ L  ++  FDKKL  + G+L  LK K
+Sbjct  88   AAITSALQKQQELFDKKLAAVIGELKSLKTK  118
+
+
+>ERV41_MD_pol#LTR/ERVK RBRM:ERV41_MD_I cds_range:2711-5366 [Didelphinae]
+Length=885
+
+ Score = 23.5 bits (49),  Expect = 4.1, Method: Compositional matrix adjust.
+ Identities = 10/17 (59%), Positives = 11/17 (65%), Gaps = 0/17 (0%)
+ Frame = -1
+
+Query  73   LPPDCFQLFVKLNFFSI  23
+            LPPD +QLF  L   SI
+Sbjct  540  LPPDLYQLFSTLQSLSI  556
+
+
+>Copia-23_BRa#LTR/Copia RBRM:Copia-23_BRa-I cds_range:73-4474 
+[Brassica rapa]
+Length=1467
+
+ Score = 23.5 bits (49),  Expect = 4.5, Method: Composition-based stats.
+ Identities = 9/23 (39%), Positives = 14/23 (61%), Gaps = 0/23 (0%)
+ Frame = -2
+
+Query  69   PLIVSNFLSN*IFSPSKSALMAA  1
+            P  + N++S+  FSP   A +AA
+Sbjct  923  PYPIKNYISDEKFSPDHKAFLAA  945
+
+
+>Copia-54_ST#LTR/Copia RBRM:Copia-54_ST-I frameshifts:1 stops:2 
+cds_range:222-4181 via tfasty with Copia-74_ST, 69.1% SW:3926 
+[Solanum tuberosum]
+Length=1320
+
+ Score = 23.1 bits (48),  Expect = 5.0, Method: Composition-based stats.
+ Identities = 7/16 (44%), Positives = 12/16 (75%), Gaps = 0/16 (0%)
+ Frame = -3
+
+Query  62    LFPTFCQTEFFLHLSR  15
+             LFP +C ++  LH++R
+Sbjct  1239  LFPVYCDSQSALHIAR  1254
+
+
+>Chouto_gag#LTR/Gypsy  Dfam:DF0001556 cds_range:558-1890 [Drosophila 
+melanogaster]
+Length=444
+
+ Score = 23.1 bits (48),  Expect = 5.4, Method: Composition-based stats.
+ Identities = 10/24 (42%), Positives = 17/24 (71%), Gaps = 0/24 (0%)
+ Frame = +2
+
+Query  5   AISADLDGEKIQFDKKLETIRGKL  76
+           A+SA L+ ++  F+KKLE ++ K 
+Sbjct  44  AVSAALNVQREDFEKKLEEVKNKF  67
+
+
+>BEL-56_DRe_pol#LTR/Pao  Dfam:DF0004059 cds_range:560-6530 [Danio 
+rerio]
+Length=1990
+
+ Score = 23.1 bits (48),  Expect = 5.5, Method: Composition-based stats.
+ Identities = 12/32 (38%), Positives = 20/32 (63%), Gaps = 0/32 (0%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKLNLLKKKK  97
+            A + AD+  ++I+   KLE  + KL LL+ +K
+Sbjct  245  ARMLADIKQKEIEXRSKLEEEKAKLQLLQAEK  276
+
+
+>SFV1-18_AMi_env#LTR/ERV4 RBRM:SFV1-18_AMi-I cds_range:6830-8774 
+[Alligator mississippiensis]
+Length=648
+
+ Score = 23.1 bits (48),  Expect = 5.6, Method: Compositional matrix adjust.
+ Identities = 8/24 (33%), Positives = 17/24 (71%), Gaps = 0/24 (0%)
+ Frame = -3
+
+Query  89   FLINSTSP*LFPTFCQTEFFLHLS  18
+            +L+NS+   L+ + C+T + +HL+
+Sbjct  482  YLLNSSGTYLYVSGCETHYTVHLN  505
+
+
+>Copia19-NVi#LTR/Copia RBRM:Copia19-NVi_I frameshifts:1 cds_range:2-2656 
+via tfasty with Copia5-NVi (fragment) [Nasonia vitripennis]
+Length=885
+
+ Score = 23.1 bits (48),  Expect = 6.5, Method: Composition-based stats.
+ Identities = 12/24 (50%), Positives = 15/24 (63%), Gaps = 0/24 (0%)
+ Frame = +2
+
+Query  5    AISADLDGEKIQFDKKLETIRGKL  76
+            AI+A  D E IQFD K   + G+L
+Sbjct  466  AIAAHRDLEIIQFDVKTAFLHGQL  489
+
+
+>Copia-123_BRa#LTR/Copia RBRM:Copia-123_BRa-I stops:1 cds_range:59-4490 
+via tfasty with Copia-23_BRa, 88.2% SW:5335 [Brassica 
+rapa]
+Length=1477
+
+ Score = 23.1 bits (48),  Expect = 6.5, Method: Composition-based stats.
+ Identities = 9/23 (39%), Positives = 15/23 (65%), Gaps = 0/23 (0%)
+ Frame = -2
+
+Query  69   PLIVSNFLSN*IFSPSKSALMAA  1
+            P  + NF+++  FSP+  A +AA
+Sbjct  935  PYPLDNFVTDMNFSPAHQAFLAA  957
+
+
+>Gypsy-31_DEl_gag#LTR/Gypsy RBRM:Gypsy-31_DEl-I cds_range:900-2244 
+[Drosophila elegans]
+Length=448
+
+ Score = 23.1 bits (48),  Expect = 6.6, Method: Composition-based stats.
+ Identities = 14/31 (45%), Positives = 19/31 (61%), Gaps = 0/31 (0%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKLNLLKKK  94
+            AAI+  L  ++  FD+KL  I G+L  LK K
+Sbjct  78   AAIACALQRQQELFDEKLAKIMGELCSLKDK  108
+
+
+>UN-EnSpm3_OS_p2#DNA/CMC-EnSpm   putative transposon protein (perhaps 
+spliced to p1) [Oryza sativa]
+Length=599
+
+ Score = 22.7 bits (47),  Expect = 7.9, Method: Composition-based stats.
+ Identities = 12/25 (48%), Positives = 18/25 (72%), Gaps = 3/25 (12%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKL  76
+            A+I A+L  E   FD+KLE++R K+
+Sbjct  319  ASIRAELTSE---FDEKLESMRAKI  340
+
+
+>Transib-5_HM#DNA/CMC-Transib RBRM:Transib-5_HM cds_range:636-2625 
+[Hydra vulgaris]
+Length=663
+
+ Score = 22.7 bits (47),  Expect = 8.0, Method: Compositional matrix adjust.
+ Identities = 11/20 (55%), Positives = 13/20 (65%), Gaps = 0/20 (0%)
+ Frame = +2
+
+Query  8   ISADLDGEKIQFDKKLETIR  67
+           IS  LDGEK+  +K  E IR
+Sbjct  30  ISEGLDGEKVHSEKLTEKIR  49
+
+
+
+Lambda      K        H        a         alpha
+   0.318    0.134    0.401    0.792     4.96 
+
+Gapped
+Lambda      K        H        a         alpha    sigma
+   0.267   0.0410    0.140     1.90     42.6     43.6 
+
+Effective search space used: 400605150
+
+
+Query= Node_239
+
+Length=97
+                                                                      Score        E
+Sequences producing significant alignments:                          (Bits)     Value
+
+Gypsy-1_DSe_gag#LTR/Gypsy RBRM:Gypsy-1_DSe-I cds_range:150-1377 [...  26.9       0.22 
+Gypsy-6_DEu_gag#LTR/Gypsy RBRM:Gypsy-6_DEu-I cds_range:907-2182 [...  25.0       1.4  
+ERV41_MD_pol#LTR/ERVK RBRM:ERV41_MD_I cds_range:2711-5366 [Didelp...  23.5       4.1  
+Copia-23_BRa#LTR/Copia RBRM:Copia-23_BRa-I cds_range:73-4474 [Bra...  23.5       4.5  
+Copia-54_ST#LTR/Copia RBRM:Copia-54_ST-I frameshifts:1 stops:2 cd...  23.1       5.0  
+Chouto_gag#LTR/Gypsy Dfam:DF0001556 cds_range:558-1890 [Drosophil...  23.1       5.4  
+BEL-56_DRe_pol#LTR/Pao Dfam:DF0004059 cds_range:560-6530 [Danio r...  23.1       5.5  
+SFV1-18_AMi_env#LTR/ERV4 RBRM:SFV1-18_AMi-I cds_range:6830-8774 [...  23.1       5.6  
+Copia19-NVi#LTR/Copia RBRM:Copia19-NVi_I frameshifts:1 cds_range:...  23.1       6.5  
+Copia-123_BRa#LTR/Copia RBRM:Copia-123_BRa-I stops:1 cds_range:59...  23.1       6.5  
+Gypsy-31_DEl_gag#LTR/Gypsy RBRM:Gypsy-31_DEl-I cds_range:900-2244...  23.1       6.6  
+UN-EnSpm3_OS_p2#DNA/CMC-EnSpm putative transposon protein (perhap...  22.7       7.9  
+Transib-5_HM#DNA/CMC-Transib RBRM:Transib-5_HM cds_range:636-2625...  22.7       8.0  
+
+
+>Gypsy-1_DSe_gag#LTR/Gypsy RBRM:Gypsy-1_DSe-I cds_range:150-1377 
+[Drosophila sechellia]
+Length=409
+
+ Score = 26.9 bits (58),  Expect = 0.22, Method: Composition-based stats.
+ Identities = 15/32 (47%), Positives = 21/32 (66%), Gaps = 0/32 (0%)
+ Frame = +2
+
+Query  2   AAISADLDGEKIQFDKKLETIRGKLNLLKKKK  97
+           AAI+  L  ++  F+ KL  I G+L+LLK KK
+Sbjct  49  AAIACALQRQEELFEAKLTAIMGELSLLKNKK  80
+
+
+>Gypsy-6_DEu_gag#LTR/Gypsy RBRM:Gypsy-6_DEu-I cds_range:907-2182 
+[Drosophila eugracilis]
+Length=425
+
+ Score = 25.0 bits (53),  Expect = 1.4, Method: Compositional matrix adjust.
+ Identities = 14/31 (45%), Positives = 20/31 (65%), Gaps = 0/31 (0%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKLNLLKKK  94
+            AAI++ L  ++  FDKKL  + G+L  LK K
+Sbjct  88   AAITSALQKQQELFDKKLAAVIGELKSLKTK  118
+
+
+>ERV41_MD_pol#LTR/ERVK RBRM:ERV41_MD_I cds_range:2711-5366 [Didelphinae]
+Length=885
+
+ Score = 23.5 bits (49),  Expect = 4.1, Method: Compositional matrix adjust.
+ Identities = 10/17 (59%), Positives = 11/17 (65%), Gaps = 0/17 (0%)
+ Frame = -1
+
+Query  73   LPPDCFQLFVKLNFFSI  23
+            LPPD +QLF  L   SI
+Sbjct  540  LPPDLYQLFSTLQSLSI  556
+
+
+>Copia-23_BRa#LTR/Copia RBRM:Copia-23_BRa-I cds_range:73-4474 
+[Brassica rapa]
+Length=1467
+
+ Score = 23.5 bits (49),  Expect = 4.5, Method: Composition-based stats.
+ Identities = 9/23 (39%), Positives = 14/23 (61%), Gaps = 0/23 (0%)
+ Frame = -2
+
+Query  69   PLIVSNFLSN*IFSPSKSALMAA  1
+            P  + N++S+  FSP   A +AA
+Sbjct  923  PYPIKNYISDEKFSPDHKAFLAA  945
+
+
+>Copia-54_ST#LTR/Copia RBRM:Copia-54_ST-I frameshifts:1 stops:2 
+cds_range:222-4181 via tfasty with Copia-74_ST, 69.1% SW:3926 
+[Solanum tuberosum]
+Length=1320
+
+ Score = 23.1 bits (48),  Expect = 5.0, Method: Composition-based stats.
+ Identities = 7/16 (44%), Positives = 12/16 (75%), Gaps = 0/16 (0%)
+ Frame = -3
+
+Query  62    LFPTFCQTEFFLHLSR  15
+             LFP +C ++  LH++R
+Sbjct  1239  LFPVYCDSQSALHIAR  1254
+
+
+>Chouto_gag#LTR/Gypsy  Dfam:DF0001556 cds_range:558-1890 [Drosophila 
+melanogaster]
+Length=444
+
+ Score = 23.1 bits (48),  Expect = 5.4, Method: Composition-based stats.
+ Identities = 10/24 (42%), Positives = 17/24 (71%), Gaps = 0/24 (0%)
+ Frame = +2
+
+Query  5   AISADLDGEKIQFDKKLETIRGKL  76
+           A+SA L+ ++  F+KKLE ++ K 
+Sbjct  44  AVSAALNVQREDFEKKLEEVKNKF  67
+
+
+>BEL-56_DRe_pol#LTR/Pao  Dfam:DF0004059 cds_range:560-6530 [Danio 
+rerio]
+Length=1990
+
+ Score = 23.1 bits (48),  Expect = 5.5, Method: Composition-based stats.
+ Identities = 12/32 (38%), Positives = 20/32 (63%), Gaps = 0/32 (0%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKLNLLKKKK  97
+            A + AD+  ++I+   KLE  + KL LL+ +K
+Sbjct  245  ARMLADIKQKEIEXRSKLEEEKAKLQLLQAEK  276
+
+
+>SFV1-18_AMi_env#LTR/ERV4 RBRM:SFV1-18_AMi-I cds_range:6830-8774 
+[Alligator mississippiensis]
+Length=648
+
+ Score = 23.1 bits (48),  Expect = 5.6, Method: Compositional matrix adjust.
+ Identities = 8/24 (33%), Positives = 17/24 (71%), Gaps = 0/24 (0%)
+ Frame = -3
+
+Query  89   FLINSTSP*LFPTFCQTEFFLHLS  18
+            +L+NS+   L+ + C+T + +HL+
+Sbjct  482  YLLNSSGTYLYVSGCETHYTVHLN  505
+
+
+>Copia19-NVi#LTR/Copia RBRM:Copia19-NVi_I frameshifts:1 cds_range:2-2656 
+via tfasty with Copia5-NVi (fragment) [Nasonia vitripennis]
+Length=885
+
+ Score = 23.1 bits (48),  Expect = 6.5, Method: Composition-based stats.
+ Identities = 12/24 (50%), Positives = 15/24 (63%), Gaps = 0/24 (0%)
+ Frame = +2
+
+Query  5    AISADLDGEKIQFDKKLETIRGKL  76
+            AI+A  D E IQFD K   + G+L
+Sbjct  466  AIAAHRDLEIIQFDVKTAFLHGQL  489
+
+
+>Copia-123_BRa#LTR/Copia RBRM:Copia-123_BRa-I stops:1 cds_range:59-4490 
+via tfasty with Copia-23_BRa, 88.2% SW:5335 [Brassica 
+rapa]
+Length=1477
+
+ Score = 23.1 bits (48),  Expect = 6.5, Method: Composition-based stats.
+ Identities = 9/23 (39%), Positives = 15/23 (65%), Gaps = 0/23 (0%)
+ Frame = -2
+
+Query  69   PLIVSNFLSN*IFSPSKSALMAA  1
+            P  + NF+++  FSP+  A +AA
+Sbjct  935  PYPLDNFVTDMNFSPAHQAFLAA  957
+
+
+>Gypsy-31_DEl_gag#LTR/Gypsy RBRM:Gypsy-31_DEl-I cds_range:900-2244 
+[Drosophila elegans]
+Length=448
+
+ Score = 23.1 bits (48),  Expect = 6.6, Method: Composition-based stats.
+ Identities = 14/31 (45%), Positives = 19/31 (61%), Gaps = 0/31 (0%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKLNLLKKK  94
+            AAI+  L  ++  FD+KL  I G+L  LK K
+Sbjct  78   AAIACALQRQQELFDEKLAKIMGELCSLKDK  108
+
+
+>UN-EnSpm3_OS_p2#DNA/CMC-EnSpm   putative transposon protein (perhaps 
+spliced to p1) [Oryza sativa]
+Length=599
+
+ Score = 22.7 bits (47),  Expect = 7.9, Method: Composition-based stats.
+ Identities = 12/25 (48%), Positives = 18/25 (72%), Gaps = 3/25 (12%)
+ Frame = +2
+
+Query  2    AAISADLDGEKIQFDKKLETIRGKL  76
+            A+I A+L  E   FD+KLE++R K+
+Sbjct  319  ASIRAELTSE---FDEKLESMRAKI  340
+
+
+>Transib-5_HM#DNA/CMC-Transib RBRM:Transib-5_HM cds_range:636-2625 
+[Hydra vulgaris]
+Length=663
+
+ Score = 22.7 bits (47),  Expect = 8.0, Method: Compositional matrix adjust.
+ Identities = 11/20 (55%), Positives = 13/20 (65%), Gaps = 0/20 (0%)
+ Frame = +2
+
+Query  8   ISADLDGEKIQFDKKLETIR  67
+           IS  LDGEK+  +K  E IR
+Sbjct  30  ISEGLDGEKVHSEKLTEKIR  49
+
+
+
+Lambda      K        H        a         alpha
+   0.318    0.134    0.401    0.792     4.96 
+
+Gapped
+Lambda      K        H        a         alpha    sigma
+   0.267   0.0410    0.140     1.90     42.6     43.6 
+
+Effective search space used: 400605150
+
+
+  Database: /public/home/hpc194701009/repeat_detect_tools/RepeatMasker-
+4.1.2/RepeatMasker/Libraries/RepeatPeps.lib
+    Posted date:  Aug 13, 2021  3:35 PM
+  Number of letters in database: 16,150,283
+  Number of sequences in database:  18,011
+
+
+
+Matrix: BLOSUM62
+Gap Penalties: Existence: 11, Extension: 1
+Neighboring words threshold: 12
+Window for multiple hits: 40

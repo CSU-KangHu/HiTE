@@ -643,8 +643,8 @@ if __name__ == '__main__':
     blast_program_dir = param['RMBlast_Home'] 
     if is_sensitive:
         log.logger.debug('Start step5: use blast to execute repeats self_alignment')
-        makedb_command = blast_program_dir + '/makeblastdb -dbtype nucl -in ' + repeats_path
-        align_command = blast_program_dir + '/blastn -db ' + repeats_path + ' -num_threads ' + str(threads) + ' -query ' + repeats_path + ' -outfmt 6 > ' + blastnResults_path
+        makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + repeats_path
+        align_command = blast_program_dir + '/bin/blastn -db ' + repeats_path + ' -num_threads ' + str(threads) + ' -query ' + repeats_path + ' -outfmt 6 > ' + blastnResults_path
         log.logger.debug(makedb_command)
         os.system(makedb_command)
         log.logger.debug(align_command)
@@ -745,7 +745,7 @@ if __name__ == '__main__':
     os.system(cd_hit_command)
     # classify
     sample_name = alias
-    TEClass_home = '/public/home/hpc194701009/repeat_detect_tools/WebTE/classification'
+    TEClass_home = os.getcwd() + '/classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                       + ' --consensus ' + merge_ltr_tir_consensus + ' --genome ' + reference \
                       + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
@@ -824,8 +824,8 @@ if __name__ == '__main__':
     	# filter overlap sequence with LTR_retriever
     	filter_ltr_repeats_path = tmp_output_dir + '/ltr_repeats.filter.fa'
     	blastnResults_path = tmp_output_dir + '/tmp_ltr_blastn.out'
-    	makedb_command = blast_program_dir + '/makeblastdb -dbtype nucl -in ' + ltr_retriever_seq
-    	align_command = blast_program_dir + '/blastn -db ' + ltr_retriever_seq + ' -num_threads ' + str(
+    	makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + ltr_retriever_seq
+    	align_command = blast_program_dir + '/bin/blastn -db ' + ltr_retriever_seq + ' -num_threads ' + str(
         	threads) + ' -query ' + ltr_repeats_path + ' -outfmt 6 > ' + blastnResults_path
     	print(makedb_command)
     	os.system(makedb_command)

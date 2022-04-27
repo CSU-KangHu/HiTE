@@ -1,0 +1,7 @@
+## Total Sequences: 2
+## Total Length: 194
+## Total NonMask ( excluding >20bp runs of N/X bases ): 194
+## Total NonSub ( excluding all non ACGT bases ):194
+RepeatMasker version 4.1.2-p1 , rushjob mode
+run with rmblastn version 2.9.0+
+RM Library: CONS-Dfam_withRBRM_3.2
