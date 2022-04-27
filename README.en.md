@@ -3,7 +3,7 @@
 
 
 ## Getting started
-Download the [latest release](https://github.com/yangao07/TideHunter/releases):
+Clone the [latest release](https://github.com/yangao07/TideHunter/releases):
 ```
 git clone https://gitee.com/kkanghu/KmerRepFinder.git
 ```
@@ -18,13 +18,14 @@ git clone https://gitee.com/kkanghu/KmerRepFinder.git
 - [Commands and options](#cmd)
 - [Input](#input)
 - [Output](#output)
-  - [Annotation of genome](#repeatmasker_annotation_info)
+  - [Genome annotation](#repeatmasker_annotation_info)
 - [Contact](#contact)
 
 ## <a name="introduction"></a>Introduction
-KmerRepFinderis an efficient TE annotation tool for genome assemblies based on the masking of repeated kmers.
+KmerRepFinder is an efficient TE annotation tool for genome assemblies based on the masking of repeated kmers.
 
-KmerRepFinder offers a more comprehensive ability to annotate TEs and achieves remarkable efficiency, which is more than 21 times faster than RepeatModeler2 in the rice genome and is expected to serve as a novel solution to the existing methods to promote TE annotation performance.
+KmerRepFinder offers a more **comprehensive** ability to annotate TEs and achieves remarkable efficiency. e.g., more than **21** times faster than RepeatModeler2 in the rice genome. It can serve as a novel solution to the existing methods to promote TE annotation performance.
+
 
 ## <a name="install"></a>Installation
 
