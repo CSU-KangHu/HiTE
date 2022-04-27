@@ -339,8 +339,8 @@ def run_GRF(GRF_Home, reference, tmp_output_dir, threads):
 if __name__ == '__main__':
     # 1.parse args
     parser = argparse.ArgumentParser(description='run kmerRepFinder...')
-    parser.add_argument('-R', metavar='Reference Path',
-                        help='input reference path')
+    parser.add_argument('-G', metavar='Genome assembly',
+                        help='input genome assembly path')
     parser.add_argument('-k', metavar='kmer size',
                         help='input kmer size, default = [ 31 ]')
     parser.add_argument('-t', metavar='thread num',
@@ -374,7 +374,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    reference = args.R
+    reference = args.G
     k_num = args.k
     threads = args.t
     alias = args.a
