@@ -99,6 +99,11 @@ if __name__ == '__main__':
     	print('can not find makeblastdb in %s directory' %rmblast_home)
     	sys.exit(-1)
 
+    genome_tools_home = param['Genome_Tools_Home']
+    if not os.path.exists(genome_tools_home+'/bin/gt'):
+        print('can not find gt in %s directory' %genome_tools_home)
+        sys.exit(-1)
+
     trf_program = os.getcwd() + "/tools/trf409.linux64"
     if not os.path.exists(trf_program):
     	print('can not find trf in %s' %trf_program)
