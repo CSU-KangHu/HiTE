@@ -30,7 +30,7 @@ KmerRepFinder is an efficient TE annotation tool for genome assemblies based on 
 KmerRepFinder offers a more **comprehensive** ability to annotate TEs and achieves remarkable efficiency. e.g., more than **21** times faster than RepeatModeler2 in the rice genome. It can serve as a novel solution to the existing methods to promote TE annotation performance.
 
 ### <a name="pipeline"></a>Pipeline of KmerRepFinder
-![输入图片说明](pic/Framework_1.png)
+![输入图片说明](pic/Framework_1.png) 
 
 ### <a name="cover_genome"></a>Genome coverage by each major subclass 
 ![输入图片说明](pic/cover_genome_1.png)
