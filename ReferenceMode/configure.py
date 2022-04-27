@@ -82,32 +82,42 @@ if __name__ == '__main__':
         param = json.load(load_f)
     load_f.close()
 
-    print('Start set RepeatClassifier...')
     # 1. get RepeatClassifier path
     repeatclassifier_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepeatClassifier"
     if not os.path.exists(repeatclassifier_path):
-    	print('can not find RepeatClassifier in %s' %repeatclassifier_path)
-    	sys.exit(-1)
+        print('error:')
+        print('----can not find RepeatClassifier in %s' %repeatclassifier_path)
+        sys.exit(-1)
 
     repeatmasker_home = param['RepeatMasker_Home']
     if not os.path.exists(repeatmasker_home+'/RepeatMasker'):
-    	print('can not find RepeatMasker in %s directory' %repeatmasker_home)
-    	sys.exit(-1)
+        print('error:')
+        print('----can not find RepeatMasker in %s directory' %repeatmasker_home)
+        sys.exit(-1)
 
     rmblast_home = param['RMBlast_Home']
     if not os.path.exists(rmblast_home+'/bin/makeblastdb'):
-    	print('can not find makeblastdb in %s directory' %rmblast_home)
-    	sys.exit(-1)
+        print('error:')
+        print('----can not find makeblastdb in %s directory' %rmblast_home)
+        sys.exit(-1)
 
     genome_tools_home = param['Genome_Tools_Home']
     if not os.path.exists(genome_tools_home+'/bin/gt'):
-        print('can not find gt in %s directory' %genome_tools_home)
+        print('error:')
+        print('----can not find gt in %s directory' %genome_tools_home)
+        sys.exit(-1)
+
+    ltr_retriever_home = param['LTR_retriever_Home']
+    if not os.path.exists(ltr_retriever_home+'/LTR_retriever'):
+        print('error:')
+        print('----can not find LTR_retriever in %s directory' %ltr_retriever_home)
         sys.exit(-1)
 
     trf_program = os.getcwd() + "/tools/trf409.linux64"
     if not os.path.exists(trf_program):
-    	print('can not find trf in %s' %trf_program)
-    	sys.exit(-1)
+        print('error:')
+        print('----can not find trf in %s' %trf_program)
+        sys.exit(-1)
 
     # 2. modify RepModelConfig.pm in RepeatClassifier directory
     RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"
@@ -115,7 +125,6 @@ if __name__ == '__main__':
 
     # 3. add executable
     os.system('chmod +x ' + repeatclassifier_path)
-    print('Finish set RepeatClassifier...')
 
     #print('Start set REPCLASS...')
     # 1. set repclass.conf
@@ -153,4 +162,4 @@ if __name__ == '__main__':
 
     #print('Finish set REPCLASS...')
 
-    print("Congratulation! finish all configuration.")
+    print("Congratulation! all configuration pass.")
