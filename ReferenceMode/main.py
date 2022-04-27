@@ -278,9 +278,9 @@ def parse_self_blast_output(blastnResults_path, repeats_path, candidate_repeats_
 def run_LTR_retriever_v1(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads):
     starttime = time.time()
     log.logger.debug('start LTR_harvest detection...')
-    ltrharvest_command1 = Genome_Tools_Home + '/gt suffixerator -db ' + reference + ' -indexname ' \
+    ltrharvest_command1 = Genome_Tools_Home + '/bin/gt suffixerator -db ' + reference + ' -indexname ' \
                           + reference + ' -tis -suf -lcp -des -ssp -sds -dna'
-    ltrharvest_command2 = Genome_Tools_Home + '/gt ltrharvest -index ' + reference \
+    ltrharvest_command2 = Genome_Tools_Home + '/bin/gt ltrharvest -index ' + reference \
                           + ' -seed 20 -minlenltr 100 -maxlenltr 7000 -similar 85 -mintsd 4 -maxtsd 6 ' \
                             '-motif TGCA -motifmis 1 -vic 10 -seqids yes > ' + tmp_output_dir + '/genome.fa.harvest.scn'
 
@@ -313,9 +313,9 @@ def run_LTR_retriever(LTR_retriever_Home, reference, tmp_output_dir, threads):
 def run_LTR_harvest(Genome_Tools_Home, reference, tmp_output_dir):
     starttime = time.time()
     log.logger.debug('start LTR_harvest detection...')
-    ltrharvest_command1 = Genome_Tools_Home + '/gt suffixerator -db ' + reference + ' -indexname ' \
+    ltrharvest_command1 = Genome_Tools_Home + '/bin/gt suffixerator -db ' + reference + ' -indexname ' \
                           + reference + ' -tis -suf -lcp -des -ssp -sds -dna'
-    ltrharvest_command2 = Genome_Tools_Home + '/gt ltrharvest -index ' + reference \
+    ltrharvest_command2 = Genome_Tools_Home + '/bin/gt ltrharvest -index ' + reference \
                           + ' -seed 20 -minlenltr 100 -maxlenltr 7000 -similar 85 -mintsd 4 -maxtsd 6 ' \
                             '-motif TGCA -motifmis 1 -vic 10 -seqids yes > ' + tmp_output_dir + '/genome.fa.harvest.scn'
 
