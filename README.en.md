@@ -17,20 +17,14 @@ git clone https://gitee.com/kkanghu/KmerRepFinder.git
 - [Getting started with toy example in `demo`](#start)
 - [Commands and options](#cmd)
 - [Input](#input)
-  - [Adapter sequence](#adapter)
 - [Output](#output)
-  - [FASTA format](#fasta)
+  - [Annotation of genome](#repeatmasker_annotation_info)
 - [Contact](#contact)
 
 ## <a name="introduction"></a>Introduction
-TideHunter is an efficient and sensitive tandem repeat detection and
-consensus calling tool which is designed for tandemly repeated
-long-read sequence ([INC-seq](https://doi.org/10.1186/s13742-016-0140-7),
- [R2C2](https://doi.org/10.1073/pnas.1806447115), [NanoAmpli-Seq](https://doi.org/10.1093/gigascience/giy140)). 
+KmerRepFinderis an efficient TE annotation tool for genome assemblies based on the masking of repeated kmers.
 
-It works with Pacific Biosciences (PacBio) and 
-Oxford Nanopore Technologies (ONT) sequencing data at error rates 
-up to 20% and does not have any limitation of the maximal repeat pattern size.
+KmerRepFinder offers a more comprehensive ability to annotate TEs and achieves remarkable efficiency, which is more than 21 times faster than RepeatModeler2 in the rice genome and is expected to serve as a novel solution to the existing methods to promote TE annotation performance.
 
 ## <a name="install"></a>Installation
 
