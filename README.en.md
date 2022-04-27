@@ -12,8 +12,9 @@ git clone https://gitee.com/kkanghu/KmerRepFinder.git
 - [Introduction](#introduction)
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
+  - [Installing pysam](#pysam)
   - [Installing LTR_retriever](#ltrretriever)
-  - [Configuring depedencies](#configure)
+  - [Configuring dependencies](#configure)
 - [Getting started with toy example in `demo`](#start)
 - [Commands and options](#cmd)
 - [Input](#input)
@@ -33,14 +34,30 @@ KmerRepFinder offers a more **comprehensive** ability to annotate TEs and achiev
 It is recommended to download the latest release of RepeatMasker 
 from the [RepeatMasker Download page](http://www.repeatmasker.org/RepeatMasker/).
 
-Please install  **RMBlast** as Sequence Search Engine of RepeatMasker.
+Please install  **RMBlast** as the Sequence Search Engine of RepeatMasker.
+
+### <a name="pysam"></a>Installing pysam
+```
+pip install pysam
+```
 
 ### <a name="ltrretriever"></a>Installing LTR_retriever
 Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
 
 ### <a name="configure"></a>Configuring dependencies
-modify ParamConfig.json,change the install path.
+```
+cd /your_path_to/KmerRepFinder/ReferenceMode
+vim ParamConfig.json
+```
+Change
+- RepeatMasker_Home
+- Genome_Tools_Home
+- LTR_retriever_Home
+- RMBlast_Home 
+
+to the actual installation directories of RepeatMasker, Genome_Tools, LTR_retriever, and RMBlast, respectively.
+
 ```
 python configure.py
 ```
