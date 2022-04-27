@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 
 def valid_path(path):
     if path == '' or path is None or not os.path.exists(path):
@@ -84,9 +85,24 @@ if __name__ == '__main__':
     print('Start set RepeatClassifier...')
     # 1. get RepeatClassifier path
     repeatclassifier_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepeatClassifier"
+    if not os.path.exists(repeatclassifier_path):
+    	print('can not find RepeatClassifier in %s' %repeatclassifier_path)
+    	sys.exit(-1)
+
     repeatmasker_home = param['RepeatMasker_Home']
+    if not os.path.exists(repeatmasker_home+'/RepeatMasker'):
+    	print('can not find RepeatMasker in %s directory' %repeatmasker_home)
+    	sys.exit(-1)
+
     rmblast_home = param['RMBlast_Home']
+    if not os.path.exists(rmblast_home+'/bin/makeblastdb'):
+    	print('can not find makeblastdb in %s directory' %rmblast_home)
+    	sys.exit(-1)
+
     trf_program = os.getcwd() + "/tools/trf409.linux64"
+    if not os.path.exists(trf_program):
+    	print('can not find trf in %s' %trf_program)
+    	sys.exit(-1)
 
     # 2. modify RepModelConfig.pm in RepeatClassifier directory
     RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"
