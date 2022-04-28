@@ -5,7 +5,7 @@
 ## Getting started
 Clone the [latest release](https://github.com/yangao07/TideHunter/releases):
 ```
-git clone https://gitee.com/kkanghu/KmerRepFinder.git
+git clone https://github.com/BioinformaticsCSU/KmerRepFinder.git
 ```
 ## Table of Contents
 
