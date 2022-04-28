@@ -135,7 +135,7 @@ KmerRepFinder works with genome assemblies in FASTA, FA, and FNA formats.
 KmerRepFinder outputs an annotated consensus TE library in FASTA format.
 
 ### <a name="repeatmasker_annotation_info"></a>Genome annotation information
-The annotated consensus TE library is further input into RepeatMasker for annotating the whole genome, and the annotation information for the genome is also output.
+The annotated TE library is further input into RepeatMasker for annotating the whole genome, and the annotation information for the genome is also output.
 
 
 
