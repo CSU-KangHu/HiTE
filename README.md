@@ -75,6 +75,7 @@ to validate all configurations.
 
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
+cd /your_path_to/KmerRepFinder/ReferenceMode
 python main.py -R ../demo/Ecoli_K12_Ref.fasta -a ecoli
 ```
 
