@@ -86,13 +86,12 @@ to validate all configurations.
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
 cd /your_path_to/KmerRepFinder/ReferenceMode
-python main.py -R ../demo/Ecoli_K12_Ref.fasta -a ecoli
+python main.py ../demo/Ecoli_K12_Ref.fasta ecoli
 ```
 
 ## <a name="cmd"></a>Commands and options
 ```
-usage: main.py [-h] [-G Genome assembly] [-k kmer size] [-t thread num]
-               [-a alias name] [-s sensitive mode]
+usage: main.py [-h] [-k kmer size] [-t thread num] [-s sensitive mode]
                [--fault_tolerant_bases fault_tolerant_bases] [-o output dir]
                [--min_ltr_complete_len min_ltr_complete_len]
                [--max_ltr_complete_len max_ltr_complete_len]
@@ -103,15 +102,18 @@ usage: main.py [-h] [-G Genome assembly] [-k kmer size] [-t thread num]
                [--min_tir_direct_repeat_len min_tir_direct_repeat_len]
                [--max_tir_direct_repeat_len max_tir_direct_repeat_len]
                [--long_repeat_threshold long_repeat_threshold]
+               Genome assembly alias name
 
 run kmerRepFinder...
 
+positional arguments:
+  Genome assembly       input genome assembly path
+  alias name            input alias name
+
 optional arguments:
   -h, --help            show this help message and exit
-  -G Genome assembly    input genome assembly path
   -k kmer size          input kmer size, default = [ 31 ]
   -t thread num         input thread num
-  -a alias name         input alias name
   -s sensitive mode     sensitive mode, default = [ 0 ]
   --fault_tolerant_bases fault_tolerant_bases
                         the base number of fault tolerant in repeated kmers
