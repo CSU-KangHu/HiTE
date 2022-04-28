@@ -1,5 +1,5 @@
 # KmerRepFinder: a comprehensive kmer-based  _de novo_  annotation method of transposable elements
-[![Anaconda-Server Badge](https://anaconda.org/bioconda/ltr_retriever/badges/license.svg)](https://gitee.com/kkanghu/KmerRepFinder/blob/master/LICENSE)
+[![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/KmerRepFinder)](https://gitee.com/kkanghu/KmerRepFinder/blob/master/LICENSE)
 
 
 ## Getting started
