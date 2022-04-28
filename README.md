@@ -83,14 +83,10 @@ python configure.py
 ```
 to validate all configurations.
 
-## <a name="start"></a>Getting started with toy example in `demo`
-```
-cd /your_path_to/KmerRepFinder/ReferenceMode
-python main.py ../demo/Ecoli_K12_Ref.fasta ecoli
-```
-
 ## <a name="cmd"></a>Commands and options
 ```
+python main.py $genome_assembly $alias_name
+
 usage: main.py [-h] [-k kmer size] [-t thread num] [-s sensitive mode]
                [--fault_tolerant_bases fault_tolerant_bases] [-o output dir]
                [--min_ltr_complete_len min_ltr_complete_len]
@@ -139,6 +135,11 @@ optional arguments:
                         Threshold of long repeat, default = [ 2000 ]
 ```
 
+## <a name="start"></a>Getting started with toy example in `demo`
+```
+cd /your_path_to/KmerRepFinder/ReferenceMode
+python main.py ../demo/Ecoli_K12_Ref.fasta ecoli
+```
 
 ## <a name="input"></a>Input
 KmerRepFinder works with genome assemblies in FASTA, FA, and FNA formats.
