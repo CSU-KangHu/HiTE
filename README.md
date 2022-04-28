@@ -15,6 +15,7 @@ git clone https://github.com/BioinformaticsCSU/KmerRepFinder.git
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
   - [Installing pysam](#pysam)
+  - [Installing genome tools](#genome_tools)
   - [Installing LTR_retriever](#ltrretriever)
   - [Configuring dependencies](#configure)
 - [Getting started with toy example in `demo`](#start)
@@ -46,6 +47,15 @@ Please install  **RMBlast** as the Sequence Search Engine of RepeatMasker.
 ### <a name="pysam"></a>Installing pysam
 ```
 pip install pysam
+```
+
+### <a name="genome_tools"></a>Installing genome tools
+Download [Genome Tools](http://genometools.org/pub/binary_distributions/).
+
+For example:
+```
+wget http://genometools.org/pub/binary_distributions/gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
+tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 ```
 
 ### <a name="ltrretriever"></a>Installing LTR_retriever
