@@ -708,7 +708,7 @@ if __name__ == '__main__':
     starttime = time.time()
     tools_dir = os.getcwd() + '/tools'
     consensus_candidate_path = tmp_output_dir + '/repeats_consensus.fa'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -G 1 -i ' + candidate_repeats_path + ' -o ' + consensus_candidate_path + ' -T 0 -M 0'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -s 0.8 -G 1 -i ' + candidate_repeats_path + ' -o ' + consensus_candidate_path + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
     endtime = time.time()
@@ -740,7 +740,7 @@ if __name__ == '__main__':
     os.system('cat ' + ltr_repeats_path + ' >> ' + merge_ltr_tir_path)
     os.system('cat ' + tir_repeats_path + ' >> ' + merge_ltr_tir_path)
     merge_ltr_tir_consensus = tmp_output_dir + '/ltr_tir.merge.consensus.fa'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -G 1 -i ' + merge_ltr_tir_path + ' -o ' + merge_ltr_tir_consensus + ' -T 0 -M 0'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -s 0.8 -G 1 -i ' + merge_ltr_tir_path + ' -o ' + merge_ltr_tir_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
     # classify
@@ -877,7 +877,7 @@ if __name__ == '__main__':
 
     starttime = time.time()
     tools_dir = os.getcwd() + '/tools'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -G 1 -i ' + merge_repeat_sequences + ' -o ' + merge_repeat_consensus + ' -T 0 -M 0'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -s 0.8 -G 1 -i ' + merge_repeat_sequences + ' -o ' + merge_repeat_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
     endtime = time.time()
