@@ -141,27 +141,30 @@ def PET(seq_item, partitions):
     # sort contigs by length
     original = seq_item
     original = sorted(original, key=lambda x: len(x[1]), reverse=True)
+    return divided_array(original, partitions)
 
+
+def divided_array(original_array, partitions):
     final_partitions = [[] for _ in range(partitions)]
     node_index = 0
 
     read_from_start = True
     read_from_end = False
     i = 0
-    j = len(original) - 1
+    j = len(original_array) - 1
     while i <= j:
         # read from file start
         if read_from_start:
-            final_partitions[node_index % partitions].append(original[i])
+            final_partitions[node_index % partitions].append(original_array[i])
             i += 1
         if read_from_end:
-            final_partitions[node_index % partitions].append(original[j])
+            final_partitions[node_index % partitions].append(original_array[j])
             j -= 1
         node_index += 1
         if node_index % partitions == 0:
             # reverse
-            read_from_end = bool(1-read_from_end)
-            read_from_start = bool(1-read_from_start)
+            read_from_end = bool(1 - read_from_end)
+            read_from_start = bool(1 - read_from_start)
     return final_partitions
 
 
@@ -386,7 +389,10 @@ if __name__ == '__main__':
     for partition_index in range(partitions_num):
         cur_tmp_dir = tmp_output_dir + '/' + str(partition_index)
         cur_classified_path = cur_tmp_dir + '/consensus.fasta.final.classified'
-        merge_fasta(cur_classified_path, final_classified_path)
+        merge_command = 'cat ' + cur_classified_path + ' >> ' + final_classified_path
+        print(merge_command)
+        os.system(merge_command)
+        #merge_fasta(cur_classified_path, final_classified_path)
 
 
 

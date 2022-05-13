@@ -8,8 +8,6 @@ from logging import handlers
 import psutil
 import pysam
 
-from command import run_bwa, run_minimap2, run_bowtie2
-
 class Logger(object):
     level_relations = {
         'debug':logging.DEBUG,
@@ -706,118 +704,28 @@ def get_alignment_info_v1(sam_paths, repeats_file):
 
     for query_name in query_records.keys():
         complete_alignment_num = 0
-        high_identity_num = 0
-        # other cigars all the same (except first one) are regarded as segmental duplication(LCR)
-        # is_special_lcr = True
-        # last_cigarstr = ''
-        # first_cigarstr = ''
-        for i, record in enumerate(query_records[query_name]):
-            if i == 0:
-                continue
+        for record in query_records[query_name]:
             cigar = record[2]
             cigarstr = str(record[3])
             alignment_len = record[5]
             identity = record[6]
             query_seq = repeat_contigs[query_name]
             query_len = len(query_seq)
-            if float(alignment_len) / query_len >= 0.9 and identity >= 80:
+            # complete Match in cigar
+            if float(alignment_len)/query_len >= 0.9 and identity >= 90:
                 complete_alignment_num += 1
-                if identity >= 90:
-                    high_identity_num += 1
 
-        if complete_alignment_num == 0:
+        if complete_alignment_num == 1:
             single_mapped_repeatIds.append(query_name)
-        elif complete_alignment_num > 0:
-            # low copy number and all of them are high identicial, they are LCR
-            # if complete_alignment_num < 4 and (high_identity_num >= len(query_records[query_name])-1):
-            if complete_alignment_num < 5 and high_identity_num >= 1:
+        elif complete_alignment_num > 1:
+            if len(repeat_contigs[query_name]) >= 1000 and complete_alignment_num < 5:
                 segmental_duplication_repeatIds.append(query_name)
             else:
                 multi_mapping_repeatIds.append(query_name)
         else:
             unmapped_repeatIds.append(query_name)
-            # # complete Match in cigar
-            # if float(alignment_len)/query_len >= 0.9 and identity >= 80:
-            #     complete_alignment_num += 1
-            #     if identity >= 90:
-            #         high_identity_num += 1
-            # if i == 0:
-            #     first_cigarstr = cigarstr
-            # else:
-            #     # first cigar not equals to other
-            #     if cigarstr != first_cigarstr:
-            #         # start judge if special LCR
-            #         if last_cigarstr != '':
-            #             if cigarstr == last_cigarstr:
-            #                 is_special_lcr = is_special_lcr & True
-            #             else:
-            #                 is_special_lcr = is_special_lcr & False
-            #     else:
-            #         is_special_lcr = False
-            #     last_cigarstr = cigarstr
-
-
-        # if complete_alignment_num == 1:
-        #     single_mapped_repeatIds.append(query_name)
-        # elif complete_alignment_num > 1:
-        #     if complete_alignment_num < 5 and (high_identity_num > 1 or is_special_lcr):
-        #         segmental_duplication_repeatIds.append(query_name)
-        #     else:
-        #         multi_mapping_repeatIds.append(query_name)
-        # else:
-        #     unmapped_repeatIds.append(query_name)
 
     return unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds, segmental_duplication_repeatIds
-
-def get_alignment_info_v3(sam_paths, repeats_file):
-    repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-    mapping_repeatIds = {}
-    query_records = {}
-    for sam_path in sam_paths:
-        samfile = pysam.AlignmentFile(sam_path, "rb")
-        for read in samfile.fetch():
-            if read.is_unmapped:
-                continue
-            query_name = read.query_name
-            reference_name = read.reference_name
-            cigar = read.cigartuples
-            cigarstr = read.cigarstring
-            NM_tag = 0
-            try:
-                NM_tag = read.get_tag('NM')
-            except KeyError:
-                NM_tag = -1
-            identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-            identity = float(identity) * 100
-            is_reverse = read.is_reverse
-            alignment_len = read.query_alignment_length
-
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = []
-            records = query_records[query_name]
-            records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity))
-            query_records[query_name] = records
-
-    for query_name in query_records.keys():
-        complete_alignment_num = 0
-        high_identity_num = 0
-        query_seq = repeat_contigs[query_name]
-        query_len = len(query_seq)
-        for i, record in enumerate(query_records[query_name]):
-            if i == 0:
-                continue
-            cigar = record[2]
-            cigarstr = str(record[3])
-            alignment_len = record[5]
-            identity = record[6]
-            if float(alignment_len) / query_len >= 0.9 and identity >= 80:
-                complete_alignment_num += 1
-                if identity >= 90:
-                    high_identity_num += 1
-        mapping_repeatIds[query_name] = (complete_alignment_num, query_len)
-    new_mapping_repeatIds = {k: v for k, v in sorted(mapping_repeatIds.items(), key=lambda item: (-item[1][1], -item[1][0]))}
-
-    return new_mapping_repeatIds
 
 def get_alignment_info_v2(blastn_output):
     unmapped_repeatIds = []

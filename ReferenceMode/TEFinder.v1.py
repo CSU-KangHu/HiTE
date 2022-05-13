@@ -1,9 +1,71 @@
 import argparse
+import multiprocessing
 import os
 import time
 
-from Util import read_fasta, Logger, split_repeats, compute_identity, run_alignment, multi_line, generate_blastlike_output
+from Util import read_fasta, Logger, split_repeats, compute_identity, run_alignment, multi_line, \
+    generate_blastlike_output, store_fasta, divided_array
 
+
+def store2LTRharvest(reference, ltr_candidate_pos, blast_program_dir, ltr_tmp, ltr_scn, max_complete_len, min_complete_len, partition_index):
+    print('ThreadIdx: %d' %partition_index)
+    refContigNames, refContigs = read_fasta(reference)
+    seq_nrs = {}
+    for i, name in enumerate(refContigNames):
+        seq_nrs[name] = i
+
+    if not os.path.exists(ltr_tmp):
+        os.makedirs(ltr_tmp)
+    ltr_items = []
+    for i, record in enumerate(ltr_candidate_pos):
+        query_name = record[0]
+        target_name = record[1]
+        left_start = int(record[2])
+        left_end = int(record[3])
+        right_start = int(record[4])
+        right_end = int(record[5])
+        seq_len = abs(right_end - left_start) + 1
+        if seq_len > max_complete_len or seq_len < min_complete_len:
+            continue
+        refContig = refContigs[target_name]
+
+        left_contigs = {}
+        right_contigs = {}
+        left_ltr = refContig[left_start - 1: left_end]
+        left_contigs['Node_left'] = left_ltr
+        right_ltr = refContig[right_start - 1: right_end]
+        right_contigs['Node_right'] = right_ltr
+
+        left_ltr_path = ltr_tmp + '/ltr_left.'+str(i)+'.fa'
+        store_fasta(left_contigs, left_ltr_path)
+        right_ltr_path = ltr_tmp + '/ltr_right.' + str(i) + '.fa'
+        store_fasta(right_contigs, right_ltr_path)
+
+        blastnResults_path = ltr_tmp + '/ltr.'+str(i)+'.out'
+        makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + left_ltr_path
+        align_command = blast_program_dir + '/bin/blastn -db ' + left_ltr_path + ' -query ' + right_ltr_path + ' -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send positive" > ' + blastnResults_path
+        #log.logger.debug(makedb_command)
+        os.system(makedb_command)
+        #log.logger.debug(align_command)
+        os.system(align_command)
+        similarity = 0
+        with open(blastnResults_path, 'r') as f_r:
+            for line in f_r:
+                parts = line.split('\t')
+                match_base = int(parts[3])
+                positives = int(parts[10])
+                similarity = float(positives)*100/match_base
+                break
+        if similarity != 0:
+            item = (left_start, right_end, seq_len, left_start, left_end, abs(left_end-left_start+1), right_start, right_end, abs(right_end-right_start+1), similarity, seq_nrs[target_name])
+            ltr_items.append(item)
+        #os.system('rm -f ' + left_ltr_path + '* ' + right_ltr_path + '*')
+
+    with open(ltr_scn, 'w') as f_save:
+        for item in ltr_items:
+            f_save.write(str(item[0])+'\t'+str(item[1])+'\t'+str(item[2])+'\t'+str(item[3])+'\t'+str(item[4])+'\t'
+                         +str(item[5])+'\t'+str(item[6])+'\t'+str(item[7])+'\t'+str(item[8])+'\t'+str(item[9])+'\t'
+                         +str(item[10])+'\n')
 
 def store_sequences(reference, candidate_pos, repeats_path,
                     max_complete_len, min_complete_len, direct2CompleteNames):
@@ -54,20 +116,25 @@ def store_sequences(reference, candidate_pos, repeats_path,
             for pos_info in candidate_info[target_name]:
                 start = int(pos_info[0])
                 end = int(pos_info[1])
+                # extend 500bp
+                start = start - 500
+                end = end + 500
+
                 query_name = pos_info[2]
                 sequence = refContig[start - 1: end]
                 complete_name = 'Node_' + str(node_index) + '-len_' + str(len(sequence))
-                if not sequence.__contains__('N'):
+                if len(sequence) > 0:
                     f_save.write('>' + complete_name + '\n' + sequence + '\n')
                     direct2CompleteNames[complete_name] = query_name
                     node_index += 1
+
 
 
 def parse_blast_output(blastnResults_path, max_ltr_complete_len, min_ltr_complete_len,
                        max_tir_complete_len, min_tir_complete_len, min_non_ltr_length, max_non_ltr_length,
                        min_non_tir_length, max_non_tir_length, max_tir_direct_repeat_len,
                        min_identity, match_ratio,
-                       reference, ltr_repeats_path, tir_repeats_path):
+                       reference, ltr_repeats_path, tir_repeats_path, blast_program_dir, ltr_scn):
 
     # To facilite searching
     # strcuture: {'Node_1': {'Node_1': [(),(),], 'Node_2':[(),(),], ...}}
@@ -199,6 +266,50 @@ def parse_blast_output(blastnResults_path, max_ltr_complete_len, min_ltr_complet
     store_sequences(reference, tir_candidate_pos, tir_repeats_path,
                     max_tir_complete_len, min_tir_complete_len, direct2CompleteNames)
 
+    # new strategy by Kang hu 2022/05/03
+    # store LTR_information into LTRharvest format
+    ltr_tmp = tmp_output_dir + '/ltr_tmp'
+    # os.system('rm -rf ' + ltr_tmp)
+
+    partitions_num = int(threads)
+    data_partitions = divided_array(ltr_candidate_pos, partitions_num)
+    # pool = multiprocessing.Pool(processes=partitions_num)
+    # for partition_index, data_partition in enumerate(data_partitions):
+    #     ltr_partition_tmp = ltr_tmp + '/'+str(partition_index)
+    #     if not os.path.exists(ltr_partition_tmp):
+    #         os.makedirs(ltr_partition_tmp)
+    #     ltr_scn = ltr_partition_tmp + '/ltr_repeats.'+str(partition_index)+'.scn'
+    #     pool.apply_async(store2LTRharvest, (reference, data_partition, blast_program_dir, ltr_partition_tmp, ltr_scn,
+    #                 max_ltr_complete_len, min_ltr_complete_len, partition_index,))
+    # pool.close()
+    # pool.join()
+    # Step 3: merge final
+    final_ltr_scn = tmp_output_dir + '/ltr_repeats.scn'
+    final_ltr_sort_scn = tmp_output_dir + '/ltr_repeats.sort.scn'
+    if os.path.exists(final_ltr_scn):
+        os.system('rm -f ' + final_ltr_scn)
+    for partition_index, data_partition in enumerate(data_partitions):
+        ltr_partition_tmp = ltr_tmp + '/' + str(partition_index)
+        ltr_scn = ltr_partition_tmp + '/ltr_repeats.' + str(partition_index) + '.scn'
+        os.system('cat '+ltr_scn+' >> ' + final_ltr_scn)
+    items = []
+    with open(final_ltr_scn, 'r') as f_r:
+        for line in f_r:
+            parts = line.split('\t')
+            seq_nr = int(parts[10])
+            item = (int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3]), int(parts[4]), int(parts[5]), int(parts[6]), int(parts[7]), int(parts[8]), float(parts[9]), int(parts[10]))
+            items.append(item)
+    items.sort(key=lambda x: (x[10], x[0], x[1]))
+
+    with open(final_ltr_sort_scn, 'w') as f_save:
+        for item in items:
+            f_save.write(str(item[0]) + '\t' + str(item[1]) + '\t' + str(item[2]) + '\t' + str(item[3]) + '\t' + str(item[4]) + '\t'
+                         + str(item[5]) + '\t' + str(item[6]) + '\t' + str(item[7]) + '\t' + str(item[8]) + '\t' + str(item[9]) + '\t'
+                         + str(item[10]) + '\n')
+
+    # store2LTRharvest(reference, ltr_candidate_pos, blast_program_dir, ltr_scn,
+    #                 max_ltr_complete_len, min_ltr_complete_len)
+
 
     # candidate_info_path = '/public/home/hpc194701009/WebTE_Lib/Cicer/Cicer_arietinum_3827/kmerRepFinder/CRD.2022-01-19.15-32-32/ltr_tir.info'
     # with open(candidate_info_path, 'w') as f_save:
@@ -317,6 +428,8 @@ if __name__ == '__main__':
                         help='long_repeat_threshold, default 2000')
     parser.add_argument('--tools_dir', metavar='tools dir',
                         help='input tools dir')
+    parser.add_argument('--blast_program_dir', metavar='blast dir',
+                        help='input blast dir')
 
 
 
@@ -340,6 +453,7 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     long_repeat_threshold = int(args.long_repeat_threshold)
     tools_dir = args.tools_dir
+    blast_program_dir = args.blast_program_dir
     sensitive_mode = args.s
 
     is_sensitive = False
@@ -348,7 +462,7 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------------------
     # Step1. get LTR direct repeats from repeats consensus
     # len >= 100 and len <= 6000
-    consensus_path = tmp_output_dir + '/repeats_consensus.fa'
+    consensus_path = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
     direct_candidate = tmp_output_dir + '/direct_repeat.candidate.fa'
     consensusNames, consensusContigs = read_fasta(consensus_path)
     with open(direct_candidate, 'w') as f_save:
@@ -361,8 +475,8 @@ if __name__ == '__main__':
 
     ltr_repeats_path = tmp_output_dir + '/ltr_repeats.fa'
     tir_repeats_path = tmp_output_dir + '/tir_repeats.fa'
+    ltr_scn = tmp_output_dir + '/ltr_repeats.scn'
     ltr_tir_repeats_consensus_path = tmp_output_dir + '/ltr_tir_repeats.consensus.fa'
-    blast_program_dir = os.getcwd() + '/tools/rmblast-2.9.0-p2'
     blastnResults_path = tmp_output_dir + '/tmpBlastResults.ltr_tir.out'
     threads = args.t
 
@@ -421,7 +535,7 @@ if __name__ == '__main__':
                                               max_tir_complete_len, min_tir_complete_len, min_non_ltr_length, max_non_ltr_length,
                                               min_non_tir_length, max_non_tir_length, max_tir_direct_repeat_len,
                                               min_identity, match_ratio,
-                                              reference, ltr_repeats_path, tir_repeats_path)
+                                              reference, ltr_repeats_path, tir_repeats_path, blast_program_dir, ltr_scn)
 
     # --------------------------------------------------------------------------------------
     # Step3. get candidate TE sequences

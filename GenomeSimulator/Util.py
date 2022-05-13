@@ -10,6 +10,7 @@ import pysam
 
 from command import run_bwa, run_minimap2, run_bowtie2
 
+
 class Logger(object):
     level_relations = {
         'debug':logging.DEBUG,
@@ -57,7 +58,6 @@ def multi_line(fasta_path, line_len, k_num):
     return tmp_fasta_path
 
 def convertToUpperCase(reference):
-    cur_segments = []
     contigNames = []
     contigs = {}
     with open(reference, "r") as f_r:
@@ -68,25 +68,23 @@ def convertToUpperCase(reference):
                 if contigName != '' and contigseq != '':
                     contigs[contigName] = contigseq
                     contigNames.append(contigName)
-                    cur_segments.append(contigseq)
                 contigName = line.strip()[1:].split(' ')[0]
                 contigseq = ''
             else:
                 contigseq += line.strip().upper()
         contigs[contigName] = contigseq
         contigNames.append(contigName)
-        cur_segments.append(contigseq)
     f_r.close()
-    return cur_segments
-    # (dir, filename) = os.path.split(reference)
-    # (name, extension) = os.path.splitext(filename)
-    # reference_pre = dir + '/' + name + '_preprocess' + extension
-    # with open(reference_pre, "w") as f_save:
-    #     for contigName in contigNames:
-    #         contigseq = contigs[contigName]
-    #         f_save.write(">" + contigName + '\n' + contigseq + '\n')
-    # f_save.close()
-    # return reference_pre
+
+    (dir, filename) = os.path.split(reference)
+    (name, extension) = os.path.splitext(filename)
+    reference_pre = dir + '/' + name + '_preprocess' + extension
+    with open(reference_pre, "w") as f_save:
+        for contigName in contigNames:
+            contigseq = contigs[contigName]
+            f_save.write(">" + contigName + '\n' + contigseq + '\n')
+    f_save.close()
+    return reference_pre
 
 def getReverseSequence(sequence):
     base_map = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
@@ -167,29 +165,6 @@ def compute_identity(cigar, NM_tag, method):
         identity = 1 - float(n-g+o) / (m+o)
     identity = format(identity, '.5f')
     return identity
-
-def divided_array(original_array, partitions):
-    final_partitions = [[] for _ in range(partitions)]
-    node_index = 0
-
-    read_from_start = True
-    read_from_end = False
-    i = 0
-    j = len(original_array) - 1
-    while i <= j:
-        # read from file start
-        if read_from_start:
-            final_partitions[node_index % partitions].append(original_array[i])
-            i += 1
-        if read_from_end:
-            final_partitions[node_index % partitions].append(original_array[j])
-            j -= 1
-        node_index += 1
-        if node_index % partitions == 0:
-            # reverse
-            read_from_end = bool(1 - read_from_end)
-            read_from_start = bool(1 - read_from_start)
-    return final_partitions
 
 def run_alignment(repeat_contig_path, reference_path, use_align_tools, thread_num, tools_dir):
     sam_path = ''
@@ -384,16 +359,6 @@ def cut_repeat_v1(sam_paths, HS_gap, ID_gap, repeats_file, raw_cut_file):
             records = query_records[query_name]
             records.append((query_name, reference_name, cigar, cigarstr, is_reverse))
             query_records[query_name] = records
-
-    # delete Chimerism to avoid fragments
-    # for query_name in query_records.keys():
-    #     is_chimerism = False
-    #     for record in query_records[query_name]:
-    #         query_seq = repeat_contigs[query_name]
-    #         query_len = len(query_seq)
-    #         float(record.query_alignment_length)/query_len > 90
-    #     if is_chimerism:
-    #         del query_records['query_name']
 
     pattern = r'[0-9]\d+M'
     repeats_tobe_spliced = {}
@@ -635,230 +600,6 @@ def judgeReduceThreads(unique_kmer_path, threads, log):
     else:
         return threads
 
-def get_alignment_info(sam_paths):
-    unmapped_repeatIds = []
-    single_mapped_repeatIds = []
-    multi_mapping_repeatIds = []
-    mapping_repeatIds = {}
-
-    for item in sam_paths:
-        sam_path = item[0]
-        repeats_path = item[1]
-        samfile = pysam.AlignmentFile(sam_path, "rb")
-        for read in samfile.fetch():
-            query_name = read.query_name
-            if not mapping_repeatIds.__contains__(query_name):
-                mapping_repeatIds[query_name] = 0
-
-            if read.is_unmapped:
-                continue
-            else:
-                count = mapping_repeatIds[query_name]
-                count += 1
-                mapping_repeatIds[query_name] = count
-
-    for query_name in mapping_repeatIds.keys():
-        count = mapping_repeatIds[query_name]
-        if count <= 0:
-            unmapped_repeatIds.append(query_name)
-        elif count == 1:
-            single_mapped_repeatIds.append(query_name)
-        else:
-            multi_mapping_repeatIds.append(query_name)
-
-    return unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds
-
-
-def get_alignment_info_v1(sam_paths, repeats_file):
-    repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-
-    unmapped_repeatIds = []
-    single_mapped_repeatIds = []
-    multi_mapping_repeatIds = []
-    segmental_duplication_repeatIds = []
-    mapping_repeatIds = {}
-
-    query_records = {}
-    for sam_path in sam_paths:
-        samfile = pysam.AlignmentFile(sam_path, "rb")
-        for read in samfile.fetch():
-            if read.is_unmapped:
-                continue
-            query_name = read.query_name
-            reference_name = read.reference_name
-            cigar = read.cigartuples
-            cigarstr = read.cigarstring
-            NM_tag = 0
-            try:
-                NM_tag = read.get_tag('NM')
-            except KeyError:
-                NM_tag = -1
-            identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-            identity = float(identity) * 100
-            is_reverse = read.is_reverse
-            alignment_len = read.query_alignment_length
-
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = []
-            records = query_records[query_name]
-            records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity))
-            query_records[query_name] = records
-
-    for query_name in query_records.keys():
-        complete_alignment_num = 0
-        high_identity_num = 0
-        # other cigars all the same (except first one) are regarded as segmental duplication(LCR)
-        # is_special_lcr = True
-        # last_cigarstr = ''
-        # first_cigarstr = ''
-        for i, record in enumerate(query_records[query_name]):
-            if i == 0:
-                continue
-            cigar = record[2]
-            cigarstr = str(record[3])
-            alignment_len = record[5]
-            identity = record[6]
-            query_seq = repeat_contigs[query_name]
-            query_len = len(query_seq)
-            if float(alignment_len) / query_len >= 0.9 and identity >= 80:
-                complete_alignment_num += 1
-                if identity >= 90:
-                    high_identity_num += 1
-
-        if complete_alignment_num == 0:
-            single_mapped_repeatIds.append(query_name)
-        elif complete_alignment_num > 0:
-            # low copy number and all of them are high identicial, they are LCR
-            # if complete_alignment_num < 4 and (high_identity_num >= len(query_records[query_name])-1):
-            if complete_alignment_num < 5 and high_identity_num >= 1:
-                segmental_duplication_repeatIds.append(query_name)
-            else:
-                multi_mapping_repeatIds.append(query_name)
-        else:
-            unmapped_repeatIds.append(query_name)
-            # # complete Match in cigar
-            # if float(alignment_len)/query_len >= 0.9 and identity >= 80:
-            #     complete_alignment_num += 1
-            #     if identity >= 90:
-            #         high_identity_num += 1
-            # if i == 0:
-            #     first_cigarstr = cigarstr
-            # else:
-            #     # first cigar not equals to other
-            #     if cigarstr != first_cigarstr:
-            #         # start judge if special LCR
-            #         if last_cigarstr != '':
-            #             if cigarstr == last_cigarstr:
-            #                 is_special_lcr = is_special_lcr & True
-            #             else:
-            #                 is_special_lcr = is_special_lcr & False
-            #     else:
-            #         is_special_lcr = False
-            #     last_cigarstr = cigarstr
-
-
-        # if complete_alignment_num == 1:
-        #     single_mapped_repeatIds.append(query_name)
-        # elif complete_alignment_num > 1:
-        #     if complete_alignment_num < 5 and (high_identity_num > 1 or is_special_lcr):
-        #         segmental_duplication_repeatIds.append(query_name)
-        #     else:
-        #         multi_mapping_repeatIds.append(query_name)
-        # else:
-        #     unmapped_repeatIds.append(query_name)
-
-    return unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds, segmental_duplication_repeatIds
-
-def get_alignment_info_v3(sam_paths, repeats_file):
-    repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-    mapping_repeatIds = {}
-    query_records = {}
-    for sam_path in sam_paths:
-        samfile = pysam.AlignmentFile(sam_path, "rb")
-        for read in samfile.fetch():
-            if read.is_unmapped:
-                continue
-            query_name = read.query_name
-            reference_name = read.reference_name
-            cigar = read.cigartuples
-            cigarstr = read.cigarstring
-            NM_tag = 0
-            try:
-                NM_tag = read.get_tag('NM')
-            except KeyError:
-                NM_tag = -1
-            identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-            identity = float(identity) * 100
-            is_reverse = read.is_reverse
-            alignment_len = read.query_alignment_length
-
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = []
-            records = query_records[query_name]
-            records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity))
-            query_records[query_name] = records
-
-    for query_name in query_records.keys():
-        complete_alignment_num = 0
-        high_identity_num = 0
-        query_seq = repeat_contigs[query_name]
-        query_len = len(query_seq)
-        for i, record in enumerate(query_records[query_name]):
-            if i == 0:
-                continue
-            cigar = record[2]
-            cigarstr = str(record[3])
-            alignment_len = record[5]
-            identity = record[6]
-            if float(alignment_len) / query_len >= 0.9 and identity >= 80:
-                complete_alignment_num += 1
-                if identity >= 90:
-                    high_identity_num += 1
-        mapping_repeatIds[query_name] = (complete_alignment_num, query_len)
-    new_mapping_repeatIds = {k: v for k, v in sorted(mapping_repeatIds.items(), key=lambda item: (-item[1][1], -item[1][0]))}
-
-    return new_mapping_repeatIds
-
-def get_alignment_info_v2(blastn_output):
-    unmapped_repeatIds = []
-    single_mapped_repeatIds = []
-    multi_mapping_repeatIds = []
-
-    query_records = {}
-    with open(blastn_output, 'r') as f_r:
-        for line in f_r:
-            parts = line.split('\t')
-            query_name = parts[0]
-            target_name = parts[1]
-            identity = float(parts[2])
-            match_base = int(parts[3])
-            query_length = int(query_name.split('-')[1].split('_')[1])
-
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = []
-            records = query_records[query_name]
-            records.append((query_name, target_name, identity, match_base, query_length))
-            query_records[query_name] = records
-
-    for query_name in query_records.keys():
-        complete_alignment_num = 0
-        for record in query_records[query_name]:
-            identity = record[2]
-            match_base = record[3]
-            query_len = record[4]
-            # complete Match in cigar
-            if float(match_base)/query_len >= 0.8 and identity >= 80:
-                complete_alignment_num += 1
-
-        if complete_alignment_num == 1:
-            single_mapped_repeatIds.append(query_name)
-        elif complete_alignment_num > 1:
-            multi_mapping_repeatIds.append(query_name)
-        else:
-            unmapped_repeatIds.append(query_name)
-
-    return unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds
-
 def get_ltr_suppl_from_ltrfinder(merged_ltr, cluster_file, suppl_ltr_file):
     cluster_info = {}
     cluster_id = ''
@@ -977,8 +718,6 @@ def parse_ref_blast_output(blastnResults_path, target_path, candidate_repeats_pa
                     t_end = t_tmp
                 seg_seq = targetContigs[target_name][t_start: t_end]
                 candidate_family_repeat.append(seg_seq)
-                # if seg_seq.__contains__('N'):
-                #     print((query_name, target_name, record))
 
     # step3. generate candidate repeats
     node_index = 0
@@ -1031,22 +770,3 @@ def filter_LTR_high_similarity(blastnResults_path, target_path, query_path, filt
         for name in contignames:
             if name not in removed_names:
                 f_save.write('>'+name+'\n'+contigs[name]+'\n')
-
-
-def extract_tandem_from_trf(trf_data_path):
-    tandem_elements = []
-    with open(trf_data_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.split(' ')
-            if len(parts) == 15:
-                tandem_elements.append(parts[13])
-    return tandem_elements
-
-if __name__ == '__main__':
-    trf_data_path = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/ReferenceMode/output/CRD.2022-05-04.9-30-26/trf/dmel-all-chromosome-r5.43.fasta.2.7.7.80.10.50.500.dat'
-    tandem_elements = extract_tandem_from_trf(trf_data_path)
-    tandem_path = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/ReferenceMode/output/CRD.2022-05-04.9-30-26/trf/tandem.fa'
-
-    with open(tandem_path, 'w') as f_save:
-        for index, elem in enumerate(tandem_elements):
-            f_save.write('>Node_'+str(index)+'\n'+elem+'\n')

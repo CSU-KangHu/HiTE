@@ -15,7 +15,7 @@ import pysam
 from Util import convertToUpperCase, read_fasta, getReverseSequence, \
     Logger, split_repeats, compute_identity, run_alignment, multi_line, generate_blastlike_output, \
     get_multiple_alignment_repeat, split2cluster, cut_repeat_v1, judgeReduceThreads, get_ltr_suppl_from_ltrfinder, \
-    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3
+    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v1
 
 dict_encode = {'A': 0b001, 'C': 0b011, 'G': 0b010, 'T': 0b100, 'N': 0b101}
 def three_bit_encode(str):
@@ -427,7 +427,7 @@ if __name__ == '__main__':
     if sensitive_mode == '1':
         is_sensitive = True
 
-    default_fault_tolerant_bases = k_num
+    default_fault_tolerant_bases = 10
 
     if fault_tolerant_bases is None:
         fault_tolerant_bases = default_fault_tolerant_bases
@@ -539,8 +539,7 @@ if __name__ == '__main__':
     chrom_seg_length = int(param['chrom_seg_length'])
 
     i = datetime.datetime.now()
-#tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    tmp_output_dir = output_dir + '/CRD.2022-05-12.23-7-32'
+    tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
     if not os.path.exists(tmp_output_dir):
         os.makedirs(tmp_output_dir)
 
@@ -556,8 +555,8 @@ if __name__ == '__main__':
     LTR_retriever_Home = param['LTR_retriever_Home']
     # run LTR_retriver background job for LTR supplementary
     # output of LTR_retriever
-# backjob = multiprocessing.Process(target=run_LTR_retriever_v1, args=(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads,))
-# backjob.start()
+    backjob = multiprocessing.Process(target=run_LTR_retriever_v1, args=(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads,))
+    backjob.start()
 
     pipeline_starttime = time.time()
     starttime = time.time()
@@ -610,19 +609,148 @@ if __name__ == '__main__':
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
     cur_segments = convertToUpperCase(reference)
-#repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
+    # reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
+    #
+    # segments = []
+    # with open(reference_tmp, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         segments.append(line)
+    # segments_cluster = split2cluster(segments, reduce_partitions_num)
+    #
+    # ex = ProcessPoolExecutor(reduce_partitions_num)
+    # repeat_segments = []
+    # objs = []
+    # for partiton_index in segments_cluster.keys():
+    #     cur_segments = segments_cluster[partiton_index]
+    #     obj = ex.submit(generate_candidate_repeats, cur_segments, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases)
+    #     objs.append(obj)
+    # ex.shutdown(wait=True)
+    #
+    # for obj in as_completed(objs):
+    #     for repeat in obj.result():
+    #         repeat_segments.append(repeat)
+
+    repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
 
     repeats_path = tmp_output_dir + '/repeats.fa'
-# node_index = 0
-# with open(repeats_path, 'w') as f_save:
-#     for repeat in repeat_segments:
-#         f_save.write('>Node_'+str(node_index)+'-len_'+str(len(repeat))+'\n'+repeat+'\n')
-#         node_index += 1
+    node_index = 0
+    with open(repeats_path, 'w') as f_save:
+        for repeat in repeat_segments:
+            f_save.write('>Node_'+str(node_index)+'-len_'+str(len(repeat))+'\n'+repeat+'\n')
+            node_index += 1
 
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.debug("module1: Generate repeat file running time: %.8s s" % (dtime))
 
+    starttime = time.time()
+    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
+    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
+    TRF_Path = param['TRF_Path']
+    RepeatMasker_Home = param['RepeatMasker_Home']
+    trf_dir = tmp_output_dir + '/trf_temp'
+    if not os.path.exists(trf_dir):
+        os.makedirs(trf_dir)
+    (repeat_dir, repeat_filename) = os.path.split(repeats_path)
+    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + repeats_path + ' 2 7 7 80 10 50 500 -f -d -m'
+    log.logger.debug(trf_command)
+    os.system(trf_command)
+    trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+
+    # RepeatMasker_command = 'cd ' + trf_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(threads) + ' -noint -x -html -gff -dir ' + trf_dir + ' ' + repeats_path
+    # log.logger.debug(RepeatMasker_command)
+    # os.system(RepeatMasker_command)
+    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.masked'
+
+    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    repeats_contigNames, repeats_contigs = read_fasta(repeats_path)
+    repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
+    with open(repeats_path, 'w') as f_save:
+        for name in trf_contigNames:
+            seq = trf_contigs[name]
+            if float(seq.count('X'))/len(seq) < tandem_region_cutoff and len(seq) >= 80:
+                f_save.write('>'+name+'\n'+repeats_contigs[name]+'\n')
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+    # mv_result_command = 'mv ' + trf_dir + '/' + ref_filename + '.2.7.7.80.10.50.500.mask ' + trf_dir + '/' + ref_filename + '.2.7.7.80.10.50.500.dat ' + tmp_output_dir
+    # log.logger.debug(mv_result_command)
+    # os.system(mv_result_command)
+    # reference = tmp_output_dir + '/' + ref_filename + '.2.7.7.80.10.50.500.mask'
+
+    # --------------------------------------------------------------------------------------
+    # Step5. use blast to execute repeats self_alignment
+    # starttime = time.time()
+    # blastnResults_path = tmp_output_dir + '/tmpBlastResults.out'
+    # candidate_repeats_path = tmp_output_dir + '/candidate_repeats.fa'
+    # blast_program_dir = param['RMBlast_Home']
+    # if is_sensitive:
+    #     log.logger.debug('Start step5: use blast to execute repeats self_alignment')
+    #     makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + repeats_path
+    #     align_command = blast_program_dir + '/bin/blastn -db ' + repeats_path + ' -num_threads ' + str(threads) + ' -query ' + repeats_path + ' -outfmt 6 > ' + blastnResults_path
+    #     log.logger.debug(makedb_command)
+    #     os.system(makedb_command)
+    #     log.logger.debug(align_command)
+    #     os.system(align_command)
+    #     # --------------------------------------------------------------------------------------
+    #     # Step6. parse blast output, get candidate repeat sequence.
+    #     # if a sequence align to multiple sequence, the match
+    #     # segments with identity>=80% and length>80bp should be spliced.
+    #     starttime1 = time.time()
+    #     log.logger.debug('Start step6: splice candidate repeat sequence')
+    #     parse_self_blast_output(blastnResults_path, repeats_path, candidate_repeats_path)
+    #     endtime1 = time.time()
+    #     dtime1 = endtime1 - starttime1
+    #     log.logger.debug("module2: get candidate repeat sequence running time: %.8s s" % (dtime1))
+    # else:
+    #     log.logger.debug('Start step5: use minimap2+bwa to execute repeats alignment')
+    #     # # cut raw repeat sequences
+    #     # repeats_minimap2 = tmp_output_dir + '/repeats.stage1.minimap2.fa'
+    #     # repeats_bwa = tmp_output_dir + '/repeats.stage1.bwa.fa'
+    #     # split_repeats(repeats_path, long_repeat_threshold, repeats_minimap2, repeats_bwa)
+    #     # use_align_tools = 'minimap2'
+    #     # sam_path_minimap2 = run_alignment(repeats_minimap2, reference, use_align_tools, threads, tools_dir)
+    #     # use_align_tools = 'bwa'
+    #     # sam_path_bwa = run_alignment(repeats_bwa, reference, use_align_tools, threads, tools_dir)
+    #     # sam_paths = []
+    #     # sam_paths.append(sam_path_minimap2)
+    #     # sam_paths.append(sam_path_bwa)
+    #     # HS_gap = 0.10
+    #     # ID_gap = 0.10
+    #     # raw_cut_file = tmp_output_dir + '/repeats.cut.fasta'
+    #     # cut_repeat_v1(sam_paths, HS_gap, ID_gap, repeats_path, raw_cut_file)
+    #     raw_cut_file = repeats_path
+    #
+    #     # get multiple alignment
+    #     repeats_minimap2 = tmp_output_dir + '/repeats.stage2.minimap2.fa'
+    #     repeats_bwa = tmp_output_dir + '/repeats.stage2.bwa.fa'
+    #     split_repeats(raw_cut_file, long_repeat_threshold, repeats_minimap2, repeats_bwa)
+    #     use_align_tools = 'minimap2'
+    #     sam_path_minimap2 = run_alignment(repeats_minimap2, reference, use_align_tools, threads, tools_dir)
+    #     use_align_tools = 'bwa'
+    #     sam_path_bwa = run_alignment(repeats_bwa, reference, use_align_tools, threads, tools_dir)
+    #     sam_paths = []
+    #     sam_paths.append((sam_path_minimap2, repeats_minimap2))
+    #     sam_paths.append((sam_path_bwa, repeats_bwa))
+    #     multi_mapping_repeatIds, not_multi_mapping_repeatIds = get_multiple_alignment_repeat(sam_paths)
+    #     # filter not multiple alignment and generate blast like output
+    #     generate_blastlike_output(sam_paths, blastnResults_path, not_multi_mapping_repeatIds)
+    #     # --------------------------------------------------------------------------------------
+    #     # Step6. parse blast output, get candidate repeat sequence.
+    #     # if a sequence align to multiple sequence, the match
+    #     # segments with identity>=80% and length>80bp should be spliced.
+    #     starttime1 = time.time()
+    #     log.logger.debug('Start step6: splice candidate repeat sequence')
+    #     parse_ref_blast_output(blastnResults_path, reference, candidate_repeats_path)
+    #     endtime1 = time.time()
+    #     dtime1 = endtime1 - starttime1
+    #     log.logger.debug("module2: get candidate repeat sequence running time: %.8s s" % (dtime1))
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("module3: Blastn/(minimap2+bwa) get repeats alignment running time: %.8s s" % (dtime))
 
     # --------------------------------------------------------------------------------------
     # newly strategy: 2022-04-29 by Kang Hu
@@ -633,56 +761,224 @@ if __name__ == '__main__':
     sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
     sam_paths = []
     sam_paths.append(sam_path_bwa)
+    HS_gap = 0.10
+    ID_gap = 0.10
     # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
-    new_mapping_repeatIds = get_alignment_info_v3(sam_paths, candidate_repeats_path)
-    repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
+    unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds, segmental_duplication_repeatIds = get_alignment_info_v1(sam_paths, candidate_repeats_path)
+    # blastnResults_path = tmp_output_dir + '/tmpBlastResults.out'
+    # makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + reference
+    # align_command = blast_program_dir + '/bin/blastn -db ' + reference + ' -num_threads ' + str(threads) + ' -query ' + candidate_repeats_path + ' -outfmt 6 > ' + blastnResults_path
+    # log.logger.debug(makedb_command)
+    # os.system(makedb_command)
+    # log.logger.debug(align_command)
+    # os.system(align_command)
+    # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info_v2(blastnResults_path)
+    single_mapped_path = tmp_output_dir + '/repeats.merge.consensus.single.fa'
+    multiple_mapped_path = tmp_output_dir + '/repeats.merge.consensus.multiple.fa'
+    segmental_duplication_path = tmp_output_dir + '/segmental_duplication.fa'
     merge_repeat_contigNames, merge_repeat_contigs = read_fasta(candidate_repeats_path)
     # single repeat probably be Chimeric repeat
-    with open(repeat_freq_path, 'w') as f_save:
-        for repeat_id in new_mapping_repeatIds.keys():
-            freq = new_mapping_repeatIds[repeat_id][0]
-            if freq > 1:
-                f_save.write('>' + repeat_id + '\trepeat_num=' + str(freq) + '\n' + merge_repeat_contigs[repeat_id] + '\n')
+    with open(single_mapped_path, 'w') as f_save:
+        for repeat_id in single_mapped_repeatIds:
+            f_save.write('>' + repeat_id + '\n' + merge_repeat_contigs[repeat_id] + '\n')
+
+    with open(multiple_mapped_path, 'w') as f_save:
+        for repeat_id in multi_mapping_repeatIds:
+            seq = merge_repeat_contigs[repeat_id]
+            #seq = seq.replace('N', '')
+            f_save.write('>' + repeat_id + '\n' + seq + '\n')
+
+    with open(segmental_duplication_path, 'w') as f_save:
+        for repeat_id in segmental_duplication_repeatIds:
+            seq = merge_repeat_contigs[repeat_id]
+            #seq = seq.replace('N', '')
+            f_save.write('>' + repeat_id + '\n' + seq + '\n')
+
+    # 02: align single mapped sequence to reference
+    # blastnResults_path = tmp_output_dir + '/repeats.merge.consensus.single.out'
+    # makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + reference
+    # align_command = blast_program_dir + '/bin/blastn -db ' + reference + ' -num_threads ' + str(
+    #     threads) + ' -query ' + single_mapped_path + ' -outfmt 6 > ' + blastnResults_path
+    # log.logger.debug(makedb_command)
+    # os.system(makedb_command)
+    # log.logger.debug(align_command)
+    # os.system(align_command)
+
+    # 03: cut segments from blast output
+    # this method can be used to Chimeric removal
+
+    # segments_path = tmp_output_dir + '/repeats.merge.consensus.single.segs.fa'
+    # seg_threshold = 100
+    # query_records = {}
+    # single_mapped_segments = {}
+    # with open(blastnResults_path, 'r') as f_r:
+    #     for line in f_r:
+    #         parts = line.split('\t')
+    #         query_name = parts[0]
+    #         identity = float(parts[2])
+    #         q_start = int(parts[6])
+    #         q_end = int(parts[7])
+    #         if identity < 80:
+    #             continue
+    #         if not query_records.__contains__(query_name):
+    #             query_records[query_name] = []
+    #         records = query_records[query_name]
+    #         records.append((q_start, q_end))
+    #         query_records[query_name] = records
+    #
+    # for query_name in query_records.keys():
+    #     records = query_records[query_name]
+    #     records.sort(key=lambda x: (x[0], x[1]))
+    #     hash_records = {}
+    #     for pos in records:
+    #         if not hash_records.__contains__(pos[0]):
+    #             hash_records[pos[0]] = []
+    #         same_start_records = hash_records[pos[0]]
+    #         same_start_records.append(pos)
+    #
+    #     if not single_mapped_segments.__contains__(query_name):
+    #         single_mapped_segments[query_name] = set()
+    #     segments_set = single_mapped_segments[query_name]
+    #
+    #     for i in range(len(records) - 1):
+    #         for start_pos in hash_records.keys():
+    #             if abs(records[i][0] - start_pos) >= seg_threshold:
+    #                 break
+    #             same_start_records = hash_records[start_pos]
+    #             if same_start_records.__contains__(records[i]):
+    #                 same_start_records.remove(records[i])
+    #             for pos in same_start_records:
+    #                 if abs(records[i][1] - pos[1]) < seg_threshold:
+    #                     segments_set.add(records[i])
+    #                     segments_set.add(pos)
+    #                 else:
+    #                     break
+    #     single_mapped_segments[query_name] = segments_set
+    #
+    # with open(segments_path, 'w') as f_save:
+    #     for query_name in single_mapped_segments.keys():
+    #         for i, segment in enumerate(single_mapped_segments[query_name]):
+    #             seg_seq = merge_repeat_contigs[query_name][segment[0] - 1: segment[1]]
+    #             f_save.write('>' + query_name + '-seg_' + str(i) + '\n' + seg_seq + '\n')
+
+    # # 04: find all multiple sequences
+    # use_align_tools = 'bwa'
+    # sam_path_bwa = run_alignment(segments_path, reference, use_align_tools, threads, tools_dir)
+    # sam_paths = []
+    # sam_paths.append(sam_path_bwa)
+    # #unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
+    # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info_v1(sam_paths, segments_path, HS_gap, ID_gap)
+    # segs_multiple_mapped_path = tmp_output_dir + '/repeats.merge.consensus.single.segs.consensus.multiple.fa'
+    # segments_contigNames, segments_contigs = read_fasta(segments_path)
+    # with open(segs_multiple_mapped_path, 'w') as f_save:
+    #     for repeat_id in multi_mapping_repeatIds:
+    #         seq = segments_contigs[repeat_id]
+    #         #seq = seq.replace('N', '')
+    #         f_save.write('>' + repeat_id + '\n' + seq + '\n')
 
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
     merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
-#os.system('cat ' + repeat_freq_path + ' > ' + merge_pure)
+    os.system('cat ' + multiple_mapped_path + ' >> ' + merge_pure)
     ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
-#backjob.join()
-#os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
+    backjob.join()
+    os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
+    #os.system('cat ' + segs_multiple_mapped_path + ' >> ' + merge_pure)
     cd_hit_command = tools_dir + '/cd-hit-est -s 0.8 -c 0.8 -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
-#os.system(cd_hit_command)
+    os.system(cd_hit_command)
 
+    # --------------------------------------------------------------------------------------
+    # Step7: get complete LTR and TIR sequences
+    log.logger.debug('Start step7: get complete LTR and TIR sequences')
     starttime = time.time()
-    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
-    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    TRF_Path = param['TRF_Path']
-    RepeatMasker_Home = param['RepeatMasker_Home']
-    trf_dir = tmp_output_dir + '/trf_temp'
-    if not os.path.exists(trf_dir):
-        os.makedirs(trf_dir)
-    (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
-    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
-    log.logger.debug(trf_command)
-#os.system(trf_command)
-    trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+    sensitive_mode = 0
+    if is_sensitive:
+        sensitive_mode = 1
+    TEFinder_cmd = 'python ' + os.getcwd() + '/TEFinder.v1.py --min_TE_len ' + str(min_TE_len) + \
+                   ' --min_ltr_complete_len ' + str(min_ltr_complete_len) + ' --max_ltr_complete_len ' + \
+                   str(max_ltr_complete_len) + ' --min_ltr_direct_repeat_len ' + str(min_ltr_direct_repeat_len) + \
+                   ' --max_ltr_direct_repeat_len ' + str(max_ltr_direct_repeat_len) + ' --min_tir_complete_len ' + \
+                   str(min_tir_complete_len) + ' --max_tir_complete_len ' + str(max_tir_complete_len) + \
+                   ' --min_tir_direct_repeat_len ' + str(min_tir_direct_repeat_len) + ' --max_tir_direct_repeat_len ' + \
+                   str(max_tir_direct_repeat_len) + ' --tmp_output_dir ' + tmp_output_dir + ' -R ' + reference + ' -t ' + \
+                   str(threads) + ' --domain_min_identity ' + str(domain_min_identity) + ' --domain_match_ratio ' + str(domain_match_ratio) +\
+                   ' -s ' + str(sensitive_mode) + ' --long_repeat_threshold ' + str(long_repeat_threshold) + ' --tools_dir ' + str(tools_dir) + ' --blast_program_dir ' + str(blast_program_dir)
+    log.logger.debug(TEFinder_cmd)
+    #os.system(TEFinder_cmd)
+    # #output of TEFinder
+    # ltr_repeats_path = tmp_output_dir + '/ltr_repeats.fa'
+    # tir_repeats_path = tmp_output_dir + '/tir_repeats.fa'
+    # merge_ltr_tir_path = tmp_output_dir + '/ltr_tir.merge.fa'
+    # os.system('cat ' + ltr_repeats_path + ' >> ' + merge_ltr_tir_path)
+    # os.system('cat ' + tir_repeats_path + ' >> ' + merge_ltr_tir_path)
+    # merge_ltr_tir_consensus = tmp_output_dir + '/ltr_tir.merge.consensus.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -s 0.8 -G 1 -i ' + merge_ltr_tir_path + ' -o ' + merge_ltr_tir_consensus + ' -T 0 -M 0'
+    # log.logger.debug(cd_hit_command)
+    # os.system(cd_hit_command)
+    # # classify
+    # sample_name = alias
+    # TEClass_home = os.getcwd() + '/classification'
+    # TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+    #                   + ' --consensus ' + merge_ltr_tir_consensus + ' --genome ' + reference \
+    #                   + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
+    # log.logger.debug(TEClass_command)
+    # os.system(TEClass_command)
+    # classified_merge_ltr_tir_consensus = merge_ltr_tir_consensus + '.final.classified'
+    # classified_merge_contignames, classified_merge_contigs = read_fasta(classified_merge_ltr_tir_consensus)
+    # # filter LTR not meet length requirement
+    # LTR_set = {}
+    # TIR_set = {}
+    # for name in classified_merge_contignames:
+    #     class_name = name.split('#')[1]
+    #     sequence = classified_merge_contigs[name]
+    #     seq_len = len(sequence)
+    #     if class_name.__contains__('LTR'):
+    #         if seq_len < min_ltr_complete_len or seq_len > max_ltr_complete_len:
+    #             continue
+    #         else:
+    #             LTR_set[name] = sequence
+    #     else:
+    #         TIR_set[name] = sequence
+    # store_fasta(LTR_set, ltr_repeats_path)
+    # store_fasta(TIR_set, tir_repeats_path)
+    #
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("module5: get complete LTR and TIR sequences running time: %.8s s" % (dtime))
 
-    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
-    repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-    with open(repeats_path, 'w') as f_save:
-        for name in trf_contigNames:
-            seq = trf_contigs[name]
-            if float(seq.count('X')) / len(seq) < tandem_region_cutoff and len(seq) >= 80:
-                f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
 
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+    merge_repeat_sequences = tmp_output_dir + '/repeats.merge.fa'
+    merge_repeat_consensus = tmp_output_dir + '/repeats.merge.consensus.fa'
+    # if os.path.exists(ltr_retriever_seq):
+    #     # filter overlap sequence with LTR_retriever
+    #     filter_ltr_repeats_path = tmp_output_dir + '/ltr_repeats.filter.fa'
+    #     blastnResults_path = tmp_output_dir + '/tmp_ltr_blastn.out'
+    #     makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + ltr_retriever_seq
+    #     align_command = blast_program_dir + '/bin/blastn -db ' + ltr_retriever_seq + ' -num_threads ' + str(
+    #         threads) + ' -query ' + ltr_repeats_path + ' -outfmt 6 > ' + blastnResults_path
+    #     print(makedb_command)
+    #     os.system(makedb_command)
+    #     print(align_command)
+    #     os.system(align_command)
+    #     filter_LTR_high_similarity(blastnResults_path, ltr_retriever_seq, ltr_repeats_path, filter_ltr_repeats_path)
+    #     os.system('cat ' + filter_ltr_repeats_path + ' >> ' + merge_repeat_sequences)
+    # else:
+    #     os.system('cat ' + ltr_repeats_path + ' >> ' + merge_repeat_sequences)
+    # os.system('cat ' + tir_repeats_path + ' >> ' + merge_repeat_sequences)
+    # os.system('cat ' + merge_pure_consensus + ' >> ' + merge_repeat_sequences)
 
+
+    # starttime = time.time()
+    # tools_dir = os.getcwd() + '/tools'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS 0.8 -c 0.8 -g 1 -s 0.8 -G 1 -i ' + merge_repeat_sequences + ' -o ' + merge_repeat_consensus + ' -T 0 -M 0'
+    # log.logger.debug(cd_hit_command)
+    # os.system(cd_hit_command)
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("module7: get merge repeat consensus sequence running time: %.8s s" % (dtime))
+
+    os.system('cat ' + merge_pure_consensus + ' >> ' + merge_repeat_consensus)
     # --------------------------------------------------------------------------------------
     # Step10. run TE classification to classify TE family
     starttime = time.time()
@@ -690,14 +986,14 @@ if __name__ == '__main__':
     sample_name = alias
     TEClass_home = os.getcwd() + '/classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                      + ' --consensus ' + repeats_path + ' --genome ' + reference \
+                      + ' --consensus ' + merge_repeat_consensus + ' --genome ' + reference \
                       + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
     log.logger.debug(TEClass_command)
     os.system(TEClass_command)
 
     # --------------------------------------------------------------------------------------
     # Step11. assign a family name for each classified TE consensus
-    classified_consensus_path = repeats_path + '.final.classified'
+    classified_consensus_path = merge_repeat_consensus + '.final.classified'
     classified_contignames, classified_contigs = read_fasta(classified_consensus_path)
     # filter LTR not meet length requirement
     repeat_set = {}
@@ -706,7 +1002,24 @@ if __name__ == '__main__':
         sequence = classified_contigs[name]
         seq_len = len(sequence)
         repeat_set[name] = sequence
+        # if class_name.__contains__('LTR'):
+        #     if seq_len < min_ltr_complete_len or seq_len > max_ltr_complete_len:
+        #         continue
+        #     else:
+        #         repeat_set[name] = sequence
+        # else:
+        #     repeat_set[name] = sequence
     store_fasta(repeat_set, classified_consensus_path)
+
+    # # filter unknown and short(<80bp)  TE
+    # filter_classified_consensus_path = merge_repeat_consensus + '.final.filter_unknown.classified'
+    # classified_contignames, classified_contigs = read_fasta(classified_consensus_path)
+    # with open(filter_classified_consensus_path, 'w') as f_save:
+    #     for name in classified_contignames:
+    #         class_name = name.split('#')[1]
+    #         if class_name == 'Unknown' or len(classified_contigs[name]) < 80:
+    #             continue
+    #         f_save.write('>' + name + '\n' + classified_contigs[name] + '\n')
 
     classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
     family_path = output_dir + '/family_' + sample_name + '.fasta'
