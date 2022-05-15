@@ -353,24 +353,6 @@ if __name__ == '__main__':
                         help='the base number of fault tolerant in repeated kmers masking, default = [ 50 ]')
     parser.add_argument('-o', metavar='output dir',
                         help='output dir')
-    parser.add_argument('--min_ltr_complete_len', metavar='min_ltr_complete_len',
-                        help='Minimum complete LTR length, default = [ 400 ]')
-    parser.add_argument('--max_ltr_complete_len', metavar='max_ltr_complete_len',
-                        help='Maximum complete LTR length, default = [ 22000 ]')
-    parser.add_argument('--min_ltr_direct_repeat_len', metavar='min_ltr_direct_repeat_len',
-                        help='Minimum LTR direct repeat length, default = [ 100 ]')
-    parser.add_argument('--max_ltr_direct_repeat_len', metavar='max_ltr_direct_repeat_len',
-                        help='Maximum LTR direct repeat length, default = [ 6000 ]')
-    parser.add_argument('--min_tir_complete_len', metavar='min_tir_complete_len',
-                        help='Minimum complete TIR length, default = [ 1000 ]')
-    parser.add_argument('--max_tir_complete_len', metavar='max_tir_complete_len',
-                        help='Maximum complete TIR length, default = [ 40000 ]')
-    parser.add_argument('--min_tir_direct_repeat_len', metavar='min_tir_direct_repeat_len',
-                        help='Minimum TIR direct repeat length, default = [ 0 ]')
-    parser.add_argument('--max_tir_direct_repeat_len', metavar='max_tir_direct_repeat_len',
-                        help='Maximum TIR direct repeat length, default = [ 1000 ]')
-    parser.add_argument('--long_repeat_threshold', metavar='long_repeat_threshold',
-                        help='Threshold of long repeat, default = [ 2000 ]')
     parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff',
                         help='Cutoff of the raw masked repeat regarded as tandem region, default = [ 0.8 ]')
 
@@ -383,15 +365,6 @@ if __name__ == '__main__':
     output_dir = args.o
     sensitive_mode = args.s
     fault_tolerant_bases = args.fault_tolerant_bases
-    min_ltr_complete_len = args.min_ltr_complete_len
-    max_ltr_complete_len = args.max_ltr_complete_len
-    min_ltr_direct_repeat_len = args.min_ltr_direct_repeat_len
-    max_ltr_direct_repeat_len = args.max_ltr_direct_repeat_len
-    min_tir_complete_len = args.min_tir_complete_len
-    max_tir_complete_len = args.max_tir_complete_len
-    min_tir_direct_repeat_len = args.min_tir_direct_repeat_len
-    max_tir_direct_repeat_len = args.max_tir_direct_repeat_len
-    long_repeat_threshold = args.long_repeat_threshold
     tandem_region_cutoff = args.tandem_region_cutoff
 
     log = Logger('kmerRepFinder.log', level='debug')
@@ -432,41 +405,6 @@ if __name__ == '__main__':
     if fault_tolerant_bases is None:
         fault_tolerant_bases = default_fault_tolerant_bases
 
-    # params get from LTRDetector
-    default_min_ltr_complete_len = 400
-    default_max_ltr_complete_len = 22000
-    default_min_ltr_direct_repeat_len = 100
-    default_max_ltr_direct_repeat_len = 6000
-
-    # Class II transposons range in length from 1,000 to as many as 40,000 base pairs.
-    # https://www.britannica.com/science/transposon
-    default_min_tir_complete_len = 1000
-    default_max_tir_complete_len = 40000
-    default_min_tir_direct_repeat_len = 0
-    default_max_tir_direct_repeat_len = 1000
-
-    default_long_repeat_threshold = 2000
-
-    if min_ltr_complete_len is None:
-        min_ltr_complete_len = default_min_ltr_complete_len
-    if max_ltr_complete_len is None:
-        max_ltr_complete_len = default_max_ltr_complete_len
-    if min_ltr_direct_repeat_len is None:
-        min_ltr_direct_repeat_len = default_min_ltr_direct_repeat_len
-    if max_ltr_direct_repeat_len is None:
-        max_ltr_direct_repeat_len = default_max_ltr_direct_repeat_len
-    if min_tir_complete_len is None:
-        min_tir_complete_len = default_min_tir_complete_len
-    if max_tir_complete_len is None:
-        max_tir_complete_len = default_max_tir_complete_len
-    if min_tir_direct_repeat_len is None:
-        min_tir_direct_repeat_len = default_min_tir_direct_repeat_len
-    if max_tir_direct_repeat_len is None:
-        max_tir_direct_repeat_len = default_max_tir_direct_repeat_len
-    if long_repeat_threshold is None:
-        long_repeat_threshold = default_long_repeat_threshold
-    if min_ltr_complete_len is None:
-        min_ltr_complete_len = default_min_ltr_complete_len
 
     default_tandem_region_cutoff = 0.5
     if tandem_region_cutoff is None:
@@ -487,7 +425,6 @@ if __name__ == '__main__':
         detect_mode = 'Sensitive'
     else:
         alignment_tool = 'Minimap2 + BWA'
-        alignment_param = '\n  [Setting] Long Reads Threshold = [ ' + str(long_repeat_threshold) + ' bp]  Default( ' + str(default_long_repeat_threshold) + ' )'
         detect_mode = 'Normal'
 
     log.logger.info('\n-------------------------------------------------------------------------------------------\n'
@@ -508,23 +445,6 @@ if __name__ == '__main__':
                     '  [Setting] Output Directory = [' + str(output_dir) + ']'
                     )
 
-    log.logger.info('\n====================================Alignment settings========================================\n'
-                    '  [Setting] Alignment Tool = [ ' + str(alignment_tool) + ' ]' + alignment_param)
-
-    log.logger.info('\n====================================LTR settings========================================\n'
-                    '  [Setting] Minimum complete LTR length  = [ ' + str(min_ltr_complete_len) + 'bp]  Default( ' + str(default_min_ltr_complete_len) + ' )\n'
-                    '  [Setting] Maximum complete LTR length = [ ' + str(max_ltr_complete_len) + ' bp]  Default( ' + str(default_max_ltr_complete_len) + ' )\n'
-                    '  [Setting] Minimum LTR direct repeat length = [ ' + str(min_ltr_direct_repeat_len) + ' bp]  Default( ' + str(default_min_ltr_direct_repeat_len) + ' )\n'
-                    '  [Setting] Maximum LTR direct repeat length = [ ' + str(max_ltr_direct_repeat_len) + ' bp]  Default( ' + str(default_max_ltr_direct_repeat_len) + ' )'
-                    )
-
-    log.logger.info('\n====================================TIR settings========================================\n'
-                    '  [Setting] Minimum complete TIR length  = [ ' + str(min_tir_complete_len) + 'bp]  Default( ' + str(default_min_tir_complete_len) + ' )\n'
-                    '  [Setting] Maximum complete TIR length = [ ' + str(max_tir_complete_len) + ' bp]  Default( ' + str(default_max_tir_complete_len) + ' )\n'
-                    '  [Setting] Minimum TIR direct repeat length = [ ' + str(min_tir_direct_repeat_len) + ' bp]  Default( ' + str(default_min_tir_direct_repeat_len) + ' )\n'
-                    '  [Setting] Maximum TIR direct repeat length = [ ' + str(max_tir_direct_repeat_len) + ' bp]  Default( ' + str(default_max_tir_direct_repeat_len) + ' )'
-                    )
-
     # preset steps, no needs to execute time-consuming job again
     # when the job is retried due to abnormal termination.
 
@@ -539,8 +459,8 @@ if __name__ == '__main__':
     chrom_seg_length = int(param['chrom_seg_length'])
 
     i = datetime.datetime.now()
-#tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    tmp_output_dir = output_dir + '/CRD.2022-05-12.23-7-32'
+    tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
+#tmp_output_dir = output_dir + '/CRD.2022-05-12.23-7-32'
     if not os.path.exists(tmp_output_dir):
         os.makedirs(tmp_output_dir)
 
@@ -556,10 +476,11 @@ if __name__ == '__main__':
     LTR_retriever_Home = param['LTR_retriever_Home']
     # run LTR_retriver background job for LTR supplementary
     # output of LTR_retriever
-# backjob = multiprocessing.Process(target=run_LTR_retriever_v1, args=(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads,))
-# backjob.start()
+    backjob = multiprocessing.Process(target=run_LTR_retriever_v1, args=(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads,))
+    backjob.start()
 
     pipeline_starttime = time.time()
+
     starttime = time.time()
     # --------------------------------------------------------------------------------------
     # Step1. dsk get unique kmers, whose frequency >= 2
@@ -610,19 +531,18 @@ if __name__ == '__main__':
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
     cur_segments = convertToUpperCase(reference)
-#repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
+    repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
 
     repeats_path = tmp_output_dir + '/repeats.fa'
-# node_index = 0
-# with open(repeats_path, 'w') as f_save:
-#     for repeat in repeat_segments:
-#         f_save.write('>Node_'+str(node_index)+'-len_'+str(len(repeat))+'\n'+repeat+'\n')
-#         node_index += 1
+    node_index = 0
+    with open(repeats_path, 'w') as f_save:
+        for repeat in repeat_segments:
+            f_save.write('>Node_'+str(node_index)+'-len_'+str(len(repeat))+'\n'+repeat+'\n')
+            node_index += 1
 
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.debug("module1: Generate repeat file running time: %.8s s" % (dtime))
-
 
     # --------------------------------------------------------------------------------------
     # newly strategy: 2022-04-29 by Kang Hu
@@ -642,46 +562,46 @@ if __name__ == '__main__':
         for repeat_id in new_mapping_repeatIds.keys():
             freq = new_mapping_repeatIds[repeat_id][0]
             if freq > 1:
-                f_save.write('>' + repeat_id + '\trepeat_num=' + str(freq) + '\n' + merge_repeat_contigs[repeat_id] + '\n')
+                f_save.write('>' + repeat_id + '\tcopies=' + str(freq+1) + '\n' + merge_repeat_contigs[repeat_id] + '\n')
 
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
     merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
-#os.system('cat ' + repeat_freq_path + ' > ' + merge_pure)
+    os.system('cat ' + repeat_freq_path + ' >> ' + merge_pure)
     ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
-#backjob.join()
-#os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
+    backjob.join()
+    os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
     cd_hit_command = tools_dir + '/cd-hit-est -s 0.8 -c 0.8 -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
-#os.system(cd_hit_command)
+    os.system(cd_hit_command)
 
-    starttime = time.time()
-    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
-    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    TRF_Path = param['TRF_Path']
-    RepeatMasker_Home = param['RepeatMasker_Home']
-    trf_dir = tmp_output_dir + '/trf_temp'
-    if not os.path.exists(trf_dir):
-        os.makedirs(trf_dir)
-    (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
-    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
-    log.logger.debug(trf_command)
-#os.system(trf_command)
-    trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-
-    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
-    repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-    with open(repeats_path, 'w') as f_save:
-        for name in trf_contigNames:
-            seq = trf_contigs[name]
-            if float(seq.count('X')) / len(seq) < tandem_region_cutoff and len(seq) >= 80:
-                f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
-
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+    # starttime = time.time()
+    # # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
+    # # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
+    # TRF_Path = param['TRF_Path']
+    #
+    # trf_dir = tmp_output_dir + '/trf_temp'
+    # if not os.path.exists(trf_dir):
+    #     os.makedirs(trf_dir)
+    # (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
+    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
+    # log.logger.debug(trf_command)
+    # os.system(trf_command)
+    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+    #
+    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    # repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
+    # repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
+    # with open(repeats_path, 'w') as f_save:
+    #     for name in trf_contigNames:
+    #         seq = trf_contigs[name]
+    #         if float(seq.count('X')) / len(seq) < tandem_region_cutoff and len(seq) >= 80:
+    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+    #
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
 
     # --------------------------------------------------------------------------------------
     # Step10. run TE classification to classify TE family
@@ -690,31 +610,21 @@ if __name__ == '__main__':
     sample_name = alias
     TEClass_home = os.getcwd() + '/classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                      + ' --consensus ' + repeats_path + ' --genome ' + reference \
+                      + ' --consensus ' + merge_pure_consensus + ' --genome ' + reference \
                       + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
     log.logger.debug(TEClass_command)
     os.system(TEClass_command)
 
     # --------------------------------------------------------------------------------------
     # Step11. assign a family name for each classified TE consensus
-    classified_consensus_path = repeats_path + '.final.classified'
-    classified_contignames, classified_contigs = read_fasta(classified_consensus_path)
-    # filter LTR not meet length requirement
-    repeat_set = {}
-    for name in classified_contignames:
-        class_name = name.split('#')[1]
-        sequence = classified_contigs[name]
-        seq_len = len(sequence)
-        repeat_set[name] = sequence
-    store_fasta(repeat_set, classified_consensus_path)
-
+    classified_consensus_path = merge_pure_consensus + '.final.classified'
     classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
-    family_path = output_dir + '/family_' + sample_name + '.fasta'
+    family_path = tmp_output_dir + '/family_' + sample_name + '.fasta'
     with open(family_path, 'w') as f_save:
         for f_id, name in enumerate(classified_contigNames):
             sequence = classified_contigs[name]
-            if len(sequence) < 80:
-                continue
+            # if len(sequence) < 80:
+            #     continue
             class_name = name.split('#')[1]
             f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
     endtime = time.time()
@@ -728,6 +638,7 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------------------
     # Step12. invoke RepeatMasker to align TE family to genome
     starttime = time.time()
+    RepeatMasker_Home = param['RepeatMasker_Home']
     RepeatMasker_output_dir = output_dir + '/' + sample_name
     RepeatMasker_command = 'cd ' + tmp_output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(threads) \
                            + ' -lib ' + family_path + ' -nolow -x -html -gff -dir ' + RepeatMasker_output_dir + ' ' + reference

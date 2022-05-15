@@ -3,7 +3,7 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="ac762d57-2fc8-4245-9cf1-cbb52683db24" name="super">
-        <fileTransfer accessType="SFTP" host="hpclogin1.csu.edu.cn" port="8220" sshConfigId="9883c6e6-c037-41cc-9bd9-2b6b2cbb4ec1" sshConfig="hpc194701009@hpclogin1.csu.edu.cn:8220 password">
+        <fileTransfer accessType="SFTP" host="hpclogin1.csu.edu.cn" port="9220" sshConfigId="9883c6e6-c037-41cc-9bd9-2b6b2cbb4ec1" sshConfig="hpc194701009@hpclogin1.csu.edu.cn:9220 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

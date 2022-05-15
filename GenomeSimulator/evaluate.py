@@ -5,13 +5,13 @@ import time
 
 from Util import Logger, read_fasta, store_fasta
 
-model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_high_freq_out/model_lib.fa'
-output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_high_freq_out/krf_output/family_model.fasta'
+model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/model_lib.fa'
+output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/krf_output/CRD.2022-05-15.21-16-3/family_model.fasta'
 #output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/rm2_output/family_model.fasta'
-output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_high_freq_out'
+output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/'
 
-similarity_cutoff = 0.8
-length_difference_cutoff = 0.8
+similarity_cutoff = 0.9
+length_difference_cutoff = 0.9
 
 if __name__ == '__main__':
     log = Logger('GenomeSimulator.log', level='debug')
@@ -25,9 +25,9 @@ if __name__ == '__main__':
     align_command = blast_program_dir + '/bin/blastn -db ' + model_library + ' -num_threads ' \
                     + str(threads) + ' -query ' + output_library + ' -outfmt 6 > ' + blastn2Results_path
     log.logger.debug(makedb_command)
-    os.system(makedb_command)
+    #os.system(makedb_command)
     log.logger.debug(align_command)
-    os.system(align_command)
+    #os.system(align_command)
 
     query_name_set = set()
     target_name_set = set()

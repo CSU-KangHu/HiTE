@@ -47,7 +47,7 @@ def print_class_num(lib_path):
 if __name__ == '__main__':
     krf_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib'
     #krf_libs = ['/dmel/family_dmel.fasta', '/oryza_sative/family_oryza_sativa.fasta', '/drerio/family_drerio.fasta']
-    krf_libs = ['/oryza_sative/CRD.2022-05-11.11-45-41/repeats.merge.consensus.fa.final.classified', ]
+    krf_libs = ['/dmel/CRD.2022-05-13.10-18-52/trust_TE.fa', ]
     print('krf library output:')
     for lib in krf_libs:
         lib_path = krf_dir + lib

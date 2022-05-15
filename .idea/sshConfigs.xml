@@ -2,7 +2,7 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig authType="PASSWORD" host="hpclogin1.csu.edu.cn" id="9883c6e6-c037-41cc-9bd9-2b6b2cbb4ec1" port="8220" nameFormat="DESCRIPTIVE" username="hpc194701009" />
+      <sshConfig authType="PASSWORD" host="hpclogin1.csu.edu.cn" id="9883c6e6-c037-41cc-9bd9-2b6b2cbb4ec1" port="9220" nameFormat="DESCRIPTIVE" username="hpc194701009" useOpenSSHConfig="true" />
     </configs>
   </component>
 </project>
