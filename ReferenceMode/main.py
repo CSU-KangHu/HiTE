@@ -561,8 +561,10 @@ if __name__ == '__main__':
     with open(repeat_freq_path, 'w') as f_save:
         for repeat_id in new_mapping_repeatIds.keys():
             freq = new_mapping_repeatIds[repeat_id][0]
-            if freq > 1:
-                f_save.write('>' + repeat_id + '\tcopies=' + str(freq+1) + '\n' + merge_repeat_contigs[repeat_id] + '\n')
+            seq = merge_repeat_contigs[repeat_id]
+            if freq <= 1 or (freq < 5 and len(seq) < 80):
+                continue
+            f_save.write('>' + repeat_id + '\tcopies=' + str(freq+1) + '\n' + seq + '\n')
 
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
@@ -575,33 +577,33 @@ if __name__ == '__main__':
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
 
-    # starttime = time.time()
-    # # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
-    # # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    # TRF_Path = param['TRF_Path']
-    #
-    # trf_dir = tmp_output_dir + '/trf_temp'
-    # if not os.path.exists(trf_dir):
-    #     os.makedirs(trf_dir)
-    # (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
-    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
-    # log.logger.debug(trf_command)
-    # os.system(trf_command)
-    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-    #
-    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    # repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
-    # repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-    # with open(repeats_path, 'w') as f_save:
-    #     for name in trf_contigNames:
-    #         seq = trf_contigs[name]
-    #         if float(seq.count('X')) / len(seq) < tandem_region_cutoff and len(seq) >= 80:
-    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
-    #
-    # endtime = time.time()
-    # dtime = endtime - starttime
-    # log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+    starttime = time.time()
+    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
+    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
+    TRF_Path = param['TRF_Path']
+
+    trf_dir = tmp_output_dir + '/trf_temp'
+    if not os.path.exists(trf_dir):
+        os.makedirs(trf_dir)
+    (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
+    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
+    log.logger.debug(trf_command)
+    os.system(trf_command)
+    trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+
+    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
+    repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
+    with open(repeats_path, 'w') as f_save:
+        for name in trf_contigNames:
+            seq = trf_contigs[name]
+            if float(seq.count('X')) / len(seq) < tandem_region_cutoff:
+                f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
 
     # --------------------------------------------------------------------------------------
     # Step10. run TE classification to classify TE family
@@ -610,14 +612,14 @@ if __name__ == '__main__':
     sample_name = alias
     TEClass_home = os.getcwd() + '/classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                      + ' --consensus ' + merge_pure_consensus + ' --genome ' + reference \
+                      + ' --consensus ' + repeats_path + ' --genome ' + reference \
                       + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
     log.logger.debug(TEClass_command)
     os.system(TEClass_command)
 
     # --------------------------------------------------------------------------------------
     # Step11. assign a family name for each classified TE consensus
-    classified_consensus_path = merge_pure_consensus + '.final.classified'
+    classified_consensus_path = repeats_path + '.final.classified'
     classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
     family_path = tmp_output_dir + '/family_' + sample_name + '.fasta'
     with open(family_path, 'w') as f_save:
