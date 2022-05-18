@@ -810,7 +810,7 @@ def get_alignment_info_v3(sam_paths, repeats_file):
             cigarstr = str(record[3])
             alignment_len = record[5]
             identity = record[6]
-            if float(alignment_len) / query_len >= 0.9 and identity >= 80:
+            if float(alignment_len) / query_len >= 0.95 and identity >= 95:
                 complete_alignment_num += 1
                 if identity >= 90:
                     high_identity_num += 1

@@ -406,7 +406,7 @@ if __name__ == '__main__':
         fault_tolerant_bases = default_fault_tolerant_bases
 
 
-    default_tandem_region_cutoff = 0.5
+    default_tandem_region_cutoff = 0.8
     if tandem_region_cutoff is None:
         tandem_region_cutoff = default_tandem_region_cutoff
 
@@ -573,7 +573,7 @@ if __name__ == '__main__':
     ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
     backjob.join()
     os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
-    cd_hit_command = tools_dir + '/cd-hit-est -s 0.8 -c 0.8 -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
+    cd_hit_command = tools_dir + '/cd-hit-est -s 0.95 -c 0.95 -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
 
@@ -598,7 +598,7 @@ if __name__ == '__main__':
     with open(repeats_path, 'w') as f_save:
         for name in trf_contigNames:
             seq = trf_contigs[name]
-            if float(seq.count('X')) / len(seq) < tandem_region_cutoff:
+            if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
                 f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
 
     endtime = time.time()
@@ -625,9 +625,9 @@ if __name__ == '__main__':
     with open(family_path, 'w') as f_save:
         for f_id, name in enumerate(classified_contigNames):
             sequence = classified_contigs[name]
-            # if len(sequence) < 80:
-            #     continue
             class_name = name.split('#')[1]
+            if len(sequence) < 80 and class_name == 'Unknown':
+                continue
             f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
     endtime = time.time()
     dtime = endtime - starttime

@@ -6,15 +6,86 @@ from Util import convertToUpperCase, read_fasta, getReverseSequence, \
     store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v1
 
 if __name__ == '__main__':
-    curated_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/model_lib.fa'
-    curated_contignames, curated_contigs = read_fasta(curated_library)
-    output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output'
-    # # extract from curated library
-    model_lib_path = output_dir + '/model_lib.fa'
-    with open(model_lib_path, 'w') as f_save:
-        for name in curated_contignames:
-            seq = curated_contigs[name]
-            f_save.write('>' + name + '\n' + seq + '\n')
+    # reference = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/genome_model.fa'
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/krf_output/CRD.2022-05-16.10-45-46'
+    # merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
+    # merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
+    # tools_dir = os.getcwd() + '/tools'
+    # cd_hit_command = tools_dir + '/cd-hit-est -s 0.95 -c 0.95 -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    # TRF_Path = '/public/home/hpc194701009/repeat_detect_tools/trf409.linux64'
+    # tandem_region_cutoff = 0.9
+    # trf_dir = tmp_output_dir + '/trf_temp'
+    # if not os.path.exists(trf_dir):
+    #     os.makedirs(trf_dir)
+    # (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
+    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
+    # os.system(trf_command)
+    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+    #
+    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    # repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
+    # repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
+    # with open(repeats_path, 'w') as f_save:
+    #     for name in trf_contigNames:
+    #         seq = trf_contigs[name]
+    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
+    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+    #
+    # # --------------------------------------------------------------------------------------
+    # # Step10. run TE classification to classify TE family
+    # sample_name = 'model'
+    # TEClass_home = os.getcwd() + '/classification'
+    # TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+    #                   + ' --consensus ' + repeats_path + ' --genome ' + reference \
+    #                   + ' --thread_num ' + str(48) + ' -o ' + tmp_output_dir
+    # os.system(TEClass_command)
+    #
+    # # --------------------------------------------------------------------------------------
+    # # Step11. assign a family name for each classified TE consensus
+    # classified_consensus_path = repeats_path + '.final.classified'
+    # classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
+    # family_path = tmp_output_dir + '/family_' + sample_name + '.fasta'
+    # with open(family_path, 'w') as f_save:
+    #     for f_id, name in enumerate(classified_contigNames):
+    #         sequence = classified_contigs[name]
+    #         # if len(sequence) < 80:
+    #         #     continue
+    #         class_name = name.split('#')[1]
+    #         f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
+    #
+    # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
+    # family_path = output_dir + '/family_dmel.fasta'
+    # RepeatMasker_Home = '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepeatMasker'
+    # RepeatMasker_command = 'cd ' + output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(48) \
+    #                     + ' -noint -x ' + ' ' + reference
+    # os.system('rm -rf ' + RepeatMasker_output_dir)
+    # os.system(RepeatMasker_command)
+
+    # curated_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/O.sativa_curated.fasta'
+    # curated_contignames, curated_contigs = read_fasta(curated_library)
+    # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats'
+    # # # extract from curated library
+    # model_lib_path = output_dir + '/O.sativa_curated.fasta'
+    # with open(model_lib_path, 'w') as f_save:
+    #     for name in curated_contignames:
+    #         class_name = name.split('#')[1]
+    #         if class_name == 'Simple_repeat' or class_name == 'Low_complexity':
+    #             continue
+    #         seq = curated_contigs[name]
+    #         f_save.write('>' + name + '\n' + seq + '\n')
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
+    family_path = tmp_output_dir + '/family_dmel.fasta'
+    family_contigNames, family_contigs = read_fasta(family_path)
+    new_family_path = tmp_output_dir + '/family_dmel.filter_80.fasta'
+    with open(new_family_path, 'w') as f_save:
+        for f_id, name in enumerate(family_contigNames):
+            sequence = family_contigs[name]
+            class_name = name.split('#')[1]
+            if len(sequence) < 80:
+                continue
+            f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
 
     # blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
     # protein_db_path = '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepeatMasker/Libraries/RepeatPeps.lib'
