@@ -3,13 +3,216 @@ import os
 from Util import convertToUpperCase, read_fasta, getReverseSequence, \
     Logger, split_repeats, compute_identity, run_alignment, multi_line, generate_blastlike_output, \
     get_multiple_alignment_repeat, split2cluster, cut_repeat_v1, judgeReduceThreads, get_ltr_suppl_from_ltrfinder, \
-    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v1
+    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3, compare_seq
 
 if __name__ == '__main__':
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-19.19-47-21'
+    output_dir = tmp_output_dir
+    repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
+    reference = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/genome_model.fa'
     # try to chain all fragments
-    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
-    # repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
-    best_name = 'F1,F2,F3'
+    # --------------------------------------------------------------------------------------
+    # newly strategy: 2022-04-29 by Kang Hu
+    # 01: use bwa to get single mapped sequence
+    candidate_repeats_path = repeats_consensus
+    blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
+    use_align_tools = 'bwa'
+    tools_dir = os.getcwd() + '/tools'
+    sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, 48, tools_dir)
+    sam_paths = []
+    sam_paths.append(sam_path_bwa)
+    # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
+    new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, candidate_repeats_path)
+    repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
+    merge_repeat_contigNames, merge_repeat_contigs = read_fasta(candidate_repeats_path)
+    # single repeat probably be Chimeric repeat
+    with open(repeat_freq_path, 'w') as f_save:
+        for repeat_id in new_mapping_repeatIds.keys():
+            freq = new_mapping_repeatIds[repeat_id][0]
+            seq = merge_repeat_contigs[repeat_id]
+            if freq <= 1 or (freq < 5 and len(seq) < 80):
+                continue
+            f_save.write('>' + repeat_id + '\tcopies=' + str(freq + 1) + '\n' + seq + '\n')
+
+    # --------------------------------------------------------------------------------------
+    # skip variation between fragments: 2022-05-19 by Kang Hu
+    # sort by start and end position
+    sorted_fragments = {}
+    for ref_name in query_position.keys():
+        position_array = query_position[ref_name]
+        position_array.sort(key=lambda x: (x[1], x[2]))
+        sorted_fragments[ref_name] = position_array
+
+    # find all regions could be connected, threshold = 200bp
+    # region_list keeps all regions, which include all fragments can be connected
+    # region_list = {
+    # R1: {
+    # ref_name: [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+    # }
+    # }
+    skip_threshold = 200
+    region_list = {}
+    last_end_pos = -1
+    region_index = 0
+    for ref_name in sorted_fragments.keys():
+        cur_ref_fragments = sorted_fragments[ref_name]
+        for item in cur_ref_fragments:
+            query_name = item[0]
+            start = item[1]
+            end = item[2]
+            region_id = 'R' + str(region_index)
+            if not region_list.__contains__(region_id):
+                region_list[region_id] = {}
+            cur_region_dict = region_list[region_id]
+            if not cur_region_dict.__contains__(ref_name):
+                cur_region_dict[ref_name] = []
+            cur_region_list = cur_region_dict[ref_name]
+            if last_end_pos == -1:
+                # first fragment add into cur_region_list directly
+                cur_region_list.append((query_name, start, end))
+            else:
+                # cur fragment close to last fragment
+                if start - last_end_pos < skip_threshold:
+                    cur_region_list.append((query_name, start, end))
+                else:
+                    # cur fragment far from last fragment, start a new region
+                    region_index += 1
+                    region_id = 'R' + str(region_index)
+                    if not region_list.__contains__(region_id):
+                        region_list[region_id] = {}
+                    cur_region_dict = region_list[region_id]
+                    if not cur_region_dict.__contains__(ref_name):
+                        cur_region_dict[ref_name] = []
+                    cur_region_list = cur_region_dict[ref_name]
+                    cur_region_list.append((query_name, start, end))
+                    cur_region_dict[ref_name] = cur_region_list
+                    region_list[region_id] = cur_region_dict
+            cur_region_dict[ref_name] = cur_region_list
+            region_list[region_id] = cur_region_dict
+            last_end_pos = end
+
+    # region_combination keeps all combination of fragment in one region
+    # e.g., region_combination = {
+    # R1: {
+    # max_combination_len : 3,
+    # combinations: {
+    # c=3: [F1F2F3],
+    # c=2: [F1F2, F2F3],
+    # c=1: [F1,F2,F3]
+    # }
+    # }
+    # }
+
+    # frag_hash keeps all fragment combination information: combination_len, reference, start, end
+    # e.g., frag_hash = {
+    # F1F2: {
+    # R1: (c=2, ref_name, start, end)
+    # R2: (c=2, ref_name, start, end)
+    # }
+    # }
+    region_combination = {}
+    frag_hash = {}
+    #print(region_list)
+    for region_id in region_list.keys():
+        cur_region_dict = region_list[region_id]
+        for ref_name in cur_region_dict.keys():
+            cur_region_list = cur_region_dict[ref_name]
+            max_combination_len = len(cur_region_list)
+            if not region_combination.__contains__(region_id):
+                region_combination[region_id] = {}
+            cur_region_combination = region_combination[region_id]
+            cur_region_combination['max_combination_len'] = max_combination_len
+            combinations = {}
+            for c in range(1, max_combination_len + 1):
+                if not combinations.__contains__(c):
+                    combinations[c] = []
+                cur_combinations = combinations[c]
+                for left in range(len(cur_region_list) - c + 1):
+                    # connect fragments with len=c
+                    combine_name = ''
+                    combine_frag_start = -1
+                    combine_frag_end = -1
+                    for l in range(c):
+                        cur_frag = cur_region_list[left + l]
+                        cur_frag_start = cur_frag[1]
+                        cur_frag_end = cur_frag[2]
+                        if combine_frag_start == -1:
+                            combine_frag_start = cur_frag_start
+                        combine_frag_end = cur_frag_end
+                        if combine_name != '':
+                            combine_name += ','
+                        combine_name += cur_frag[0]
+                    cur_combinations.append(combine_name)
+                    if not frag_hash.__contains__(combine_name):
+                        frag_hash[combine_name] = {}
+                    cur_frag_dict = frag_hash[combine_name]
+                    cur_frag_dict[region_id] = (c, ref_name, combine_frag_start, combine_frag_end)
+                    frag_hash[combine_name] = cur_frag_dict
+
+                    combine_name = ''
+                    combine_frag_start = -1
+                    combine_frag_end = -1
+                combinations[c] = cur_combinations
+            cur_region_combination['combinations'] = combinations
+
+    refNames, refContigs = read_fasta(reference)
+    # go through each region, find candidate combine fragments
+    identity_threshold = 0.95
+    length_similarity_cutoff = 0.95
+    # regionContigs keeps all fragments in each region
+    regionContigs = {}
+    seq_idx = 0
+    # go through each region
+    for region_id in region_combination.keys():
+        cur_region_combination = region_combination[region_id]
+        combinations = cur_region_combination['combinations']
+        max_combination_len = cur_region_combination['max_combination_len']
+        # start from max length combination
+        for c in range(max_combination_len, 0, -1):
+            cur_combinations = combinations[c]
+            max_identity = 0
+            best_combine_name = None
+            for combine_name in cur_combinations:
+                # find in frag_hash
+                frag_region_dict = frag_hash[combine_name]
+                # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
+                self_info = frag_region_dict[region_id]
+                for other_region_id in frag_region_dict.keys():
+                    if region_id != other_region_id:
+                        other_info = frag_region_dict[other_region_id]
+                        # self info similar to other_info
+                        identity = compare_seq(self_info, other_info, identity_threshold, length_similarity_cutoff,
+                                               refContigs, output_dir, seq_idx, blast_program_dir)
+                        seq_idx += 1
+                        if identity is not None and identity > max_identity:
+                            max_identity = identity
+                            best_combine_name = combine_name
+            # if current combination reach score threshold, then it can be used to replace the whole region
+            if max_identity >= identity_threshold:
+                if not regionContigs.__contains__(region_id):
+                    regionContigs[region_id] = []
+                final_frags = regionContigs[region_id]
+                ref_name = self_info[1]
+                # replace the whole region with best combine
+                final_frags.append((best_combine_name, ref_name, self_info[2], self_info[3]))
+                # all_frags = [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+                all_frags = region_list[region_id][ref_name]
+                best_frags = best_combine_name.split(',')
+                # keep other fragments
+                for frag in all_frags:
+                    if frag[0] not in best_frags:
+                        final_frags.append((frag[0], ref_name, frag[1], frag[2]))
+                regionContigs[region_id] = final_frags
+                break
+
+    connected_repeats = tmp_output_dir + '/repeats.connect.fa'
+    with open(connected_repeats, 'w') as f_save:
+        node_index = 0
+        for region_id in regionContigs.keys():
+            for frag in regionContigs[region_id]:
+                seq = refContigs[frag[1]][frag[2]: frag[3]]
+                f_save.write('>Node_' + str(node_index) + '\n' + seq + '\n')
+                node_index += 1
 
     # reference = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/genome_model.fa'
     # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/krf_output/CRD.2022-05-16.10-45-46'

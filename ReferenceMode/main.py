@@ -15,7 +15,7 @@ import pysam
 from Util import convertToUpperCase, read_fasta, getReverseSequence, \
     Logger, split_repeats, compute_identity, run_alignment, multi_line, generate_blastlike_output, \
     get_multiple_alignment_repeat, split2cluster, cut_repeat_v1, judgeReduceThreads, get_ltr_suppl_from_ltrfinder, \
-    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3
+    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3, compare_seq
 
 dict_encode = {'A': 0b001, 'C': 0b011, 'G': 0b010, 'T': 0b100, 'N': 0b101}
 def three_bit_encode(str):
@@ -411,113 +411,6 @@ def run_GRF(GRF_Home, reference, tmp_output_dir, threads):
     os.system(grf_mite_command)
 
 
-def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff,
-                refContigs, output_dir, seq_idx, blast_program_dir):
-    # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
-    ref_name = self_info[1]
-    ref_seq = refContigs[ref_name]
-
-    self_combine_frag_start = self_info[2]
-    self_combine_frag_end = self_info[3]
-
-    other_combine_frag_start = other_info[2]
-    other_combine_frag_end = other_info[3]
-
-    self_seq = ref_seq[self_combine_frag_start: self_combine_frag_end]
-    self_contigs = {}
-    self_contigs['self'] = self_seq
-
-    other_seq = ref_seq[other_combine_frag_start: other_combine_frag_end]
-    other_contigs = {}
-    other_contigs['other'] = other_seq
-
-    self_seq_path = output_dir + '/self_' + str(seq_idx) + '.fa'
-    other_seq_path = output_dir + '/other_' + str(seq_idx) + '.fa'
-    blastnResults_path = output_dir + '/blast_' + str(seq_idx) + '.out'
-    store_fasta(self_contigs, self_seq_path)
-    store_fasta(other_contigs, other_seq_path)
-
-    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + other_contigs
-    align_command = blast_program_dir + '/bin/blastn -db ' + other_contigs + ' -query ' + self_contigs + ' -outfmt 6 > ' + blastnResults_path
-    log.logger.debug(makedb_command)
-    os.system(makedb_command)
-    log.logger.debug(align_command)
-    os.system(align_command)
-
-    query_name_set = set()
-    target_name_set = set()
-    query_cluster = {}
-    with open(blastnResults_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.split('\t')
-            query_name = parts[0]
-            target_name = parts[1]
-            identity = float(parts[2])
-            match_base = int(parts[3])
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            t_start = int(parts[8])
-            t_end = int(parts[9])
-
-            query_len = len(self_seq)
-            target_len = len(other_seq)
-            key = query_name + '$' +target_name
-            if not query_cluster.__contains__(key):
-                query_cluster[key] = ([], -1, -1)
-            tuple = query_cluster[key]
-            cluster = tuple[0]
-            if identity >= identity_cutoff:
-                cluster.append((q_start, q_end, t_start, t_end, identity))
-            query_cluster[key] = (cluster, query_len, target_len)
-
-    total_identity = 0
-    avg_identity = 0
-    for key in query_cluster.keys():
-        parts = key.split('$')
-        query_name = parts[0]
-        target_name = parts[1]
-
-        tuple = query_cluster[key]
-        query_len = tuple[1]
-        target_len = tuple[2]
-        query_array = ['' for _ in range(query_len)]
-        target_array = ['' for _ in range(target_len)]
-        query_masked_len = 0
-        target_masked_len = 0
-        for record in tuple[0]:
-            qstart = record[0]
-            qend = record[1]
-            if qstart > qend:
-                tmp = qend
-                qend = qstart
-                qstart = tmp
-            for i in range(qstart, qend):
-                query_array[i] = 'X'
-
-            tstart = record[2]
-            tend = record[3]
-            if tstart > tend:
-                tmp = tend
-                tend = tstart
-                tstart = tmp
-            for i in range(tstart, tend):
-                target_array[i] = 'X'
-
-            identity = record[4]
-            total_identity += identity
-        avg_identity = float(total_identity)/len(tuple[0])
-        for j in range(len(query_array)):
-            if query_array[j] == 'X':
-                query_masked_len += 1
-        for j in range(len(target_array)):
-            if target_array[j] == 'X':
-                target_masked_len += 1
-        if float(query_masked_len)/query_len >= length_similarity_cutoff and float(target_masked_len)/target_len >= length_similarity_cutoff:
-            return avg_identity
-
-
-
-
 if __name__ == '__main__':
     # 1.parse args
     parser = argparse.ArgumentParser(description='run kmerRepFinder...')
@@ -713,7 +606,7 @@ if __name__ == '__main__':
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
     cur_segments = convertToUpperCase(reference)
-    repeat_segments = generate_candidate_repeats_v1(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
+    repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
 
     repeats_path = tmp_output_dir + '/repeats.fa'
     node_index = 0
@@ -731,14 +624,15 @@ if __name__ == '__main__':
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
 
-
+    # try to chain all fragments
     # --------------------------------------------------------------------------------------
     # newly strategy: 2022-04-29 by Kang Hu
     # 01: use bwa to get single mapped sequence
     candidate_repeats_path = repeats_consensus
-    blast_program_dir = param['RMBlast_Home']
+    blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
     use_align_tools = 'bwa'
-    sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
+    tools_dir = os.getcwd() + '/tools'
+    sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, 48, tools_dir)
     sam_paths = []
     sam_paths.append(sam_path_bwa)
     # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
@@ -752,19 +646,23 @@ if __name__ == '__main__':
             seq = merge_repeat_contigs[repeat_id]
             if freq <= 1 or (freq < 5 and len(seq) < 80):
                 continue
-            f_save.write('>' + repeat_id + '\tcopies=' + str(freq+1) + '\n' + seq + '\n')
+            f_save.write('>' + repeat_id + '\tcopies=' + str(freq + 1) + '\n' + seq + '\n')
 
     # --------------------------------------------------------------------------------------
     # skip variation between fragments: 2022-05-19 by Kang Hu
-    #sort by start and end position
-    sorted_fragments = {k: v for k, v in sorted(query_position.items(), key=lambda item: (item[1][1], item[1][2]))}
+    # sort by start and end position
+    sorted_fragments = {}
+    for ref_name in query_position.keys():
+        position_array = query_position[ref_name]
+        position_array.sort(key=lambda x: (x[1], x[2]))
+        sorted_fragments[ref_name] = position_array
 
     # find all regions could be connected, threshold = 200bp
     # region_list keeps all regions, which include all fragments can be connected
     # region_list = {
-        # R1: {
-            # ref_name: [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
-        # }
+    # R1: {
+    # ref_name: [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+    # }
     # }
     skip_threshold = 200
     region_list = {}
@@ -776,7 +674,7 @@ if __name__ == '__main__':
             query_name = item[0]
             start = item[1]
             end = item[2]
-            region_id = 'R'+str(region_index)
+            region_id = 'R' + str(region_index)
             if not region_list.__contains__(region_id):
                 region_list[region_id] = {}
             cur_region_dict = region_list[region_id]
@@ -792,7 +690,6 @@ if __name__ == '__main__':
                     cur_region_list.append((query_name, start, end))
                 else:
                     # cur fragment far from last fragment, start a new region
-                    region_list[region_id] = cur_region_list
                     region_index += 1
                     region_id = 'R' + str(region_index)
                     if not region_list.__contains__(region_id):
@@ -802,29 +699,34 @@ if __name__ == '__main__':
                         cur_region_dict[ref_name] = []
                     cur_region_list = cur_region_dict[ref_name]
                     cur_region_list.append((query_name, start, end))
+                    cur_region_dict[ref_name] = cur_region_list
+                    region_list[region_id] = cur_region_dict
+            cur_region_dict[ref_name] = cur_region_list
+            region_list[region_id] = cur_region_dict
             last_end_pos = end
 
     # region_combination keeps all combination of fragment in one region
     # e.g., region_combination = {
-        # R1: {
-                # max_combination_len : 3,
-                # combinations: {
-                    # c=3: [F1F2F3],
-                    # c=2: [F1F2, F2F3],
-                    # c=1: [F1,F2,F3]
-                # }
-            # }
-        # }
+    # R1: {
+    # max_combination_len : 3,
+    # combinations: {
+    # c=3: [F1F2F3],
+    # c=2: [F1F2, F2F3],
+    # c=1: [F1,F2,F3]
+    # }
+    # }
+    # }
 
     # frag_hash keeps all fragment combination information: combination_len, reference, start, end
     # e.g., frag_hash = {
-        # F1F2: {
-            # R1: (c=2, ref_name, start, end)
-            # R2: (c=2, ref_name, start, end)
-        # }
+    # F1F2: {
+    # R1: (c=2, ref_name, start, end)
+    # R2: (c=2, ref_name, start, end)
+    # }
     # }
     region_combination = {}
     frag_hash = {}
+    # print(region_list)
     for region_id in region_list.keys():
         cur_region_dict = region_list[region_id]
         for ref_name in cur_region_dict.keys():
@@ -835,11 +737,11 @@ if __name__ == '__main__':
             cur_region_combination = region_combination[region_id]
             cur_region_combination['max_combination_len'] = max_combination_len
             combinations = {}
-            for c in range(1, max_combination_len+1):
+            for c in range(1, max_combination_len + 1):
                 if not combinations.__contains__(c):
                     combinations[c] = []
                 cur_combinations = combinations[c]
-                for left in range(len(cur_region_list)-c):
+                for left in range(len(cur_region_list) - c + 1):
                     # connect fragments with len=c
                     combine_name = ''
                     combine_frag_start = -1
@@ -879,9 +781,6 @@ if __name__ == '__main__':
         cur_region_combination = region_combination[region_id]
         combinations = cur_region_combination['combinations']
         max_combination_len = cur_region_combination['max_combination_len']
-        find_best_combine = False
-        if find_best_combine:
-            continue
         # start from max length combination
         for c in range(max_combination_len, 0, -1):
             cur_combinations = combinations[c]
@@ -896,9 +795,10 @@ if __name__ == '__main__':
                     if region_id != other_region_id:
                         other_info = frag_region_dict[other_region_id]
                         # self info similar to other_info
-                        identity = compare_seq(self_info, other_info, identity_threshold, length_similarity_cutoff, refContigs, output_dir, seq_idx, blast_program_dir)
+                        identity = compare_seq(self_info, other_info, identity_threshold, length_similarity_cutoff,
+                                               refContigs, output_dir, seq_idx, blast_program_dir)
                         seq_idx += 1
-                        if identity > max_identity:
+                        if identity is not None and identity > max_identity:
                             max_identity = identity
                             best_combine_name = combine_name
             # if current combination reach score threshold, then it can be used to replace the whole region
@@ -908,16 +808,15 @@ if __name__ == '__main__':
                 final_frags = regionContigs[region_id]
                 ref_name = self_info[1]
                 # replace the whole region with best combine
-                final_frags.append(best_combine_name, ref_name, self_info[2], self_info[3])
+                final_frags.append((best_combine_name, ref_name, self_info[2], self_info[3]))
                 # all_frags = [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
                 all_frags = region_list[region_id][ref_name]
                 best_frags = best_combine_name.split(',')
                 # keep other fragments
                 for frag in all_frags:
                     if frag[0] not in best_frags:
-                        final_frags.append(frag[0], ref_name, frag[1], frag[2])
+                        final_frags.append((frag[0], ref_name, frag[1], frag[2]))
                 regionContigs[region_id] = final_frags
-                find_best_combine = True
                 break
 
     connected_repeats = tmp_output_dir + '/repeats.connect.fa'
@@ -926,13 +825,14 @@ if __name__ == '__main__':
         for region_id in regionContigs.keys():
             for frag in regionContigs[region_id]:
                 seq = refContigs[frag[1]][frag[2]: frag[3]]
-                f_save.write('>Node_'+node_index+'\n'+seq+'\n')
+                f_save.write('>Node_' + str(node_index) + '\n' + seq + '\n')
+                node_index += 1
 
 
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
     merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
-    os.system('cat ' + repeat_freq_path + ' >> ' + merge_pure)
+    os.system('cat ' + connected_repeats + ' >> ' + merge_pure)
     ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
     backjob.join()
     os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)

@@ -36,6 +36,112 @@ if __name__ == '__main__':
     log.logger.info('info')
     Logger('error.log', level='error').logger.error('error')
 
+def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff,
+                refContigs, output_dir, seq_idx, blast_program_dir):
+    # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
+    ref_name = self_info[1]
+    ref_seq = refContigs[ref_name]
+
+    self_combine_frag_start = self_info[2]
+    self_combine_frag_end = self_info[3]
+
+    other_combine_frag_start = other_info[2]
+    other_combine_frag_end = other_info[3]
+
+    self_seq = ref_seq[self_combine_frag_start: self_combine_frag_end]
+    self_contigs = {}
+    self_contigs['self'] = self_seq
+
+    other_seq = ref_seq[other_combine_frag_start: other_combine_frag_end]
+    other_contigs = {}
+    other_contigs['other'] = other_seq
+    output_dir += '/blastn_tmp'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    self_seq_path = output_dir + '/self_' + str(seq_idx) + '.fa'
+    other_seq_path = output_dir + '/other_' + str(seq_idx) + '.fa'
+    blastnResults_path = output_dir + '/blast_' + str(seq_idx) + '.out'
+    store_fasta(self_contigs, self_seq_path)
+    store_fasta(other_contigs, other_seq_path)
+
+    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + other_seq_path
+    align_command = blast_program_dir + '/bin/blastn -db ' + other_seq_path + ' -query ' + self_seq_path + ' -outfmt 6 > ' + blastnResults_path
+    print(makedb_command)
+    os.system(makedb_command)
+    print(align_command)
+    os.system(align_command)
+
+    query_name_set = set()
+    target_name_set = set()
+    query_cluster = {}
+    with open(blastnResults_path, 'r') as f_r:
+        for line in f_r:
+            parts = line.split('\t')
+            query_name = parts[0]
+            target_name = parts[1]
+            identity = float(parts[2])
+            match_base = int(parts[3])
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            t_start = int(parts[8])
+            t_end = int(parts[9])
+
+            query_len = len(self_seq)
+            target_len = len(other_seq)
+            key = query_name + '$' +target_name
+            if not query_cluster.__contains__(key):
+                query_cluster[key] = ([], -1, -1)
+            tuple = query_cluster[key]
+            cluster = tuple[0]
+            if identity >= identity_cutoff:
+                cluster.append((q_start, q_end, t_start, t_end, identity))
+            query_cluster[key] = (cluster, query_len, target_len)
+
+    total_identity = 0
+    avg_identity = 0
+    for key in query_cluster.keys():
+        parts = key.split('$')
+        query_name = parts[0]
+        target_name = parts[1]
+
+        tuple = query_cluster[key]
+        query_len = tuple[1]
+        target_len = tuple[2]
+        query_array = ['' for _ in range(query_len)]
+        target_array = ['' for _ in range(target_len)]
+        query_masked_len = 0
+        target_masked_len = 0
+        for record in tuple[0]:
+            qstart = record[0]
+            qend = record[1]
+            if qstart > qend:
+                tmp = qend
+                qend = qstart
+                qstart = tmp
+            for i in range(qstart, qend):
+                query_array[i] = 'X'
+
+            tstart = record[2]
+            tend = record[3]
+            if tstart > tend:
+                tmp = tend
+                tend = tstart
+                tstart = tmp
+            for i in range(tstart, tend):
+                target_array[i] = 'X'
+
+            identity = record[4]
+            total_identity += identity
+        avg_identity = float(total_identity)/len(tuple[0])
+        for j in range(len(query_array)):
+            if query_array[j] == 'X':
+                query_masked_len += 1
+        for j in range(len(target_array)):
+            if target_array[j] == 'X':
+                target_masked_len += 1
+        if float(query_masked_len)/query_len >= length_similarity_cutoff and float(target_masked_len)/target_len >= length_similarity_cutoff:
+            return float(avg_identity)/100
+
 def multi_line(fasta_path, line_len, k_num):
     k_num = int(k_num)
     tmp_fasta_path = fasta_path + ".tmp"
@@ -828,7 +934,7 @@ def get_alignment_info_v3(sam_paths, repeats_file):
                 t_start = tmp
             if not query_position.__contains__(reference_name):
                 query_position[reference_name] = []
-            same_chr_seq = []
+            same_chr_seq = query_position[reference_name]
             same_chr_seq.append((query_name, t_start, t_end))
             query_position[reference_name] = same_chr_seq
         mapping_repeatIds[query_name] = (complete_alignment_num, query_len)

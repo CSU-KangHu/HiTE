@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="super" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="hpc194701009@hpclogin1.csu.edu.cn:9220" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
+      <paths name="hpc194701009@hpclogin1.csu.edu.cn:9220">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="super">
         <serverdata>
           <mappings>
