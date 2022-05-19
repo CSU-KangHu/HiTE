@@ -6,6 +6,11 @@ from Util import convertToUpperCase, read_fasta, getReverseSequence, \
     store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v1
 
 if __name__ == '__main__':
+    # try to chain all fragments
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
+    # repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
+    best_name = 'F1,F2,F3'
+
     # reference = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/genome_model.fa'
     # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output/krf_output/CRD.2022-05-16.10-45-46'
     # merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
@@ -75,17 +80,18 @@ if __name__ == '__main__':
     #             continue
     #         seq = curated_contigs[name]
     #         f_save.write('>' + name + '\n' + seq + '\n')
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
-    family_path = tmp_output_dir + '/family_dmel.fasta'
-    family_contigNames, family_contigs = read_fasta(family_path)
-    new_family_path = tmp_output_dir + '/family_dmel.filter_80.fasta'
-    with open(new_family_path, 'w') as f_save:
-        for f_id, name in enumerate(family_contigNames):
-            sequence = family_contigs[name]
-            class_name = name.split('#')[1]
-            if len(sequence) < 80:
-                continue
-            f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
+
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
+    # family_path = tmp_output_dir + '/family_dmel.fasta'
+    # family_contigNames, family_contigs = read_fasta(family_path)
+    # new_family_path = tmp_output_dir + '/family_dmel.filter_80.fasta'
+    # with open(new_family_path, 'w') as f_save:
+    #     for f_id, name in enumerate(family_contigNames):
+    #         sequence = family_contigs[name]
+    #         class_name = name.split('#')[1]
+    #         if len(sequence) < 80:
+    #             continue
+    #         f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
 
     # blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
     # protein_db_path = '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepeatMasker/Libraries/RepeatPeps.lib'

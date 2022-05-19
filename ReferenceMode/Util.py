@@ -791,13 +791,18 @@ def get_alignment_info_v3(sam_paths, repeats_file):
             identity = float(identity) * 100
             is_reverse = read.is_reverse
             alignment_len = read.query_alignment_length
+            q_start = int(read.query_alignment_start)
+            q_end = int(read.query_alignment_end)
+            t_start = int(read.reference_start)
+            t_end = int(read.reference_end)
 
             if not query_records.__contains__(query_name):
                 query_records[query_name] = []
             records = query_records[query_name]
-            records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity))
+            records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity, t_start, t_end))
             query_records[query_name] = records
 
+    query_position = {}
     for query_name in query_records.keys():
         complete_alignment_num = 0
         high_identity_num = 0
@@ -806,18 +811,30 @@ def get_alignment_info_v3(sam_paths, repeats_file):
         for i, record in enumerate(query_records[query_name]):
             if i == 0:
                 continue
+            reference_name = record[1]
             cigar = record[2]
             cigarstr = str(record[3])
             alignment_len = record[5]
             identity = record[6]
+            t_start = record[7]
+            t_end = record[8]
             if float(alignment_len) / query_len >= 0.95 and identity >= 95:
                 complete_alignment_num += 1
                 if identity >= 90:
                     high_identity_num += 1
+            if t_start > t_end:
+                tmp = t_end
+                t_end = t_start
+                t_start = tmp
+            if not query_position.__contains__(reference_name):
+                query_position[reference_name] = []
+            same_chr_seq = []
+            same_chr_seq.append((query_name, t_start, t_end))
+            query_position[reference_name] = same_chr_seq
         mapping_repeatIds[query_name] = (complete_alignment_num, query_len)
     new_mapping_repeatIds = {k: v for k, v in sorted(mapping_repeatIds.items(), key=lambda item: (-item[1][1], -item[1][0]))}
 
-    return new_mapping_repeatIds
+    return new_mapping_repeatIds, query_position
 
 def get_alignment_info_v2(blastn_output):
     unmapped_repeatIds = []

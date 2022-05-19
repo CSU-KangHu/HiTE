@@ -93,6 +93,82 @@ def generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_toler
     log.logger.debug('partition %d process finished' % (partiton_index))
     return repeat_list
 
+def generate_candidate_repeats_v1(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases):
+    #log.logger.debug('partition %d process: %d segments' %(partiton_index, len(cur_segments)))
+    cur_lines = []
+    cur_masked_segments = []
+    for line in cur_segments:
+        # parts = line.split("\t")
+        # contigName = parts[0].split(" ")[0]
+        # # remove ">"
+        # start = int(parts[1])
+        # line = parts[2]
+        cur_lines.append(line)
+        masked_line = list(line)
+        last_masked_pos = -1
+        for i in range(len(line)-k_num+1):
+            kmer = line[i: i+k_num]
+            # get reverse complement kmer
+            r_kmer = getReverseSequence(kmer)
+            # filter invalid kmer, contains 'N'
+            if "N" in r_kmer:
+                continue
+            # encode with binary
+            # kmer_num = three_bit_encode(kmer)
+            # r_kmer_num = three_bit_encode(r_kmer)
+            # unique_key = kmer_num if kmer_num < r_kmer_num else r_kmer_num
+            unique_key = kmer if kmer < r_kmer else r_kmer
+
+            if unique_kmer_map.__contains__(unique_key):
+                # mask position
+                if last_masked_pos == -1:
+                    for j in range(i, i+k_num):
+                        masked_line[j] = 'X'
+                    last_masked_pos = i+k_num-1
+                else:
+                    # do not need to mask position which has been masked
+                    start_mask_pos = i if i > last_masked_pos else last_masked_pos+1
+                    end_mask_pos = i+k_num
+                    for j in range(start_mask_pos, end_mask_pos):
+                        masked_line[j] = 'X'
+                    last_masked_pos = end_mask_pos - 1
+        cur_masked_segments.append(masked_line)
+
+    repeat_list = []
+    cur_repeat_str = ''
+    try_connect_str = ''
+    last_start_pos = -1
+    last_end_pos = -1
+    for seq_index, cur_masked_segment in enumerate(cur_masked_segments):
+        for i in range(len(cur_masked_segment)):
+            if cur_masked_segment[i] == 'X':
+                if last_start_pos == -1:
+                    # record masked sequence start position
+                    last_start_pos = i
+                if try_connect_str != '':
+                    # recover skip gap sequence
+                    cur_repeat_str = try_connect_str
+                    try_connect_str = ''
+                cur_repeat_str = cur_repeat_str + cur_lines[seq_index][i]
+                last_end_pos = i
+            elif cur_repeat_str != '' and cur_masked_segment[i] != 'N':
+                # meet unmasked base
+                if (i - last_end_pos) <= fault_tolerant_bases:
+                    # skip gap
+                    if try_connect_str == '':
+                        try_connect_str = cur_repeat_str
+                    try_connect_str = try_connect_str + cur_lines[seq_index][i]
+                else:
+                    # can not skip gap
+                    repeat_list.append((last_start_pos, cur_repeat_str))
+                    cur_repeat_str = ''
+                    try_connect_str = ''
+                    last_start_pos = -1
+        # keep last masked sequence
+        if cur_repeat_str != '':
+            repeat_list.append((last_start_pos, cur_repeat_str))
+    return repeat_list
+
 def generate_kmer_map(cur_segments, k_num, unique_kmer_map, merged_repeats, partiton_index):
     log.logger.debug('partition %d process: %d segments' %(partiton_index, len(cur_segments)))
     kmer_info_map = {}
@@ -335,6 +411,112 @@ def run_GRF(GRF_Home, reference, tmp_output_dir, threads):
     os.system(grf_mite_command)
 
 
+def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff,
+                refContigs, output_dir, seq_idx, blast_program_dir):
+    # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
+    ref_name = self_info[1]
+    ref_seq = refContigs[ref_name]
+
+    self_combine_frag_start = self_info[2]
+    self_combine_frag_end = self_info[3]
+
+    other_combine_frag_start = other_info[2]
+    other_combine_frag_end = other_info[3]
+
+    self_seq = ref_seq[self_combine_frag_start: self_combine_frag_end]
+    self_contigs = {}
+    self_contigs['self'] = self_seq
+
+    other_seq = ref_seq[other_combine_frag_start: other_combine_frag_end]
+    other_contigs = {}
+    other_contigs['other'] = other_seq
+
+    self_seq_path = output_dir + '/self_' + str(seq_idx) + '.fa'
+    other_seq_path = output_dir + '/other_' + str(seq_idx) + '.fa'
+    blastnResults_path = output_dir + '/blast_' + str(seq_idx) + '.out'
+    store_fasta(self_contigs, self_seq_path)
+    store_fasta(other_contigs, other_seq_path)
+
+    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + other_contigs
+    align_command = blast_program_dir + '/bin/blastn -db ' + other_contigs + ' -query ' + self_contigs + ' -outfmt 6 > ' + blastnResults_path
+    log.logger.debug(makedb_command)
+    os.system(makedb_command)
+    log.logger.debug(align_command)
+    os.system(align_command)
+
+    query_name_set = set()
+    target_name_set = set()
+    query_cluster = {}
+    with open(blastnResults_path, 'r') as f_r:
+        for line in f_r:
+            parts = line.split('\t')
+            query_name = parts[0]
+            target_name = parts[1]
+            identity = float(parts[2])
+            match_base = int(parts[3])
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            t_start = int(parts[8])
+            t_end = int(parts[9])
+
+            query_len = len(self_seq)
+            target_len = len(other_seq)
+            key = query_name + '$' +target_name
+            if not query_cluster.__contains__(key):
+                query_cluster[key] = ([], -1, -1)
+            tuple = query_cluster[key]
+            cluster = tuple[0]
+            if identity >= identity_cutoff:
+                cluster.append((q_start, q_end, t_start, t_end, identity))
+            query_cluster[key] = (cluster, query_len, target_len)
+
+    total_identity = 0
+    avg_identity = 0
+    for key in query_cluster.keys():
+        parts = key.split('$')
+        query_name = parts[0]
+        target_name = parts[1]
+
+        tuple = query_cluster[key]
+        query_len = tuple[1]
+        target_len = tuple[2]
+        query_array = ['' for _ in range(query_len)]
+        target_array = ['' for _ in range(target_len)]
+        query_masked_len = 0
+        target_masked_len = 0
+        for record in tuple[0]:
+            qstart = record[0]
+            qend = record[1]
+            if qstart > qend:
+                tmp = qend
+                qend = qstart
+                qstart = tmp
+            for i in range(qstart, qend):
+                query_array[i] = 'X'
+
+            tstart = record[2]
+            tend = record[3]
+            if tstart > tend:
+                tmp = tend
+                tend = tstart
+                tstart = tmp
+            for i in range(tstart, tend):
+                target_array[i] = 'X'
+
+            identity = record[4]
+            total_identity += identity
+        avg_identity = float(total_identity)/len(tuple[0])
+        for j in range(len(query_array)):
+            if query_array[j] == 'X':
+                query_masked_len += 1
+        for j in range(len(target_array)):
+            if target_array[j] == 'X':
+                target_masked_len += 1
+        if float(query_masked_len)/query_len >= length_similarity_cutoff and float(target_masked_len)/target_len >= length_similarity_cutoff:
+            return avg_identity
+
+
+
 
 if __name__ == '__main__':
     # 1.parse args
@@ -400,7 +582,7 @@ if __name__ == '__main__':
     if sensitive_mode == '1':
         is_sensitive = True
 
-    default_fault_tolerant_bases = k_num
+    default_fault_tolerant_bases = 0
 
     if fault_tolerant_bases is None:
         fault_tolerant_bases = default_fault_tolerant_bases
@@ -531,7 +713,7 @@ if __name__ == '__main__':
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
     cur_segments = convertToUpperCase(reference)
-    repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
+    repeat_segments = generate_candidate_repeats_v1(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
 
     repeats_path = tmp_output_dir + '/repeats.fa'
     node_index = 0
@@ -544,17 +726,23 @@ if __name__ == '__main__':
     dtime = endtime - starttime
     log.logger.debug("module1: Generate repeat file running time: %.8s s" % (dtime))
 
+    repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
+    cd_hit_command = tools_dir + '/cd-hit-est -s 0.95 -c 0.95 -i ' + repeats_path + ' -o ' + repeats_consensus + ' -T 0 -M 0'
+    log.logger.debug(cd_hit_command)
+    os.system(cd_hit_command)
+
+
     # --------------------------------------------------------------------------------------
     # newly strategy: 2022-04-29 by Kang Hu
     # 01: use bwa to get single mapped sequence
-    candidate_repeats_path = repeats_path
+    candidate_repeats_path = repeats_consensus
     blast_program_dir = param['RMBlast_Home']
     use_align_tools = 'bwa'
     sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
     sam_paths = []
     sam_paths.append(sam_path_bwa)
     # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
-    new_mapping_repeatIds = get_alignment_info_v3(sam_paths, candidate_repeats_path)
+    new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, candidate_repeats_path)
     repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
     merge_repeat_contigNames, merge_repeat_contigs = read_fasta(candidate_repeats_path)
     # single repeat probably be Chimeric repeat
@@ -565,6 +753,181 @@ if __name__ == '__main__':
             if freq <= 1 or (freq < 5 and len(seq) < 80):
                 continue
             f_save.write('>' + repeat_id + '\tcopies=' + str(freq+1) + '\n' + seq + '\n')
+
+    # --------------------------------------------------------------------------------------
+    # skip variation between fragments: 2022-05-19 by Kang Hu
+    #sort by start and end position
+    sorted_fragments = {k: v for k, v in sorted(query_position.items(), key=lambda item: (item[1][1], item[1][2]))}
+
+    # find all regions could be connected, threshold = 200bp
+    # region_list keeps all regions, which include all fragments can be connected
+    # region_list = {
+        # R1: {
+            # ref_name: [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+        # }
+    # }
+    skip_threshold = 200
+    region_list = {}
+    last_end_pos = -1
+    region_index = 0
+    for ref_name in sorted_fragments.keys():
+        cur_ref_fragments = sorted_fragments[ref_name]
+        for item in cur_ref_fragments:
+            query_name = item[0]
+            start = item[1]
+            end = item[2]
+            region_id = 'R'+str(region_index)
+            if not region_list.__contains__(region_id):
+                region_list[region_id] = {}
+            cur_region_dict = region_list[region_id]
+            if not cur_region_dict.__contains__(ref_name):
+                cur_region_dict[ref_name] = []
+            cur_region_list = cur_region_dict[ref_name]
+            if last_end_pos == -1:
+                # first fragment add into cur_region_list directly
+                cur_region_list.append((query_name, start, end))
+            else:
+                # cur fragment close to last fragment
+                if start - last_end_pos < skip_threshold:
+                    cur_region_list.append((query_name, start, end))
+                else:
+                    # cur fragment far from last fragment, start a new region
+                    region_list[region_id] = cur_region_list
+                    region_index += 1
+                    region_id = 'R' + str(region_index)
+                    if not region_list.__contains__(region_id):
+                        region_list[region_id] = {}
+                    cur_region_dict = region_list[region_id]
+                    if not cur_region_dict.__contains__(ref_name):
+                        cur_region_dict[ref_name] = []
+                    cur_region_list = cur_region_dict[ref_name]
+                    cur_region_list.append((query_name, start, end))
+            last_end_pos = end
+
+    # region_combination keeps all combination of fragment in one region
+    # e.g., region_combination = {
+        # R1: {
+                # max_combination_len : 3,
+                # combinations: {
+                    # c=3: [F1F2F3],
+                    # c=2: [F1F2, F2F3],
+                    # c=1: [F1,F2,F3]
+                # }
+            # }
+        # }
+
+    # frag_hash keeps all fragment combination information: combination_len, reference, start, end
+    # e.g., frag_hash = {
+        # F1F2: {
+            # R1: (c=2, ref_name, start, end)
+            # R2: (c=2, ref_name, start, end)
+        # }
+    # }
+    region_combination = {}
+    frag_hash = {}
+    for region_id in region_list.keys():
+        cur_region_dict = region_list[region_id]
+        for ref_name in cur_region_dict.keys():
+            cur_region_list = cur_region_dict[ref_name]
+            max_combination_len = len(cur_region_list)
+            if not region_combination.__contains__(region_id):
+                region_combination[region_id] = {}
+            cur_region_combination = region_combination[region_id]
+            cur_region_combination['max_combination_len'] = max_combination_len
+            combinations = {}
+            for c in range(1, max_combination_len+1):
+                if not combinations.__contains__(c):
+                    combinations[c] = []
+                cur_combinations = combinations[c]
+                for left in range(len(cur_region_list)-c):
+                    # connect fragments with len=c
+                    combine_name = ''
+                    combine_frag_start = -1
+                    combine_frag_end = -1
+                    for l in range(c):
+                        cur_frag = cur_region_list[left + l]
+                        cur_frag_start = cur_frag[1]
+                        cur_frag_end = cur_frag[2]
+                        if combine_frag_start == -1:
+                            combine_frag_start = cur_frag_start
+                        combine_frag_end = cur_frag_end
+                        if combine_name != '':
+                            combine_name += ','
+                        combine_name += cur_frag[0]
+                    cur_combinations.append(combine_name)
+                    if not frag_hash.__contains__(combine_name):
+                        frag_hash[combine_name] = {}
+                    cur_frag_dict = frag_hash[combine_name]
+                    cur_frag_dict[region_id] = (c, ref_name, combine_frag_start, combine_frag_end)
+                    frag_hash[combine_name] = cur_frag_dict
+
+                    combine_name = ''
+                    combine_frag_start = -1
+                    combine_frag_end = -1
+                combinations[c] = cur_combinations
+            cur_region_combination['combinations'] = combinations
+
+    refNames, refContigs = read_fasta(reference)
+    # go through each region, find candidate combine fragments
+    identity_threshold = 0.95
+    length_similarity_cutoff = 0.95
+    # regionContigs keeps all fragments in each region
+    regionContigs = {}
+    seq_idx = 0
+    # go through each region
+    for region_id in region_combination.keys():
+        cur_region_combination = region_combination[region_id]
+        combinations = cur_region_combination['combinations']
+        max_combination_len = cur_region_combination['max_combination_len']
+        find_best_combine = False
+        if find_best_combine:
+            continue
+        # start from max length combination
+        for c in range(max_combination_len, 0, -1):
+            cur_combinations = combinations[c]
+            max_identity = 0
+            best_combine_name = None
+            for combine_name in cur_combinations:
+                # find in frag_hash
+                frag_region_dict = frag_hash[combine_name]
+                # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
+                self_info = frag_region_dict[region_id]
+                for other_region_id in frag_region_dict.keys():
+                    if region_id != other_region_id:
+                        other_info = frag_region_dict[other_region_id]
+                        # self info similar to other_info
+                        identity = compare_seq(self_info, other_info, identity_threshold, length_similarity_cutoff, refContigs, output_dir, seq_idx, blast_program_dir)
+                        seq_idx += 1
+                        if identity > max_identity:
+                            max_identity = identity
+                            best_combine_name = combine_name
+            # if current combination reach score threshold, then it can be used to replace the whole region
+            if max_identity >= identity_threshold:
+                if not regionContigs.__contains__(region_id):
+                    regionContigs[region_id] = []
+                final_frags = regionContigs[region_id]
+                ref_name = self_info[1]
+                # replace the whole region with best combine
+                final_frags.append(best_combine_name, ref_name, self_info[2], self_info[3])
+                # all_frags = [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+                all_frags = region_list[region_id][ref_name]
+                best_frags = best_combine_name.split(',')
+                # keep other fragments
+                for frag in all_frags:
+                    if frag[0] not in best_frags:
+                        final_frags.append(frag[0], ref_name, frag[1], frag[2])
+                regionContigs[region_id] = final_frags
+                find_best_combine = True
+                break
+
+    connected_repeats = tmp_output_dir + '/repeats.connect.fa'
+    with open(connected_repeats, 'w') as f_save:
+        node_index = 0
+        for region_id in regionContigs.keys():
+            for frag in regionContigs[region_id]:
+                seq = refContigs[frag[1]][frag[2]: frag[3]]
+                f_save.write('>Node_'+node_index+'\n'+seq+'\n')
+
 
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
