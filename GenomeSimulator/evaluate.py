@@ -10,8 +10,8 @@ from Util import Logger, read_fasta, store_fasta
 # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-16.17-18-37'
 
 model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/model_lib.fa'
-output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-20.0-7-8/family_model.fasta'
-output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-20.0-7-8'
+output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-20.11-19-45/family_model.fasta'
+output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-20.11-19-45'
 
 #output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/Dmel-families.fa'
 #output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
@@ -127,6 +127,6 @@ if __name__ == '__main__':
     print('recall: %f' % recall)
     print('f1_score: %f' % f1_score)
     print(set(output_contignames)-query_name_set)
-    #print(set(model_contignames) - target_name_set)
+    print(set(model_contignames) - target_name_set)
 
     #print(target_name_set)

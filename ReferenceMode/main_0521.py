@@ -665,7 +665,7 @@ if __name__ == '__main__':
     new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, repeat_multiple_path)
 
     # --------------------------------------------------------------------------------------
-    # skip variation between fragments: 2022-05-21 by Kang Hu
+    # skip variation between fragments: 2022-05-19 by Kang Hu
     # sort by start and end position
     sorted_fragments = {}
     for ref_name in query_position.keys():
@@ -676,9 +676,9 @@ if __name__ == '__main__':
     # find all regions could be connected, threshold = 200bp
     # region_list keeps all regions, which include all fragments can be connected
     # region_list = {
-    #   R1: {
-    #       ref_name: (F1, start, end)
-    #   }
+    # R1: {
+    # ref_name: [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+    # }
     # }
     region_list = {}
     last_end_pos = -1
@@ -693,15 +693,16 @@ if __name__ == '__main__':
             if not region_list.__contains__(region_id):
                 region_list[region_id] = {}
             cur_region_dict = region_list[region_id]
+            if not cur_region_dict.__contains__(ref_name):
+                cur_region_dict[ref_name] = []
+            cur_region_list = cur_region_dict[ref_name]
             if last_end_pos == -1:
                 # first fragment add into cur_region_list directly
-                cur_region_dict[ref_name] = (query_name, start, end)
+                cur_region_list.append((query_name, start, end))
             else:
                 # cur fragment close to last fragment
                 if start - last_end_pos < skip_threshold:
-                    last_frag = cur_region_dict[ref_name]
-                    new_query_name = last_frag[0]+','+query_name
-                    cur_region_dict[ref_name] = (new_query_name, last_frag[1], end)
+                    cur_region_list.append((query_name, start, end))
                 else:
                     # cur fragment far from last fragment, start a new region
                     region_index += 1
@@ -709,69 +710,147 @@ if __name__ == '__main__':
                     if not region_list.__contains__(region_id):
                         region_list[region_id] = {}
                     cur_region_dict = region_list[region_id]
-                    cur_region_dict[ref_name] = (query_name, start, end)
+                    if not cur_region_dict.__contains__(ref_name):
+                        cur_region_dict[ref_name] = []
+                    cur_region_list = cur_region_dict[ref_name]
+                    cur_region_list.append((query_name, start, end))
+                    cur_region_dict[ref_name] = cur_region_list
                     region_list[region_id] = cur_region_dict
+            cur_region_dict[ref_name] = cur_region_list
             region_list[region_id] = cur_region_dict
             last_end_pos = end
 
+    # start parallelization to generate fragments combination in each region
+    # region_cluster = split2cluster(list(region_list.items()), partitions_num)
+    # # region_combination keeps all combination of fragment in one region
+    # # e.g., region_combination = {
+    # # R1: {
+    # # max_combination_len : 3,
+    # # combinations: {
+    # # c=3: [F1F2F3],
+    # # c=2: [F1F2, F2F3],
+    # # c=1: [F1,F2,F3]
+    # # }
+    # # }
+    # # }
+    #
+    # # frag_hash keeps all fragment combination information: combination_len, reference, start, end
+    # # e.g., frag_hash = {
+    # # F1F2: {
+    # # R1: (c=2, ref_name, start, end)
+    # # R2: (c=2, ref_name, start, end)
+    # # }
+    # # }
+    region_combination_tmp = tmp_output_dir + '/region_combination_tmp'
+    if not os.path.exists(region_combination_tmp):
+        os.makedirs(region_combination_tmp)
+    MAX_JOBS_IN_QUEUE = 500
+    #split_region_combination_size = 1024 * 1024 * 1024 # (1G)
+    #split_region_combination_size = 1024  # (1K)
+    region_combination = {}
+    region_combination_index = 0
+    frag_hash = {}
+    ex = ProcessPoolExecutor(partitions_num)
+    total_region_list = list(region_list.items())
+    jobs_left = len(total_region_list)
+    jobs_iter = iter(total_region_list)
+    jobs = {}
+    while jobs_left:
+        for region_item in jobs_iter:
+            job = ex.submit(getRegionCombination, region_item)
+            jobs[job] = 1
+            if len(jobs) > MAX_JOBS_IN_QUEUE:
+                break  # limit the job submission for now job
+
+        for job in as_completed(jobs):
+            jobs_left -= 1
+            part_region_combination, part_frag_hash = job.result()
+            region_combination.update(part_region_combination)
+            for combine_name in part_frag_hash.keys():
+                part_dict = part_frag_hash[combine_name]
+                if not frag_hash.__contains__(combine_name):
+                    frag_hash[combine_name] = part_dict
+                else:
+                    exist_dict = frag_hash[combine_name]
+                    exist_dict.update(part_dict)
+                    frag_hash[combine_name] = exist_dict
+            del jobs[job]
+
+            # # store region_combination into file when over 1G
+            # region_combination_size = float(sys.getsizeof(region_combination))
+            # if region_combination_size >= split_region_combination_size:
+            #     region_combination_file = region_combination_tmp + '/rc_' + str(region_combination_index) + '.csv'
+            #     with codecs.open(region_combination_file, 'w', encoding='utf-8') as f:
+            #         json.dump(region_combination, f)
+            #     region_combination_index += 1
+            #     region_combination.clear()
+    # if len(region_combination) > 0:
+    #     region_combination_file = region_combination_tmp + '/rc_' + str(region_combination_index) + '.csv'
+    #     with codecs.open(region_combination_file, 'w', encoding='utf-8') as f:
+    #         json.dump(region_combination, f)
+    #     region_combination_index += 1
+    #     region_combination.clear()
+    ex.shutdown(wait=True)
+
+    # start parallelization to get candidate combine fragments
+    regionContigs = {}
     refNames, refContigs = read_fasta(reference)
-    region_repeats = tmp_output_dir + '/repeats.region.fa'
-    with open(region_repeats, 'w') as f_save:
+    ex = ProcessPoolExecutor(partitions_num)
+    jobs = {}
+    partiton_index = 0
+    # for rc_index in range(region_combination_index):
+    #     region_combination_file = region_combination_tmp + '/rc_' + str(rc_index) + '.csv'
+    #     file = open(region_combination_file, 'r')
+    #     js = file.read()
+    #     region_combination = json.loads(js)
+
+    # region_combination_cluster = split2cluster(list(region_combination.items()), partitions_num)
+    total_region_combination = list(region_combination.items())
+    jobs_left = len(total_region_combination)
+    jobs_iter = iter(total_region_combination)
+
+    while jobs_left:
+        for region_combination_item in jobs_iter:
+            # create part variable to reduce memory copy
+            part_frag_hash = {}
+            region_id = region_combination_item[0]
+            cur_region_combination = region_combination_item[1]
+            combinations = cur_region_combination['combinations']
+            max_combination_len = cur_region_combination['max_combination_len']
+            for c in range(max_combination_len, 0, -1):
+                cur_combinations = combinations[str(c)]
+                for combine_name in cur_combinations:
+                    part_frag_hash[combine_name] = frag_hash[combine_name]
+
+            region_dict = region_list[region_id]
+            # ref_name = list(region_dict.keys())[0]
+            # ref_seq = refContigs[ref_name]
+            # submit job
+            job = ex.submit(getCombineFragments, region_combination_item, part_frag_hash, identity_threshold,
+                            length_similarity_cutoff, refContigs, region_dict, tmp_output_dir,
+                            blast_program_dir,
+                            partiton_index)
+            jobs[job] = 1
+            partiton_index += 1
+            if len(jobs) > MAX_JOBS_IN_QUEUE:
+                break  # limit the job submission for now job
+
+        for job in as_completed(jobs):
+            jobs_left -= 1
+            part_regionContigs = job.result()
+            del jobs[job]
+            regionContigs.update(part_regionContigs)
+
+    ex.shutdown(wait=True)
+
+    connected_repeats = tmp_output_dir + '/repeats.connect.fa'
+    with open(connected_repeats, 'w') as f_save:
         node_index = 0
-        for region_id in region_list.keys():
-            region_item = region_list[region_id]
-            for ref_name in region_item.keys():
-                frag_item = region_item[ref_name]
-                seq = refContigs[frag_item[1]: frag_item[2]]
-                f_save.write('>R_' + str(node_index) + '\n' + seq + '\n')
+        for region_id in regionContigs.keys():
+            for frag in regionContigs[region_id]:
+                seq = refContigs[frag[1]][frag[2]: frag[3]]
+                f_save.write('>Node_' + str(node_index) + '\n' + seq + '\n')
                 node_index += 1
-
-    blastnResults_path = tmp_output_dir + '/region.out'
-    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + reference
-    align_command = blast_program_dir + '/bin/blastn -db ' + reference + ' -num_threads ' + str(threads) + ' -query ' + region_repeats + ' -outfmt 6 > ' + blastnResults_path
-    log.logger.debug(makedb_command)
-    os.system(makedb_command)
-    log.logger.debug(align_command)
-    os.system(align_command)
-
-    regionNames, regionContigs = read_fasta(region_repeats)
-    query_records = {}
-    with open(blastnResults_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.split('\t')
-            query_name = parts[0]
-            target_name = parts[1]
-            identity = float(parts[2])
-            match_base = int(parts[3])
-
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            t_start = int(parts[8])
-            t_end = int(parts[9])
-
-            query_len = len(regionContigs[query_name])
-
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = []
-            records = query_records[query_name]
-            records.append((target_name, identity, match_base, query_len, q_start, q_end, t_start, t_end))
-            query_records[query_name] = records
-
-    keep_repeats = {}
-    for query_name in query_records.keys():
-        complete_alignment_num = 0
-        for record in records:
-            identity = record[1]
-            match_base = record[2]
-            query_len = record[3]
-            if float(match_base) / query_len >= 0.95 and identity >= 95:
-                complete_alignment_num += 1
-        if complete_alignment_num > 1:
-            keep_repeats[query_name] = regionContigs[query_name]
-        else:
-            for record in records:
-
-
 
 
     # 06: merge

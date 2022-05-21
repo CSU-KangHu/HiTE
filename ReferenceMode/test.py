@@ -1,15 +1,57 @@
+import codecs
+import json
 import os
-
+import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from Util import convertToUpperCase, read_fasta, getReverseSequence, \
     Logger, split_repeats, compute_identity, run_alignment, multi_line, generate_blastlike_output, \
     get_multiple_alignment_repeat, split2cluster, cut_repeat_v1, judgeReduceThreads, get_ltr_suppl_from_ltrfinder, \
-    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3, compare_seq
+    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3, compare_seq, getRegionCombination, getCombineFragments
+
+def test(num):
+    for i in range(10000):
+        num += num
+    return num
 
 if __name__ == '__main__':
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-19.19-47-21'
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-21.0-9-18/region_combination_tmp'
+    # file = tmp_output_dir + '/rc_0.csv'
+    # region_combination_size = float(sys.getsizeof(region_combination))
+
+    # ex = ProcessPoolExecutor(48)
+    # bigint = 1024*1024*1024
+    # big_list = list(x for x in range(bigint))
+    #
+    # MAX_JOBS_IN_QUEUE = 500
+    # jobs_left = len(big_list)
+    # jobs_iter = iter(big_list)
+    # jobs = {}
+    # while jobs_left:
+    #     for num in jobs_iter:
+    #         job = ex.submit(test, num)
+    #         jobs[job] = 1
+    #         if len(jobs) > MAX_JOBS_IN_QUEUE:
+    #             break  # limit the job submission for now job
+    #
+    #     for job in as_completed(jobs):
+    #         jobs_left -= 1
+    #         num = job.result()
+    #         del jobs[job]
+    #         break
+    # ex.shutdown(wait=True)
+
+
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-20.19-53-55'
+    reference = '/public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta'
+
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-20.19-53-55'
+    reference = '/public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta'
     output_dir = tmp_output_dir
     repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
-    reference = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/genome_model.fa'
+    skip_threshold = 100
+    identity_threshold = 0.90
+    length_similarity_cutoff = 0.90
+    partitions_num = 48
     # try to chain all fragments
     # --------------------------------------------------------------------------------------
     # newly strategy: 2022-04-29 by Kang Hu
@@ -50,7 +92,6 @@ if __name__ == '__main__':
     # ref_name: [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
     # }
     # }
-    skip_threshold = 200
     region_list = {}
     last_end_pos = -1
     region_index = 0
@@ -90,120 +131,130 @@ if __name__ == '__main__':
             cur_region_dict[ref_name] = cur_region_list
             region_list[region_id] = cur_region_dict
             last_end_pos = end
+    print('finish region_list...')
+    print(len(region_list))
 
-    # region_combination keeps all combination of fragment in one region
-    # e.g., region_combination = {
-    # R1: {
-    # max_combination_len : 3,
-    # combinations: {
-    # c=3: [F1F2F3],
-    # c=2: [F1F2, F2F3],
-    # c=1: [F1,F2,F3]
-    # }
-    # }
-    # }
-
-    # frag_hash keeps all fragment combination information: combination_len, reference, start, end
-    # e.g., frag_hash = {
-    # F1F2: {
-    # R1: (c=2, ref_name, start, end)
-    # R2: (c=2, ref_name, start, end)
-    # }
-    # }
+    # start parallelization to generate fragments combination in each region
+    # region_cluster = split2cluster(list(region_list.items()), partitions_num)
+    # # region_combination keeps all combination of fragment in one region
+    # # e.g., region_combination = {
+    # # R1: {
+    # # max_combination_len : 3,
+    # # combinations: {
+    # # c=3: [F1F2F3],
+    # # c=2: [F1F2, F2F3],
+    # # c=1: [F1,F2,F3]
+    # # }
+    # # }
+    # # }
+    #
+    # # frag_hash keeps all fragment combination information: combination_len, reference, start, end
+    # # e.g., frag_hash = {
+    # # F1F2: {
+    # # R1: (c=2, ref_name, start, end)
+    # # R2: (c=2, ref_name, start, end)
+    # # }
+    # # }
+    region_combination_tmp = tmp_output_dir + '/region_combination_tmp'
+    if not os.path.exists(region_combination_tmp):
+        os.makedirs(region_combination_tmp)
+    MAX_JOBS_IN_QUEUE = 500
+    #split_region_combination_size = 1024 * 1024 * 1024 # (1G)
+    split_region_combination_size = 1024  # (1K)
     region_combination = {}
+    region_combination_index = 0
     frag_hash = {}
-    #print(region_list)
-    for region_id in region_list.keys():
-        cur_region_dict = region_list[region_id]
-        for ref_name in cur_region_dict.keys():
-            cur_region_list = cur_region_dict[ref_name]
-            max_combination_len = len(cur_region_list)
-            if not region_combination.__contains__(region_id):
-                region_combination[region_id] = {}
-            cur_region_combination = region_combination[region_id]
-            cur_region_combination['max_combination_len'] = max_combination_len
-            combinations = {}
-            for c in range(1, max_combination_len + 1):
-                if not combinations.__contains__(c):
-                    combinations[c] = []
-                cur_combinations = combinations[c]
-                for left in range(len(cur_region_list) - c + 1):
-                    # connect fragments with len=c
-                    combine_name = ''
-                    combine_frag_start = -1
-                    combine_frag_end = -1
-                    for l in range(c):
-                        cur_frag = cur_region_list[left + l]
-                        cur_frag_start = cur_frag[1]
-                        cur_frag_end = cur_frag[2]
-                        if combine_frag_start == -1:
-                            combine_frag_start = cur_frag_start
-                        combine_frag_end = cur_frag_end
-                        if combine_name != '':
-                            combine_name += ','
-                        combine_name += cur_frag[0]
-                    cur_combinations.append(combine_name)
-                    if not frag_hash.__contains__(combine_name):
-                        frag_hash[combine_name] = {}
-                    cur_frag_dict = frag_hash[combine_name]
-                    cur_frag_dict[region_id] = (c, ref_name, combine_frag_start, combine_frag_end)
-                    frag_hash[combine_name] = cur_frag_dict
+    ex = ProcessPoolExecutor(partitions_num)
+    total_region_list = list(region_list.items())
+    jobs_left = len(total_region_list)
+    jobs_iter = iter(total_region_list)
+    jobs = {}
+    while jobs_left:
+        for region_item in jobs_iter:
+            job = ex.submit(getRegionCombination, region_item)
+            jobs[job] = 1
+            if len(jobs) > MAX_JOBS_IN_QUEUE:
+                break  # limit the job submission for now job
 
-                    combine_name = ''
-                    combine_frag_start = -1
-                    combine_frag_end = -1
-                combinations[c] = cur_combinations
-            cur_region_combination['combinations'] = combinations
+        for job in as_completed(jobs):
+            jobs_left -= 1
+            part_region_combination, part_frag_hash = job.result()
+            region_combination.update(part_region_combination)
+            for combine_name in part_frag_hash.keys():
+                part_dict = part_frag_hash[combine_name]
+                if not frag_hash.__contains__(combine_name):
+                    frag_hash[combine_name] = part_dict
+                else:
+                    exist_dict = frag_hash[combine_name]
+                    exist_dict.update(part_dict)
+                    frag_hash[combine_name] = exist_dict
+            del jobs[job]
 
-    refNames, refContigs = read_fasta(reference)
-    # go through each region, find candidate combine fragments
-    identity_threshold = 0.95
-    length_similarity_cutoff = 0.95
-    # regionContigs keeps all fragments in each region
+            # store region_combination into file when over 1G
+            region_combination_size = float(sys.getsizeof(region_combination))
+            if region_combination_size >= split_region_combination_size:
+                region_combination_file = region_combination_tmp + '/rc_' + str(region_combination_index) + '.csv'
+                with codecs.open(region_combination_file, 'w', encoding='utf-8') as f:
+                    json.dump(region_combination, f)
+                region_combination_index += 1
+                region_combination.clear()
+    if len(region_combination) > 0:
+        region_combination_file = region_combination_tmp + '/rc_' + str(region_combination_index) + '.csv'
+        with codecs.open(region_combination_file, 'w', encoding='utf-8') as f:
+            json.dump(region_combination, f)
+        region_combination_index += 1
+        region_combination.clear()
+    ex.shutdown(wait=True)
+
+    # start parallelization to get candidate combine fragments
     regionContigs = {}
-    seq_idx = 0
-    # go through each region
-    for region_id in region_combination.keys():
-        cur_region_combination = region_combination[region_id]
-        combinations = cur_region_combination['combinations']
-        max_combination_len = cur_region_combination['max_combination_len']
-        # start from max length combination
-        for c in range(max_combination_len, 0, -1):
-            cur_combinations = combinations[c]
-            max_identity = 0
-            best_combine_name = None
-            for combine_name in cur_combinations:
-                # find in frag_hash
-                frag_region_dict = frag_hash[combine_name]
-                # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
-                self_info = frag_region_dict[region_id]
-                for other_region_id in frag_region_dict.keys():
-                    if region_id != other_region_id:
-                        other_info = frag_region_dict[other_region_id]
-                        # self info similar to other_info
-                        identity = compare_seq(self_info, other_info, identity_threshold, length_similarity_cutoff,
-                                               refContigs, output_dir, seq_idx, blast_program_dir)
-                        seq_idx += 1
-                        if identity is not None and identity > max_identity:
-                            max_identity = identity
-                            best_combine_name = combine_name
-            # if current combination reach score threshold, then it can be used to replace the whole region
-            if max_identity >= identity_threshold:
-                if not regionContigs.__contains__(region_id):
-                    regionContigs[region_id] = []
-                final_frags = regionContigs[region_id]
-                ref_name = self_info[1]
-                # replace the whole region with best combine
-                final_frags.append((best_combine_name, ref_name, self_info[2], self_info[3]))
-                # all_frags = [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
-                all_frags = region_list[region_id][ref_name]
-                best_frags = best_combine_name.split(',')
-                # keep other fragments
-                for frag in all_frags:
-                    if frag[0] not in best_frags:
-                        final_frags.append((frag[0], ref_name, frag[1], frag[2]))
-                regionContigs[region_id] = final_frags
-                break
+    refNames, refContigs = read_fasta(reference)
+    ex = ProcessPoolExecutor(partitions_num)
+    jobs = {}
+    partiton_index = 0
+    for rc_index in range(region_combination_index):
+        region_combination_file = region_combination_tmp + '/rc_' + str(rc_index) + '.csv'
+        file = open(region_combination_file, 'r')
+        js = file.read()
+        region_combination = json.loads(js)
+
+        # region_combination_cluster = split2cluster(list(region_combination.items()), partitions_num)
+        total_region_combination = list(region_combination.items())
+        jobs_left = len(total_region_combination)
+        jobs_iter = iter(total_region_combination)
+
+        while jobs_left:
+            for region_combination_item in jobs_iter:
+                # create part variable to reduce memory copy
+                part_frag_hash = {}
+                region_id = region_combination_item[0]
+                cur_region_combination = region_combination_item[1]
+                combinations = cur_region_combination['combinations']
+                max_combination_len = cur_region_combination['max_combination_len']
+                for c in range(max_combination_len, 0, -1):
+                    cur_combinations = combinations[str(c)]
+                    for combine_name in cur_combinations:
+                        part_frag_hash[combine_name] = frag_hash[combine_name]
+
+                region_dict = region_list[region_id]
+                # ref_name = list(region_dict.keys())[0]
+                # ref_seq = refContigs[ref_name]
+                # submit job
+                job = ex.submit(getCombineFragments, region_combination_item, part_frag_hash, identity_threshold,
+                                length_similarity_cutoff, refContigs, region_dict, tmp_output_dir, blast_program_dir,
+                                partiton_index)
+                jobs[job] = 1
+                partiton_index += 1
+                if len(jobs) > MAX_JOBS_IN_QUEUE:
+                    break  # limit the job submission for now job
+
+            for job in as_completed(jobs):
+                jobs_left -= 1
+                part_regionContigs = job.result()
+                del jobs[job]
+                regionContigs.update(part_regionContigs)
+
+    ex.shutdown(wait=True)
 
     connected_repeats = tmp_output_dir + '/repeats.connect.fa'
     with open(connected_repeats, 'w') as f_save:

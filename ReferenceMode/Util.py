@@ -36,8 +36,126 @@ if __name__ == '__main__':
     log.logger.info('info')
     Logger('error.log', level='error').logger.error('error')
 
+
+def getCombineFragments(region_combination_item, frag_hash, identity_threshold, length_similarity_cutoff, refContigs, region_dict, output_dir, blast_program_dir, partiton_index):
+    # go through each region, find candidate combine fragments
+    # regionContigs keeps all fragments in each region
+    regionContigs = {}
+    # go through each region
+    region_id = region_combination_item[0]
+    cur_region_combination = region_combination_item[1]
+    combinations = cur_region_combination['combinations']
+    max_combination_len = cur_region_combination['max_combination_len']
+    # start from max length combination
+    for c in range(max_combination_len, 0, -1):
+        cur_combinations = combinations[str(c)]
+        max_identity = 0
+        best_combine_name = None
+        for combine_name in cur_combinations:
+            # find in frag_hash
+            frag_region_dict = frag_hash[combine_name]
+            # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
+            self_info = frag_region_dict[region_id]
+            for other_region_id in frag_region_dict.keys():
+                if region_id != other_region_id:
+                    other_info = frag_region_dict[other_region_id]
+                    # self info similar to other_info
+                    identity = compare_seq(self_info, other_info, identity_threshold, length_similarity_cutoff,
+                                           refContigs, output_dir, blast_program_dir, partiton_index)
+                    if identity is not None and identity > max_identity:
+                        max_identity = identity
+                        best_combine_name = combine_name
+        # if current combination reach score threshold, then it can be used to replace the whole region
+        if max_identity >= identity_threshold:
+            if not regionContigs.__contains__(region_id):
+                regionContigs[region_id] = []
+            final_frags = regionContigs[region_id]
+            ref_name = self_info[1]
+            # replace the whole region with best combine
+            final_frags.append((best_combine_name, ref_name, self_info[2], self_info[3]))
+            # all_frags = [(F1, start, end),(F2, start, end),(F3, start, end),(F4, start, end)]
+            all_frags = region_dict[ref_name]
+            best_frags = best_combine_name.split(',')
+            # keep other fragments
+            for frag in all_frags:
+                if frag[0] not in best_frags:
+                    final_frags.append((frag[0], ref_name, frag[1], frag[2]))
+            regionContigs[region_id] = final_frags
+            break
+    return regionContigs
+
+def getRegionCombination(region_item):
+    # region_combination keeps all combination of fragment in one region
+    # e.g., region_combination = {
+    # R1: {
+    # max_combination_len : 3,
+    # combinations: {
+    # c=3: [F1F2F3],
+    # c=2: [F1F2, F2F3],
+    # c=1: [F1,F2,F3]
+    # }
+    # }
+    # }
+
+    # frag_hash keeps all fragment combination information: combination_len, reference, start, end
+    # e.g., frag_hash = {
+    # F1F2: {
+    # R1: (c=2, ref_name, start, end)
+    # R2: (c=2, ref_name, start, end)
+    # }
+    # }
+    region_combination = {}
+    frag_hash = {}
+
+    region_id = region_item[0]
+    cur_region_dict = region_item[1]
+    for ref_name in cur_region_dict.keys():
+        cur_region_list = cur_region_dict[ref_name]
+        max_combination_len = len(cur_region_list)
+        print('current region id: ' + str(region_id) + ', size: ' + str(max_combination_len))
+        if not region_combination.__contains__(region_id):
+            region_combination[region_id] = {}
+        cur_region_combination = region_combination[region_id]
+        cur_region_combination['max_combination_len'] = max_combination_len
+        combinations = {}
+        for c in range(1, max_combination_len + 1):
+            if not combinations.__contains__(c):
+                combinations[str(c)] = []
+            cur_combinations = combinations[str(c)]
+            for left in range(len(cur_region_list) - c + 1):
+                # connect fragments with len=c
+                combine_name = ''
+                combine_frag_start = -1
+                combine_frag_end = -1
+                for l in range(c):
+                    cur_frag = cur_region_list[left + l]
+                    cur_frag_start = cur_frag[1]
+                    cur_frag_end = cur_frag[2]
+                    if combine_frag_start == -1:
+                        combine_frag_start = cur_frag_start
+                    if cur_frag_end > combine_frag_end:
+                        combine_frag_end = cur_frag_end
+                    if combine_name != '':
+                        combine_name += ','
+                    combine_name += cur_frag[0]
+                cur_combinations.append(combine_name)
+
+                if not frag_hash.__contains__(combine_name):
+                    frag_hash[combine_name] = {}
+                cur_frag_dict = frag_hash[combine_name]
+                cur_frag_dict[region_id] = (c, ref_name, combine_frag_start, combine_frag_end)
+                frag_hash[combine_name] = cur_frag_dict
+
+                combine_name = ''
+                combine_frag_start = -1
+                combine_frag_end = -1
+            combinations[str(c)] = cur_combinations
+        cur_region_combination['combinations'] = combinations
+    return region_combination, frag_hash
+
+
 def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff,
-                refContigs, output_dir, seq_idx, blast_program_dir):
+                refContigs, output_dir, blast_program_dir, partiton_index):
     # self_info = (c, ref_name, combine_frag_start, combine_frag_end)
     ref_name = self_info[1]
     ref_seq = refContigs[ref_name]
@@ -58,9 +176,9 @@ def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff
     output_dir += '/blastn_tmp'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    self_seq_path = output_dir + '/self_' + str(seq_idx) + '.fa'
-    other_seq_path = output_dir + '/other_' + str(seq_idx) + '.fa'
-    blastnResults_path = output_dir + '/blast_' + str(seq_idx) + '.out'
+    self_seq_path = output_dir + '/self_' + str(partiton_index) + '.fa'
+    other_seq_path = output_dir + '/other_' + str(partiton_index) + '.fa'
+    blastnResults_path = output_dir + '/blast_' + str(partiton_index) + '.out'
     store_fasta(self_contigs, self_seq_path)
     store_fasta(other_contigs, other_seq_path)
 
@@ -93,54 +211,11 @@ def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff
                 query_cluster[key] = ([], -1, -1)
             tuple = query_cluster[key]
             cluster = tuple[0]
-            if identity >= identity_cutoff:
-                cluster.append((q_start, q_end, t_start, t_end, identity))
-            query_cluster[key] = (cluster, query_len, target_len)
+            if identity >= identity_cutoff and \
+                    float(match_base) / query_len >= length_similarity_cutoff and\
+                    float(match_base) / target_len >= length_similarity_cutoff:
+                return float(identity) / 100
 
-    total_identity = 0
-    avg_identity = 0
-    for key in query_cluster.keys():
-        parts = key.split('$')
-        query_name = parts[0]
-        target_name = parts[1]
-
-        tuple = query_cluster[key]
-        query_len = tuple[1]
-        target_len = tuple[2]
-        query_array = ['' for _ in range(query_len)]
-        target_array = ['' for _ in range(target_len)]
-        query_masked_len = 0
-        target_masked_len = 0
-        for record in tuple[0]:
-            qstart = record[0]
-            qend = record[1]
-            if qstart > qend:
-                tmp = qend
-                qend = qstart
-                qstart = tmp
-            for i in range(qstart, qend):
-                query_array[i] = 'X'
-
-            tstart = record[2]
-            tend = record[3]
-            if tstart > tend:
-                tmp = tend
-                tend = tstart
-                tstart = tmp
-            for i in range(tstart, tend):
-                target_array[i] = 'X'
-
-            identity = record[4]
-            total_identity += identity
-        avg_identity = float(total_identity)/len(tuple[0])
-        for j in range(len(query_array)):
-            if query_array[j] == 'X':
-                query_masked_len += 1
-        for j in range(len(target_array)):
-            if target_array[j] == 'X':
-                target_masked_len += 1
-        if float(query_masked_len)/query_len >= length_similarity_cutoff and float(target_masked_len)/target_len >= length_similarity_cutoff:
-            return float(avg_identity)/100
 
 def multi_line(fasta_path, line_len, k_num):
     k_num = int(k_num)
@@ -915,8 +990,6 @@ def get_alignment_info_v3(sam_paths, repeats_file):
         query_seq = repeat_contigs[query_name]
         query_len = len(query_seq)
         for i, record in enumerate(query_records[query_name]):
-            if i == 0:
-                continue
             reference_name = record[1]
             cigar = record[2]
             cigarstr = str(record[3])
