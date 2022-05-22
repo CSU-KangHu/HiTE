@@ -701,7 +701,10 @@ if __name__ == '__main__':
                 if start - last_end_pos < skip_threshold:
                     last_frag = cur_region_dict[ref_name]
                     new_query_name = last_frag[0]+','+query_name
-                    cur_region_dict[ref_name] = (new_query_name, last_frag[1], end)
+                    if end > last_frag[2]:
+                        cur_region_dict[ref_name] = (new_query_name, last_frag[1], end)
+                    else:
+                        cur_region_dict[ref_name] = (new_query_name, last_frag[1], last_frag[2])
                 else:
                     # cur fragment far from last fragment, start a new region
                     region_index += 1
@@ -722,7 +725,7 @@ if __name__ == '__main__':
             region_item = region_list[region_id]
             for ref_name in region_item.keys():
                 frag_item = region_item[ref_name]
-                seq = refContigs[frag_item[1]: frag_item[2]]
+                seq = refContigs[ref_name][frag_item[1]: frag_item[2]]
                 f_save.write('>R_' + str(node_index) + '\n' + seq + '\n')
                 node_index += 1
 
@@ -760,24 +763,55 @@ if __name__ == '__main__':
     keep_repeats = {}
     for query_name in query_records.keys():
         complete_alignment_num = 0
+        to_splice_seq = []
         for record in records:
             identity = record[1]
             match_base = record[2]
             query_len = record[3]
+            q_start = record[4]
+            q_end = record[5]
             if float(match_base) / query_len >= 0.95 and identity >= 95:
                 complete_alignment_num += 1
+            else:
+                cut_seq = regionContigs[query_name][q_start: q_end]
+                to_splice_seq.append(cut_seq)
         if complete_alignment_num > 1:
+            # keep as true repeat
             keep_repeats[query_name] = regionContigs[query_name]
         else:
-            for record in records:
+            # keep cut sequence
+            for i, seq in enumerate(to_splice_seq):
+                new_query_name = query_name+'-s_'+str(i)
+                keep_repeats[new_query_name] = seq
 
+    region_cut_repeats = tmp_output_dir + '/repeats.region.cut.fa'
+    region_cut_consensus = tmp_output_dir + '/repeats.region.cut.consensus.fa'
+    store_fasta(keep_repeats, region_cut_repeats)
+    # cd-hit remove redudant sequences
+    cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + region_cut_repeats + ' -o ' + region_cut_consensus + ' -T 0 -M 0'
+    log.logger.debug(cd_hit_command)
+    os.system(cd_hit_command)
 
-
+    # bwa remove not multiple alignment repeats
+    use_align_tools = 'bwa'
+    sam_path_bwa = run_alignment(region_cut_consensus, reference, use_align_tools, threads, tools_dir)
+    sam_paths = []
+    sam_paths.append(sam_path_bwa)
+    new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, region_cut_consensus)
+    repeat_multiple_path = tmp_output_dir + '/repeats.region.cut.multiple.fa'
+    region_cut_contigNames, region_cut_contigs = read_fasta(region_cut_consensus)
+    with open(repeat_multiple_path, 'w') as f_save:
+        for repeat_id in new_mapping_repeatIds.keys():
+            freq = new_mapping_repeatIds[repeat_id][0]
+            seq = region_cut_contigs[repeat_id]
+            if freq <= 1:
+                continue
+            f_save.write('>' + repeat_id + '\n' + seq + '\n')
 
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
     merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
-    os.system('cat ' + connected_repeats + ' >> ' + merge_pure)
+    os.system('cat ' + repeat_multiple_path + ' >> ' + merge_pure)
     ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
     backjob.join()
     os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
