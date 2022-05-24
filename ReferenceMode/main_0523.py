@@ -32,9 +32,15 @@ def three_bit_encode(str):
     return bytes
 
 def generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases):
+    #log.logger.debug('partition %d process: %d segments' %(partiton_index, len(cur_segments)))
     cur_lines = []
     cur_masked_segments = []
     for line in cur_segments:
+        # parts = line.split("\t")
+        # contigName = parts[0].split(" ")[0]
+        # # remove ">"
+        # start = int(parts[1])
+        # line = parts[2]
         cur_lines.append(line)
         masked_line = list(line)
         last_masked_pos = -1
@@ -45,6 +51,10 @@ def generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_toler
             # filter invalid kmer, contains 'N'
             if "N" in r_kmer:
                 continue
+            # encode with binary
+            # kmer_num = three_bit_encode(kmer)
+            # r_kmer_num = three_bit_encode(r_kmer)
+            # unique_key = kmer_num if kmer_num < r_kmer_num else r_kmer_num
             unique_key = kmer if kmer < r_kmer else r_kmer
 
             if unique_kmer_map.__contains__(unique_key):
@@ -83,13 +93,19 @@ def generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_toler
                     repeat_list.append(cur_repeat_str)
                     cur_repeat_str = ''
                     try_connect_str = ''
+    log.logger.debug('partition %d process finished' % (partiton_index))
     return repeat_list
 
-def generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases):
+def generate_candidate_repeats_v1(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases):
+    #log.logger.debug('partition %d process: %d segments' %(partiton_index, len(cur_segments)))
     cur_lines = []
-    cur_masked_segments = {}
-    for ref_name in contigs.keys():
-        line = contigs[ref_name]
+    cur_masked_segments = []
+    for line in cur_segments:
+        # parts = line.split("\t")
+        # contigName = parts[0].split(" ")[0]
+        # # remove ">"
+        # start = int(parts[1])
+        # line = parts[2]
         cur_lines.append(line)
         masked_line = list(line)
         last_masked_pos = -1
@@ -100,6 +116,10 @@ def generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_toleran
             # filter invalid kmer, contains 'N'
             if "N" in r_kmer:
                 continue
+            # encode with binary
+            # kmer_num = three_bit_encode(kmer)
+            # r_kmer_num = three_bit_encode(r_kmer)
+            # unique_key = kmer_num if kmer_num < r_kmer_num else r_kmer_num
             unique_key = kmer if kmer < r_kmer else r_kmer
 
             if unique_kmer_map.__contains__(unique_key):
@@ -115,19 +135,14 @@ def generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_toleran
                     for j in range(start_mask_pos, end_mask_pos):
                         masked_line[j] = 'X'
                     last_masked_pos = end_mask_pos - 1
-        cur_masked_segments[ref_name] = masked_line
+        cur_masked_segments.append(masked_line)
 
-    repeat_dict = {}
+    repeat_list = []
     cur_repeat_str = ''
     try_connect_str = ''
     last_start_pos = -1
     last_end_pos = -1
-    for seq_index, cur_masked_item in enumerate(cur_masked_segments.items()):
-        ref_name = cur_masked_item[0]
-        cur_masked_segment = cur_masked_item[1]
-        if not repeat_dict.__contains__(ref_name):
-            repeat_dict[ref_name] = []
-        repeat_list = repeat_dict[ref_name]
+    for seq_index, cur_masked_segment in enumerate(cur_masked_segments):
         for i in range(len(cur_masked_segment)):
             if cur_masked_segment[i] == 'X':
                 if last_start_pos == -1:
@@ -148,18 +163,14 @@ def generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_toleran
                     try_connect_str = try_connect_str + cur_lines[seq_index][i]
                 else:
                     # can not skip gap
-                    repeat_list.append((last_start_pos, last_end_pos, cur_repeat_str))
+                    repeat_list.append((last_start_pos, cur_repeat_str))
                     cur_repeat_str = ''
                     try_connect_str = ''
                     last_start_pos = -1
         # keep last masked sequence
         if cur_repeat_str != '':
-            repeat_list.append((last_start_pos, last_end_pos, cur_repeat_str))
-            cur_repeat_str = ''
-            try_connect_str = ''
-            last_start_pos = -1
-        repeat_dict[ref_name] = repeat_list
-    return repeat_dict, cur_masked_segments
+            repeat_list.append((last_start_pos, cur_repeat_str))
+    return repeat_list
 
 def generate_kmer_map(cur_segments, k_num, unique_kmer_map, merged_repeats, partiton_index):
     log.logger.debug('partition %d process: %d segments' %(partiton_index, len(cur_segments)))
@@ -570,77 +581,56 @@ if __name__ == '__main__':
     log.logger.debug('Start step2: each thread process a batch of kmers')
 
     # create thread pool, use multiple processes to execute
-    # kmer_segments = []
-    # with open(unique_kmer_path, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         kmer_segments.append(line)
-    # kmer_segments_cluster = split2cluster(kmer_segments, partitions_num)
-    #
-    # ex = ProcessPoolExecutor(partitions_num)
-    # objs = []
-    # for partiton_index in kmer_segments_cluster.keys():
-    #     cur_kmer_segments = kmer_segments_cluster[partiton_index]
-    #     obj = ex.submit(getUniqueKmer_v1, cur_kmer_segments, partiton_index)
-    #     objs.append(obj)
-    # ex.shutdown(wait=True)
-    # unique_kmer_map = {}
-    # for obj in as_completed(objs):
-    #     for kmer in obj.result():
-    #         unique_kmer_map[kmer] = 1
-    # log.logger.debug('generate unique_kmer_map finished')
-
-    unique_kmer_map = {}
+    kmer_segments = []
     with open(unique_kmer_path, 'r') as f_r:
         for line in f_r:
             line = line.replace('\n', '')
-            kmer = line.split(' ')[0]
-            r_kmer = getReverseSequence(kmer)
-            unique_key = kmer if kmer < r_kmer else r_kmer
-            unique_kmer_map[unique_key] = 1
+            kmer_segments.append(line)
+    kmer_segments_cluster = split2cluster(kmer_segments, partitions_num)
+
+    ex = ProcessPoolExecutor(partitions_num)
+    objs = []
+    for partiton_index in kmer_segments_cluster.keys():
+        cur_kmer_segments = kmer_segments_cluster[partiton_index]
+        obj = ex.submit(getUniqueKmer_v1, cur_kmer_segments, partiton_index)
+        objs.append(obj)
+    ex.shutdown(wait=True)
+    unique_kmer_map = {}
+    for obj in as_completed(objs):
+        for kmer in obj.result():
+            unique_kmer_map[kmer] = 1
+    log.logger.debug('generate unique_kmer_map finished')
 
     # --------------------------------------------------------------------------------------
     # Step3. split reference into segments
     log.logger.debug('Start step3: split reference into segments')
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
-    contigs = convertToUpperCase(reference)
-    repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
+    cur_segments = convertToUpperCase(reference)
+    repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
 
     repeats_path = tmp_output_dir + '/repeats.fa'
     node_index = 0
     with open(repeats_path, 'w') as f_save:
-        for ref_name in repeat_dict.keys():
-            repeat_list = repeat_dict[ref_name]
-            for repeat_item in repeat_list:
-                last_start_pos = repeat_item[0]
-                last_end_pos = repeat_item[1]
-                repeat = repeat_item[2]
-                f_save.write('>N'+str(node_index)+'-s_'+str(ref_name)+'-'+str(last_start_pos)+'-'+str(last_end_pos)+'\n'+repeat+'\n')
-                #f_save.write('>Node_' + str(node_index) + '-len_' + str(len(repeat)) + '\n' + repeat + '\n')
-                node_index += 1
-
-    masked_path = tmp_output_dir + '/ref.masked.fa'
-    ref_index = 0
-    with open(masked_path, 'w') as f_save:
-        for masked_sequence in masked_ref:
-            f_save.write('>ref' + str(ref_index) + '\n' + "".join(masked_sequence) + '\n')
-            ref_index += 1
+        for repeat in repeat_segments:
+            f_save.write('>N'+str(node_index)+'\n'+repeat+'\n')
+            #f_save.write('>Node_' + str(node_index) + '-len_' + str(len(repeat)) + '\n' + repeat + '\n')
+            node_index += 1
 
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.debug("module1: Generate repeat file running time: %.8s s" % (dtime))
 
-    # repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + repeats_path + ' -o ' + repeats_consensus + ' -T 0 -M 0'
-    # log.logger.debug(cd_hit_command)
-    # os.system(cd_hit_command)
+    repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
+    cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + repeats_path + ' -o ' + repeats_consensus + ' -T 0 -M 0'
+    log.logger.debug(cd_hit_command)
+    os.system(cd_hit_command)
 
     # try to chain all fragments
     # --------------------------------------------------------------------------------------
     # newly strategy: 2022-04-29 by Kang Hu
     # 01: use bwa to get single mapped sequence
-    candidate_repeats_path = repeats_path
+    candidate_repeats_path = repeats_consensus
     blast_program_dir = param['RMBlast_Home']
     use_align_tools = 'bwa'
     sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
@@ -668,15 +658,200 @@ if __name__ == '__main__':
                 continue
             f_save.write('>' + repeat_id + '\n' + seq + '\n')
 
+    sam_path_bwa = run_alignment(repeat_multiple_path, reference, use_align_tools, threads, tools_dir)
+    sam_paths = []
+    sam_paths.append(sam_path_bwa)
+    # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
+    new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, repeat_multiple_path)
+
+    # --------------------------------------------------------------------------------------
+    # skip variation between fragments: 2022-05-21 by Kang Hu
+    # sort by start and end position
+    sorted_fragments = {}
+    for ref_name in query_position.keys():
+        position_array = query_position[ref_name]
+        position_array.sort(key=lambda x: (x[1], x[2]))
+        sorted_fragments[ref_name] = position_array
+
+    # find all regions could be connected, threshold = 200bp
+    # region_list keeps all regions, which include all fragments can be connected
+    # region_list = {
+    #   R1: {
+    #       ref_name: (F1, start, end)
+    #   }
+    # }
+    region_list = {}
+    region_index = 0
+    for ref_name in sorted_fragments.keys():
+        cur_ref_fragments = sorted_fragments[ref_name]
+        last_end_pos = -1
+        for item in cur_ref_fragments:
+            query_name = item[0]
+            start = item[1]
+            end = item[2]
+            region_id = 'R' + str(region_index)
+            if not region_list.__contains__(region_id):
+                region_list[region_id] = {}
+            cur_region_dict = region_list[region_id]
+            if last_end_pos == -1:
+                # first fragment add into cur_region_list directly
+                cur_region_dict[ref_name] = (query_name, start, end)
+            else:
+                # cur fragment close to last fragment
+                if start - last_end_pos < skip_threshold:
+                    last_frag = cur_region_dict[ref_name]
+                    new_query_name = last_frag[0]+','+query_name
+                    if end > last_frag[2]:
+                        cur_region_dict[ref_name] = (new_query_name, last_frag[1], end)
+                    else:
+                        cur_region_dict[ref_name] = (new_query_name, last_frag[1], last_frag[2])
+                else:
+                    # cur fragment far from last fragment, start a new region
+                    region_index += 1
+                    region_id = 'R' + str(region_index)
+                    if not region_list.__contains__(region_id):
+                        region_list[region_id] = {}
+                    cur_region_dict = region_list[region_id]
+                    cur_region_dict[ref_name] = (query_name, start, end)
+                    region_list[region_id] = cur_region_dict
+            region_list[region_id] = cur_region_dict
+            last_end_pos = end
+
+    refNames, refContigs = read_fasta(reference)
+    region_repeats = tmp_output_dir + '/repeats.region.fa'
+    with open(region_repeats, 'w') as f_save:
+        node_index = 0
+        for region_id in region_list.keys():
+            region_item = region_list[region_id]
+            for ref_name in region_item.keys():
+                frag_item = region_item[ref_name]
+                seq = refContigs[ref_name][frag_item[1]: frag_item[2]]
+                f_save.write('>R_' + str(node_index) + '\n' + seq + '\n')
+                node_index += 1
+
+    regionNames, regionContigs = read_fasta(region_repeats)
+
+
+    query_records = {}
+
+    # use_align_tools = 'bwa'
+    # sam_path_bwa = run_alignment(region_repeats, reference, use_align_tools, threads, tools_dir)
+    #
+    # samfile = pysam.AlignmentFile(sam_path_bwa, "rb")
+    # for read in samfile.fetch():
+    #     if read.is_unmapped:
+    #         continue
+    #     query_name = read.query_name
+    #     reference_name = read.reference_name
+    #     cigar = read.cigartuples
+    #     cigarstr = read.cigarstring
+    #     NM_tag = 0
+    #     try:
+    #         NM_tag = read.get_tag('NM')
+    #     except KeyError:
+    #         NM_tag = -1
+    #     identity = compute_identity(cigarstr, NM_tag, 'BLAST')
+    #     identity = float(identity) * 100
+    #     is_reverse = read.is_reverse
+    #     alignment_len = read.query_alignment_length
+    #     q_start = int(read.query_alignment_start)
+    #     q_end = int(read.query_alignment_end)
+    #     t_start = int(read.reference_start)
+    #     t_end = int(read.reference_end)
+    #     query_len = len(regionContigs[query_name])
+    #
+    #     if not query_records.__contains__(query_name):
+    #         query_records[query_name] = []
+    #     records = query_records[query_name]
+    #     records.append((reference_name, identity, alignment_len, query_len, q_start, q_end, t_start, t_end))
+    #     query_records[query_name] = records
+
+    # blastn produce too many alignments
+    blastnResults_path = tmp_output_dir + '/region.out'
+    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + reference
+    align_command = blast_program_dir + '/bin/blastn -db ' + reference + ' -num_threads ' + str(threads) + ' -query ' + region_repeats + ' -word_size' + str(k_num) + ' -outfmt 6 > ' + blastnResults_path
+    log.logger.debug(makedb_command)
+    os.system(makedb_command)
+    log.logger.debug(align_command)
+    os.system(align_command)
+
+    with open(blastnResults_path, 'r') as f_r:
+        for line in f_r:
+            parts = line.split('\t')
+            query_name = parts[0]
+            target_name = parts[1]
+            identity = float(parts[2])
+            match_base = int(parts[3])
+
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            t_start = int(parts[8])
+            t_end = int(parts[9])
+
+            query_len = len(regionContigs[query_name])
+
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = []
+            records = query_records[query_name]
+            records.append((target_name, identity, match_base, query_len, q_start, q_end, t_start, t_end))
+            query_records[query_name] = records
+
+    keep_repeats = {}
+    for query_name in query_records.keys():
+        complete_alignment_num = 0
+        to_splice_seq = set()
+        for record in query_records[query_name]:
+            identity = record[1]
+            match_base = record[2]
+            query_len = record[3]
+            q_start = record[4]
+            q_end = record[5]
+            if float(match_base) / query_len >= 0.95 and identity >= 95:
+                complete_alignment_num += 1
+            elif identity >= 95:
+                to_splice_seq.add((q_start, q_end))
+        if complete_alignment_num > 1:
+            # keep as true repeat
+            keep_repeats[query_name] = regionContigs[query_name]
+        else:
+            # keep cut sequence
+            for i, seq in enumerate(to_splice_seq):
+                new_query_name = query_name + '-s_' + str(i)
+                cut_seq = regionContigs[query_name][seq[0]: seq[1]]
+                keep_repeats[new_query_name] = seq
+
+    region_cut_repeats = tmp_output_dir + '/repeats.region.cut.fa'
+    region_cut_consensus = tmp_output_dir + '/repeats.region.cut.consensus.fa'
+    store_fasta(keep_repeats, region_cut_repeats)
+    # cd-hit remove redudant sequences
+    cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + region_cut_repeats + ' -o ' + region_cut_consensus + ' -T 0 -M 0'
+    log.logger.debug(cd_hit_command)
+    os.system(cd_hit_command)
+
+    # bwa remove not multiple alignment repeats
+    use_align_tools = 'bwa'
+    sam_path_bwa = run_alignment(region_cut_consensus, reference, use_align_tools, threads, tools_dir)
+    sam_paths = []
+    sam_paths.append(sam_path_bwa)
+    new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, region_cut_consensus)
+    repeat_multiple_path = tmp_output_dir + '/repeats.region.cut.multiple.fa'
+    region_cut_contigNames, region_cut_contigs = read_fasta(region_cut_consensus)
+    with open(repeat_multiple_path, 'w') as f_save:
+        for repeat_id in new_mapping_repeatIds.keys():
+            freq = new_mapping_repeatIds[repeat_id][0]
+            seq = region_cut_contigs[repeat_id]
+            if freq <= 1:
+                continue
+            f_save.write('>' + repeat_id + '\n' + seq + '\n')
+
     # 06: merge
     merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
     merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
-    os.system('cat ' + repeat_multiple_path + ' > ' + merge_pure)
+    os.system('cat ' + repeat_multiple_path + ' >> ' + merge_pure)
     ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
     backjob.join()
     os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
-    #cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
+    cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
 

@@ -258,7 +258,7 @@ def convertToUpperCase(reference):
         contigNames.append(contigName)
         cur_segments.append(contigseq)
     f_r.close()
-    return cur_segments
+    return contigs
     # (dir, filename) = os.path.split(reference)
     # (name, extension) = os.path.splitext(filename)
     # reference_pre = dir + '/' + name + '_preprocess' + extension
