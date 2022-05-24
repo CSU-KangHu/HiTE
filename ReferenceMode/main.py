@@ -607,152 +607,191 @@ if __name__ == '__main__':
     contigs = convertToUpperCase(reference)
     repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
 
+    # store repeat_dict for testing
+    repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
+    with codecs.open(repeat_dict_file, 'w', encoding='utf-8') as f:
+        json.dump(repeat_dict, f)
+
+    # new strategy by Kang Hu 2022/05/24
+    # {ref_name: [[(f1, start1, end1), (f2, start2, end2), (f3, start3, end3)], [(f4, start4, end4), (f5, start5, end5), (f6, start6, end6)]]}
+    connected_regions = {}
     repeats_path = tmp_output_dir + '/repeats.fa'
     node_index = 0
     with open(repeats_path, 'w') as f_save:
         for ref_name in repeat_dict.keys():
             repeat_list = repeat_dict[ref_name]
+            if not connected_regions.__contains__(ref_name):
+                connected_regions[ref_name] = []
+            regions = connected_regions[ref_name]
+            last_start_pos = -1
+            last_end_pos = -1
+            cur_region_index = 0
             for repeat_item in repeat_list:
-                last_start_pos = repeat_item[0]
-                last_end_pos = repeat_item[1]
+                query_name = 'N'+str(node_index)+'-s_'+str(ref_name)+'-'+str(start_pos)+'-'+str(end_pos)
+                start_pos = repeat_item[0]
+                end_pos = repeat_item[1]
                 repeat = repeat_item[2]
-                f_save.write('>N'+str(node_index)+'-s_'+str(ref_name)+'-'+str(last_start_pos)+'-'+str(last_end_pos)+'\n'+repeat+'\n')
+                f_save.write('>'+query_name+'\n'+repeat+'\n')
                 #f_save.write('>Node_' + str(node_index) + '-len_' + str(len(repeat)) + '\n' + repeat + '\n')
                 node_index += 1
+                # generate connected_regions
+                if last_start_pos == -1:
+                    regions.append([(query_name, start_pos, end_pos)])
+                else:
+                    if (start_pos-last_end_pos) < skip_threshold:
+                        # close to current region
+                        cur_region = regions[cur_region_index]
+                        cur_region.append((query_name, start_pos, end_pos))
+                        regions[cur_region_index] = cur_region
+                    else:
+                        # far from current region, start a new region
+                        cur_region_index += 1
+                        cur_region = []
+                        cur_region.append((query_name, start_pos, end_pos))
+                        regions.append(cur_region)
+                last_start_pos = start_pos
+                last_end_pos = end_pos
+            connected_regions[ref_name] = regions
 
-    masked_path = tmp_output_dir + '/ref.masked.fa'
-    ref_index = 0
-    with open(masked_path, 'w') as f_save:
-        for masked_sequence in masked_ref:
-            f_save.write('>ref' + str(ref_index) + '\n' + "".join(masked_sequence) + '\n')
-            ref_index += 1
+    # store connected_regions for testing
+    connected_regions_file = tmp_output_dir + '/connected_regions.csv'
+    with codecs.open(connected_regions_file, 'w', encoding='utf-8') as f:
+        json.dump(connected_regions, f)
 
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("module1: Generate repeat file running time: %.8s s" % (dtime))
 
-    # repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + repeats_path + ' -o ' + repeats_consensus + ' -T 0 -M 0'
+    # masked_path = tmp_output_dir + '/ref.masked.fa'
+    # ref_index = 0
+    # with open(masked_path, 'w') as f_save:
+    #     for masked_sequence in masked_ref:
+    #         f_save.write('>ref' + str(ref_index) + '\n' + "".join(masked_sequence) + '\n')
+    #         ref_index += 1
+    #
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("module1: Generate repeat file running time: %.8s s" % (dtime))
+    #
+    # # repeats_consensus = tmp_output_dir + '/repeats.consensus.fa'
+    # # cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + repeats_path + ' -o ' + repeats_consensus + ' -T 0 -M 0'
+    # # log.logger.debug(cd_hit_command)
+    # # os.system(cd_hit_command)
+    #
+    # # try to chain all fragments
+    # # --------------------------------------------------------------------------------------
+    # # newly strategy: 2022-04-29 by Kang Hu
+    # # 01: use bwa to get single mapped sequence
+    # candidate_repeats_path = repeats_path
+    # blast_program_dir = param['RMBlast_Home']
+    # use_align_tools = 'bwa'
+    # sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
+    # sam_paths = []
+    # sam_paths.append(sam_path_bwa)
+    # # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
+    # new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, candidate_repeats_path)
+    # repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
+    # repeat_multiple_path = tmp_output_dir + '/repeats.multiple.fa'
+    # merge_repeat_contigNames, merge_repeat_contigs = read_fasta(candidate_repeats_path)
+    # # single repeat probably be Chimeric repeat
+    # with open(repeat_freq_path, 'w') as f_save:
+    #     for repeat_id in new_mapping_repeatIds.keys():
+    #         freq = new_mapping_repeatIds[repeat_id][0]
+    #         seq = merge_repeat_contigs[repeat_id]
+    #         if freq <= 1 or (freq < 5 and len(seq) < 80):
+    #             continue
+    #         f_save.write('>' + repeat_id + '\tcopies=' + str(freq) + '\n' + seq + '\n')
+    #
+    # with open(repeat_multiple_path, 'w') as f_save:
+    #     for repeat_id in new_mapping_repeatIds.keys():
+    #         freq = new_mapping_repeatIds[repeat_id][0]
+    #         seq = merge_repeat_contigs[repeat_id]
+    #         if freq <= 1:
+    #             continue
+    #         f_save.write('>' + repeat_id + '\n' + seq + '\n')
+    #
+    # # 06: merge
+    # merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
+    # merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
+    # os.system('cat ' + repeat_multiple_path + ' > ' + merge_pure)
+    # ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
+    # backjob.join()
+    # os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
+    # #cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
     # log.logger.debug(cd_hit_command)
     # os.system(cd_hit_command)
-
-    # try to chain all fragments
-    # --------------------------------------------------------------------------------------
-    # newly strategy: 2022-04-29 by Kang Hu
-    # 01: use bwa to get single mapped sequence
-    candidate_repeats_path = repeats_path
-    blast_program_dir = param['RMBlast_Home']
-    use_align_tools = 'bwa'
-    sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
-    sam_paths = []
-    sam_paths.append(sam_path_bwa)
-    # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
-    new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, candidate_repeats_path)
-    repeat_freq_path = tmp_output_dir + '/repeats.freq.fa'
-    repeat_multiple_path = tmp_output_dir + '/repeats.multiple.fa'
-    merge_repeat_contigNames, merge_repeat_contigs = read_fasta(candidate_repeats_path)
-    # single repeat probably be Chimeric repeat
-    with open(repeat_freq_path, 'w') as f_save:
-        for repeat_id in new_mapping_repeatIds.keys():
-            freq = new_mapping_repeatIds[repeat_id][0]
-            seq = merge_repeat_contigs[repeat_id]
-            if freq <= 1 or (freq < 5 and len(seq) < 80):
-                continue
-            f_save.write('>' + repeat_id + '\tcopies=' + str(freq) + '\n' + seq + '\n')
-
-    with open(repeat_multiple_path, 'w') as f_save:
-        for repeat_id in new_mapping_repeatIds.keys():
-            freq = new_mapping_repeatIds[repeat_id][0]
-            seq = merge_repeat_contigs[repeat_id]
-            if freq <= 1:
-                continue
-            f_save.write('>' + repeat_id + '\n' + seq + '\n')
-
-    # 06: merge
-    merge_pure = tmp_output_dir + '/repeats.merge.pure.fa'
-    merge_pure_consensus = tmp_output_dir + '/repeats.merge.pure.consensus.fa'
-    os.system('cat ' + repeat_multiple_path + ' > ' + merge_pure)
-    ltr_retriever_seq = tmp_output_dir + '/' + ref_filename + '.mod.LTRlib.fa'
-    backjob.join()
-    os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
-    #cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
-    log.logger.debug(cd_hit_command)
-    os.system(cd_hit_command)
-
-    starttime = time.time()
-    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
-    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    TRF_Path = param['TRF_Path']
-
-    trf_dir = tmp_output_dir + '/trf_temp'
-    if not os.path.exists(trf_dir):
-        os.makedirs(trf_dir)
-    (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
-    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
-    log.logger.debug(trf_command)
-    os.system(trf_command)
-    trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-
-    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
-    repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-    with open(repeats_path, 'w') as f_save:
-        for name in trf_contigNames:
-            seq = trf_contigs[name]
-            if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
-                f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
-
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
-
-    # --------------------------------------------------------------------------------------
-    # Step10. run TE classification to classify TE family
-    starttime = time.time()
-    log.logger.debug('Start step8: get classified consensus sequence')
-    sample_name = alias
-    TEClass_home = os.getcwd() + '/classification'
-    TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                      + ' --consensus ' + repeats_path + ' --genome ' + reference \
-                      + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
-    log.logger.debug(TEClass_command)
-    os.system(TEClass_command)
-
-    # --------------------------------------------------------------------------------------
-    # Step11. assign a family name for each classified TE consensus
-    classified_consensus_path = repeats_path + '.final.classified'
-    classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
-    family_path = tmp_output_dir + '/family_' + sample_name + '.fasta'
-    with open(family_path, 'w') as f_save:
-        for f_id, name in enumerate(classified_contigNames):
-            sequence = classified_contigs[name]
-            class_name = name.split('#')[1]
-            if len(sequence) < 80 and class_name == 'Unknown':
-                continue
-            f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("module8: get classified consensus sequence running time: %.8s s" % (dtime))
-
-    pipeline_endtime = time.time()
-    pipeline_dtime = pipeline_endtime - pipeline_starttime
-    log.logger.debug("Total pipeline running time (no including RepeatMasker): %.8s s" % (pipeline_dtime))
-
-    # --------------------------------------------------------------------------------------
-    # Step12. invoke RepeatMasker to align TE family to genome
-    starttime = time.time()
-    RepeatMasker_Home = param['RepeatMasker_Home']
-    RepeatMasker_output_dir = output_dir + '/' + sample_name
-    RepeatMasker_command = 'cd ' + tmp_output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(threads) \
-                           + ' -lib ' + family_path + ' -nolow -x -html -gff -dir ' + RepeatMasker_output_dir + ' ' + reference
-    os.system('rm -rf ' + RepeatMasker_output_dir)
-    log.logger.debug(RepeatMasker_command)
-    os.system(RepeatMasker_command)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("module9: invoke RepeatMasker to annotate genome running time: %.8s s" % (dtime))
+    #
+    # starttime = time.time()
+    # # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
+    # # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
+    # TRF_Path = param['TRF_Path']
+    #
+    # trf_dir = tmp_output_dir + '/trf_temp'
+    # if not os.path.exists(trf_dir):
+    #     os.makedirs(trf_dir)
+    # (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
+    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
+    # log.logger.debug(trf_command)
+    # os.system(trf_command)
+    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+    #
+    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    # repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
+    # repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
+    # with open(repeats_path, 'w') as f_save:
+    #     for name in trf_contigNames:
+    #         seq = trf_contigs[name]
+    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
+    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+    #
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+    #
+    # # --------------------------------------------------------------------------------------
+    # # Step10. run TE classification to classify TE family
+    # starttime = time.time()
+    # log.logger.debug('Start step8: get classified consensus sequence')
+    # sample_name = alias
+    # TEClass_home = os.getcwd() + '/classification'
+    # TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+    #                   + ' --consensus ' + repeats_path + ' --genome ' + reference \
+    #                   + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
+    # log.logger.debug(TEClass_command)
+    # os.system(TEClass_command)
+    #
+    # # --------------------------------------------------------------------------------------
+    # # Step11. assign a family name for each classified TE consensus
+    # classified_consensus_path = repeats_path + '.final.classified'
+    # classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
+    # family_path = tmp_output_dir + '/family_' + sample_name + '.fasta'
+    # with open(family_path, 'w') as f_save:
+    #     for f_id, name in enumerate(classified_contigNames):
+    #         sequence = classified_contigs[name]
+    #         class_name = name.split('#')[1]
+    #         if len(sequence) < 80 and class_name == 'Unknown':
+    #             continue
+    #         f_save.write('>family-' + str(f_id) + '#' + class_name + '\n' + sequence + '\n')
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("module8: get classified consensus sequence running time: %.8s s" % (dtime))
+    #
+    # pipeline_endtime = time.time()
+    # pipeline_dtime = pipeline_endtime - pipeline_starttime
+    # log.logger.debug("Total pipeline running time (no including RepeatMasker): %.8s s" % (pipeline_dtime))
+    #
+    # # --------------------------------------------------------------------------------------
+    # # Step12. invoke RepeatMasker to align TE family to genome
+    # starttime = time.time()
+    # RepeatMasker_Home = param['RepeatMasker_Home']
+    # RepeatMasker_output_dir = output_dir + '/' + sample_name
+    # RepeatMasker_command = 'cd ' + tmp_output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(threads) \
+    #                        + ' -lib ' + family_path + ' -nolow -x -html -gff -dir ' + RepeatMasker_output_dir + ' ' + reference
+    # os.system('rm -rf ' + RepeatMasker_output_dir)
+    # log.logger.debug(RepeatMasker_command)
+    # os.system(RepeatMasker_command)
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("module9: invoke RepeatMasker to annotate genome running time: %.8s s" % (dtime))
 
 
 

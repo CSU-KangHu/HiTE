@@ -46,7 +46,7 @@ if __name__ == '__main__':
         param = json.load(load_f)
     load_f.close()
 
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-23.8-30-49'
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-24.9-36-59'
     reference = '/public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta'
     (ref_dir, ref_filename) = os.path.split(reference)
     (ref_name, ref_extension) = os.path.splitext(ref_filename)
@@ -62,34 +62,229 @@ if __name__ == '__main__':
     tools_dir = os.getcwd() + '/tools'
     alias = 'dmel'
 
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-23.14-55-1'
-    unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    freq_distribution = {}
-    total_kmer_num = 0
-    with open(unique_kmer_path, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            parts = line.split(' ')
-            kmer = parts[0]
-            r_kmer = getReverseSequence(kmer)
-            unique_key = kmer if kmer < r_kmer else r_kmer
-            freq = int(parts[1])
-            if not freq_distribution.__contains__(freq):
-                freq_distribution[freq] = 0
-            num = freq_distribution[freq]
-            freq_distribution[freq] = num + 1
-            total_kmer_num += 1
+    # new strategy by Kang Hu 2022/05/24
+    # Step1: generate repeats.fa and connected_regions
+    # load repeat_dict
+    repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
+    file = open(repeat_dict_file, 'r')
+    js = file.read()
+    repeat_dict = json.loads(js)
 
-    freq_distribution = {k: v for k, v in
-                             sorted(freq_distribution.items(), key=lambda item: item[0])}
-    print(freq_distribution)
-    cur_kmer_num = 0
-    for repeat_num in freq_distribution:
-        kmer_num = freq_distribution[repeat_num]
-        cur_kmer_num += kmer_num
-        if cur_kmer_num > total_kmer_num/2:
-            print(repeat_num)
-            break
+    # connected_regions = {ref_name: {region_id: [(f1, start1, end1), (f2, start2, end2), (f3, start3, end3)], [(f4, start4, end4), (f5, start5, end5), (f6, start6, end6)]}}
+    connected_regions = {}
+    repeats_path = tmp_output_dir + '/repeats.fa'
+    node_index = 0
+    region_index = 0
+    with open(repeats_path, 'w') as f_save:
+        for ref_name in repeat_dict.keys():
+            repeat_list = repeat_dict[ref_name]
+            if not connected_regions.__contains__(ref_name):
+                connected_regions[ref_name] = {}
+            regions = connected_regions[ref_name]
+            last_start_pos = -1
+            last_end_pos = -1
+            for repeat_item in repeat_list:
+                start_pos = repeat_item[0]
+                end_pos = repeat_item[1]
+                query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
+                repeat = repeat_item[2]
+                f_save.write('>' + query_name + '\n' + repeat + '\n')
+                node_index += 1
+                # generate connected_regions
+                if last_start_pos == -1:
+                    regions[region_index] = [(query_name, start_pos, end_pos)]
+                else:
+                    if (start_pos - last_end_pos) < skip_threshold:
+                        # close to current region
+                        cur_region = regions[region_index]
+                        cur_region.append((query_name, start_pos, end_pos))
+                        regions[region_index] = cur_region
+                    else:
+                        # far from current region, start a new region
+                        region_index += 1
+                        cur_region = []
+                        cur_region.append((query_name, start_pos, end_pos))
+                        regions[region_index] = cur_region
+                last_start_pos = start_pos
+                last_end_pos = end_pos
+            connected_regions[ref_name] = regions
+
+    # store connected_regions for testing
+    connected_regions_file = tmp_output_dir + '/connected_regions.csv'
+    with codecs.open(connected_regions_file, 'w', encoding='utf-8') as f:
+        json.dump(connected_regions, f)
+
+    # Step2: align repeat back to reference, generate frag_pos_dict
+    repeat_contignames, repeat_contigs = read_fasta(repeats_path)
+    use_align_tools = 'bwa'
+    # sam_path_bwa = run_alignment(repeats_path, reference, use_align_tools, threads, tools_dir)
+    sam_path_bwa = tmp_output_dir + '/repeats.sam'
+    query_records = {}
+    samfile = pysam.AlignmentFile(sam_path_bwa, "rb")
+    for read in samfile.fetch():
+        if read.is_unmapped:
+            continue
+        query_name = read.query_name
+        reference_name = read.reference_name
+        cigar = read.cigartuples
+        cigarstr = read.cigarstring
+        NM_tag = 0
+        try:
+            NM_tag = read.get_tag('NM')
+        except KeyError:
+            NM_tag = -1
+        identity = compute_identity(cigarstr, NM_tag, 'BLAST')
+        identity = float(identity) * 100
+        is_reverse = read.is_reverse
+        alignment_len = read.query_alignment_length
+        q_start = int(read.query_alignment_start)
+        q_end = int(read.query_alignment_end)
+        t_start = int(read.reference_start)
+        t_end = int(read.reference_end)
+        if t_start > t_end:
+            tmp = t_start
+            t_start = t_end
+            t_end = tmp
+
+        if not query_records.__contains__(query_name):
+            query_records[query_name] = []
+        records = query_records[query_name]
+        records.append((reference_name, alignment_len, identity, t_start, t_end))
+        query_records[query_name] = records
+
+    # frag_pos_dict = {f1: {ref1: [(start1, end1), (start2, end2), (start3, end3)]}}
+    frag_pos_dict = {}
+    for query_name in query_records.keys():
+        complete_alignment_num = 0
+        query_seq = repeat_contigs[query_name]
+        query_len = len(query_seq)
+        if not frag_pos_dict.__contains__(query_name):
+            frag_pos_dict[query_name] = {}
+        ref_pos = frag_pos_dict[query_name]
+        # get fragments original position
+        pos_parts = query_name.split('-s_')[1].split('-')
+        original_ref = pos_parts[0]
+        original_start = int(pos_parts[1])
+        original_end = int(pos_parts[2])
+        for i, record in enumerate(query_records[query_name]):
+            reference_name = record[0]
+            alignment_len = record[1]
+            identity = record[2]
+            t_start = record[3]
+            t_end = record[4]
+            if float(alignment_len) / query_len >= 0.95 and identity >= 95:
+                complete_alignment_num += 1
+            if not ref_pos.__contains__(reference_name):
+                ref_pos[reference_name] = []
+            same_chr_pos = ref_pos[reference_name]
+            # alignment from original parts
+            if original_ref == reference_name and abs(t_start-original_start) < 10 and abs(t_end-original_end) < 10:
+                continue
+            same_chr_pos.append((t_start, t_end))
+            ref_pos[reference_name] = same_chr_pos
+        # sort pos in each ref_name
+        for reference_name in ref_pos.keys():
+            same_chr_pos = ref_pos[reference_name]
+            same_chr_pos.sort(key=lambda x: (x[0], x[1]))
+            ref_pos[reference_name] = same_chr_pos
+        frag_pos_dict[query_name] = ref_pos
+
+    # store frag_pos_dict for testing
+    frag_pos_dict_file = tmp_output_dir + '/frag_pos_dict.csv'
+    with codecs.open(frag_pos_dict_file, 'w', encoding='utf-8') as f:
+        json.dump(frag_pos_dict, f)
+
+    # Step3: generate pathMatrix
+    # pathMatrix = {region_id: {ref_name: [[(start1, end1), (start2, end2), (start3, end3)], [(start1, end1), (start2, end2), (start3, end3)]]}}
+    pathMatrix = {}
+    for ref_name in connected_regions.keys():
+        regions = connected_regions[ref_name]
+        for region_index in regions.keys():
+            if not pathMatrix.__contains__(region_index):
+                pathMatrix[region_index] = {}
+            cur_region_matrixs = pathMatrix[region_index]
+
+            # get one region
+            cur_region = regions[region_index]
+            # get all ref_names for one region
+            cur_ref_names_union = set()
+            for i in range(len(cur_region)):
+                frag_name = cur_region[i][0]
+                if not frag_pos_dict.__contains__(frag_name):
+                    frag_pos_dict[frag_name] = {}
+                ref_pos = frag_pos_dict[frag_name]
+                for ref in ref_pos.keys():
+                    cur_ref_names_union.add(ref)
+
+            for ref in cur_ref_names_union:
+                if not cur_region_matrixs.__contains__(ref):
+                    cur_region_matrixs[ref] = []
+                cur_ref_matrix = cur_region_matrixs[ref]
+                for i in range(len(cur_region)):
+                    frag_name = cur_region[i][0]
+                    if not frag_pos_dict.__contains__(frag_name):
+                        frag_pos_dict[frag_name] = {}
+                    ref_pos = frag_pos_dict[frag_name]
+                    if not ref_pos.__contains__(ref):
+                        ref_pos[ref] = []
+                    same_chr_pos = ref_pos[ref]
+                    cur_ref_matrix.append(same_chr_pos)
+                cur_region_matrixs[ref] = cur_ref_matrix
+            pathMatrix[region_index] = cur_region_matrixs
+
+
+    # store pathMatrix for testing
+    pathMatrix_file = tmp_output_dir + '/pathMatrix.csv'
+    with codecs.open(pathMatrix_file, 'w', encoding='utf-8') as f:
+        json.dump(pathMatrix, f)
+
+    # load pathMatrix
+    pathMatrix_file = tmp_output_dir + '/pathMatrix.csv'
+    file = open(pathMatrix_file, 'r')
+    js = file.read()
+    pathMatrix = json.loads(js)
+
+    # go through each Matrix, compute the longest path
+    # specific_region_id = "1"
+    # specific_ref_name = 'U'
+    # for region_index in pathMatrix:
+    #     if region_index == specific_region_id:
+    #         cur_region_matrixs = pathMatrix[region_index]
+    #         for ref in cur_region_matrixs.keys():
+    #             if ref == specific_ref_name:
+    #                 cur_ref_matrix = cur_region_matrixs[ref]
+    #                 print(cur_ref_matrix)
+
+
+
+
+    # unique_kmer_path = tmp_output_dir + '/kmer.txt'
+    # freq_distribution = {}
+    # total_kmer_num = 0
+    # with open(unique_kmer_path, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         parts = line.split(' ')
+    #         kmer = parts[0]
+    #         r_kmer = getReverseSequence(kmer)
+    #         unique_key = kmer if kmer < r_kmer else r_kmer
+    #         freq = int(parts[1])
+    #         if not freq_distribution.__contains__(freq):
+    #             freq_distribution[freq] = 0
+    #         num = freq_distribution[freq]
+    #         freq_distribution[freq] = num + 1
+    #         total_kmer_num += 1
+    #
+    # freq_distribution = {k: v for k, v in
+    #                          sorted(freq_distribution.items(), key=lambda item: item[0])}
+    # print(freq_distribution)
+    # cur_kmer_num = 0
+    # for repeat_num in freq_distribution:
+    #     kmer_num = freq_distribution[repeat_num]
+    #     cur_kmer_num += kmer_num
+    #     if cur_kmer_num > total_kmer_num/2:
+    #         print(repeat_num)
+    #         break
 
     # # try to chain all fragments
     # # --------------------------------------------------------------------------------------
