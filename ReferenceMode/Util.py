@@ -227,10 +227,12 @@ def multi_line(fasta_path, line_len, k_num):
             # line = '>' + contigName + '\t' + contig + '\n'
             # f_w.write(line)
             start = 0
-            end = len(contig)
+            end = len(contig) - k_num + 1
             while start < end:
                 # add extra kmer length
-                seg = contig[start:start+line_len+(k_num-1)]
+                cur_end = start+line_len
+                cur_end = cur_end if cur_end <= len(contig) else len(contig)
+                seg = contig[start:cur_end]
                 line = '>' + contigName + '\t' + str(start) + '\t' + seg + '\n'
                 f_w.write(line)
                 start += line_len
@@ -259,15 +261,35 @@ def convertToUpperCase(reference):
         cur_segments.append(contigseq)
     f_r.close()
     return contigs
-    # (dir, filename) = os.path.split(reference)
-    # (name, extension) = os.path.splitext(filename)
-    # reference_pre = dir + '/' + name + '_preprocess' + extension
-    # with open(reference_pre, "w") as f_save:
-    #     for contigName in contigNames:
-    #         contigseq = contigs[contigName]
-    #         f_save.write(">" + contigName + '\n' + contigseq + '\n')
-    # f_save.close()
-    # return reference_pre
+
+def convertToUpperCase_v1(reference):
+    contigNames = []
+    contigs = {}
+    with open(reference, "r") as f_r:
+        contigName = ''
+        contigseq = ''
+        for line in f_r:
+            if line.startswith('>'):
+                if contigName != '' and contigseq != '':
+                    contigs[contigName] = contigseq
+                    contigNames.append(contigName)
+                contigName = line.strip()[1:].split(' ')[0]
+                contigseq = ''
+            else:
+                contigseq += line.strip().upper()
+        contigs[contigName] = contigseq
+        contigNames.append(contigName)
+    f_r.close()
+
+    (dir, filename) = os.path.split(reference)
+    (name, extension) = os.path.splitext(filename)
+    reference_pre = dir + '/' + name + '_preprocess' + extension
+    with open(reference_pre, "w") as f_save:
+        for contigName in contigNames:
+            contigseq = contigs[contigName]
+            f_save.write(">" + contigName + '\n' + contigseq + '\n')
+    f_save.close()
+    return reference_pre
 
 def getReverseSequence(sequence):
     base_map = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
@@ -407,26 +429,36 @@ def split2cluster(segments, partitions_num):
     avg_num = len(segments) if avg_num == 0 else avg_num
 
     segments_cluster = {}
-    cur_segment = []
+    cur_segment = {}
     partition_index = 0
     last_index = -1
     for i in range(len(segments)):
         if i != 0 and i % avg_num == 0:
             segments_cluster[partition_index] = cur_segment
-            cur_segment = []
+            cur_segment = {}
             partition_index = partition_index + 1
             # last partition
             if partition_index == partitions_num-1:
                 last_index = i
                 break
-        cur_segment.append(segments[i])
+        parts = segments[i].split('\t')
+        ref_name = parts[0].replace('>', '')
+        start = parts[1]
+        seq = parts[2]
+        new_ref_name = ref_name + '$' + start
+        cur_segment[new_ref_name] = seq
     # only one partition
     if len(cur_segment) > 0:
         segments_cluster[partition_index] = cur_segment
     else:
         if last_index != -1:
             for j in range(last_index, len(segments)):
-                cur_segment.append(segments[j])
+                parts = segments[i].split('\t')
+                ref_name = parts[0].replace('>', '')
+                start = parts[1]
+                seq = parts[2]
+                new_ref_name = ref_name + '$' + start
+                cur_segment[new_ref_name] = seq
             segments_cluster[partition_index] = cur_segment
     return segments_cluster
 

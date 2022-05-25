@@ -1,5 +1,5 @@
 {
-  "chrom_seg_length": "15000000",
+  "chrom_seg_length": "5000",
   "RepeatMasker_Home": "/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepeatMasker",
   "Genome_Tools_Home": "/public/home/hpc194701009/Liao_Results/review_test/tools/genometools-1.6.2/bin",
   "LTR_retriever_Home": "/public/home/hpc194701009/Liao_Results/review_test/tools/LTR_retriever-master",

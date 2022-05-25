@@ -37,6 +37,8 @@ def genome_simulator():
     model_lib_path = output_dir + '/model_lib.fa'
     with open(model_lib_path, 'w') as f_save:
         for name in curated_contignames:
+            if name == 'PROTOP_B#DNA/P':
+                continue
             seq = curated_contigs[name]
             f_save.write('>' + name + '\n' + seq + '\n')
     #os.system('cp ' + curated_library + ' ' + model_lib_path)

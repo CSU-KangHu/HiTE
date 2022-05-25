@@ -608,7 +608,8 @@ if __name__ == '__main__':
     log.logger.debug('Start step3: split reference into segments')
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
-    cur_segments = convertToUpperCase(reference)
+
+    reference_pre = convertToUpperCase_v1(reference)
     # reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
     #
     # segments = []
@@ -631,6 +632,7 @@ if __name__ == '__main__':
     #     for repeat in obj.result():
     #         repeat_segments.append(repeat)
 
+    cur_segments = convertToUpperCase(reference)
     repeat_segments = generate_candidate_repeats(cur_segments, k_num, unique_kmer_map, fault_tolerant_bases)
 
     repeats_path = tmp_output_dir + '/repeats.fa'
