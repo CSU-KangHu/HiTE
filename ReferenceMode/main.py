@@ -517,7 +517,7 @@ def dfs(grid, x, y, row, path, visited, skip_threshold):
             continue
         child_node = grid[x+1][j]
         # child node is closed to current node, then there is a path between current node and child node
-        if (child_node[0] - cur_node[1]) > 0 and (child_node[0] - cur_node[1]) < skip_threshold:
+        if (child_node[0] - cur_node[1]) >= 0 and (child_node[0] - cur_node[1]) < skip_threshold:
             dfs(grid, x+1, j, row, path, visited, skip_threshold)
 
 
@@ -671,9 +671,10 @@ if __name__ == '__main__':
     ref_size = os.path.getsize(reference)
     ref_size = ref_size / float(1024 * 1024)
     if ref_size > 1024:
-        freq_threshold = 5
+        #freq_threshold = 5
+        log.logger.debug('warning: reference is larger than 1G, increase kmer size to explicit the repeat boundary')
+        k_num = 39
     log.logger.debug('Start step1: get unique kmers')
-    log.logger.debug('warning: reference is larger than 1G, increase the frequency of unique kmers to gain speed')
     dsk_h5_path = ref_name + '.h5'
     unique_kmer_path = tmp_output_dir + '/kmer.txt'
     dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + reference + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
@@ -700,42 +701,46 @@ if __name__ == '__main__':
     log.logger.debug('Start step3: split reference into segments')
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
-    # using multiple threads to get candidate region
-    reference_pre = convertToUpperCase_v1(reference)
-    reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
+    # # using multiple threads to gain speed
+    # reference_pre = convertToUpperCase_v1(reference)
+    # reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
+    #
+    # segments = []
+    # with open(reference_tmp, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         segments.append(line)
+    # segments_cluster = split2cluster(segments, reduce_partitions_num)
+    #
+    # ex = ProcessPoolExecutor(reduce_partitions_num)
+    # repeat_dict = {}
+    # jobs = []
+    # for partiton_index in segments_cluster.keys():
+    #     cur_segments = segments_cluster[partiton_index]
+    #     job = ex.submit(generate_candidate_repeats_v2, cur_segments, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases)
+    #     jobs.append(job)
+    # ex.shutdown(wait=True)
+    #
+    # for job in as_completed(jobs):
+    #     cur_repeat_dict = job.result()
+    #     for ref_name in cur_repeat_dict.keys():
+    #         parts = ref_name.split('$')
+    #         true_ref_name = parts[0]
+    #         start_pos = int(parts[1])
+    #         if not repeat_dict.__contains__(true_ref_name):
+    #             repeat_dict[true_ref_name] = []
+    #         new_repeat_list = repeat_dict[true_ref_name]
+    #         cur_repeat_list = cur_repeat_dict[ref_name]
+    #         for repeat_item in cur_repeat_list:
+    #             new_repeat_item = (start_pos+repeat_item[0], start_pos+repeat_item[1], repeat_item[2])
+    #             new_repeat_list.append(new_repeat_item)
+    # for ref_name in repeat_dict.keys():
+    #     repeat_list = repeat_dict[ref_name]
+    #     repeat_list.sort(key=lambda x: (x[1], x[2]))
 
-    segments = []
-    with open(reference_tmp, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            segments.append(line)
-    segments_cluster = split2cluster(segments, reduce_partitions_num)
-
-    ex = ProcessPoolExecutor(reduce_partitions_num)
-    repeat_dict = {}
-    jobs = []
-    for partiton_index in segments_cluster.keys():
-        cur_segments = segments_cluster[partiton_index]
-        job = ex.submit(generate_candidate_repeats_v2, cur_segments, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    for job in as_completed(jobs):
-        cur_repeat_dict = job.result()
-        for ref_name in cur_repeat_dict.keys():
-            parts = ref_name.split('$')
-            true_ref_name = parts[0]
-            start_pos = int(parts[1])
-            if not repeat_dict.__contains__(true_ref_name):
-                repeat_dict[true_ref_name] = []
-            new_repeat_list = repeat_dict[true_ref_name]
-            cur_repeat_list = cur_repeat_dict[ref_name]
-            for repeat_item in cur_repeat_list:
-                new_repeat_item = (start_pos+repeat_item[0], start_pos+repeat_item[1], repeat_item[2])
-                new_repeat_list.append(new_repeat_item)
-
-    # contigs = convertToUpperCase(reference)
-    # repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
+    # single threads will ensure the accuracy
+    contigs = convertToUpperCase(reference)
+    repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
 
     # store repeat_dict for testing
     repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
@@ -761,8 +766,7 @@ if __name__ == '__main__':
             for repeat_item in repeat_list:
                 start_pos = repeat_item[0]
                 end_pos = repeat_item[1]
-                query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(
-                    end_pos)
+                query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
                 repeat = repeat_item[2]
                 f_save.write('>' + query_name + '\n' + repeat + '\n')
                 node_index += 1
@@ -813,10 +817,9 @@ if __name__ == '__main__':
         identity = float(identity) * 100
         is_reverse = read.is_reverse
         alignment_len = read.query_alignment_length
-        q_start = int(read.query_alignment_start)
-        q_end = int(read.query_alignment_end)
-        t_start = int(read.reference_start)
-        t_end = int(read.reference_end)
+        # pos start from 1, change to 0
+        t_start = int(read.reference_start)-1
+        t_end = int(read.reference_end)-1
         if t_start > t_end:
             tmp = t_start
             t_start = t_end
@@ -1014,10 +1017,10 @@ if __name__ == '__main__':
         keeped_frag_name = []
         paths = keeped_paths[region_index]
         region_fragment1 = region_fragments1[region_index]
+        # connect path
         for path in paths:
             if len(path) <= 0:
                 continue
-            # connect path
             last_connected_frag_start = -1
             last_connected_frag_end = -1
             for i, frag_name in enumerate(path.split(',')):
@@ -1032,7 +1035,7 @@ if __name__ == '__main__':
             connected_frag = connected_frags[region_index]
             connected_frag.append((path, last_connected_frag_start, last_connected_frag_end))
 
-        for frag_name in region_fragments1[region_index]:
+        for frag_name in region_fragments1[region_index].keys():
             frag_item = region_fragments1[region_index][frag_name]
             if frag_name not in keeped_frag_name:
                 if not connected_frags.__contains__(region_index):
