@@ -46,7 +46,7 @@ if __name__ == '__main__':
         param = json.load(load_f)
     load_f.close()
 
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-24.9-36-59'
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.10-28-8'
     reference = '/public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta'
     (ref_dir, ref_filename) = os.path.split(reference)
     (ref_name, ref_extension) = os.path.splitext(ref_filename)
@@ -62,48 +62,28 @@ if __name__ == '__main__':
     tools_dir = os.getcwd() + '/tools'
     alias = 'dmel'
 
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-25.20-12-12'
+    #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-25.20-12-12'
 
     # Step3: According to valid paths, the fragments in the region are connected across gaps.
     # Fragments in region are connected according to the longer path in valid paths.
 
-    region_paths_file = tmp_output_dir + '/region_paths.csv'
-    file = open(region_paths_file, 'r')
+
+    connected_frags_file = tmp_output_dir + '/connected_frags.csv'
+    file = open(connected_frags_file, 'r')
     js = file.read()
-    region_paths = json.loads(js)
-    region_fragments_file = tmp_output_dir + '/region_fragments.csv'
-    file = open(region_fragments_file, 'r')
-    js = file.read()
-    region_fragments = json.loads(js)
+    connected_frags = json.loads(js)
 
-    # keeped_path = {region_id: [f1f2f3, f4, f5f6]}
-    keeped_paths = {}
-    for region_index in region_paths.keys():
-        region_fragment = region_fragments[region_index]
-        for path in region_paths[region_index]:
-            isPathExist = True
-            pathName = ''
-            for i, frag_index in enumerate(path.keys()):
-                if region_fragment.__contains__(frag_index):
-                    frag_item = region_fragment[frag_index]
-                    frag_name = frag_item[0]
-                    if i == 0:
-                        pathName += frag_name
-                    else:
-                        pathName += ',' + frag_name
-                else:
-                    isPathExist = False
-                    break
-
-            if isPathExist:
-                if not keeped_paths.__contains__(region_index):
-                    keeped_paths[region_index] = []
-                paths = keeped_paths[region_index]
-                paths.append(pathName)
-                for frag_index in path.keys():
-                    del region_fragment[frag_index]
-
-    # store keeped_paths for testing
-    keeped_paths_file = tmp_output_dir + '/keeped_paths.csv'
-    with codecs.open(keeped_paths_file, 'w', encoding='utf-8') as f:
-        json.dump(keeped_paths, f)
+    refNames, refContigs = read_fasta(reference)
+    repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
+    repeats_connected = {}
+    index = 0
+    for region_index in connected_frags.keys():
+        for connected_frag in connected_frags[region_index]:
+            frag_name = connected_frag[0].split(',')[0]
+            ref_name = frag_name.split('-s_')[1].split('-')[0]
+            query_name = 'R' + str(index) + '-' + frag_name
+            seq = refContigs[ref_name][connected_frag[1]: connected_frag[2] + 1]
+            index += 1
+            repeats_connected[query_name] = seq
+    sorted_repeats_connected = {k: v for k, v in sorted(repeats_connected.items(), key=lambda item: -len(item[1]))}
+    store_fasta(sorted_repeats_connected, repeats_connected_file)

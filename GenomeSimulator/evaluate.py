@@ -5,19 +5,19 @@ import time
 
 from Util import Logger, read_fasta, store_fasta
 
-model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/dmel_curated.fasta'
-output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.0-39-21/family_dmel.fasta'
-output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.0-39-21'
+# model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/dmel_curated.fasta'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11/family_dmel.fasta'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11'
 
-# model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/model_lib.fa'
-# output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-26.0-13-4/family_model.fasta'
-# output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-26.0-13-4'
+model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/model_lib.fa'
+output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-26.13-15-51/family_model.fasta'
+output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-26.13-15-51'
 
 #output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/Dmel-families.fa'
 #output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
 
-similarity_cutoff = 0.95
-length_difference_cutoff = 0.95
+similarity_cutoff = 0.8
+length_difference_cutoff = 0.8
 
 if __name__ == '__main__':
     log = Logger('GenomeSimulator.log', level='debug')
@@ -126,7 +126,8 @@ if __name__ == '__main__':
     print('true repeats: %d, total find repeats: %d, precision: %f' % (len(query_name_set), len(output_contigs), precision))
     print('recall: %f' % recall)
     print('f1_score: %f' % f1_score)
-    #print(set(output_contignames)-query_name_set)
-    #print(set(model_contignames) - target_name_set)
+    #print(query_name_set)
+    print(set(output_contignames)-query_name_set)
+    print(set(model_contignames) - target_name_set)
 
     #print(target_name_set)

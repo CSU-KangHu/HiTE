@@ -596,7 +596,7 @@ if __name__ == '__main__':
         tandem_region_cutoff = default_tandem_region_cutoff
 
 
-    skip_threshold = 200
+    skip_threshold = 50
     identity_threshold = 0.9
     length_similarity_cutoff = 0.9
 
@@ -653,6 +653,33 @@ if __name__ == '__main__':
     (ref_dir, ref_filename) = os.path.split(reference)
     (ref_name, ref_extension) = os.path.splitext(ref_filename)
 
+    starttime = time.time()
+    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
+    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
+    TRF_Path = param['TRF_Path']
+
+    trf_dir = tmp_output_dir + '/trf_temp'
+    if not os.path.exists(trf_dir):
+        os.makedirs(trf_dir)
+
+    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + reference + ' 2 7 7 80 10 50 500 -f -d -m'
+    log.logger.debug(trf_command)
+    os.system(trf_command)
+    trf_masked_repeats = trf_dir + '/' + ref_filename + '.2.7.7.80.10.50.500.mask'
+
+    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    # repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
+    # repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
+    # with open(repeats_path, 'w') as f_save:
+    #     for name in trf_contigNames:
+    #         seq = trf_contigs[name]
+    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
+    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+
     # --------------------------------------------------------------------------------------
     # background job: get LTR sequences from LTR_retriever for supplementary
     Genome_Tools_Home = param['Genome_Tools_Home']
@@ -677,7 +704,7 @@ if __name__ == '__main__':
     log.logger.debug('Start step1: get unique kmers')
     dsk_h5_path = ref_name + '.h5'
     unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + reference + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
+    dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + trf_masked_repeats + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
     dsk_cmd2 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk2ascii -file ' + dsk_h5_path + ' -out ' + unique_kmer_path
     log.logger.debug(dsk_cmd1)
     os.system(dsk_cmd1)
@@ -694,6 +721,8 @@ if __name__ == '__main__':
             kmer = line.split(' ')[0]
             r_kmer = getReverseSequence(kmer)
             unique_key = kmer if kmer < r_kmer else r_kmer
+            if unique_key.__contains__('N'):
+                continue
             unique_kmer_map[unique_key] = 1
 
     # --------------------------------------------------------------------------------------
@@ -701,46 +730,46 @@ if __name__ == '__main__':
     log.logger.debug('Start step3: split reference into segments')
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
-    # # using multiple threads to gain speed
-    # reference_pre = convertToUpperCase_v1(reference)
-    # reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
-    #
-    # segments = []
-    # with open(reference_tmp, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         segments.append(line)
-    # segments_cluster = split2cluster(segments, reduce_partitions_num)
-    #
-    # ex = ProcessPoolExecutor(reduce_partitions_num)
-    # repeat_dict = {}
-    # jobs = []
-    # for partiton_index in segments_cluster.keys():
-    #     cur_segments = segments_cluster[partiton_index]
-    #     job = ex.submit(generate_candidate_repeats_v2, cur_segments, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases)
-    #     jobs.append(job)
-    # ex.shutdown(wait=True)
-    #
-    # for job in as_completed(jobs):
-    #     cur_repeat_dict = job.result()
-    #     for ref_name in cur_repeat_dict.keys():
-    #         parts = ref_name.split('$')
-    #         true_ref_name = parts[0]
-    #         start_pos = int(parts[1])
-    #         if not repeat_dict.__contains__(true_ref_name):
-    #             repeat_dict[true_ref_name] = []
-    #         new_repeat_list = repeat_dict[true_ref_name]
-    #         cur_repeat_list = cur_repeat_dict[ref_name]
-    #         for repeat_item in cur_repeat_list:
-    #             new_repeat_item = (start_pos+repeat_item[0], start_pos+repeat_item[1], repeat_item[2])
-    #             new_repeat_list.append(new_repeat_item)
-    # for ref_name in repeat_dict.keys():
-    #     repeat_list = repeat_dict[ref_name]
-    #     repeat_list.sort(key=lambda x: (x[1], x[2]))
+    # using multiple threads to gain speed
+    reference_pre = convertToUpperCase_v1(trf_masked_repeats)
+    reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
 
-    # single threads will ensure the accuracy
-    contigs = convertToUpperCase(reference)
-    repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
+    segments = []
+    with open(reference_tmp, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            segments.append(line)
+    segments_cluster = split2cluster(segments, reduce_partitions_num)
+
+    ex = ProcessPoolExecutor(reduce_partitions_num)
+    repeat_dict = {}
+    jobs = []
+    for partiton_index in segments_cluster.keys():
+        cur_segments = segments_cluster[partiton_index]
+        job = ex.submit(generate_candidate_repeats_v2, cur_segments, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    for job in as_completed(jobs):
+        cur_repeat_dict = job.result()
+        for ref_name in cur_repeat_dict.keys():
+            parts = ref_name.split('$')
+            true_ref_name = parts[0]
+            start_pos = int(parts[1])
+            if not repeat_dict.__contains__(true_ref_name):
+                repeat_dict[true_ref_name] = []
+            new_repeat_list = repeat_dict[true_ref_name]
+            cur_repeat_list = cur_repeat_dict[ref_name]
+            for repeat_item in cur_repeat_list:
+                new_repeat_item = (start_pos+repeat_item[0], start_pos+repeat_item[1], repeat_item[2])
+                new_repeat_list.append(new_repeat_item)
+    for ref_name in repeat_dict.keys():
+        repeat_list = repeat_dict[ref_name]
+        repeat_list.sort(key=lambda x: (x[1], x[2]))
+
+    # # single threads will ensure the accuracy
+    # contigs = convertToUpperCase(reference)
+    # repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
 
     # store repeat_dict for testing
     repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
@@ -797,7 +826,7 @@ if __name__ == '__main__':
     # Step2: align repeat back to reference, generate frag_pos_dict
     repeat_contignames, repeat_contigs = read_fasta(repeats_path)
     use_align_tools = 'bwa'
-    sam_path_bwa = run_alignment(repeats_path, reference, use_align_tools, threads, tools_dir)
+    sam_path_bwa = run_alignment(repeats_path, trf_masked_repeats, use_align_tools, threads, tools_dir)
 # sam_path_bwa = tmp_output_dir + '/repeats.sam'
     query_records = {}
     samfile = pysam.AlignmentFile(sam_path_bwa, "rb")
@@ -1051,7 +1080,7 @@ if __name__ == '__main__':
     with codecs.open(connected_frags_file, 'w', encoding='utf-8') as f:
         json.dump(connected_frags, f)
 
-    refNames, refContigs = read_fasta(reference)
+    refNames, refContigs = read_fasta(trf_masked_repeats)
     repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
     repeats_connected = {}
     index = 0
@@ -1104,7 +1133,7 @@ if __name__ == '__main__':
     candidate_repeats_path = repeats_connected_file
     blast_program_dir = param['RMBlast_Home']
     use_align_tools = 'bwa'
-    sam_path_bwa = run_alignment(candidate_repeats_path, reference, use_align_tools, threads, tools_dir)
+    sam_path_bwa = run_alignment(candidate_repeats_path, trf_masked_repeats, use_align_tools, threads, tools_dir)
     sam_paths = []
     sam_paths.append(sam_path_bwa)
     # unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds = get_alignment_info(sam_paths)
@@ -1137,37 +1166,9 @@ if __name__ == '__main__':
     backjob.join()
     os.system('cat ' + ltr_retriever_seq + ' >> ' + merge_pure)
     #cd_hit_command = tools_dir + '/cd-hit-est -s ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -c ' + str(0.95) + ' -i ' + merge_pure + ' -o ' + merge_pure_consensus + ' -T 0 -M 0'
     log.logger.debug(cd_hit_command)
     os.system(cd_hit_command)
-
-    starttime = time.time()
-    # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
-    # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    TRF_Path = param['TRF_Path']
-
-    trf_dir = tmp_output_dir + '/trf_temp'
-    if not os.path.exists(trf_dir):
-        os.makedirs(trf_dir)
-    (repeat_dir, repeat_filename) = os.path.split(merge_pure_consensus)
-    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + merge_pure_consensus + ' 2 7 7 80 10 50 500 -f -d -m'
-    log.logger.debug(trf_command)
-    os.system(trf_command)
-    trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-
-    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
-    repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-    with open(repeats_path, 'w') as f_save:
-        for name in trf_contigNames:
-            seq = trf_contigs[name]
-            if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
-                f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
-
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
 
     # --------------------------------------------------------------------------------------
     # Step10. run TE classification to classify TE family
@@ -1176,14 +1177,14 @@ if __name__ == '__main__':
     sample_name = alias
     TEClass_home = os.getcwd() + '/classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                      + ' --consensus ' + repeats_path + ' --genome ' + reference \
+                      + ' --consensus ' + merge_pure_consensus + ' --genome ' + trf_masked_repeats \
                       + ' --thread_num ' + str(threads) + ' -o ' + tmp_output_dir
     log.logger.debug(TEClass_command)
     os.system(TEClass_command)
 
     # --------------------------------------------------------------------------------------
     # Step11. assign a family name for each classified TE consensus
-    classified_consensus_path = repeats_path + '.final.classified'
+    classified_consensus_path = merge_pure_consensus + '.final.classified'
     classified_contigNames, classified_contigs = read_fasta(classified_consensus_path)
     sorted_classified_contigs = {k: v for k, v in sorted(classified_contigs.items(), key=lambda item: -len(item[1]))}
     family_path = tmp_output_dir + '/family_' + sample_name + '.fasta'
@@ -1206,7 +1207,7 @@ if __name__ == '__main__':
     # Step12. invoke RepeatMasker to align TE family to genome
     starttime = time.time()
     RepeatMasker_Home = param['RepeatMasker_Home']
-    RepeatMasker_output_dir = output_dir + '/' + sample_name
+    RepeatMasker_output_dir = tmp_output_dir + '/' + sample_name
     RepeatMasker_command = 'cd ' + tmp_output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(threads) \
                            + ' -lib ' + family_path + ' -nolow -x -html -gff -dir ' + RepeatMasker_output_dir + ' ' + reference
     os.system('rm -rf ' + RepeatMasker_output_dir)

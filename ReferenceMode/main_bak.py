@@ -609,7 +609,7 @@ if __name__ == '__main__':
     reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
 
-    reference_pre = convertToUpperCase_v1(reference)
+    # reference_pre = convertToUpperCase_v1(reference)
     # reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
     #
     # segments = []
