@@ -1,0 +1,144 @@
+#!/usr/bin/env perl
+#
+# A second-stage fasta filter for RepeatScout libraries: removes anything that
+# does not appear more than 10 times in the RepeatMasker output.  Note that this
+# requires you to have run RepeatMasker on a sequence with the library.
+#
+# You will likely want to combine this with compare-out-to-gff to filter out segmental
+# duplications.
+#
+# Created: 20050524
+# Author: Neil Jones
+#-----------------------------------------------------------------------------------
+
+my $COUNT_THRESH = 10;
+
+use vars qw( 
+	$opt_cat_file
+);
+use Getopt::Long;
+
+GetOptions(
+	'cat=s' => \$opt_cat_file,
+	'thresh=s' => \$COUNT_THRESH,
+) or exec "perldoc $0";
+
+die unless $opt_cat_file;
+my $counts = ($opt_cat_file =~ /\.out$/) ? read_out($opt_cat_file) : read_cat($opt_cat_file);
+foreach (keys %$counts) {
+	$counts{$_} = scalar @{ $counts->{$_} };
+}
+
+while(<STDIN>) {
+	++$line;
+	next if /^#/;  # Allow embedded comments.
+
+	if( /^>/ ) {
+		$head =~ /^>([^\s]+)/ and do {
+			$tag = $1;
+			if( $counts{$tag} >= $COUNT_THRESH ) {
+				print $head;
+				print $body;
+			}
+		};
+		$head = $_;
+		$body = '';
+	}
+
+	else {
+		$body .= $_;
+	}
+}
+
+sub read_out {
+	my ($file) = @_;
+	open(CAT, "<$file") or die;
+
+	my %res;
+	while(<CAT>) {
+		s/^\s*//g;
+		next unless /^\d/;
+		my @fields = split;
+	
+		$repeat_type = $fields[9];
+		my ($start, $stop) = @fields[5, 6]; 
+
+		push @{ $res{$repeat_type} }, [ MIN($start, $stop), MAX($stop, $start), $repeat_type ];
+	}
+	close(CAT);
+
+	return \%res;
+}
+
+sub read_cat {
+	my ($file) = @_;
+	open(CAT, "<$file") or die("$0: could not open $file: $!\n");;
+
+	my %res;
+	while(<CAT>) {
+		my @fields = split;
+		if( $fields[8] eq 'C' ) {
+			$fields[8] = $fields[9];
+		}
+	
+		$repeat_type = $fields[8];
+		my ($start, $stop) = @fields[5,6];
+
+		push @{ $res{$repeat_type} }, [ MIN($start, $stop), MAX($stop, $start), $repeat_type ];
+	}
+	close(CAT);
+
+	return \%res;
+}
+
+
+sub MIN {
+	my ($a, $b) = @_;
+	return $a < $b ? $a : $b;
+}
+
+sub MAX {
+	my ($a, $b) = @_;
+	return $a > $b ? $a : $b;
+}
+1;
+
+__END__
+
+=head1  NAME
+
+filter-stage-2.prl --- Filter a repeat library by number of occurrences 
+
+=head1  SYNOPSIS
+
+cat repeats.lib | ./filter-stage-2.prl --cat=repeats.out --thresh=20
+
+=head1  DESCRIPTION
+
+It is necessary to filter a library of repeats based on the number of times each type
+of repeat element occurs in RepeatMasker output.
+
+=head1  OPTIONS
+
+=head3  --cat
+
+The RepeatMasker output file.  It can either be a .cat file or a .out file, but a .out file
+is preferred.
+
+=head3  --thresh
+
+The number of times a sequence must appear for it to be reported.
+
+=head1  NOTES
+
+The Fasta-formatted repeat library must be sent to this program from standard input.
+
+Each entry in the repeat library should be named like so:
+>name then put whatever you want here
+ATAATG...
+
+In the RepeatMasker output, a given repeat will be listed with "name" next to it.
+Please do not make a repeat library where two sequences have the same first word in the
+">" header line.
+
+=cut

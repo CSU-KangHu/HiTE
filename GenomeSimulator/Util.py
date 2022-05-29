@@ -113,6 +113,7 @@ def read_fasta(fasta_path):
                     contigs[contigname] = contigseq
                     contignames.append(contigname)
                 contigname = line.strip()[1:].split(" ")[0]
+                contigname = contigname.split("\t")[0]
                 contigseq = ''
             else:
                 contigseq += line.strip().upper()

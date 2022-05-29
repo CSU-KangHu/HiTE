@@ -5,16 +5,35 @@ import time
 
 from Util import Logger, read_fasta, store_fasta
 
-# model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/dmel_curated.fasta'
-# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11/family_dmel.fasta'
-# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11'
+model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/drorep.ref'
+#output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11/family_dmel.fasta'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0/repeats-filter.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
 
-model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/model_lib.fa'
-output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-26.13-15-51/family_model.fasta'
-output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-26.13-15-51'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rs_lib/dmel/repeatscout-family.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rs_lib/dmel'
 
-#output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/Dmel-families.fa'
-#output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
+# model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/model_lib.fa'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-27.20-15-31/family_model.fasta'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-27.20-15-31'
+
+# model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/model_lib.fa'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/rs_output/repeatscout-family.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/rs_output'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/rm2_output/model-families.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/rm2_output'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/krf_output/family_model.fasta'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/krf_output/CRD.2022-05-27.22-43-54'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/krf_output/CRD.2022-05-27.22-4-37/family_model.fasta'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/krf_output/CRD.2022-05-27.22-4-37'
+
+output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/dmel/dmel-families.fa'
+output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/dmel'
+# output_library = '/public/home/hpc194701009/TE_test/RepeatModeler2_results/dmel/dmel-families.fa'
+# output_dir = '/public/home/hpc194701009/TE_test/RepeatModeler2_results/dmel'
+
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/Dmel-families.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
 
 similarity_cutoff = 0.8
 length_difference_cutoff = 0.8
@@ -23,6 +42,7 @@ if __name__ == '__main__':
     log = Logger('GenomeSimulator.log', level='debug')
     model_contignames, model_contigs = read_fasta(model_library)
     output_contignames, output_contigs = read_fasta(output_library)
+
     threads = 48
     tool_dir = '/public/home/hpc194701009/CompleteRepeatDetection/ReferenceMode'
     blast_program_dir = tool_dir + '/tools/rmblast-2.9.0-p2'
@@ -34,7 +54,7 @@ if __name__ == '__main__':
     os.system(makedb_command)
     log.logger.debug(align_command)
     os.system(align_command)
-
+#'/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2/bin/blastn -db /public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta -num_threads 48 -query /public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/dmel_curated.fasta -outfmt 6 > /public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/tmpBlastResults2.out'
     query_name_set = set()
     target_name_set = set()
     query_cluster = {}
@@ -127,7 +147,7 @@ if __name__ == '__main__':
     print('recall: %f' % recall)
     print('f1_score: %f' % f1_score)
     #print(query_name_set)
-    print(set(output_contignames)-query_name_set)
-    print(set(model_contignames) - target_name_set)
+    #print(set(output_contignames)-query_name_set)
+    #print(set(model_contignames) - target_name_set)
 
     #print(target_name_set)

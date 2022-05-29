@@ -33,6 +33,7 @@ def run_bwa(repeat_contig_path, reference_path, thread_num, tools_dir):
         print(bwa_index_command)
         runCommand(bwa_index_command)
     bwa_align_command = tools_dir + '/bwa mem -t ' + str(thread_num) + ' -x intractg ' + reference_path + ' -a ' + repeat_contig_path + ' > ' + sam_path
+#    '/bwa mem -t 48 -x intractg /public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta -a /public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/dmel_curated.fasta > /public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/no_simple_repeats/dmel_curated.sam'
     print(bwa_align_command)
     runCommand(bwa_align_command)
     return sam_path
