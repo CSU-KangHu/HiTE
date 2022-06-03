@@ -6,12 +6,19 @@ import time
 from Util import Logger, read_fasta, store_fasta
 
 model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/drorep.ref'
+#model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
+#model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/zebrep.ref'
+output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0/TE-filtered.fa'
+output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
 #output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11/family_dmel.fasta'
 # output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0/repeats-filter.fa'
 # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
 
 # output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rs_lib/dmel/repeatscout-family.fa'
 # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rs_lib/dmel'
+
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rs_lib/oryza_sativa/repeatscout-family.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rs_lib/oryza_sativa'
 
 # model_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/model_lib.fa'
 # output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-27.20-15-31/family_model.fasta'
@@ -27,12 +34,22 @@ model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_li
 # output_library = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/krf_output/CRD.2022-05-27.22-4-37/family_model.fasta'
 # output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/output_2-300/krf_output/CRD.2022-05-27.22-4-37'
 
-output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/dmel/dmel-families.fa'
-output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/dmel'
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/dmel/dmel-families.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/dmel'
+
+# output_library = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/dmel/dmel-all-chromosome-r5.43.fasta.mod.EDTA.TElib.fa'
+# output_dir = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/dmel'
+
 # output_library = '/public/home/hpc194701009/TE_test/RepeatModeler2_results/dmel/dmel-families.fa'
 # output_dir = '/public/home/hpc194701009/TE_test/RepeatModeler2_results/dmel'
 
 # output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/Dmel-families.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
+
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/rice-families.fa'
+# output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
+
+# output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib/danRer10-families.fa'
 # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_lib/sort_lib'
 
 similarity_cutoff = 0.8

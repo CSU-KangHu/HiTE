@@ -471,7 +471,7 @@ if __name__ == '__main__':
     if sensitive_mode == '1':
         is_sensitive = True
 
-    default_fault_tolerant_bases = 200
+    default_fault_tolerant_bases = 0
 
     if fault_tolerant_bases is None:
         fault_tolerant_bases = default_fault_tolerant_bases
@@ -527,17 +527,17 @@ if __name__ == '__main__':
 
     chrom_seg_length = int(param['chrom_seg_length'])
 
-    i = datetime.datetime.now()
-    #tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    tmp_output_dir = output_dir + '/CRD.2022-06-02.17-36-14'
-    if not os.path.exists(tmp_output_dir):
-        os.makedirs(tmp_output_dir)
-
-    total_starttime = time.time()
+#     i = datetime.datetime.now()
+#     tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
+# #tmp_output_dir = output_dir + '/CRD.2022-05-12.23-7-32'
+#     if not os.path.exists(tmp_output_dir):
+#         os.makedirs(tmp_output_dir)
+#
+#     total_starttime = time.time()
     tools_dir = os.getcwd() + '/tools'
-
-    (ref_dir, ref_filename) = os.path.split(reference)
-    (ref_name, ref_extension) = os.path.splitext(ref_filename)
+#
+#     (ref_dir, ref_filename) = os.path.split(reference)
+#     (ref_name, ref_extension) = os.path.splitext(ref_filename)
 #
 #
 #     # --------------------------------------------------------------------------------------
@@ -548,94 +548,94 @@ if __name__ == '__main__':
 #     # output of LTR_retriever
 # # backjob = multiprocessing.Process(target=run_LTR_retriever_v1, args=(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads,))
 # # backjob.start()
+#
+#     pipeline_starttime = time.time()
+#
+#     starttime = time.time()
+#     # --------------------------------------------------------------------------------------
+#     # Step1. dsk get unique kmers, whose frequency >= 2
+#     freq_threshold = 2
+#     ref_size = os.path.getsize(reference)
+#     ref_size = ref_size / float(1024 * 1024)
+#     if ref_size > 1024:
+#         #freq_threshold = 5
+#         log.logger.debug('warning: reference is larger than 1G, increase kmer size to explicit the repeat boundary')
+#         k_num = 39
+#     log.logger.debug('Start step1: get unique kmers')
+#     dsk_h5_path = ref_name + '.h5'
+#     unique_kmer_path = tmp_output_dir + '/kmer.txt'
+#     dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + reference + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
+#     dsk_cmd2 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk2ascii -file ' + dsk_h5_path + ' -out ' + unique_kmer_path
+#     log.logger.debug(dsk_cmd1)
+#     os.system(dsk_cmd1)
+#     log.logger.debug(dsk_cmd2)
+#     os.system(dsk_cmd2)
 
-    pipeline_starttime = time.time()
-
-    starttime = time.time()
-    # --------------------------------------------------------------------------------------
-    # Step1. dsk get unique kmers, whose frequency >= 2
-    freq_threshold = 10
-    ref_size = os.path.getsize(reference)
-    ref_size = ref_size / float(1024 * 1024)
-    if ref_size > 1024:
-        #freq_threshold = 5
-        log.logger.debug('warning: reference is larger than 1G, increase kmer size to explicit the repeat boundary')
-        k_num = 39
-    log.logger.debug('Start step1: get unique kmers')
-    dsk_h5_path = ref_name + '.h5'
-    unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + reference + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
-    dsk_cmd2 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk2ascii -file ' + dsk_h5_path + ' -out ' + unique_kmer_path
-    log.logger.debug(dsk_cmd1)
-    os.system(dsk_cmd1)
-    log.logger.debug(dsk_cmd2)
-    os.system(dsk_cmd2)
-
-    #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
     # unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    # --------------------------------------------------------------------------------------
-    unique_kmer_map = {}
-    with open(unique_kmer_path, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            kmer = line.split(' ')[0]
-            r_kmer = getReverseSequence(kmer)
-            unique_key = kmer if kmer < r_kmer else r_kmer
-            if unique_key.__contains__('N'):
-                continue
-            unique_kmer_map[unique_key] = 1
-
-    reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
-
-    # --------------------------------------------------------------------------------------
-    # Step3. get candidate repeats
-    log.logger.debug('Start step3: get candidate repeats from kmer coverage')
-    connected_repeats = get_candidate_repeats(reference, chrom_seg_length, k_num, reduce_partitions_num, unique_kmer_map, fault_tolerant_bases, tmp_output_dir)
-
-    # # # single threads will ensure the accuracy
-    # # contigs = convertToUpperCase(reference)
-    # # repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
-
-
-    # generate repeats.fa and connected_regions
-    repeats_path = tmp_output_dir + '/repeats.fa'
-    # connected_regions = {ref_name: {region_id: [(f1, start1, end1), (f2, start2, end2), (f3, start3, end3)], [(f4, start4, end4), (f5, start5, end5), (f6, start6, end6)]}}
-    connected_regions = {}
-    node_index = 0
-    region_index = 0
-    with open(repeats_path, 'w') as f_save:
-        for ref_name in connected_repeats.keys():
-            repeat_list = connected_repeats[ref_name]
-            if not connected_regions.__contains__(ref_name):
-                connected_regions[ref_name] = {}
-            regions = connected_regions[ref_name]
-            last_start_pos = -1
-            last_end_pos = -1
-            for repeat_item in repeat_list:
-                start_pos = repeat_item[0]
-                end_pos = repeat_item[1]
-                query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
-                repeat = repeat_item[2]
-                f_save.write('>' + query_name + '\n' + repeat + '\n')
-                node_index += 1
-                # generate connected_regions
-                if last_start_pos == -1:
-                    regions[region_index] = [(query_name, start_pos, end_pos)]
-                else:
-                    if (start_pos - last_end_pos) < skip_threshold:
-                        # close to current region
-                        cur_region = regions[region_index]
-                        cur_region.append((query_name, start_pos, end_pos))
-                        regions[region_index] = cur_region
-                    else:
-                        # far from current region, start a new region
-                        region_index += 1
-                        cur_region = []
-                        cur_region.append((query_name, start_pos, end_pos))
-                        regions[region_index] = cur_region
-                last_start_pos = start_pos
-                last_end_pos = end_pos
-            connected_regions[ref_name] = regions
+    # # --------------------------------------------------------------------------------------
+    # unique_kmer_map = {}
+    # with open(unique_kmer_path, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         kmer = line.split(' ')[0]
+    #         r_kmer = getReverseSequence(kmer)
+    #         unique_key = kmer if kmer < r_kmer else r_kmer
+    #         if unique_key.__contains__('N'):
+    #             continue
+    #         unique_kmer_map[unique_key] = 1
+    #
+    # reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
+    #
+    # # --------------------------------------------------------------------------------------
+    # # Step3. get candidate repeats
+    # log.logger.debug('Start step3: get candidate repeats from kmer coverage')
+    # connected_repeats = get_candidate_repeats(reference, chrom_seg_length, k_num, reduce_partitions_num, unique_kmer_map, fault_tolerant_bases, tmp_output_dir)
+    #
+    # # # # single threads will ensure the accuracy
+    # # # contigs = convertToUpperCase(reference)
+    # # # repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
+    #
+    #
+    # # generate repeats.fa and connected_regions
+    # repeats_path = tmp_output_dir + '/repeats.fa'
+    # # connected_regions = {ref_name: {region_id: [(f1, start1, end1), (f2, start2, end2), (f3, start3, end3)], [(f4, start4, end4), (f5, start5, end5), (f6, start6, end6)]}}
+    # connected_regions = {}
+    # node_index = 0
+    # region_index = 0
+    # with open(repeats_path, 'w') as f_save:
+    #     for ref_name in connected_repeats.keys():
+    #         repeat_list = connected_repeats[ref_name]
+    #         if not connected_regions.__contains__(ref_name):
+    #             connected_regions[ref_name] = {}
+    #         regions = connected_regions[ref_name]
+    #         last_start_pos = -1
+    #         last_end_pos = -1
+    #         for repeat_item in repeat_list:
+    #             start_pos = repeat_item[0]
+    #             end_pos = repeat_item[1]
+    #             query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
+    #             repeat = repeat_item[2]
+    #             f_save.write('>' + query_name + '\n' + repeat + '\n')
+    #             node_index += 1
+    #             # generate connected_regions
+    #             if last_start_pos == -1:
+    #                 regions[region_index] = [(query_name, start_pos, end_pos)]
+    #             else:
+    #                 if (start_pos - last_end_pos) < skip_threshold:
+    #                     # close to current region
+    #                     cur_region = regions[region_index]
+    #                     cur_region.append((query_name, start_pos, end_pos))
+    #                     regions[region_index] = cur_region
+    #                 else:
+    #                     # far from current region, start a new region
+    #                     region_index += 1
+    #                     cur_region = []
+    #                     cur_region.append((query_name, start_pos, end_pos))
+    #                     regions[region_index] = cur_region
+    #             last_start_pos = start_pos
+    #             last_end_pos = end_pos
+    #         connected_regions[ref_name] = regions
     #
     # # store connected_regions for testing
     # connected_regions_file = tmp_output_dir + '/connected_regions.csv'
@@ -662,205 +662,51 @@ if __name__ == '__main__':
     # sorted_repeats_connected = {k: v for k, v in sorted(repeats_connected.items(), key=lambda item: -len(item[1]))}
     # store_fasta(sorted_repeats_connected, repeats_connected_file)
 
-    # repeats_path = tmp_output_dir + '/repeats.fa'
-    # # --------------------------------------------------------------------------------------
-    # # Step6. filter low_complexity and tandem
-    # # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    # # keep sequences >= 50bp
-    # TRF_Path = param['TRF_Path']
-    #
-    # trf_dir = tmp_output_dir + '/trf_temp'
-    # if not os.path.exists(trf_dir):
-    #     os.makedirs(trf_dir)
-    # (repeat_dir, repeat_filename) = os.path.split(repeats_path)
-    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + repeats_path + ' 2 7 7 80 10 50 500 -f -d -m'
-    # log.logger.debug(trf_command)
-    # os.system(trf_command)
-    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-    #
-    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    # repeats_contigNames, repeats_contigs = read_fasta(repeats_path)
-    # filter_repeats_path = tmp_output_dir + '/repeats-filtered.fa'
-    # with open(filter_repeats_path, 'w') as f_save:
-    #     for name in trf_contigNames:
-    #         seq = trf_contigs[name]
-    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff and len(seq) >= 50:
-    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+    repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
+    repeats_connected_consensus = tmp_output_dir + '/repeats_connected.cons.fa'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(length_similarity_cutoff) + ' -c ' + str(identity_threshold) + ' -i ' + repeats_connected_file + ' -o ' + repeats_connected_consensus + ' -T 0 -M 0'
+    log.logger.debug(cd_hit_command)
+    #os.system(cd_hit_command)
 
-    # rm_output = tmp_output_dir + '/repeats-filtered.ref.out'
-    # rm_output_tab = tmp_output_dir + '/repeats-filtered.ref.out.tab'
-    # convert_rm2tab = 'cat ' + rm_output + ' | tr -s \' \' | sed \'s/^ *//g\' | tr \' \' \'\t\' > ' +rm_output_tab
-    # os.system(convert_rm2tab)
-    #
-    # filter_repeats_path = tmp_output_dir + '/repeats-filtered.fa'
-    # repeats_contigNames, repeats_contigs = read_fasta(filter_repeats_path)
-    #
-    # frag_num = 0
-    # repeat_ref_pos = {}
-    # with open(rm_output_tab, 'r') as f_r:
-    #     for i, line in enumerate(f_r):
-    #         if i <= 2:
-    #             continue
-    #         parts = line.split('\t')
-    #         #print(parts)
-    #         chr_name = parts[4]
-    #         chr_start = int(parts[5])
-    #         chr_end = int(parts[6])
-    #         direct = parts[8]
-    #         repeat_name = parts[9]
-    #         repeat_seq = repeats_contigs[repeat_name]
-    #         if direct == '+':
-    #             repeat_start = int(parts[11])
-    #             repeat_end = int(parts[12])
-    #         else:
-    #             repeat_start = int(parts[13])
-    #             repeat_end = int(parts[12])
-    #
-    #         if not repeat_ref_pos.__contains__(repeat_name):
-    #             repeat_ref_pos[repeat_name] = []
-    #         ref_pos = repeat_ref_pos[repeat_name]
-    #         ref_pos.append((chr_name, chr_start, chr_end, repeat_start, repeat_end, len(repeat_seq)))
-    #         frag_num += 1
-    #
-    #
-    # ref_contigNames, ref_contigs = read_fasta(reference)
-    #
-    # TE_frags = {}
-    # for repeat_name in repeat_ref_pos.keys():
-    #     ref_pos = repeat_ref_pos[repeat_name]
-    #     # if len(ref_pos) < 10:
-    #     #     continue
-    #     complete_TE_num = 0
-    #     frags = []
-    #     for pos_item in ref_pos:
-    #         repeat_start = pos_item[3]
-    #         repeat_end = pos_item[4]
-    #         repeat_len = pos_item[5]
-    #
-    #         chr_name = pos_item[0]
-    #         chr_start = pos_item[1]
-    #         chr_end = pos_item[2]
-    #         chr_seq = ref_contigs[chr_name]
-    #         chr_frag = chr_seq[chr_start-1: chr_end]
-    #
-    #         if float(repeat_end - repeat_start) / repeat_len >= 0.8:
-    #             complete_TE_num += 1
-    #         else:
-    #             frags.append(chr_frag)
-    #
-    #     if complete_TE_num > 3:
-    #         # true TE fragment
-    #         repeat_seq = repeats_contigs[repeat_name]
-    #         TE_frags[repeat_name] = [repeat_seq]
-    #     elif len(frags) > 3:
-    #         # get all candidate TE fragments
-    #         TE_frags[repeat_name] = frags
-    #
-    # candidate_TE_fragments = tmp_output_dir + '/candidate_TE_fragments.fa'
-    # node_index = 0
-    # with open(candidate_TE_fragments, 'w') as f_save:
-    #     for repeat_name in TE_frags.keys():
-    #         frags = TE_frags[repeat_name]
-    #         for frag in frags:
-    #             f_save.write('>N_'+str(node_index)+'\n'+frag+'\n')
-    #             node_index += 1
-    #
-    # candidate_TE_fragments_consensus = tmp_output_dir + '/candidate_TE_fragments.cons.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) + ' -A 80 -i ' + candidate_TE_fragments + ' -o ' + candidate_TE_fragments_consensus + ' -T 0 -M 0'
-    # # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) + ' -G 0 -g 1 -A 80 -i ' + candidate_TE_fragments + ' -o ' + candidate_TE_fragments_consensus + ' -T 0 -M 0'
-    # log.logger.debug(cd_hit_command)
-    # #os.system(cd_hit_command)
-    #
-    # RepeatMasker_Home = param['RepeatMasker_Home']
-    # rm_command = RepeatMasker_Home + '/RepeatMasker -pa 48 -q -no_is -norna -nolow -lib ' + candidate_TE_fragments_consensus + ' ' + reference
-    # log.logger.debug(rm_command)
-    # #os.system(rm_command)
-    #
-    #
-    # # remove complete TE freq <= 3
-    # rm_output1 = tmp_output_dir + '/candidate_TE_fragments.cons.fa.out'
-    # rm_output1_tab = tmp_output_dir + '/candidate_TE_fragments.cons.fa.out.tab'
-    # convert_rm2tab = 'cat ' + rm_output1 + ' | tr -s \' \' | sed \'s/^ *//g\' | tr \' \' \'\t\' > ' + rm_output1_tab
-    # os.system(convert_rm2tab)
-    #
-    # repeats_contigNames, repeats_contigs = read_fasta(candidate_TE_fragments_consensus)
-    #
-    # repeat_ref_pos = {}
-    # with open(rm_output1_tab, 'r') as f_r:
-    #     for i, line in enumerate(f_r):
-    #         if i <= 2:
-    #             continue
-    #         parts = line.split('\t')
-    #         # print(parts)
-    #         chr_name = parts[4]
-    #         chr_start = int(parts[5])
-    #         chr_end = int(parts[6])
-    #         direct = parts[8]
-    #         repeat_name = parts[9]
-    #         repeat_seq = repeats_contigs[repeat_name]
-    #         if direct == '+':
-    #             repeat_start = int(parts[11])
-    #             repeat_end = int(parts[12])
-    #         else:
-    #             repeat_start = int(parts[13])
-    #             repeat_end = int(parts[12])
-    #
-    #         if not repeat_ref_pos.__contains__(repeat_name):
-    #             repeat_ref_pos[repeat_name] = []
-    #         ref_pos = repeat_ref_pos[repeat_name]
-    #         ref_pos.append((chr_name, chr_start, chr_end, repeat_start, repeat_end, len(repeat_seq)))
-    #         frag_num += 1
-    #
-    # TE_frags = {}
-    # for repeat_name in repeat_ref_pos.keys():
-    #     ref_pos = repeat_ref_pos[repeat_name]
-    #     complete_TE_num = 0
-    #     for pos_item in ref_pos:
-    #         repeat_start = pos_item[3]
-    #         repeat_end = pos_item[4]
-    #         repeat_len = pos_item[5]
-    #
-    #         chr_name = pos_item[0]
-    #         chr_start = pos_item[1]
-    #         chr_end = pos_item[2]
-    #
-    #         if float(repeat_end - repeat_start) / repeat_len >= 0.8:
-    #             complete_TE_num += 1
-    #
-    #     if complete_TE_num > 10:
-    #         # true TE fragment
-    #         repeat_seq = repeats_contigs[repeat_name]
-    #         TE_frags[repeat_name] = repeat_seq
-    #
-    # TE_frag_path = tmp_output_dir + '/TE_fragments.fa'
-    # store_fasta(TE_frags, TE_frag_path)
-    #
-    # # --------------------------------------------------------------------------------------
-    # # Step6. filter low_complexity and tandem
-    # # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-    # # keep sequences >= 50bp
-    # TRF_Path = param['TRF_Path']
-    # trf_dir = tmp_output_dir + '/trf_temp'
-    # os.system('rm -rf ' + trf_dir)
-    # if not os.path.exists(trf_dir):
-    #     os.makedirs(trf_dir)
-    # (repeat_dir, repeat_filename) = os.path.split(TE_frag_path)
-    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + TE_frag_path + ' 2 7 7 80 10 50 500 -f -d -m'
-    # log.logger.debug(trf_command)
-    # os.system(trf_command)
-    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-    #
-    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    # repeats_contigNames, repeats_contigs = read_fasta(TE_frag_path)
-    # filter_TE_path = tmp_output_dir + '/TE-filtered.fa'
-    # with open(filter_TE_path, 'w') as f_save:
-    #     for name in trf_contigNames:
-    #         seq = trf_contigs[name]
-    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff and len(seq) >= 50:
-    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+    filter_repeats_path = tmp_output_dir + '/repeats-filter.fa'
+    repeatNames, repeatContigs = read_fasta(repeats_connected_consensus)
+    node_index = 0
+    with open(filter_repeats_path, 'w') as f_save:
+        for name in repeatNames:
+            seq = repeatContigs[name]
+            if len(seq) <= 50:
+                continue
+            query_name = 'N_' + str(node_index)
+            f_save.write('>'+query_name+'\n'+seq+'\n')
+            node_index += 1
 
+    use_align_tools = 'bwa'
+    sam_path_bwa = run_alignment(filter_repeats_path, reference, use_align_tools, threads, tools_dir)
+    sam_paths = []
+    sam_paths.append(sam_path_bwa)
+    single_mapped_repeatIds, multi_mapping_repeatIds, segmental_duplication_repeatIds = get_alignment_info_v4(sam_paths, filter_repeats_path)
+    single_mapped_path = tmp_output_dir + '/repeats.single.fa'
+    multiple_mapped_path = tmp_output_dir + '/repeats.multiple.fa'
+    segmental_duplication_path = tmp_output_dir + '/segmental_duplication.fa'
+    filter_repeats_contigNames, filter_repeats_contigs = read_fasta(filter_repeats_path)
+    # single repeat probably be Chimeric repeat
+    with open(single_mapped_path, 'w') as f_save:
+        for repeat_id in single_mapped_repeatIds:
+            f_save.write('>' + repeat_id + '\n' + filter_repeats_contigs[repeat_id] + '\n')
+
+    with open(multiple_mapped_path, 'w') as f_save:
+        for repeat_item in multi_mapping_repeatIds:
+            repeat_id = repeat_item[0]
+            freq = repeat_item[1]
+            seq = filter_repeats_contigs[repeat_id]
+            query_name = repeat_id + '-copies_' + str(freq)
+            f_save.write('>' + query_name + '\n' + seq + '\n')
+
+    with open(segmental_duplication_path, 'w') as f_save:
+        for repeat_id in segmental_duplication_repeatIds:
+            seq = filter_repeats_contigs[repeat_id]
+            # seq = seq.replace('N', '')
+            f_save.write('>' + repeat_id + '\n' + seq + '\n')
 
 
     # # --------------------------------------------------------------------------------------
