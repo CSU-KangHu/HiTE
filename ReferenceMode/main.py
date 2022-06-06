@@ -624,7 +624,7 @@ if __name__ == '__main__':
 
     rm_out_tab = tmp_output_dir + '/repeats.out.tab'
     convert_rm2tab = 'cat ' + rm_out + ' | tr -s \' \' | sed \'s/^ *//g\' | tr \' \' \'\t\' > ' +rm_out_tab
-    os.system(convert_rm2tab)
+    #os.system(convert_rm2tab)
 
     # parse out file
     # 1. filter segmental duplication, freq <= 3
@@ -658,7 +658,7 @@ if __name__ == '__main__':
     ref_contigs_list = {}
     for k, repeat_name in enumerate(repeat_ref_pos.keys()):
         ref_pos = repeat_ref_pos[repeat_name]
-        print('total repeat size: %d, current index: %d' %(len(repeat_ref_pos), k))
+        #print('total repeat size: %d, current index: %d' %(len(repeat_ref_pos), k))
         for pos_item in ref_pos:
             repeat_start = pos_item[3]
             repeat_end = pos_item[4]
@@ -750,9 +750,8 @@ if __name__ == '__main__':
 
     # new strategy by Kang Hu 2022/05/24
     # find longest path to skip gap between fragments
-    connected_frags = connect_frags(connected_regions, repeats_path, reference, threads, tools_dir, tmp_output_dir, skip_threshold)
+    connected_frags = connect_frags(connected_regions, filter1_repeats_path, reference, threads, tools_dir, tmp_output_dir, skip_threshold)
 
-    refNames, refContigs = read_fasta(reference)
     repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
     repeats_connected = {}
     index = 0

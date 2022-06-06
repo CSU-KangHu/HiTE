@@ -1576,7 +1576,7 @@ def connect_frags(connected_regions, repeats_path, reference, threads, tools_dir
         if not query_records.__contains__(query_name):
             query_records[query_name] = []
         records = query_records[query_name]
-        records.append((reference_name, alignment_len, identity, t_start, t_end))
+        records.append((reference_name, alignment_len, identity, t_start,  ))
         query_records[query_name] = records
 
     # frag_pos_dict = {f1: {ref1: [(start1, end1), (start2, end2), (start3, end3)]}}
