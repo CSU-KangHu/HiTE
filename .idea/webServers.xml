@@ -2,7 +2,7 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="ea778e41-b6d4-4448-9f48-f625beade03e" name="super">
+      <webServer id="387563d7-eaac-4171-823e-ee02649d4c08" name="super">
         <fileTransfer accessType="SFTP" host="hpclogin1.csu.edu.cn" port="9220" sshConfigId="9883c6e6-c037-41cc-9bd9-2b6b2cbb4ec1" sshConfig="hpc194701009@hpclogin1.csu.edu.cn:9220 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />

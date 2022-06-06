@@ -549,179 +549,73 @@ if __name__ == '__main__':
 # # backjob = multiprocessing.Process(target=run_LTR_retriever_v1, args=(Genome_Tools_Home, LTR_retriever_Home, reference, tmp_output_dir, threads,))
 # # backjob.start()
 
+    pipeline_starttime = time.time()
 
-    # -------------------------------Stage01: this stage is used to generate kmer coverage repeats-------------------------------
-    # pipeline_starttime = time.time()
-    #
-    # starttime = time.time()
-    # # --------------------------------------------------------------------------------------
-    # # Step1. dsk get unique kmers, whose frequency >= 2
-    # freq_threshold = 10
-    # ref_size = os.path.getsize(reference)
-    # ref_size = ref_size / float(1024 * 1024)
-    # if ref_size > 1024:
-    #     #freq_threshold = 5
-    #     log.logger.debug('warning: reference is larger than 1G, increase kmer size to explicit the repeat boundary')
-    #     k_num = 39
-    # log.logger.debug('Start step1: get unique kmers')
-    # dsk_h5_path = ref_name + '.h5'
+    starttime = time.time()
+    # --------------------------------------------------------------------------------------
+    # Step1. dsk get unique kmers, whose frequency >= 2
+    freq_threshold = 10
+    ref_size = os.path.getsize(reference)
+    ref_size = ref_size / float(1024 * 1024)
+    if ref_size > 1024:
+        #freq_threshold = 5
+        log.logger.debug('warning: reference is larger than 1G, increase kmer size to explicit the repeat boundary')
+        k_num = 39
+    log.logger.debug('Start step1: get unique kmers')
+    dsk_h5_path = ref_name + '.h5'
+    unique_kmer_path = tmp_output_dir + '/kmer.txt'
+    dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + reference + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
+    dsk_cmd2 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk2ascii -file ' + dsk_h5_path + ' -out ' + unique_kmer_path
+    log.logger.debug(dsk_cmd1)
+    #os.system(dsk_cmd1)
+    log.logger.debug(dsk_cmd2)
+    #os.system(dsk_cmd2)
+
+    #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
     # unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    # dsk_cmd1 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk -file ' + reference + ' -kmer-size ' + str(k_num) + ' -abundance-min ' + str(freq_threshold)
-    # dsk_cmd2 = 'cd ' + ref_dir + ' && ' + tools_dir + '/dsk2ascii -file ' + dsk_h5_path + ' -out ' + unique_kmer_path
-    # log.logger.debug(dsk_cmd1)
-    # #os.system(dsk_cmd1)
-    # log.logger.debug(dsk_cmd2)
-    # #os.system(dsk_cmd2)
-    #
-    # #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
-    # # unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    # # --------------------------------------------------------------------------------------
-    # unique_kmer_map = {}
-    # with open(unique_kmer_path, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         kmer = line.split(' ')[0]
-    #         r_kmer = getReverseSequence(kmer)
-    #         unique_key = kmer if kmer < r_kmer else r_kmer
-    #         if unique_key.__contains__('N'):
-    #             continue
-    #         unique_kmer_map[unique_key] = 1
-    #
-    # reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
-    #
-    # # --------------------------------------------------------------------------------------
-    # # Step3. get candidate repeats
-    # log.logger.debug('Start step3: get candidate repeats from kmer coverage')
-    # connected_repeats = get_candidate_repeats(reference, chrom_seg_length, k_num, reduce_partitions_num, unique_kmer_map, fault_tolerant_bases, tmp_output_dir)
-    #
-    # # # # single threads will ensure the accuracy
-    # # # contigs = convertToUpperCase(reference)
-    # # # repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
-    #
-    #
-    # # generate repeats.fa and connected_regions
-    # repeats_path = tmp_output_dir + '/repeats.fa'
-    # node_index = 0
-    # with open(repeats_path, 'w') as f_save:
-    #     for ref_name in connected_repeats.keys():
-    #         repeat_list = connected_repeats[ref_name]
-    #         for repeat_item in repeat_list:
-    #             start_pos = repeat_item[0]
-    #             end_pos = repeat_item[1]
-    #             query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
-    #             repeat = repeat_item[2]
-    #             f_save.write('>' + query_name + '\n' + repeat + '\n')
-    #             node_index += 1
-
-    # -------------------------------Stage02: this stage is used to filter segmental duplications, and connect fragment repeats-------------------------------
-    repeats_path = tmp_output_dir + '/repeats.fa'
-    RepeatMasker_Home = param['RepeatMasker_Home']
-    rm_command = RepeatMasker_Home + '/RepeatMasker -pa 48 -q -no_is -norna -nolow -lib ' + repeats_path + ' ' + reference
-    log.logger.debug(rm_command)
-    #os.system(rm_command)
-    rm_out = tmp_output_dir + '/repeats.out'
-    #os.system('cp ' + reference + '.out ' + rm_out)
-
-    rm_out_tab = tmp_output_dir + '/repeats.out.tab'
-    convert_rm2tab = 'cat ' + rm_out + ' | tr -s \' \' | sed \'s/^ *//g\' | tr \' \' \'\t\' > ' +rm_out_tab
-    os.system(convert_rm2tab)
-
-    # parse out file
-    # 1. filter segmental duplication, freq <= 3
-    frag_num = 0
-    repeat_ref_pos = {}
-    with open(rm_out_tab, 'r') as f_r:
-        for i, line in enumerate(f_r):
-            if i <= 2:
+    # --------------------------------------------------------------------------------------
+    unique_kmer_map = {}
+    with open(unique_kmer_path, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            kmer = line.split(' ')[0]
+            r_kmer = getReverseSequence(kmer)
+            unique_key = kmer if kmer < r_kmer else r_kmer
+            if unique_key.__contains__('N'):
                 continue
-            parts = line.split('\t')
-            chr_name = parts[4]
-            chr_start = int(parts[5])
-            chr_end = int(parts[6])
-            direct = parts[8]
-            repeat_name = parts[9]
-            if direct == '+':
-                repeat_start = int(parts[11])
-                repeat_end = int(parts[12])
-            else:
-                repeat_start = int(parts[13])
-                repeat_end = int(parts[12])
+            unique_kmer_map[unique_key] = 1
 
-            if not repeat_ref_pos.__contains__(repeat_name):
-                repeat_ref_pos[repeat_name] = []
-            ref_pos = repeat_ref_pos[repeat_name]
-            ref_pos.append((chr_name, chr_start, chr_end, repeat_start, repeat_end))
-            frag_num += 1
+    reduce_partitions_num = judgeReduceThreads(unique_kmer_path, partitions_num, log)
 
-    # masking reference
-    ref_contigNames, ref_contigs = read_fasta(reference)
-    ref_contigs_list = {}
-    for k, repeat_name in enumerate(repeat_ref_pos.keys()):
-        ref_pos = repeat_ref_pos[repeat_name]
-        print('total repeat size: %d, current index: %d' %(len(repeat_ref_pos), k))
-        for pos_item in ref_pos:
-            repeat_start = pos_item[3]
-            repeat_end = pos_item[4]
+    # --------------------------------------------------------------------------------------
+    # Step3. get candidate repeats
+    log.logger.debug('Start step3: get candidate repeats from kmer coverage')
+    connected_repeats = get_candidate_repeats(reference, chrom_seg_length, k_num, reduce_partitions_num, unique_kmer_map, fault_tolerant_bases, tmp_output_dir)
 
-            chr_name = pos_item[0]
-            chr_start = pos_item[1]
-            chr_end = pos_item[2]
-            chr_seq = ref_contigs[chr_name]
+    # # # single threads will ensure the accuracy
+    # # contigs = convertToUpperCase(reference)
+    # # repeat_dict, masked_ref = generate_candidate_repeats_v1(contigs, k_num, unique_kmer_map, fault_tolerant_bases)
 
-            if not ref_contigs_list.__contains__(chr_name):
-                ref_contigs_list[chr_name] = [0 for i in range(len(chr_seq))]
-            ref_list = ref_contigs_list[chr_name]
-            for j in range(chr_start-1, chr_end):
-                ref_list[j] += 1
 
-    # filter base freq <= 3, and connect all repeats
-    # connected_repeats = {ref_name: [(start_pos, end_pos)]}
-    connected_repeats = {}
-    for ref_name in ref_contigs_list.keys():
-        ref_list = ref_contigs_list[ref_name]
-
-        if not connected_repeats.__contains__(ref_name):
-            connected_repeats[ref_name] = []
-        repeat_pos = connected_repeats[ref_name]
-
-        start_pos = -1
-        end_pos = -1
-        for i in range(len(ref_list)):
-            if ref_list[i] > 3:
-                if start_pos == -1:
-                    start_pos = i
-                end_pos = i
-            elif start_pos != -1:
-                repeat_pos.append((start_pos, end_pos))
-                start_pos = -1
-                end_pos = -1
-
-    # store connected_repeats for testing
-    connected_repeats_file = tmp_output_dir + '/connected_repeats.csv'
-    with codecs.open(connected_repeats_file, 'w', encoding='utf-8') as f:
-        json.dump(connected_repeats, f)
-
-    refNames, refContigs = read_fasta(reference)
-    filter1_repeats_path = tmp_output_dir + '/repeats.filter1.fa'
+    # generate repeats.fa and connected_regions
+    repeats_path = tmp_output_dir + '/repeats.fa'
     # connected_regions = {ref_name: {region_id: [(f1, start1, end1), (f2, start2, end2), (f3, start3, end3)], [(f4, start4, end4), (f5, start5, end5), (f6, start6, end6)]}}
     connected_regions = {}
     node_index = 0
     region_index = 0
-    with open(filter1_repeats_path, 'w') as f_save:
+    with open(repeats_path, 'w') as f_save:
         for ref_name in connected_repeats.keys():
             repeat_list = connected_repeats[ref_name]
             if not connected_regions.__contains__(ref_name):
                 connected_regions[ref_name] = {}
             regions = connected_regions[ref_name]
-            ref_seq = refContigs[ref_name]
             last_start_pos = -1
             last_end_pos = -1
             for repeat_item in repeat_list:
                 start_pos = repeat_item[0]
                 end_pos = repeat_item[1]
-                query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(
-                    end_pos)
-                repeat = ref_seq[start_pos: end_pos+1]
+                query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
+                repeat = repeat_item[2]
                 f_save.write('>' + query_name + '\n' + repeat + '\n')
                 node_index += 1
                 # generate connected_regions
@@ -742,33 +636,127 @@ if __name__ == '__main__':
                 last_start_pos = start_pos
                 last_end_pos = end_pos
             connected_regions[ref_name] = regions
+    #
+    # # store connected_regions for testing
+    # connected_regions_file = tmp_output_dir + '/connected_regions.csv'
+    # with codecs.open(connected_regions_file, 'w', encoding='utf-8') as f:
+    #     json.dump(connected_regions, f)
+    #
+    # # new strategy by Kang Hu 2022/05/24
+    # # find longest path to skip gap between fragments
+    # connected_frags = connect_frags(connected_regions, repeats_path, reference, threads, tools_dir, tmp_output_dir, skip_threshold)
+    #
+    # refNames, refContigs = read_fasta(reference)
+    # repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
+    # repeats_connected = {}
+    # index = 0
+    # for region_index in connected_frags.keys():
+    #     for connected_frag in connected_frags[region_index]:
+    #         connected_frag_name = connected_frag[0]
+    #         query_name = 'R' + str(index) + '-' + connected_frag_name
+    #         frag_name = connected_frag_name.split(',')[0]
+    #         ref_name = frag_name.split('-s_')[1].split('-')[0]
+    #         seq = refContigs[ref_name][connected_frag[1]: connected_frag[2] + 1]
+    #         index += 1
+    #         repeats_connected[query_name] = seq
+    # sorted_repeats_connected = {k: v for k, v in sorted(repeats_connected.items(), key=lambda item: -len(item[1]))}
+    # store_fasta(sorted_repeats_connected, repeats_connected_file)
 
-    # store connected_regions for testing
-    connected_regions_file = tmp_output_dir + '/connected_regions.csv'
-    with codecs.open(connected_regions_file, 'w', encoding='utf-8') as f:
-        json.dump(connected_regions, f)
+    # repeats_path = tmp_output_dir + '/repeats.fa'
+    # # --------------------------------------------------------------------------------------
+    # # Step6. filter low_complexity and tandem
+    # # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
+    # # keep sequences >= 50bp
+    # TRF_Path = param['TRF_Path']
+    #
+    # trf_dir = tmp_output_dir + '/trf_temp'
+    # if not os.path.exists(trf_dir):
+    #     os.makedirs(trf_dir)
+    # (repeat_dir, repeat_filename) = os.path.split(repeats_path)
+    # (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+    # trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + repeats_path + ' 2 7 7 80 10 50 500 -f -d -m'
+    # log.logger.debug(trf_command)
+    # os.system(trf_command)
+    # trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+    #
+    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
+    # repeats_contigNames, repeats_contigs = read_fasta(repeats_path)
+    # filter_repeats_path = tmp_output_dir + '/repeats-filtered.fa'
+    # with open(filter_repeats_path, 'w') as f_save:
+    #     for name in trf_contigNames:
+    #         seq = trf_contigs[name]
+    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff and len(seq) >= 50:
+    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
 
-    # new strategy by Kang Hu 2022/05/24
-    # find longest path to skip gap between fragments
-    connected_frags = connect_frags(connected_regions, repeats_path, reference, threads, tools_dir, tmp_output_dir, skip_threshold)
-
-    refNames, refContigs = read_fasta(reference)
-    repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
-    repeats_connected = {}
-    index = 0
-    for region_index in connected_frags.keys():
-        for connected_frag in connected_frags[region_index]:
-            connected_frag_name = connected_frag[0]
-            query_name = 'R' + str(index) + '-' + connected_frag_name
-            frag_name = connected_frag_name.split(',')[0]
-            ref_name = frag_name.split('-s_')[1].split('-')[0]
-            seq = refContigs[ref_name][connected_frag[1]: connected_frag[2] + 1]
-            index += 1
-            repeats_connected[query_name] = seq
-    sorted_repeats_connected = {k: v for k, v in sorted(repeats_connected.items(), key=lambda item: -len(item[1]))}
-    store_fasta(sorted_repeats_connected, repeats_connected_file)
-
-
+    # rm_output = tmp_output_dir + '/repeats-filtered.ref.out'
+    # rm_output_tab = tmp_output_dir + '/repeats-filtered.ref.out.tab'
+    # convert_rm2tab = 'cat ' + rm_output + ' | tr -s \' \' | sed \'s/^ *//g\' | tr \' \' \'\t\' > ' +rm_output_tab
+    # os.system(convert_rm2tab)
+    #
+    # filter_repeats_path = tmp_output_dir + '/repeats-filtered.fa'
+    # repeats_contigNames, repeats_contigs = read_fasta(filter_repeats_path)
+    #
+    # frag_num = 0
+    # repeat_ref_pos = {}
+    # with open(rm_output_tab, 'r') as f_r:
+    #     for i, line in enumerate(f_r):
+    #         if i <= 2:
+    #             continue
+    #         parts = line.split('\t')
+    #         #print(parts)
+    #         chr_name = parts[4]
+    #         chr_start = int(parts[5])
+    #         chr_end = int(parts[6])
+    #         direct = parts[8]
+    #         repeat_name = parts[9]
+    #         repeat_seq = repeats_contigs[repeat_name]
+    #         if direct == '+':
+    #             repeat_start = int(parts[11])
+    #             repeat_end = int(parts[12])
+    #         else:
+    #             repeat_start = int(parts[13])
+    #             repeat_end = int(parts[12])
+    #
+    #         if not repeat_ref_pos.__contains__(repeat_name):
+    #             repeat_ref_pos[repeat_name] = []
+    #         ref_pos = repeat_ref_pos[repeat_name]
+    #         ref_pos.append((chr_name, chr_start, chr_end, repeat_start, repeat_end, len(repeat_seq)))
+    #         frag_num += 1
+    #
+    #
+    # ref_contigNames, ref_contigs = read_fasta(reference)
+    #
+    # TE_frags = {}
+    # for repeat_name in repeat_ref_pos.keys():
+    #     ref_pos = repeat_ref_pos[repeat_name]
+    #     # if len(ref_pos) < 10:
+    #     #     continue
+    #     complete_TE_num = 0
+    #     frags = []
+    #     for pos_item in ref_pos:
+    #         repeat_start = pos_item[3]
+    #         repeat_end = pos_item[4]
+    #         repeat_len = pos_item[5]
+    #
+    #         chr_name = pos_item[0]
+    #         chr_start = pos_item[1]
+    #         chr_end = pos_item[2]
+    #         chr_seq = ref_contigs[chr_name]
+    #         chr_frag = chr_seq[chr_start-1: chr_end]
+    #
+    #         if float(repeat_end - repeat_start) / repeat_len >= 0.8:
+    #             complete_TE_num += 1
+    #         else:
+    #             frags.append(chr_frag)
+    #
+    #     if complete_TE_num > 3:
+    #         # true TE fragment
+    #         repeat_seq = repeats_contigs[repeat_name]
+    #         TE_frags[repeat_name] = [repeat_seq]
+    #     elif len(frags) > 3:
+    #         # get all candidate TE fragments
+    #         TE_frags[repeat_name] = frags
+    #
     # candidate_TE_fragments = tmp_output_dir + '/candidate_TE_fragments.fa'
     # node_index = 0
     # with open(candidate_TE_fragments, 'w') as f_save:
@@ -784,7 +772,10 @@ if __name__ == '__main__':
     # log.logger.debug(cd_hit_command)
     # #os.system(cd_hit_command)
     #
-
+    # RepeatMasker_Home = param['RepeatMasker_Home']
+    # rm_command = RepeatMasker_Home + '/RepeatMasker -pa 48 -q -no_is -norna -nolow -lib ' + candidate_TE_fragments_consensus + ' ' + reference
+    # log.logger.debug(rm_command)
+    # #os.system(rm_command)
     #
     #
     # # remove complete TE freq <= 3
