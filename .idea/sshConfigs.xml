@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SshConfigs">
-    <configs>
-      <sshConfig authType="PASSWORD" host="hpclogin1.csu.edu.cn" id="ebe826fd-acce-4118-901f-49d555f57967" port="9220" nameFormat="DESCRIPTIVE" username="hpc194701009" useOpenSSHConfig="true" />
-    </configs>
-  </component>
-</project>

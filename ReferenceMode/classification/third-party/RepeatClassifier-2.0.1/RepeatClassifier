@@ -128,6 +128,8 @@ unless ( &GetOptions( \%options, @opts ) ) {
 
 $DEBUG = 1 if ( $options{'debug'} );
 
+#$DEBUG = 1;
+
 #
 # Provide the POD text from this file and
 # from the config file by merging them
@@ -423,7 +425,7 @@ elsif ( $engine eq "rmblast" ) {
         "$NCBIBLASTX_PRGM "
       . "-db $REPEATMASKER_DIR/Libraries/RepeatPeps.lib "
       . $additionalOpts
-      . "-query tmpConsensi.fa.masked -word_size 14 > tmpBlastXResults.out 2>&1";
+      . "-query tmpConsensi.fa.masked -word_size 7 > tmpBlastXResults.out 2>&1";
   print "      + Running rmblastx vs RepeatPeps.lib...\n" if ( $DEBUG );
 }
 
@@ -590,14 +592,14 @@ if ( $options{'stockholm'} ) {
 # remember to add:
 # wu-blast of final consensus seqs against reverse, non-complimented
 # random genome batch to catch false positives
-unlink "tmpBlastXResults.out" if ( !$DEBUG && -e "tmpBlastXResults.out" );
-unlink "tmpBlastXResults.out.bxsummary"
-    if ( !$DEBUG && -e "tmpBlastXResults.out.bxsummary" );
-unlink "tmpConsensi.fa.cat"    if ( !$DEBUG && -e "tmpConsensi.fa.cat" );
-unlink "tmpConsensi.fa.log"    if ( !$DEBUG && -e "tmpConsensi.fa.log" );
-unlink "tmpConsensi.fa.masked" if ( !$DEBUG && -e "tmpConsensi.fa.masked" );
-unlink "tmpConsensi.fa.out"    if ( !$DEBUG && -e "tmpConsensi.fa.out" );
-unlink "tmpConsensi.fa.tbl"    if ( !$DEBUG && -e "tmpConsensi.fa.tbl" );
+#unlink "tmpBlastXResults.out" if ( !$DEBUG && -e "tmpBlastXResults.out" );
+#unlink "tmpBlastXResults.out.bxsummary"
+#    if ( !$DEBUG && -e "tmpBlastXResults.out.bxsummary" );
+#unlink "tmpConsensi.fa.cat"    if ( !$DEBUG && -e "tmpConsensi.fa.cat" );
+#unlink "tmpConsensi.fa.log"    if ( !$DEBUG && -e "tmpConsensi.fa.log" );
+#unlink "tmpConsensi.fa.masked" if ( !$DEBUG && -e "tmpConsensi.fa.masked" );
+#unlink "tmpConsensi.fa.out"    if ( !$DEBUG && -e "tmpConsensi.fa.out" );
+#unlink "tmpConsensi.fa.tbl"    if ( !$DEBUG && -e "tmpConsensi.fa.tbl" );
 
 #unlink "tempoutfile"        if ( !$DEBUG && -e "tempoutfile" );
 #unlink "consensi.fa.masked" if ( !$DEBUG && -e "consensi.fa.masked" );
@@ -1010,11 +1012,15 @@ sub vsRMlibAnalysis {
   my $queryLen   = undef;
   my %idOverlaps = ();
 
+  my $blastn_outfile = "blastn.out"; 
+  open( OUT, ">$blastn_outfile" );
+
   # We should pre-sort the results by score
   for ( my $i = 0 ; $i < $resultCol->size() ; $i++ ) {
     my $result = $resultCol->get( $i );
 
     print "RESULT:" . $result->toStringFormatted() . "\n" if ( $DEBUG );
+    print OUT "" . $result->toStringFormatted();
     if ( $result->getSubjName() =~ /\#buffer/ ) {
 
       # Ignore buffer matches

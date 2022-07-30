@@ -5,11 +5,37 @@ import time
 
 from Util import Logger, read_fasta, store_fasta
 
-model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/drorep.ref'
+def read_repbase(fasta_path):
+    contignames = []
+    contigs = {}
+    name_classes = {}
+    with open(fasta_path, 'r') as rf:
+        contigname = ''
+        contigseq = ''
+        for line in rf:
+            if line.startswith('>'):
+                if contigname != '' and contigseq != '':
+                    contigs[contigname] = contigseq
+                    contignames.append(contigname)
+                parts = line.strip()[1:].split(" ")
+                contigname = parts[0]
+                name_parts = contigname.split("\t")
+                contigname = name_parts[0]
+                class_name = name_parts[1]
+                name_classes[contigname] = class_name
+                contigseq = ''
+            else:
+                contigseq += line.strip().upper()
+        contigs[contigname] = contigseq
+        contignames.append(contigname)
+    rf.close()
+    return contignames, contigs, name_classes
+
+model_library = '/home/hukang/KmerRepFinder_test/library/curated_lib/repbase/drorep.ref'
 #model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
 #model_library = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/zebrep.ref'
-output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0/TE-filtered.fa'
-output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
+output_library = '/home/hukang/KRF_output/dmel/CRD.2022-07-08.9-43-40/longest_repeats.filter_derived.fa'
+output_dir = '/home/hukang/KRF_output/dmel/CRD.2022-07-08.9-43-40'
 #output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.11-30-11/family_dmel.fasta'
 # output_library = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0/repeats-filter.fa'
 # output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-28.16-22-0'
@@ -39,6 +65,8 @@ output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder
 
 # output_library = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/dmel/dmel-all-chromosome-r5.43.fasta.mod.EDTA.TElib.fa'
 # output_dir = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/dmel'
+# output_library = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/oryza_sativa/GCF_001433935.1_IRGSP-1.0_genomic.fna.mod.EDTA.TElib.fa'
+# output_dir = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/oryza_sativa'
 
 # output_library = '/public/home/hpc194701009/TE_test/RepeatModeler2_results/dmel/dmel-families.fa'
 # output_dir = '/public/home/hpc194701009/TE_test/RepeatModeler2_results/dmel'
@@ -57,12 +85,13 @@ length_difference_cutoff = 0.8
 
 if __name__ == '__main__':
     log = Logger('GenomeSimulator.log', level='debug')
-    model_contignames, model_contigs = read_fasta(model_library)
+    model_contignames, model_contigs, model_name_classes = read_repbase(model_library)
     output_contignames, output_contigs = read_fasta(output_library)
 
     threads = 48
-    tool_dir = '/public/home/hpc194701009/CompleteRepeatDetection/ReferenceMode'
-    blast_program_dir = tool_dir + '/tools/rmblast-2.9.0-p2'
+    #tool_dir = '/public/home/hpc194701009/CompleteRepeatDetection/ReferenceMode'
+    #blast_program_dir = tool_dir + '/tools/rmblast-2.9.0-p2'
+    blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
     blastn2Results_path = output_dir + '/tmpBlastResults2.out'
     makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + model_library
     align_command = blast_program_dir + '/bin/blastn -db ' + model_library + ' -num_threads ' \
@@ -75,6 +104,7 @@ if __name__ == '__main__':
     query_name_set = set()
     target_name_set = set()
     query_cluster = {}
+    query_classnames = {}
     with open(blastn2Results_path, 'r') as f_r:
         for line in f_r:
             parts = line.split('\t')
@@ -127,7 +157,7 @@ if __name__ == '__main__':
                 tmp = qend
                 qend = qstart
                 qstart = tmp
-            for i in range(qstart, qend):
+            for i in range(qstart-1, qend):
                 query_array[i] = 'X'
 
             tstart = record[2]
@@ -136,7 +166,7 @@ if __name__ == '__main__':
                 tmp = tend
                 tend = tstart
                 tstart = tmp
-            for i in range(tstart, tend):
+            for i in range(tstart-1, tend):
                 target_array[i] = 'X'
         for j in range(len(query_array)):
             if query_array[j] == 'X':
@@ -154,15 +184,40 @@ if __name__ == '__main__':
         if float(query_masked_len)/query_len >= length_difference_cutoff and float(target_masked_len)/target_len >= length_difference_cutoff:
             query_name_set.add(query_name)
             target_name_set.add(target_name)
+            query_classnames[query_name] = model_name_classes[target_name]
 
 
     precision = float(len(query_name_set))/len(output_contigs)
     recall = float(len(target_name_set)) / len(model_contigs)
-    f1_score = 2 * precision * recall / (precision + recall)
+    if precision + recall == 0:
+        f1_score = 0
+    else:
+        f1_score = 2 * precision * recall / (precision + recall)
 
     print('true repeats: %d, total find repeats: %d, precision: %f' % (len(query_name_set), len(output_contigs), precision))
     print('recall: %f' % recall)
     print('f1_score: %f' % f1_score)
+
+    recall_seq = output_dir + '/recall_seq.fa'
+    with open(recall_seq, 'w') as f_save:
+        for name in target_name_set:
+            f_save.write(name+'\n')
+
+    not_recall_seq = output_dir + '/not_recall_seq.fa'
+    with open(not_recall_seq, 'w') as f_save:
+        for name in (set(model_contignames) - target_name_set):
+            f_save.write(name + '\n')
+
+    false_positive_seq = output_dir + '/false_positive.fa'
+    with open(false_positive_seq, 'w') as f_save:
+        for name in (set(output_contignames)-query_name_set):
+            f_save.write(name + '\n')
+
+    true_positive_seq = output_dir + '/true_positive.fa'
+    with open(true_positive_seq, 'w') as f_save:
+        for name in query_name_set:
+            f_save.write(name + '\t' + query_classnames[name] + '\n')
+
     #print(query_name_set)
     #print(set(output_contignames)-query_name_set)
     #print(set(model_contignames) - target_name_set)

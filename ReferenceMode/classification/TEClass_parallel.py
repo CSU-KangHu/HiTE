@@ -235,7 +235,7 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
         print("Thread idx:%d, Start Running WebTE HOMOLOGY module." %partition_index)
         starttime = time.time()
         program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
-        homology_command = 'cd '+ cur_tmp_dir + ' && ' + program_path + ' -consensi ' + cur_consensus_path
+        homology_command = 'cd '+ cur_tmp_dir + ' && ' + program_path + ' -pa 1 -consensi ' + cur_consensus_path
         print('homology_command:%s' % homology_command)
         os.system(homology_command)
         endtime = time.time()
@@ -335,6 +335,8 @@ if __name__ == '__main__':
                         help='input genome path')
     parser.add_argument('--thread_num', metavar='Thread number',
                         help='input thread number')
+    parser.add_argument('--split_num', metavar='Split number',
+                        help='input split number')
     parser.add_argument('-o', metavar='Output Dir',
                         help='input output dir')
     args = parser.parse_args()
@@ -343,6 +345,7 @@ if __name__ == '__main__':
     consensus_path = args.consensus
     genome_path = args.genome
     thread_num = args.thread_num
+    split_num = args.split_num
     output_dir = args.o
 
     if not os.path.isabs(consensus_path):
@@ -357,7 +360,7 @@ if __name__ == '__main__':
 
     # Step 1: split consensus file by PET algorithm
     # partitions num equal to thread num
-    partitions_num = int(thread_num)
+    partitions_num = int(split_num)
     consensus_contignames, consensus_contigs = read_fasta(consensus_path)
     data_partitions = PET(consensus_contigs.items(), partitions_num)
 
@@ -369,7 +372,8 @@ if __name__ == '__main__':
     # create temp directory
     i = datetime.datetime.now()
     tmp_output_dir = output_dir + '/TEClassTmpOutput.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    pool = multiprocessing.Pool(processes=partitions_num)
+    #tmp_output_dir = output_dir + '/TEClassTmpOutput.2022-07-13.19-19-9'
+    pool = multiprocessing.Pool(processes=int(thread_num))
     for partition_index, data_partition in enumerate(data_partitions):
         cur_tmp_dir = tmp_output_dir + '/' + str(partition_index)
         if not os.path.exists(cur_tmp_dir):
@@ -384,12 +388,28 @@ if __name__ == '__main__':
 
     # Step 3: merge final classified of each thread
     final_classified_path = consensus_path + '.final.classified'
+    final_tmpBlastX_path = consensus_path + '.tmpBlastXResults.out.bxsummary'
+    final_tmpBlastn_path = consensus_path + '.tmpBlastnResults.out'
     if os.path.exists(final_classified_path):
         os.system('rm -f '+ final_classified_path)
+    if os.path.exists(final_tmpBlastX_path):
+        os.system('rm -f '+ final_tmpBlastX_path)
+    if os.path.exists(final_tmpBlastn_path):
+        os.system('rm -f '+ final_tmpBlastn_path)
     for partition_index in range(partitions_num):
         cur_tmp_dir = tmp_output_dir + '/' + str(partition_index)
         cur_classified_path = cur_tmp_dir + '/consensus.fasta.final.classified'
         merge_command = 'cat ' + cur_classified_path + ' >> ' + final_classified_path
+        print(merge_command)
+        os.system(merge_command)
+
+        cur_tmpBlastxOutput = cur_tmp_dir + '/tmpBlastXResults.out.bxsummary'
+        merge_command = 'cat ' + cur_tmpBlastxOutput + ' >> ' + final_tmpBlastX_path
+        print(merge_command)
+        os.system(merge_command)
+
+        cur_tmpBlastnOutput = cur_tmp_dir + '/blastn.out'
+        merge_command = 'cat ' + cur_tmpBlastnOutput + ' >> ' + final_tmpBlastn_path
         print(merge_command)
         os.system(merge_command)
         #merge_fasta(cur_classified_path, final_classified_path)

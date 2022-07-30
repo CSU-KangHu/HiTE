@@ -1123,42 +1123,42 @@ def determine_repeat_boundary(repeats_path, blast_program_dir):
 
 
 def filter_duplication(longest_repeats_path, reference, blast_program_dir):
-    # (ref_dir, ref_filename) = os.path.split(reference)
-    # # parallel alignment
-    # tmp_blast_dir = tmp_output_dir + '/tmp_blast'
-    # os.system('rm -rf ' + tmp_blast_dir)
-    # if not os.path.exists(tmp_blast_dir):
-    #     os.makedirs(tmp_blast_dir)
-    # longestRepeatNames, longestRepeatContigs = read_fasta(longest_repeats_path)
-    # longest_repeats_files = []
-    # segments_cluster = divided_array(list(longestRepeatContigs.items()), threads)
-    # for partition_index, cur_segments in enumerate(segments_cluster):
-    #     single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
-    #     if not os.path.exists(single_tmp_dir):
-    #         os.makedirs(single_tmp_dir)
-    #     split_longest_repeat_file = single_tmp_dir + '/longest_repeats_split.fa'
-    #     cur_contigs = {}
-    #     for item in cur_segments:
-    #         cur_contigs[item[0]] = item[1]
-    #     store_fasta(cur_contigs, split_longest_repeat_file)
-    #     os.system('cp ' + reference + ' ' + single_tmp_dir)
-    #     longest_repeats_files.append((split_longest_repeat_file, single_tmp_dir + '/' + ref_filename,
-    #                                   single_tmp_dir + '/longest_repeat.ref.out'))
-    #
-    # ex = ProcessPoolExecutor(threads)
-    # jobs = []
-    # for file in longest_repeats_files:
-    #     job = ex.submit(multiple_alignment, file, blast_program_dir, tools_dir)
-    #     jobs.append(job)
-    # ex.shutdown(wait=True)
-    #
-    # blastn2Results_path = tmp_output_dir + '/longest_repeat.ref.out'
-    # if os.path.exists(blastn2Results_path):
-    #     os.remove(blastn2Results_path)
-    #
-    # for job in as_completed(jobs):
-    #     cur_blastn2Results_path = job.result()
-    #     os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastn2Results_path)
+    (ref_dir, ref_filename) = os.path.split(reference)
+    # parallel alignment
+    tmp_blast_dir = tmp_output_dir + '/tmp_blast'
+    os.system('rm -rf ' + tmp_blast_dir)
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+    longestRepeatNames, longestRepeatContigs = read_fasta(longest_repeats_path)
+    longest_repeats_files = []
+    segments_cluster = divided_array(list(longestRepeatContigs.items()), threads)
+    for partition_index, cur_segments in enumerate(segments_cluster):
+        single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
+        if not os.path.exists(single_tmp_dir):
+            os.makedirs(single_tmp_dir)
+        split_longest_repeat_file = single_tmp_dir + '/longest_repeats_split.fa'
+        cur_contigs = {}
+        for item in cur_segments:
+            cur_contigs[item[0]] = item[1]
+        store_fasta(cur_contigs, split_longest_repeat_file)
+        os.system('cp ' + reference + ' ' + single_tmp_dir)
+        longest_repeats_files.append((split_longest_repeat_file, single_tmp_dir + '/' + ref_filename,
+                                      single_tmp_dir + '/longest_repeat.ref.out'))
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for file in longest_repeats_files:
+        job = ex.submit(multiple_alignment, file, blast_program_dir, tools_dir)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    blastn2Results_path = tmp_output_dir + '/longest_repeat.ref.out'
+    if os.path.exists(blastn2Results_path):
+        os.remove(blastn2Results_path)
+
+    for job in as_completed(jobs):
+        cur_blastn2Results_path = job.result()
+        os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastn2Results_path)
 
     # test_array = ['N_7703-len_377', 'N_11985-len_165', 'N_9567-len_372', 'N_16763-len_732', 'N_25963-len_353', 'N_7575-len_614', 'N_23910-len_677', 'N_23982-len_450', 'N_37880-len_7446', 'N_21427-len_4703', 'N_6510-len_223', 'N_5399-len_762', 'N_12660-len_397', 'N_16621-len_258', 'N_19696-len_5266', 'N_19999-len_334', 'N_18408-len_7424', 'N_13852-len_6730', 'N_20019-len_296', 'N_5588-len_814', 'N_15501-len_524', 'N_16585-len_250', 'N_26987-len_598', 'N_19407-len_1495', 'N_36194-len_716', 'N_30063-len_515', 'N_39778-len_203', 'N_29025-len_5170', 'N_2778-len_634', 'N_26332-len_607', 'N_15941-len_665', 'N_12025-len_216', 'N_4416-len_410', 'N_26031-len_369', 'N_11507-len_454', 'N_15470-len_626', 'N_40845-len_417', 'N_3673-len_344', 'N_37672-len_675', 'N_11132-len_392', 'N_30418-len_468', 'N_2178-len_556', 'N_38528-len_327', 'N_37812-len_299', 'N_22152-len_601', 'N_36161-len_609', 'N_16792-len_324', 'N_22378-len_561', 'N_34549-len_622', 'N_29746-len_523', 'N_18060-len_448', 'N_13023-len_245', 'N_27450-len_419', 'N_21551-len_395', 'N_33549-len_1106', 'N_39743-len_1437', 'N_7787-len_506', 'N_5293-len_296', 'N_40841-len_356', 'N_3254-len_673', 'N_16635-len_429', 'N_13937-len_1776', 'N_8389-len_508', 'N_25263-len_361', 'N_18695-len_400', 'N_251-len_505', 'N_15946-len_7409', 'N_10402-len_387', 'N_23462-len_573', 'N_29371-len_870', 'N_16694-len_314', 'N_1358-len_414', 'N_10465-len_432', 'N_34878-len_7372', 'N_33736-len_269', 'N_25293-len_336', 'N_11303-len_308', 'N_13128-len_1389', 'N_17380-len_378', 'N_13106-len_217', 'N_17486-len_431', 'N_21575-len_484', 'N_10459-len_425', 'N_13277-len_432', 'N_18057-len_478', 'N_38909-len_568', 'N_37844-len_378', 'N_26769-len_296', 'N_26058-len_469', 'N_18235-len_288', 'N_12426-len_983', 'N_14824-len_200', 'N_21882-len_272', 'N_16193-len_653', 'N_19020-len_452', 'N_13827-len_381', 'N_35401-len_371', 'N_22937-len_634', 'N_16280-len_7405', 'N_36502-len_4732', 'N_29377-len_539', 'N_33577-len_656', 'N_22745-len_483', 'N_33829-len_492', 'N_7729-len_545', 'N_8545-len_7028', 'N_827-len_202', 'N_29550-len_621', 'N_4200-len_563', 'N_40226-len_395', 'N_39485-len_656', 'N_18977-len_507', 'N_6485-len_582', 'N_37741-len_623', 'N_15504-len_406', 'N_13082-len_4670', 'N_12075-len_446', 'N_25001-len_337']
     # test_dict = {}
@@ -1166,6 +1166,7 @@ def filter_duplication(longest_repeats_path, reference, blast_program_dir):
     full_len_records_dict = {}
     # filter false positive strategy 06/27
     # test_query_name = 'N_19696-len_5266'
+    longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_tandem.fa'
     blastn2Results_path = tmp_output_dir + '/longest_repeat.ref.out'
     orig_names, orig_contigs = read_fasta(longest_repeats_path)
     query_records = {}
@@ -1178,8 +1179,7 @@ def filter_duplication(longest_repeats_path, reference, blast_program_dir):
         for idx, line in enumerate(f_r):
             parts = line.split('\t')
             query_name = parts[0]
-            # query_len = int(query_name.split('-len_')[1])
-            query_len = int(query_name.split('-len_')[1].split('-')[0])
+            query_len = int(query_name.split('-len_')[1])
             subject_name = parts[1]
             identity = float(parts[2])
             alignment_len = int(parts[3])
@@ -1232,7 +1232,7 @@ def filter_duplication(longest_repeats_path, reference, blast_program_dir):
     longest_repeats = {}
     for idx, query_name in enumerate(query_records.keys()):
         subject_dict = query_records[query_name]
-        query_len = int(query_name.split('-len_')[1].split('-')[0])
+        query_len = int(query_name.split('-len_')[1])
         extend_base_threshold = int(extend_base_ratio * query_len)
         # if there are more than one longest query overlap with the final longest query over 90%,
         # then it probably the true TE
@@ -2583,6 +2583,12 @@ if __name__ == '__main__':
     # #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
     # #
     # # blast_program_dir = param['RMBlast_Home']
+    # # # ---------------------------------filter segmental duplication---------------------------------------------
+    # # #longest_repeats_path = tmp_output_dir + '/longest_repeats.fa'
+    # # longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_tandem.fa'
+    # # #longest_repeats_path = filter_duplication(longest_repeats_path, reference, blast_program_dir)
+    # # #longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_duplication.fa'
+    # #
     # # # ------------------------------------filter derived sequences--------------------------------------------------------
     # # # parallel
     # # #longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_duplication.fa'
@@ -2702,20 +2708,14 @@ if __name__ == '__main__':
     # #         seq = helitron_contigs[name]
     # #         f_save.write('>helitron_'+str(node_index)+'-len_'+str(len(seq))+'\n'+seq+'\n')
     # #         node_index += 1
-    #
-    # # 4. cd-hit-est 去冗余序列
-    # longest_repeats_path = tmp_output_dir + '/longest_repeats.confident.fa'
-    # longest_repeats_consensus = tmp_output_dir + '/longest_repeats.confident.cons.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.95) + ' -G 0 -g 1 -A 80 -i ' + longest_repeats_path + ' -o ' + longest_repeats_consensus + ' -T 0 -M 0'
-    # #cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) + ' -G 0 -g 1 -A 80 -i ' + longest_repeats_path + ' -o ' + longest_repeats_consensus + ' -T 0 -M 0'
-    # log.logger.debug(cd_hit_command)
-    # os.system(cd_hit_command)
 
-    blast_program_dir = param['RMBlast_Home']
-    # ---------------------------------filter segmental duplication---------------------------------------------
-    longest_repeats_path = tmp_output_dir + '/longest_repeats.confident.cons.fa.bak'
-    longest_repeats_path = filter_duplication(longest_repeats_path, reference, blast_program_dir)
-    longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_duplication.fa'
+    # 4. cd-hit-est 去冗余序列
+    longest_repeats_path = tmp_output_dir + '/longest_repeats.confident.fa'
+    longest_repeats_consensus = tmp_output_dir + '/longest_repeats.confident.cons.fa'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.95) + ' -G 0 -g 1 -A 80 -i ' + longest_repeats_path + ' -o ' + longest_repeats_consensus + ' -T 0 -M 0'
+    #cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) + ' -G 0 -g 1 -A 80 -i ' + longest_repeats_path + ' -o ' + longest_repeats_consensus + ' -T 0 -M 0'
+    log.logger.debug(cd_hit_command)
+    os.system(cd_hit_command)
 
 
 

@@ -55,6 +55,7 @@ def run_minimap2(repeat_contig_path, reference_path, thread_num, tools_dir):
     runCommand(minimap2_align_command)
     return sam_path
 
+
 def run_minimap2_self_align(repeat_contig_path, tools_dir):
     (dir, filename) = os.path.split(repeat_contig_path)
     (name, extension) = os.path.splitext(filename)
