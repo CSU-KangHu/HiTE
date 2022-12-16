@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/KmerRepFinder.iml" filepath="$PROJECT_DIR$/.idea/KmerRepFinder.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/HiTE.iml" filepath="$PROJECT_DIR$/.idea/HiTE.iml" />
     </modules>
   </component>
 </project>

@@ -232,15 +232,15 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
     if os.path.exists(cur_consensus_path):
         # Step1: Running WebTE HOMOLOGY module
         file_removed = []
-        print("Thread idx:%d, Start Running WebTE HOMOLOGY module." %partition_index)
+        #print("Thread idx:%d, Start Running WebTE HOMOLOGY module." %partition_index)
         starttime = time.time()
         program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
-        homology_command = 'cd '+ cur_tmp_dir + ' && ' + program_path + ' -pa 1 -consensi ' + cur_consensus_path
-        print('homology_command:%s' % homology_command)
-        os.system(homology_command)
+        homology_command = 'cd '+ cur_tmp_dir + ' && perl ' + program_path + ' -pa 1 -consensi ' + cur_consensus_path
+        #print('homology_command:%s' % homology_command)
+        os.system(homology_command + ' > /dev/null 2>&1')
         endtime = time.time()
         dtime = endtime - starttime
-        print("Thread idx:%d, Finish WebTE HOMOLOGY module, running time: %.4s s" % (partition_index, dtime))
+        #print("Thread idx:%d, Finish WebTE HOMOLOGY module, running time: %.4s s" % (partition_index, dtime))
 
         # Step2: get unclassified consensus sequence after HOMOLOGY module
         #print("get unclassified consensus sequence after HOMOLOGY module...")
@@ -350,7 +350,7 @@ if __name__ == '__main__':
 
     if not os.path.isabs(consensus_path):
         consensus_path = os.path.abspath(consensus_path)
-    if genome_path != 'test' and not os.path.isabs(genome_path):
+    if genome_path != 'module' and not os.path.isabs(genome_path):
         genome_path = os.path.abspath(genome_path)
     if not os.path.isabs(output_dir):
         output_dir = os.path.abspath(output_dir)
@@ -400,17 +400,17 @@ if __name__ == '__main__':
         cur_tmp_dir = tmp_output_dir + '/' + str(partition_index)
         cur_classified_path = cur_tmp_dir + '/consensus.fasta.final.classified'
         merge_command = 'cat ' + cur_classified_path + ' >> ' + final_classified_path
-        print(merge_command)
+        #print(merge_command)
         os.system(merge_command)
 
         cur_tmpBlastxOutput = cur_tmp_dir + '/tmpBlastXResults.out.bxsummary'
         merge_command = 'cat ' + cur_tmpBlastxOutput + ' >> ' + final_tmpBlastX_path
-        print(merge_command)
+        #print(merge_command)
         os.system(merge_command)
 
         cur_tmpBlastnOutput = cur_tmp_dir + '/blastn.out'
         merge_command = 'cat ' + cur_tmpBlastnOutput + ' >> ' + final_tmpBlastn_path
-        print(merge_command)
+        #print(merge_command)
         os.system(merge_command)
         #merge_fasta(cur_classified_path, final_classified_path)
 

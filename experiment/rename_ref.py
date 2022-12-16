@@ -1,10 +1,10 @@
 from Util import read_fasta
 
 if __name__ == '__main__':
-    ref_dir = '/home/hukang/KmerRepFinder_git/KmerRepFinder/demo/'
+    ref_dir = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/drerio'
     ref_path = ref_dir + '/GCF_000002035.6_GRCz11_genomic.fna'
-    ref_dir1 = '/home/hukang/EDTA/krf_test/drerio'
-    rename_ref_path = ref_dir1 + '/GCF_000002035.6_GRCz11_genomic.rename.fna'
+    ref_dir1 = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/drerio'
+    rename_ref_path = ref_dir1 + '/GCF_000002035.6_GRCz11_genomic.fna'
     ref_contigNames, ref_contigs = read_fasta(ref_path)
     new_contigs = {}
     for id, name in enumerate(ref_contigNames):

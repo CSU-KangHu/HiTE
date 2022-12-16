@@ -148,7 +148,7 @@ BEGIN {
                                                          ],
                                   'param_type' => 'directory',
                                   'required' => 1,
-                                  #'value' => '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker'
+                                  #'value' => ''
                                   'value' => '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepeatMasker'
                                 },
           'RMBLAST_DIR' => {
@@ -166,7 +166,7 @@ BEGIN {
                              'param_type' => 'directory',
                              'required' => 1,
                              #'value' => ''
-			                 'value' => '/public/home/hpc194701009/KmerRepFinder/ReferenceMode/tools/rmblast-2.9.0-p2/bin'
+			                 'value' => '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2/bin'
                            },
           'RSCOUT_DIR' => {
                             'command_line_override' => 'rscout_dir',

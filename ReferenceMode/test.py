@@ -1,1082 +1,314 @@
-import codecs
-import json
 import os
-import sys
+
+import codecs
+
+import json
 import time
 
-import pysam
-from concurrent.futures import ProcessPoolExecutor, as_completed
-
-from Util import convertToUpperCase, read_fasta, getReverseSequence, \
-    Logger, split_repeats, compute_identity, run_alignment, multi_line, generate_blastlike_output, \
-    get_multiple_alignment_repeat, split2cluster, cut_repeat_v1, judgeReduceThreads, get_ltr_suppl_from_ltrfinder, \
-    store_fasta, printClass, parse_ref_blast_output, filter_LTR_high_similarity, get_alignment_info_v3, compare_seq, \
-    getRegionCombination, getCombineFragments, convertToUpperCase_v1, generate_candidate_repeats_v2
-
-def test(num):
-    for i in range(10000):
-        num += num
-    return num
-
-# def cut_repeat(sam_path_bwa, repeats_path, cut_repeats_path):
-#     query_records = {}
-#     samfile = pysam.AlignmentFile(sam_path_bwa, "rb")
-#     for read in samfile.fetch():
-#         if read.is_unmapped:
-#             continue
-#         query_name = read.query_name
-#         reference_name = read.reference_name
-#         cigar = read.cigartuples
-#         cigarstr = read.cigarstring
-#         NM_tag = 0
-#         try:
-#             NM_tag = read.get_tag('NM')
-#         except KeyError:
-#             NM_tag = -1
-#         identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-#         identity = float(identity) * 100
-#         is_reverse = read.is_reverse
-#         alignment_len = read.query_alignment_length
-#         # pos start from 1, change to 0
-#         q_start = int(read.query_alignment_start)  # [q_start, q_end)
-#         q_end = int(read.query_alignment_end)
-#         if q_start > q_end:
-#             tmp = q_start
-#             q_start = q_end
-#             q_end = tmp
-#         if not query_records.__contains__(query_name):
-#             query_records[query_name] = []
-#         records = query_records[query_name]
-#         records.append((reference_name, alignment_len, identity, q_start, q_end))
-#         query_records[query_name] = records
-#
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_path)
-#     cut_repeats = {}
-#     for query_name in query_records.keys():
-#         query_seq = repeat_contigs[query_name]
-#         query_len = len(query_seq)
-#         records = query_records[query_name]
-#         for i, record in enumerate(records):
-#             # filter first alignment
-#             if i == 0:
-#                 continue
-#             identity = record[2]
-#             q_start = record[3]
-#             q_end = record[4]
-#             if identity < 95:
-#                 continue
-#             # get repeats boundary by getting all alignment sequences
-#             new_seq = query_seq[q_start: q_end]
-#             new_query_name = query_name + '-p_' + str(i) + '-len_' + str(len(new_seq))
-#             cut_repeats[new_query_name] = new_seq
-#     store_fasta(cut_repeats, cut_repeats_path)
-
-def get_longest_repeats(repeats_path, blast_program_dir, tools_dir, extend_base_threshold):
-    split_repeats_path = repeats_path[0]
-    original_repeats_path = repeats_path[1]
-    blastn2Results_path = repeats_path[2]
-    split_repeats_names, split_repeats_contigs = read_fasta(split_repeats_path)
-    (single_tmp_dir, split_repeats_filename) = os.path.split(split_repeats_path)
-
-    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + original_repeats_path
-    align_command = blast_program_dir + '/bin/blastn -db ' + original_repeats_path + ' -num_threads ' \
-                    + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
-    os.system(makedb_command)
-    os.system(align_command)
-
-    # parse blastn output, determine the repeat boundary
-    # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
-    query_records = {}
-    with open(blastn2Results_path, 'r') as f_r:
-        for idx, line in enumerate(f_r):
-            #print('current line idx: %d' % (idx))
-            parts = line.split('\t')
-            query_name = parts[0]
-            subject_name = parts[1]
-            identity = float(parts[2])
-            alignment_len = int(parts[3])
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            s_start = int(parts[8])
-            s_end = int(parts[9])
-            if query_name == subject_name or identity < 80:
-                continue
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = {}
-            subject_dict = query_records[query_name]
-
-            if not subject_dict.__contains__(subject_name):
-                subject_dict[subject_name] = []
-            subject_pos = subject_dict[subject_name]
-            subject_pos.append((q_start, q_end, s_start, s_end))
-
-    longest_repeats = {}
-    for idx, query_name in enumerate(query_records.keys()):
-        print('total query size: %d, current query name: %s, idx: %d' % (len(query_records), query_name, idx))
-        subject_dict = query_records[query_name]
-
-        # if there are more than one longest query overlap with the final longest query over 90%,
-        # then it probably the true TE
-        longest_queries = []
-        for subject_name in subject_dict.keys():
-            subject_pos = subject_dict[subject_name]
-            subject_pos.sort(key=lambda x: (x[2], x[3]))
-
-            #cluster all closed fragments
-            clusters = {}
-            cluster_index = 0
-            last_frag = None
-            last_direct = '+'
-            for k, frag in enumerate(subject_pos):
-                if k != 0:
-                    if frag[2] > frag[3]:
-                        direct = '-'
-                    else:
-                        direct = '+'
-                    if direct != last_direct \
-                        or (direct == '+' and frag[2]-last_frag[3] >= extend_base_threshold) \
-                        or (direct == '-' and frag[3]-last_frag[2] >= extend_base_threshold):
-                        cluster_index += 1
-                if not clusters.__contains__(cluster_index):
-                    clusters[cluster_index] = []
-                cur_cluster = clusters[cluster_index]
-                cur_cluster.append(frag)
-                last_frag = frag
-                # judge subject direction
-                if last_frag[2] > last_frag[3]:
-                    last_direct = '-'
-                else:
-                    last_direct = '+'
-            for cluster_index in clusters.keys():
-                cur_cluster = clusters[cluster_index]
-                cur_cluster.sort(key=lambda x: (x[0], x[1]))
-
-                cluster_longest_query_start = -1
-                cluster_longest_query_end = -1
-                cluster_longest_query_len = -1
-
-                #print('subject pos size: %d' %(len(cur_cluster)))
-                # record visited fragments
-                visited_frag = {}
-                for i in range(len(cur_cluster)):
-                    # keep a longest query start from each fragment
-                    origin_frag = cur_cluster[i]
-                    if visited_frag.__contains__(origin_frag):
-                        continue
-                    cur_frag_len = origin_frag[1] - origin_frag[0]
-                    cur_longest_query_len = cur_frag_len
-                    longest_query_start = origin_frag[0]
-                    longest_query_end = origin_frag[1]
-                    longest_subject_start = origin_frag[2]
-                    longest_subject_end = origin_frag[3]
-
-                    visited_frag[origin_frag] = 1
-                    # try to extend query
-                    for j in range(i + 1, len(cur_cluster)):
-                        ext_frag = cur_cluster[j]
-                        if visited_frag.__contains__(ext_frag):
-                            continue
-                        # could extend
-                        # extend right
-                        if ext_frag[1] > longest_query_end:
-                            # judge subject direction
-                            if longest_subject_start < longest_subject_end:
-                                # +
-                                if ext_frag[3] > longest_subject_end:
-                                    # forward extend
-                                    if ext_frag[0] - longest_query_end < extend_base_threshold and ext_frag[
-                                        2] - longest_subject_end < extend_base_threshold:
-                                        # update the longest path
-                                        longest_query_start = longest_query_start
-                                        longest_query_end = ext_frag[1]
-                                        longest_subject_start = longest_subject_start if longest_subject_start < ext_frag[
-                                            2] else ext_frag[2]
-                                        longest_subject_end = ext_frag[3]
-                                        cur_longest_query_len = longest_query_end - longest_query_start
-
-                                        visited_frag[ext_frag] = 1
-                                    elif ext_frag[0] - longest_query_end >= extend_base_threshold:
-                                        break
-                            else:
-                                # reverse
-                                if ext_frag[3] < longest_subject_end:
-                                    # reverse extend
-                                    if ext_frag[0] - longest_query_end < extend_base_threshold and longest_subject_end - \
-                                            ext_frag[2] < extend_base_threshold:
-                                        # update the longest path
-                                        longest_query_start = longest_query_start
-                                        longest_query_end = ext_frag[1]
-                                        longest_subject_start = longest_subject_start if longest_subject_start > ext_frag[
-                                            2] else ext_frag[2]
-                                        longest_subject_end = ext_frag[3]
-                                        cur_longest_query_len = longest_query_start - longest_query_end
-
-                                        visited_frag[ext_frag] = 1
-                                    elif ext_frag[0] - longest_query_end >= extend_base_threshold:
-                                        break
-                    if cur_longest_query_len > cluster_longest_query_len:
-                        cluster_longest_query_start = longest_query_start
-                        cluster_longest_query_end = longest_query_end
-                        cluster_longest_query_len = cur_longest_query_len
-                # keep this longest query
-                longest_queries.append((cluster_longest_query_start, cluster_longest_query_end, cluster_longest_query_len))
-        # generate fasta, use cd-hit-est to cluster sequences
-        local_longest_query_file = single_tmp_dir + '/local_longest_query_' +str(idx) + '.fa'
-        l_idx = 0
-        with open(local_longest_query_file, 'w') as f_save:
-            for item in longest_queries:
-                local_longest_seq = split_repeats_contigs[query_name][item[0]-1: item[1]]
-                f_save.write('>L_'+str(l_idx)+'\n'+local_longest_seq+'\n')
-                l_idx += 1
-        local_longest_query_consensus = single_tmp_dir + '/local_longest_query_' +str(idx) + '.cons.fa'
-        cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -c ' + str(0.95) + ' -G 0 -g 1 -d 0 -A 80 -i ' + local_longest_query_file + ' -o ' + local_longest_query_consensus
-        os.system(cd_hit_command)
-
-        cluster_file = local_longest_query_consensus + '.clstr'
-        cluster_idx = -1
-        clusters = {}
-        with open(cluster_file, 'r') as f_r:
-            for line in f_r:
-                line = line.replace('\n', '')
-                if line.startswith('>'):
-                    cluster_idx = line.split(' ')[1]
-                else:
-                    if not clusters.__contains__(cluster_idx):
-                        clusters[cluster_idx] = []
-                    cur_cluster = clusters[cluster_idx]
-                    name = line.split(',')[1].split(' ')[1].strip()[1:]
-                    name = name[0: len(name)-3]
-                    cur_cluster.append(name)
-                    if line.endswith('*'):
-                        clusters['rep_' + str(cluster_idx)] = name
-
-        local_longest_names, local_longest_contigs = read_fasta(local_longest_query_file)
-        new_longest_queries = []
-        for cluster_idx in clusters.keys():
-            if cluster_idx.isdecimal():
-                cluster_size = len(clusters[cluster_idx])
-                if cluster_size <= 1:
-                    continue
-                name = clusters['rep_' + str(cluster_idx)]
-                new_longest_queries.append((name, cluster_size))
-        new_longest_queries.sort(key=lambda x: -x[1])
-
-        sorted_longest_queries = []
-        for item in new_longest_queries:
-            name = item[0]
-            seq = local_longest_contigs[name]
-            sorted_longest_queries.append((item[1], seq))
-
-        longest_repeats[query_name] = sorted_longest_queries
-    # print(longest_repeats)
-    return longest_repeats
+from module.Util import judge_flank_align, flank_region_align_v1, read_fasta, store_fasta, Logger, \
+    search_confident_tir_batch
 
 
-def filter_derived_seq(longest_repeats_path, blast_program_dir):
-    extend_base_ratio = 0.1
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, log):
+    log.logger.info('determine true TIR')
 
-    # filter derived sequences, which is caused by deletion of intact TE
-    # if a sequence is contained in another sequence continiously or partly, it is a derived sequence
-    longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_duplication.fa'
-    orig_names, orig_contigs = read_fasta(longest_repeats_path)
-    query_records = {}
-    blastn2Results_path = tmp_output_dir + '/longest_repeat.pairwise.out'
-    derived_queries = {}
-    with open(blastn2Results_path, 'r') as f_r:
-        for idx, line in enumerate(f_r):
-            parts = line.split('\t')
-            query_name = parts[0]
-            query_len = int(query_name.split('-len_')[1])
-            subject_name = parts[1]
-            subject_len = int(subject_name.split('-len_')[1])
-            identity = float(parts[2])
-            alignment_len = int(parts[3])
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            s_start = int(parts[8])
-            s_end = int(parts[9])
-            if query_name == subject_name or query_len > subject_len:
-                continue
+    log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
+    starttime = time.time()
+    # 我们将copies扩展50bp，一个orig_query_name对应一个文件，然后做自比对。
+    # 解析每个自比对文件，判断C0与C1,C2...等拷贝的比对情况，如果有flanking区域包含在比对区域内，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
+    flanking_len = 50
+    similar_ratio = 0.1
+    TE_type = 'tir'
+    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
 
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = {}
-            subject_dict = query_records[query_name]
-
-            if not subject_dict.__contains__(subject_name):
-                subject_dict[subject_name] = []
-            subject_pos = subject_dict[subject_name]
-            subject_pos.append((q_start, q_end, s_start, s_end, identity))
-
-    for query_name in query_records.keys():
-        # if query_name == 'N_27223-len_1686':
-        #     print('here')
-        query_len = int(query_name.split('-len_')[1])
-        extend_base_threshold = int(query_len * extend_base_ratio)
-        subject_dict = query_records[query_name]
-        for subject_name in subject_dict.keys():
-            longest_queries = []
-            subject_pos = subject_dict[subject_name]
-            subject_pos.sort(key=lambda x: (x[0], x[1]))
-
-            # record visited fragments
-            visited_frag = {}
-            for i in range(len(subject_pos)):
-                # keep a longest query start from each fragment
-                origin_frag = subject_pos[i]
-                if visited_frag.__contains__(origin_frag):
-                    continue
-                cur_frag_len = origin_frag[1] - origin_frag[0]
-                cur_longest_query_len = cur_frag_len
-                longest_query_start = origin_frag[0]
-                longest_query_end = origin_frag[1]
-                longest_subject_start = origin_frag[2]
-                longest_subject_end = origin_frag[3]
-
-                total_identity = origin_frag[4]
-                identity_count = 1
-
-                visited_frag[origin_frag] = 1
-                # try to extend query
-                for j in range(i + 1, len(subject_pos)):
-                    ext_frag = subject_pos[j]
-                    if visited_frag.__contains__(ext_frag):
-                        continue
-                    # could extend
-                    # extend right
-                    if ext_frag[1] > longest_query_end:
-                        # judge subject direction
-                        if longest_subject_start < longest_subject_end and ext_frag[2] < ext_frag[3]:
-                            # +
-                            if ext_frag[3] > longest_subject_end:
-                                # forward extend
-                                if ext_frag[0] - longest_query_end < extend_base_threshold and ext_frag[
-                                    2] > longest_subject_end:
-                                    # update the longest path
-                                    longest_query_start = longest_query_start
-                                    longest_query_end = ext_frag[1]
-                                    longest_subject_start = longest_subject_start if longest_subject_start < \
-                                                                                     ext_frag[2] else ext_frag[2]
-                                    longest_subject_end = ext_frag[3]
-                                    cur_longest_query_len = longest_query_end - longest_query_start
-
-                                    total_identity += ext_frag[4]
-                                    identity_count += 1
-
-                                    visited_frag[ext_frag] = 1
-                                elif ext_frag[0] - longest_query_end >= extend_base_threshold:
-                                    break
-                        elif longest_subject_start > longest_subject_end and ext_frag[2] > ext_frag[3]:
-                            # reverse
-                            if ext_frag[3] < longest_subject_end:
-                                # reverse extend
-                                if ext_frag[0] - longest_query_end < extend_base_threshold and longest_subject_end > \
-                                        ext_frag[2]:
-                                    # update the longest path
-                                    longest_query_start = longest_query_start
-                                    longest_query_end = ext_frag[1]
-                                    longest_subject_start = longest_subject_start if longest_subject_start > \
-                                                                                     ext_frag[2] else ext_frag[2]
-                                    longest_subject_end = ext_frag[3]
-                                    cur_longest_query_len = longest_query_end - longest_query_start
-
-                                    total_identity += ext_frag[4]
-                                    identity_count += 1
-
-                                    visited_frag[ext_frag] = 1
-                                elif ext_frag[0] - longest_query_end >= extend_base_threshold:
-                                    break
-                if cur_longest_query_len > 0:
-                    longest_query_item = (longest_query_start, longest_query_end, cur_longest_query_len,
-                                          float(total_identity) / identity_count)
-                    if query_name == 'N_12064-len_756':
-                        print(query_name, subject_name, longest_query_item)
-                    if float(longest_query_item[2]) / query_len >= 0.99 and longest_query_item[3] >= 95:
-                        longest_queries.append(longest_query_item)
-            #     if cur_longest_query_len > cluster_longest_query_len:
-            #         cluster_longest_query_start = longest_query_start
-            #         cluster_longest_query_end = longest_query_end
-            #         cluster_longest_query_len = cur_longest_query_len
-            # # keep this longest query
-            # if cluster_longest_query_len != -1:
-            #     longest_queries.append((cluster_longest_query_start, cluster_longest_query_end, cluster_longest_query_len))
-
-            # if query_name == 'N_5658-len_890':
-            #     print(query_name, subject_name, longest_queries)
-
-            if len(longest_queries) > 0:
-                derived_queries[query_name] = 1
-                break
-    print('derived seq size: %d' % (len(derived_queries)))
-
-    longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_derived.fa'
-    with open(longest_repeats_path, 'w') as f_save:
-        for name in orig_names:
-            if not derived_queries.__contains__(name):
-                f_save.write('>' + name + '\n' + orig_contigs[name] + '\n')
-    return longest_repeats_path
-
-def filter_derived_seq_v1(longest_repeats_path, blast_program_dir):
-
-    # filter derived sequences, which is caused by deletion of intact TE
-    # if a sequence is contained in another sequence continiously or partly, it is a derived sequence
-    longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_duplication.fa'
-    orig_names, orig_contigs = read_fasta(longest_repeats_path)
-    query_records = {}
-    blastn2Results_path = tmp_output_dir + '/longest_repeat.pairwise.out'
-    derived_queries = {}
-    with open(blastn2Results_path, 'r') as f_r:
-        for idx, line in enumerate(f_r):
-            parts = line.split('\t')
-            query_name = parts[0]
-            query_len = int(query_name.split('-len_')[1])
-            subject_name = parts[1]
-            subject_len = int(subject_name.split('-len_')[1])
-            identity = float(parts[2])
-            alignment_len = int(parts[3])
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            s_start = int(parts[8])
-            s_end = int(parts[9])
-            if query_name == subject_name or query_len > subject_len:
-                continue
-
-            if not query_records.__contains__(query_name):
-                query_records[query_name] = {}
-            subject_dict = query_records[query_name]
-
-            if not subject_dict.__contains__(subject_name):
-                subject_dict[subject_name] = []
-            subject_pos = subject_dict[subject_name]
-            subject_pos.append((q_start, q_end, s_start, s_end, identity))
-
-    for query_name in query_records.keys():
-        query_len = int(query_name.split('-len_')[1])
-        subject_dict = query_records[query_name]
-        for subject_name in subject_dict.keys():
-            query_seq = orig_contigs[query_name]
-            query_seq_array = list(query_seq)
-
-            subject_pos = subject_dict[subject_name]
-            subject_pos.sort(key=lambda x: (x[0], x[1]))
-
-            # As long as a sequence is included in another sequence, whether it is continuous or discrete in another sequence, then this sequence is redundant
-            for i in range(len(subject_pos)):
-                # keep a longest query start from each fragment
-                origin_frag = subject_pos[i]
-                longest_query_start = origin_frag[0]
-                longest_query_end = origin_frag[1]
-                for j in range(longest_query_start-1, longest_query_end):
-                    query_seq_array[j] = 'X'
-
-            masked_count = 0
-            for k in range(len(query_seq_array)):
-                if query_seq_array[k] == 'X':
-                    masked_count += 1
-
-            if float(masked_count) / query_len >= 0.99:
-                derived_queries[query_name] = 1
-                break
-
-    print('derived seq size: %d' % (len(derived_queries)))
-
-    longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_derived.fa'
-    with open(longest_repeats_path, 'w') as f_save:
-        for name in orig_names:
-            if not derived_queries.__contains__(name):
-                f_save.write('>' + name + '\n' + orig_contigs[name] + '\n')
-    return longest_repeats_path
-
+    log.logger.info('------store confident TIR sequences')
+    filter_dup_names, filter_dup_contigs = read_fasta(filter_dup_path)
+    confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
+    confident_tir = {}
+    for name in confident_copies.keys():
+        copy_list = confident_copies[name]
+        if len(copy_list) >= 2:
+            confident_tir[name] = filter_dup_contigs[name]
+    store_fasta(confident_tir, confident_tir_path)
 
 if __name__ == '__main__':
-    rm2_dir = '/home/hukang/rm2_test/rice/test2'
-    perfect = rm2_dir + '/perfect.families'
-    perfect_names = set()
-    with open(perfect, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            perfect_names.add(line)
+    # flanking_len = 50
+    # similar_ratio = 0.1
+    # flanking_region_distance = int(flanking_len * similar_ratio)
+    # output = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/cb4/flank_tir_align/2.out'
+    # res = judge_flank_align(flanking_region_distance, output, flanking_len)
+    # print(res)
 
-    repbase_node_names = {}
-    summary_dir = rm2_dir + '/summary_files'
-    for name in perfect_names:
-        file = summary_dir + '/' + name + '.summary'
-        query_records = {}
-        with open(file, 'r') as f_r:
-            for line in f_r:
-                parts = line.split('\t')
-                repbase_len = int(parts[1])
-                repbase_start = int(parts[2])
-                repbase_end = int(parts[3])
-                node_name = parts[4]
-                if not query_records.__contains__(node_name):
-                    query_records[node_name] = []
-                records = query_records[node_name]
-                records.append((name, repbase_len, repbase_start, repbase_end, node_name))
-
-        perfect_node_found = False
-        for node_name in query_records.keys():
-            records = query_records[node_name]
-            repbase_len = records[0][1]
-            repbase_array = ['' for i in range(repbase_len)]
-            for record in records:
-                repbase_start = record[2]
-                repbase_end = record[3]
-                #print(query_records[node_name])
-                for k in range(repbase_start-1, repbase_end):
-                    repbase_array[k] = 'X'
-
-            count = 0
-            for i in range(repbase_len):
-                if repbase_array[i] == 'X':
-                    count += 1
-            if float(count)/repbase_len >= 0.95:
-                if not repbase_node_names.__contains__(name):
-                    repbase_node_names[name] = set()
-                node_names = repbase_node_names[name]
-                node_names.add(node_name)
-
-                perfect_node_found = True
-        if not perfect_node_found:
-            print('no node cover %s' %(name))
-    #print(repbase_node_names)
-    print(len(repbase_node_names))
-
-    #-----------------------------------------------------------
-
-    rm2_dir = '/home/hukang/rm2_test/rice/test'
-    perfect = rm2_dir + '/perfect.families'
-    perfect_names = set()
-    with open(perfect, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            perfect_names.add(line)
-
-    repbase_node_names1 = {}
-    summary_dir = rm2_dir + '/summary_files'
-    for name in perfect_names:
-        file = summary_dir + '/' + name + '.summary'
-        query_records = {}
-        with open(file, 'r') as f_r:
-            for line in f_r:
-                parts = line.split('\t')
-                repbase_len = int(parts[1])
-                repbase_start = int(parts[2])
-                repbase_end = int(parts[3])
-                node_name = parts[4]
-                if not query_records.__contains__(node_name):
-                    query_records[node_name] = []
-                records = query_records[node_name]
-                records.append((name, repbase_len, repbase_start, repbase_end, node_name))
-
-        perfect_node_found = False
-        for node_name in query_records.keys():
-            records = query_records[node_name]
-            repbase_len = records[0][1]
-            repbase_array = ['' for i in range(repbase_len)]
-            for record in records:
-                repbase_start = record[2]
-                repbase_end = record[3]
-                # print(query_records[node_name])
-                for k in range(repbase_start - 1, repbase_end):
-                    repbase_array[k] = 'X'
-
-            count = 0
-            for i in range(repbase_len):
-                if repbase_array[i] == 'X':
-                    count += 1
-            if float(count) / repbase_len >= 0.95:
-                if not repbase_node_names1.__contains__(name):
-                    repbase_node_names1[name] = set()
-                node_names = repbase_node_names1[name]
-                node_names.add(node_name)
-
-                perfect_node_found = True
-        if not perfect_node_found:
-            print('no node cover %s' % (name))
-    #print(repbase_node_names1)
-    print(len(repbase_node_names1))
-
-    #--------------------find difference-------------------------
-    diff_set = set(repbase_node_names.keys()) - set(repbase_node_names1.keys())
-    #print(diff_set)
-    diff_names = {}
-    for repbase_name in diff_set:
-        if not diff_names.__contains__(repbase_name):
-            diff_names[repbase_name] = set()
-        node_names = diff_names[repbase_name]
-        for node_name in repbase_node_names[repbase_name]:
-            node_names.add(node_name)
-    print(diff_names)
-
-    super_count = {}
-    for repbase_name in diff_names.keys():
-        super_class = repbase_name.split('-')[0]
-        if not super_count.__contains__(super_class):
-            super_count[super_class] = 0
-        count = super_count[super_class]
-        count += 1
-        super_count[super_class] = count
-    print(super_count)
-
-
-
-    # tmp_output_dir = '/home/hukang/KRF_output/dmel/CRD.2022-07-09.16-8-30'
-    # blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
-    # # ------------------------------------filter derived sequences--------------------------------------------------------
-    # # parallel
-    # longest_repeats_path = tmp_output_dir + '/longest_repeats.filter_duplication.fa'
-    # # longest_repeats_path = tmp_output_dir + '/TE.merge.fa'
-    # longest_repeats_path = filter_derived_seq_v1(longest_repeats_path, blast_program_dir)
-
-
-    # tmp_output_dir = '/home/hukang/rm2_test/test'
-    #
-    # unique_name = set()
-    #
-    # perfect_file = tmp_output_dir + '/perfect.families'
-    # perfect_set = set()
-    # line_count = 0
-    # with open(perfect_file, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         perfect_set.add(line)
-    #         unique_name.add(line)
-    #         line_count += 1
-    # print('line count: %d, perfect size: %d' %(line_count, len(perfect_set)))
-    #
-    # good_file = tmp_output_dir + '/good.families'
-    # good_set = set()
-    # line_count = 0
-    # with open(good_file, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         good_set.add(line)
-    #         unique_name.add(line)
-    #         line_count += 1
-    # print('line count: %d, good size: %d' % (line_count, len(good_set)))
-    #
-    # present_file = tmp_output_dir + '/present.all.families'
-    # present_set = set()
-    # line_count = 0
-    # with open(present_file, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         present_set.add(line)
-    #         unique_name.add(line)
-    #         line_count += 1
-    # print('line count: %d, present size: %d' % (line_count, len(present_set)))
-    #
-    # print('unique size: %d' %len(unique_name))
-
-
-    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-07-01.11-20-22'
-    # target_query_name = 'N_5431-len_237'
-    # blastn2Results_path = tmp_output_dir + '/longest_repeat.pairwise.out'
-    # with open(blastn2Results_path, 'r') as f_r:
-    #     for idx, line in enumerate(f_r):
-    #         line = line.replace('\n', '')
-    #         parts = line.split('\t')
-    #         query_name = parts[0]
-    #         query_len = int(query_name.split('-len_')[1])
-    #         subject_name = parts[1]
-    #         subject_len = int(subject_name.split('-len_')[1])
-    #         identity = float(parts[2])
-    #         alignment_len = int(parts[3])
-    #         q_start = int(parts[6])
-    #         q_end = int(parts[7])
-    #         s_start = int(parts[8])
-    #         s_end = int(parts[9])
-    #         if query_name == target_query_name:
-    #             print(line)
-
-
-
-    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-06-30.11-42-3'
-    # step1_true_positive = tmp_output_dir + '/true_positive.fa.step1'
-    # step2_true_positive = tmp_output_dir + '/true_positive.fa.step2'
-    # tp1 = []
-    # with open(step1_true_positive, 'r') as f_r:
-    #     for line in f_r:
-    #         query_name = line.split('\t')[0]
-    #         tp1.append(query_name)
-    # tp2 = []
-    # with open(step2_true_positive, 'r') as f_r:
-    #     for line in f_r:
-    #         query_name = line.split('\t')[0]
-    #         tp2.append(query_name)
-    # print(len(tp1), len(tp2), len(tp1)-len(tp2), len(set(tp1) - set(tp2)))
-    # print(set(tp1) - set(tp2))
-
-    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-06-09.9-10-58'
-    # repeats_path = tmp_output_dir + '/longest_repeats.cons.fa'
-    # repeatNames, repeatContigs = read_fasta(repeats_path)
-    # sorted_repeatContigs = {k: v for k, v in sorted(repeatContigs.items(), key=lambda item: -len(item[1]))}
-    #
-    # print(len(list(sorted_repeatContigs.items())[0][1]))
-
-    # repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
-    # file = open(repeat_dict_file, 'r')
-    # js = file.read()
-    # repeat_dict = json.loads(js)
-    #
-    # max_len = 0
-    # for ref_name in repeat_dict.keys():
-    #     repeat_list = repeat_dict[ref_name]
-    #     for repeat_item in repeat_list:
-    #         start_pos = repeat_item[0]
-    #         end_pos = repeat_item[1]
-    #         repeat_str = repeat_item[2]
-    #         cur_len = len(repeat_str)
-    #         if cur_len > max_len:
-    #             max_len = cur_len
-    # print(max_len)
-
-
-    # identity_threshold = 0.95
-    # length_threshold = 0.95
-    # out_file = tmp_dir + '/longest_repeats.out'
-    # query_records = {}
-    # with open(out_file, 'r') as f_r:
-    #     for idx, line in enumerate(f_r):
-    #         parts = line.split('\t')
-    #         query_name = parts[0]
-    #         query_len = int(query_name.split('-')[1][4:])
-    #         subject_name = parts[1]
-    #         identity = float(parts[2])
-    #         alignment_len = int(parts[3])
-    #         q_start = int(parts[6])
-    #         q_end = int(parts[7])
-    #         s_start = int(parts[8])
-    #         s_end = int(parts[9])
-    #         if not query_records.__contains__(query_name):
-    #             query_records[query_name] = []
-    #         records = query_records[query_name]
-    #         records.append((query_len, alignment_len, identity))
-    #
-    # false_positive_names = []
-    # false_positive_file = tmp_dir + '/false_positive.fa'
-    # with open(false_positive_file, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         false_positive_names.append(line)
-    #
-    # SD_names = []
-    # for query_name in query_records.keys():
-    #     is_SD = False
-    #     for record in records:
-    #         if float(record[1])/record[0] >= length_threshold and record[2] >= identity_threshold:
-    #             is_SD = False
-    #     if is_SD:
-    #         SD_names.append(query_name)
-    #
-    # false_positive_filter_SD = set(false_positive_names)-set(SD_names)
-    # print('original false_positive size: %d, segmental duplication size: %d,filter SD false_positive size: %d'
-    #       %(len(false_positive_names), len(SD_names), len(false_positive_filter_SD)))
-
-
-
-    # single_tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-06-09.9-10-58/tmp_blast/0'
-    # repeats_path = (single_tmp_dir+'/repeats_split.fa', single_tmp_dir + '/repeats.fa', single_tmp_dir + '/repeat.pairwise.out')
-    # blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
-    # tools_dir = os.getcwd() + '/tools'
-    # extend_base_threshold = 100
-    # longest_repeats = get_longest_repeats(repeats_path, blast_program_dir, tools_dir, extend_base_threshold)
-    # print(longest_repeats)
-
-
-    # merged_out = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-06-09.9-10-58/repeat.pairwise.out'
-    # test_out = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-06-09.9-10-58/test.out'
-    # os.system('rm -f ' + merged_out)
-    # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-06-09.9-10-58/tmp_blast'
+    # # 获取想要序列对应的flank align output
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    # tmp_dir = tmp_output_dir + '/tir_tsd_temp'
     # for i in range(48):
-    #     single_dir = tmp_dir + '/' + str(i)
-    #     os.system('cat ' + single_dir + '/repeat.pairwise.out >> ' +merged_out)
+    #     output_path = tmp_dir + '/' + str(i) + '.fa'
+    #     if not os.path.exists(output_path):
+    #         continue
+    #     with open(output_path, 'r') as f_r:
+    #         for line in f_r:
+    #             if line.__contains__('N_32617'):
+    #                 print(i)
+    #                 break
+    # orig_seq = 'TTCTGGAGCACTGTATTCCAGAGCAGTTTTATTTCAGAACAGTTCTACAGTACTCCACAAAAATTTAATTCCACCCTCAGTTTGTACTGAAACACCTATTTAGGTCAATATTCGTGAAAAGGTGTCGACATGAAAAATAAAAGTCTCCCTTCAAAACCTACGTACGAAAAGCTTGGAGCCATCAACGTGACCCGGAAAAGAGAAACCGGAAAAAATCCAAAAATCACGTTTTGGCCGATCCACAAAAGTTTAATTCCACTCTGAAAAAGTGAGATTTTGGAGGTTTTGAAGCTTTGCGACCACCTTTTGAAGGCCTGAATTCGAAAAATTTTAAGATTCTCATACATATACACAGAGACCATTGTACACGGTTACTGATATCCGGATTTCCGGATTCCGGAATCAGGATTTCCGGGTTCAGAGTTCCGGATTCCGGTTTTTTTGGGTTCTGGATTATGTTTACTGAAGTGTGTGTAGTGGATTTAGAATATGTACTCCGGATTCTGTGTTCCGGATTCCGGATGATGGATTCCGGTTTCCGGATTAGCTTTCTGAATGAGTTAAAGTGTCCCGAGAATCTGAATATCAGGTTTTCTTGACAAACAAGCGTTTCAGAAAGTTTCTGGAAAGTTACGAAGGCTTCTGAGGTTCTGAGGGATTCTGAAGGGACCTGTAATTTTGGGAGATTCTCCAGGATCATGAGAAACGGCCCAGTAGATTGCGTTCTAACTACCATGACCTCTGAAAACACCAACGTGCATGAAGACGATATACCAATTCATGTTTCTACTCCAAAAAGGCGAAATTCCGAGACGATGAGTTGATAGTCGGATCCGTTCATCTTCTTCGAAACAAAAAACTGTTTGACTGGACCTGCCGACGAGATTGTCGTTCTTGCCATCACGCCTTCATCTGTGAAACTTCTTCACGAGAATCTTATTTTTTGTTTTCGGGAACGCAATCTACTGTGCCGTTTCTCATGATTCAGGAGAATCTCCCAGAATTCCAGGTCCCTTCAGAATCCCTCAGAACCTCAGAAGCTTTCGTAACTTTCCAGAAACTTTCTGAAACGCTTGTTTGTCAAGGAAACCTGATATTCAGATTCCCGGGACACTTTAACTCATTCAGGAAGCTAATCCGGAATCCGGAATTTTGAATCCGGAAGTCCTGATTCCGGAATCCGGAAATCCGGATATCTGACATCCGGAATCCGGAAATCCGGATATCTGACATCCGGAATCCGGATATCAGTAACCGTGTATAATGGTCTCCGTGTATGGGGGTCAGAATCTTAAAATTCTTCAAATTCAGGCCTTCAAAAGGTGGTCGCAGAGCTTCAAAACTTCCAAAATCTCACTTTTTCAGAGACGAATTAAACTTTTGTGGATCGGCCAAAACGTGATTTTCGGATTTTTTCCGGTTTCTCTTTTCCGGGTCACGTTGATGGCTCCAAATTTTTCGTACTTAGGTTTTGAAGGGAGACCTTTATTTTTCATGTTGACACCTTTTCACGAATATTGACCTAAATAGGTGTTTCAGTACAAACTGAGGGTGGAATTAAACTTTTGTGGAGTACTGTATTTTACGCGGTTCTATGTAAGAGCAGTTCTATTTCAGGACAGTTT'
+    # tir_start = 51
+    # tir_end = 50+1525
+    # tsd_search_distance = 50
+    # query_name = 'N_634'
+    # copy_index = 0
+    # plant = 0
+    # cur_candidate_TIRs = search_confident_tir(orig_seq, tir_start, tir_end, tsd_search_distance, query_name, copy_index, plant)
+    # cur_candidate_TIRs_path = tir_tsd_dir + '/' + str(query_name) + '.fa'
+    # itr_contigs = judge_itr_structure(cur_candidate_TIRs, cur_candidate_TIRs_path, plant, TRsearch_dir, tir_tsd_dir)
+    # TRsearch_dir = '/public/home/hpc194701009/HiTE/ReferenceMode/tools/'
+    # tir_seq = 'CTCCCTCCGTCCCAAAATATAAGCATTTCTAGCTATGAATCTGGACAACTGTATGTCCAGATTCATAGCTAAAAGTTGTTATATTTTAGGACGGAGGTAG'
+    # tir_seq = 'C'
+    # output = run_itrsearch(TRsearch_dir, tir_seq)
+    # output = str(output)
+    # if output != '':
+    #     seq = output.split('\n')[1]
+    #     query_name = 'N_1' + '-tsd_' + 'TA'
+    #     itr_contigs = {}
+    #     itr_contigs[query_name] = seq
+    #     print(itr_contigs)
 
-    # query_records = []
-    # with open(merged_out, 'r') as f_r:
-    #     for idx, line in enumerate(f_r):
-    #         # print('current line idx: %d' % (idx))
-    #         parts = line.split('\t')
-    #         query_name = parts[0]
-    #         subject_name = parts[1]
-    #         identity = float(parts[2])
-    #         alignment_len = int(parts[3])
-    #         q_start = int(parts[6])
-    #         q_end = int(parts[7])
-    #         s_start = int(parts[8])
-    #         s_end = int(parts[9])
-    #         if query_name == 'N16925-s_2R-2179831-2199855':
-    #             query_records.append(line)
-    # with open(test_out, 'w') as f_save:
-    #     for line in query_records:
-    #         f_save.write(line + '\n')
-
-    # A_set = {}
-    # item = (10, 20, 10, 5)
-    # item1 = (10, 20, 10, 5)
-    # A_set[item] = 1
-    # print(A_set.__contains__(item1))
-
-
-    # reference = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/zebrep.ref'
-    # refNames, refContigs = read_fasta(reference)
-    # refContigs = {k: v for k, v in
-    #                          sorted(refContigs.items(), key=lambda item: -len(item[1]))}
+    # orig_seq = 'CATAAACACTCTAGTAGAAGGCTACTCTACACCTGCACTTTGAGCAAATATATCTCGGTTCCTGTAAAAGGTATCAAAAAGTGGTCAACTGACAAAATGTTTTTGATATTATAATAAACATTTTATTAGTTGACAACTTTTTGATATCTTTCAAAGGAATCGAGATATCCAAGCTCAAAGTTGACGGTTTCGGTGGCTTTCTATTAGAGGGTATCA'
+    # tir_tsd_dir = ''
+    # plant = 0
+    # flanking_len = 50
+    # tsd_search_distance = flanking_len
+    # tir_start = flanking_len + 1
+    # tir_end = flanking_len + 116
+    # copy_ref_name = 'NC_013488.2$19000000'
+    # copy_ref_start =26386
+    # copy_ref_end =26501
     #
-    # sorted_reference = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/zebrep.sorted.ref'
-    # with open(sorted_reference, 'w') as f_save:
-    #     for name in refContigs.keys():
-    #         ref_seq = refContigs[name]
-    #         f_save.write('>'+name+'\n'+ref_seq+'\n')
+    # search_confident_tir_v1(orig_seq, tir_start, tir_end, copy_ref_name, copy_ref_start, copy_ref_end,
+    #                         tsd_search_distance, '', plant)
 
 
-    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-21.0-9-18/region_combination_tmp'
-    # file = tmp_output_dir + '/rc_0.csv'
-    # region_combination_size = float(sys.getsizeof(region_combination))
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    # TRsearch_dir = '/public/home/hpc194701009/HiTE/ReferenceMode/tools/'
+    # partition_index = 0
+    # plant = 1
+    # tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp'
+    # flanking_len = 100
+    # copy_seq1 = 'CCCTTCAACCACCTCAAAGTGTCACTGCCCTGTTCGGCCCTTTCTCCTGAGTCTCCTCCCTTAAGAGCATGACCAAATGCACCGTCGAAGCAACCAAATCACTACTGGAGAAGTGCTCATCTCTCCCGGTTCGCAACCCCCTTTACCCGTGGGTAGCGAACCGGGAGGGAGAATCCGGGACTAAAGATGGCGGTCGTTAGTCCCGGTTCAAATACCTGGGAGTATATCTCCATCTTTAGTCCCGGTTGGTGACACCAACCGGGACTAAAGATGGCTGAGCCACGTGGCCGGCAAAGCCATCTTTAGACTAAAGAATTTTCTTTTATTTTTTTTTAATTTTGTTGTGCTGCCTGGTGTACATATATATATATATATGAATATATATCATGTATATATATATATATATGCATAATATAGAAATGTATATATTACACACATGCATATATGTATATATATACATACATATATATATATACATATATATATACATACACATATATATATATGTATGTATGTATATATGTATGTATGTATATACAAATATGTGTGCACTTAAGTAATTAGAGGCCATATGCATATATATATTAACAAAATATGAGTTTGCAAGTAAGTAAATATACATATATATTACCAAACCAAGTACACAAAAGTAAATGCATGTGTGCATATATGAATACATAGATATATATATTACAATTCGTTCGGACGTTGTAATATTTGTTTCTGCTACTACGACTTGGTGACATCGGAAGAAGAAGGACCGGCTTTATGAATAGTTGATCCATCGTAATAGAATTCTCCTGTGGGATGGAGAATATGCTTGTTGATGAATCCCATTATCTGTTCTTGAACAGCCCTTATGAAATCATCGTGGGTGGTGTTATCTATCAGGTAAATCATATGTTATTTGGAAAAAAAATGGGATTATATATATGAAACCAGTAAGCAATAATTGACGGAAGAATAAATTTACGTACTTCAAGGTCCTGGCCAGTCCTGATTTGGTGTGCTAAGCAGTGCATGTAATGGCATACGTAGTAGCCGCACAAGTTAGTCCCCTTTTCCTGCTTTGCACACTGAAAGAGAAACAACGAGAGATTTAGTATGCATATCTGATTTAGAACAAAGAAGTGATTCAATACAAAATTGGAGCTAGCATGTACCAACCGGAAAATTGAACCTCCGGGTGAGTTTTTCATTCCAGATCCCGCGGACCAATGTACGGAACCGAATCCATGCTCTATTTAGAGTTGTTAGGAAGGATTAATTTATTATCCGAGATCTAGTAGTTATACAATGATTCATAATGACAGTGCAATATATGACAATACCTATCTATCACTTCAAAAATCTTTGCGAAAGTTTTCTCCGGTTTATCCACTGAATCGTAGACATGAACTTTGGATTTCTCAAGGTCGAAAAGAAGAAGGACCCAATGGAATCTGCAATTTGCATTACATGATACATAGTATGATTGTAGGAACTTTGTAGGAACAAAATTGAAGGAACAAAATTGAAGTTAATTATGATTGTAGGAACTCACGATGTGTTGTAGGGAAGAAGTATGAACCTCTTATAATGCTGCTGCACCAGGAAATGGACGATATTGTCCTCGGTTTGTTTCTCGTATTGTTGTATCATCAGCGTGTTCACTTTGCGTGGGTCCATGAATCCAGTATTGAATTTGTTGTGTTGACGGCACAACTGAATCTCCATTCTACAACGGGGAAAAGGAATGTGTGTGAGCAACGTTCAAAGGAGGAACAAAATTGAACTATAAACAGTACTTACAAAGTCCACGCGCTGAGAATAGAGACGTCGAGGGCCTTCAGGTGGTATAAGTCGAAGACTTCTTTGTAGCGGATCCAAATAACATCTTCTCCTTGGTAATAATCTGAGTTTCGCACCCTAGCTCCGAACATCTATCTACCCATCACTGATTTGTCCATGTACCATTGATGGAACCGGTACATCTGTGTAGGTAGCTCTCTGATCTTATCAGGCATGACTAGCGGTTCACCGAGTTTAAACGTGTACATGACTGGAGCCGTTTCGATAGGTGCATCCTCTAGCAACTGCTCCATACTCAGTCCCGTATCTTTCAAGAAGTTGCATATCTCTAGTTGTGCCGGTTCTACGACTAACGCTTCAACCTCTTGTCGTGGCTGTTGCCCCAGCTGAGGGACTTCCTTTCCGCACTTCACTGCTAAAGGCTTGGCTTTAAGAGCCTTCCTCAATGTTCGATCATAGTCAGAAACTTCGACCGGTTTGCCCGGTTCGGCCATCTTAATAAAGTGATCCTGAACCTCCGGGGCTATAGGGATCTTCTTTTCCGGACTACGTGGCTTCAACTGCTCCCTAACTTCCGCTCTAACGGCTTCATCGAGCTCCTCCGGAGTCAAGTCGTACGCCCTTTTCTTGAGAGCGGGGAGCCATGGCTCGTCAGATCTGGCTTTCTTCTTCGACCTTGATGGTGCGGGTTCATATGGGCGGGACCTTGACAGTGTAGACTTGGCAGCAAGTGCACGTGGAGGAGTAGTTGCCCGCGAGCCCGACGGTGCAGACTTGGCAGCTGGTGCACGCGGAGGAGGTGGTGGTGCAGGGGAAGGAGCCAGAGGAGACTGACGAGGCGGTGATGGCGGAGGAGACTGTGCTTGCGGCGGGGAAGGAGGAGCGGGCGGCCGTTCTTGCCCGGGAAACACGATGTACTTCTTACGCCAGAGTATGATGGCGTGGGCTATGTCTCCAAGTTTCTTCTCCCCGTCTCCTCCGGGGATGTCAAGCTCGAGATCCTCGTAGGTTCGTTCCACTAGCTCTATCTCGACCTTCGCATATCCATGTGGAATGGGCCTGCAATGGTATGTACTCGAAGGGTCCGTGGATATGGCCATGCCCGACGTGACCTTCACAAGAAGTATAGTTCATTAATTACTAATCAACATATATATGTAACAAATTTCGCATTTCGCATACCTTGATAGACAAGTTCCTGAATGGAGTATGCATATCGCAGGGTGTTCGCTGCGTGATATCACCAACGGGGAAGTGGGTTGCTTCGTGAGCTGCCACTGCCTCAATGCCCTCTGATCCAACTTGGCCCGTTGATGCGCAGCTGCTGCGGTTGCCCGAGGGGCTCACCATGACGGGCGCTTGTGTTTCCATTCCGCGCTGCTCGGCCAGGCGTTGGTCCACCTGTCTTGTCACCTCCTCTTGCATCCTTGCCTCGTAGGTGGACACCCTGTACTCAAGATCGACGATCTTAGCTTCTGTATCCCTCTTGCTCCTCATCCAACTCCTATACGTGTGGATGTCCTCTTTGAATCCATATTTCCAAGGAATGACGCCTTTTCCTCGCATTCGTCCTAGATGCTCAGGATTCTGTAGTGCGAGGGTGAGCTCGTCCTTCTCTGTCGGGCCGGAAAGTCCCCTGCGTAGAGGCTTCAATTGCATCCGCAAGTCGGCGTGCTGCATCTCGAATCTCATCGCCGAATATGAGGGAGCCATCACCTGGATTGAGCGATCCACCGTGTGCATAGAACCAGTTCCTCGATCGCTCAGGCCAATTAGCCGTGGCCGGCTCGATACCCCTTGCTATCAAGTCAGCTTCCAACTTGTCCCACTTGGGGATTGCCTTTGCATATCCGCCTGACCCAAGCCGGTGATGGTATTTCTTCTTAGCTGCATTGGCTTTGTTCTTTTCTATCTGTGCTTGCCCTTGCGCTCCAGTCTTGTATGCCACAAACGCATCCCAGTGATCCCTAAACTTGTTATGCACGTTGAAATTAGGTATCAAGCCCTTGAGGATGTATCTCTTGTACAGATCTGATTTGTAGCTCTGGAATAGTTCTGCCATTTTCTTCAGGGTCCATTCTTTGCATCTGGGACGATCTGCCTCAGGGATCGTGAATGTCTCCAGCATGGTGGTCCACAACATGTCCTTCTCTGTGTCAGGGAGAAAGCTATCTTCATCCCCGCGTGACCTAGTTCGACGCCAGTATACTATGCTGATGGGGACGTTGTCTCTCACGACCCAACCACAATGATTCACAAACTTTCGTCCTATACCCGTCGGGGCTACTGGTTCGCCGTCTGGGGCAATCTCAGTAACGATGTGCCTTCCCTCAAGCTTCATCGCGGGACCTCTTTTCCCACGTGGCCTCTTCTGTCCGGCCGACGGTTGACTATCAATCCCCTCCTCGGTCCCCTCCTAGTTAGCCTCCTGGTTACCCTCATCGTTGCCCTCCTCGTTCAGGTATTGGTTGGGATCCTCGTTCCCCTCATCATCCACCCAGTACTGACTGCTGCCATCTGCGATCGTGTCTAACAGGATTTGTTCGTCATCGCGGTCTGCCATCTATGCGTGCAAAGAAAAAAAGACAGTGAGGTCATGGACATCAACATGTACAGCTCAGACGTCTAAACCCTACAAGTATACATGTATAATTCGCTAAGTCGTTGTTCTCGTTAAGTCGTTAAGTCGCTAAGTCGTCGTTCTCGCTAAGTCACTAACTCGCTAAGACGCTAAGTCGTTGTCCGTCAAAGTCGCTAAGTCGTCGTTCGTGAAAGTCGCTAAGTCGCTAAGTCGTCGTTCGTGAAAGTCGCTAAGTCGTCATTCGTGAAAGTCGCTAAGTCGCTAAGTCATTGTCTGTCAAAGTCGCTAAGTCGTCATTCGTGAAAGTCGTTTAGTCACTAATACGTCGTTCTCGCTAAGTCGCTAAGTCGCTAAGACGTCGTTCTCGCTAAGTCGCTAAGTCGTCGTTCGTGAAAGTCGTTAAGTCGCTAAGTTGCTAAGACGTCGTTCTCGCTAAGTCGCTAAGTCACTAAGTCATCGTTCGCTAAAACGTTCTCGTTCAAACGTTCCACCGTGGAGTCGGCGGTGGAGTCGGCGCACGGCGGCGGCGGCGGTGGCGGCGGCGGTGGAGTCGGCGCGTGGCGGCGGCGGTGGTGGAGTCGGCGGCAGCGGTGGCGGCGGTGGCGGCGGCGGAGGTGGAGTCGGTGCGCGGCGGCGGCGGCGGCGGTGGAGGTGGAGTCGGCGCGCGGCGGCGGCGGCCGGCGGTGGAGTCGGCGACGAAGATGACGGCGAGGTCGATCCGGTCGGCCGGCGCGTGTCAAGATCGATCGAGAGAGAGAGAATGCGAGATCGGAGGCGCAAGATTTGCGCCCCTCACCTTGAGGGAGGCAACGCTGCCGGTTGCGTTCGCGAGGGCAGATGAGCGCGGCGAGCACGACGACGATGACGGCGGAGGCGGCGACGACGTCTGGGGCGGTAATGGCGCGGGAGGAAGAAGATCGATCGTGGAGAAGTCTAAGTGTGGTGCAGGGAAGCCGATGCAGTGGATATTTATACCCGGTAATCTTTTGTCCCGGTTCGTGGCTTCAACCGGGACTAAAGATATCTTTAGTCCCGGTTGGTAGTTACAACCGGGAGTAAAGAACAAATGTTTACTCCCGGTTGTTACTACTAACCGGGACTAAAGACATCTTTAGTCCCAGTGGAAGCCACAAACCGGGACAAAAGATGTTTTCCCGCTATTCCAAAATTTGTATTGGTCCCGGATACTGTTAATAGCCAGGACTAAAGATGTGTACACAAAACCGATTTATGGCCTTCTTAAATTGTCTTACAAGTCGAAATAAATACCAATAAATCCAATATAATTAGCACATGGCCGATTTATATGGTTTCAAAGTCCAAATAAATTCCAAAATCGTACGTAATTTACGTATGGCCGAATTAAATGTTTTCAAAATTTTAATAAATAGAAATAAACATGATATGCCTAAGTAAATGGTCTCAAAGTATAAATAAATAGAAATAATCATTTATAATTAACATAAGGCCAATTTAATTATATTCAAAGTGTAAATAAATAGAAATTATCATTTATAATTAAGATATGGCCTACTTAATTGTTTTCAAAGTGGAAATAAATACCAATAATCAGTTATAAATAACATATTGCCTAATTAATTGTATTCAAAGTGTAAATCAATGGAAGTGACCATTTATAAATATCATATGGTTGAAAAATAGTAATACATTACAAATTAAGCAGTTGAGAATAATATATTGATCCAAATTGTTCGACCTTCAATACAATACAAATAATTTACATCTTCCATCAAACAACCTAGGTCACTGTCTTCCTCACGTACTTTCTCCTCACTATTGTTCCTTCGCTATGATCGTTGCGTGAGTACGGCGTGTCCTCCTATGATAGTATGATGCTCGGGTCAACCATCACTGCAAACGGAGGTTGCCCCTCAAACAGATCGTAATTTTCGTCAGTCTTATCCTCGACTCCAACGATTTTCCTCTTGCCTGGGAGAACAACATGGCGTCTTGGCTCATCGGGCCCTTTCCCCTTCTTTGGTTTGCTATCCATGTCCTTCACGTAAAAAACTTGTATTACATCATTGGCTAGAACGAATGGTTCATCTGAGTATCCTACCTTATTTAAGTCAACCGTTGTCATCCCGCTGTCATCAATCGTTACGCCTCCACCAGTCAGCCTAACCCATTGGCACCGAAACAGAGGGACCTTCAGGGGTCCATACTCTAGTTCCCAAATGTTGTCGATGACACCGTAATATGTGCTAGTTGGACCATCGTGTCCTATGGCATCGATACGAACACCACTGTTCTGGTTCGTGTTCTTTTTGTCTTAGGCTCTTGTGTAAAAAGTGTATCCATTGATTTCATAACCTTGGAATGTAGTTACCGAGCCGGAGGGTCCCCTAGCCAAGAAGGCTAGTTGTCGGTCAGTTGTCTCGTTACCCAGGAGGTGTTCTTGCAGCCAAGCGGGGAAAGTATCAATATGATGGCGTGTAATCCAGGCTTCGGACTTGCCACTGTTTTCTGAGCGAACAATCGCAAGGTGCTCATCGATGTAAGGAGCAACCAACGAAGATTATTGCAAAACCGTGAAATGTGTTTTACGGAATAAATCGTTGTCTACAGTCATAATTGCTCTCCTTCCAAGTGTGCCCTTTCCCCGTAGTCTCCCCTCATGGATTGATTCGGGTACCCCGATTGGCTCGAGGTCTTCAATAAAATCTACGCAGAACTCAATGACCTCCTCTGTTCCATACCCCTTCGCGATGCTTGCTTCCGGACGAGAACGGTTACGAACGTACTTCTTTAGAACGCCCATGTACCTCTCGAAAGGAAACATGTTGTGTAGGTACATAGGACCGAGAATACCGATCTCTTTTACAAGGTGGCACAGAAGATGCGTCATTATATTGAAGAATGAGGGTGGAAAGATCAACTCAAAGCTGACAAGGCATTGCACCACGTCATGCTGAAGGGCGGCTAAACTTTCTAGATCGATGACTTTCTGTGAAATTGCGTTCATGAAAGCACAAAGCTTCGTTATTGTTGCCCGCACATTATCAGGAAGGATACCACGAATTATAACAGGAAGCAGCTGTGTCATAAGCACGTGACAGTCATGAGACTTTAGTTTTGTGAACTTCTTATCCTTCGTGCTTATTATTCTCTTTACATTCGAGGAGTATCCGGACGGTACCTTGATGCTCTCTAGGCATTGAAACATACTCTCCTTCTCTTCCTTGCTTAGGGTGTAGCTCGCCGGACTTAAGTAATGGATTCCTTTATCGTTCGGTTCCGGATGAAGGCCCTCGCGTTGTTCCATATGCTTGAGATCATTGCGTGCTTCGAGTGTATCTTTGGACTTCCCATATACACCTAAGAAGCCCAGCAGGTTTATGCAAAGGTTCTTAGTAAGGTGCATCACGTCGATTGCGTGGCGAATGTCCAAGACCTCCCAATAGGGTACCTCCCAAAAAATAGAGTTTTTCTTCCACATCGCTGCGTGACCATCTTCGCTCTCTATAGGTTGGCTACCAGGCCCCTTTCCAGATACTACTTTCAGATCCTTCACCATTTCGAACACTGCTTTCCCGTTGCGATGTTTAGGCTTAGTACGATGGTCTGCCTTTTGTTCGAAGTGCTTGCCTTTTTTCCGTACAGGGTGGTTTGCAGCAAGGAATCGACGATGGCCCATGTACACAACCTTCCTGCAATGCTTCAGATAAGTACTTTCAGTTTCATCCAAACAGTGAGTGCAGGCGTTGTACCCCTTGTTTGATTGTCCGGATAGGTTACTAAGCGCAGGCCAATCGTTAATTGTAACGAATAGCAACGCTCGTAGGTTAAATTGCTCCTGCTTGTCCTCATCCCACACGGGGACACCCTCTTTCCTCCACAGCACTTTCAGATCTTCAACCAATAGTCTTAGGTACACATCAATGTCGTTACCAGGTTGCTTCGGGCCTTGAATAATAATCGGCATCATGATGTACTTCCACTTCATGCATAGCCAAGGGGGAAGATTGTAGATGCACATGGTGACTGGCCAGGTGCTATGGCCACTGCTCATCTCTCCAAATGGATTCATTCCATCCGTGCTTAAACCGAACCTCACGTTTCGTGCATCTTCGCCGAAGTCTTTAAATGTTCTGTTGATATTTCGCCACTGCGACCCGTCAGCGGGGTGTCTCAGCATCCCATCCTATTTACGTTCTTCTGCGTGCCACCGCATCATTCTAGCATGTGATTTGTTCCTGAAAAACCGCTTCAGCCTTGGTATTATAGGGAAATACCACATCACTTTAGCAGGAATTCTCTTCTTCAAAGGCTGTCCGTCAACTTCACCTAGATCATCTCGTCTTATCTTGTATCGTAGTGCTTTGCAAATAGGGCATGCTTCTAGGTTTTCGTACTCACTGCGATACAGGATATAGTCGTTCGGACGCGCGTGAATCTTCTGTACTTCCAGACCTAGAGGGCAGACTATCTTCTTAGCTTCGTACGTACTTTCGGGCAATTCGTTCCCCTCCGGAAGAATGTTCTTTACGAGTTTCAATAACTCGCCGAATGCCTTGTCACTCACACCATTTTTAGCCTTCCATTGCAAGAATTCTAGGATGGTACTCAACTTTTTGTAGCCCTTCTCGCAACCTGGGTACAACGTTGTTCTGTGGTCCGCTAACATGCGCTCCAGTTTCTGCACCTCCTTTTCACTTTCGCAGTCCTCCTGTAAGTCCCGCAATATTTGACCAAGTTCATCAGCACCGGCATTCCCTTCAACATCCAGCTCCGCCTCGCCCATTGTGTTTTCTTCAAATCCGCCATACTGAGCCCAGTCTGGAATGTTCTCATCTTCTACTTCATCTTCTTCCATTGCAACCCCAACCTCTCCGTGCGAGGTCCAACAATTGTAGCTACGCATGAACCCCCACTGAAACAGGTGGGCATGAATAGTTCGTGTGGTGGAATACTCCTTCTGGTTTTTGCACTTGTCACATGGACAGCTTATAAAACCGTTACGCTTGTTATCATTAGCCCCACCCAAAAAATAATGCACGCCGTCAATAAACTCTTTCGACCACCAATCCGCGTACATCCATTGCCGATCCATCTATATGAAATACATATAAATCGTAATTATACAAAATCCAAGATTTACAAGGTAATTACATAATAACACAATAATTGAATATAATTATTCATACAATTAATCATTATTATTAAATTCATTGTACATATTTTTCATGTTTTAATTACATTATAAACAAATATTTAATATGTTTTTCTTATTTTAATATTAAATTAGCTTAGTTTTATAATTTCATACAAAATTATATGTAATTATTCAAACAAGTATTTATAATCTTCTTTATTCCCTACAAACACTTTCTCTCTCATCATCTTCCATCACATTTTCTAGAGGGAAAAATATGTAAAAAAAAATAGCTCCAAATGTAGATGCTAAGCAAAACAAAGAGTAGGATGAAGTTGCTAACCTTTTGAAGACCTCAAATTTGTATATTACCACCAAAAAAATTTACTTAAAATTTTGACAGCACCTCCCTCCCTCAAAGCTTAATTTTGAAGCAATGGCTCGGGCTGGAGGAGGAAGAAGGGGTATATAAAGCTGTGCAACTTTAGTCCCGGTTGGTAACACCAATCGGGCATAAAGATCTCAAATCACTTTAGTCCCGGTTGGTAACACGAACCGAGACTAAAGATCCCAAGCCCCCCGACAGAGGTCTGACATGCCCTGTCAGGAGGTGAACCGGGACTAAAGATGATCTTTAGTCCTGGTTGGTGTTACCAACCGGGACTAAAAATCCCTTCGTCCCGTTGAAGTAATAAACCGGGACTAATAAGCCACTTTAGTCCCGGTTCGTTTTGGAACCGGGACTATTGTGGAAATTGGCCGACCCTCCAAATACCTCTTCTCCAGTAGTGAATCCACCATCGGAACCACTGGTATACATTGCTAATAGTTGCTATTATGTCATGTATGCTCCATCTAGTTTGAGATAATGTGATTGAAAGAGTCTTGAGGATT'
+    # copy_seq2 = 'CCATTTAACAAAATTACTTTGCCTATTCAGTATTGTGCTCATTTTATCATATATCTTGAGTAGAGTTTAATGTTCATTGGTTAAAACGAAATAATCCCGGTTCCACAATAGTCCCAGTTCCAAAACGAACCGGGACTAAAGTGGCTTATTAGTCCCGGTTTATTACTTCAACGGGACGAAGGGATCTTTAGTCCCGGTTGGTCTTTAGTCCCGGTTCGCCTCCTGACAGGGCATGTCAGACCTATGTCAGGGGGGCTTGGGATCTTTAGTCTCGGTTCGTGTTACCAACCGGGACTAAAGATCTTTAGTCCCGGTTGGTAATACAAACCGGGACTAAAGTGATTTGAGATCTTTATGCCCGGTTGGTGTTACAAACCGAGACTAAAGTTGCACAGCTTTATATACCCCTTCTTCCTCCTCCAGCCCGAGCCATTGCTTCAAAATTAAGCTTTGAGGGAGGGAGGTGCTGTCAAAATTTTAAGCAAATTTTTTTGGTGGTAATATACAAATTTGAGGTCTTCAAAAGGTTAGTAACTTCATCCTACTCTTTGTTTTGCTTAGCATCTACATTTGGAGCTATTTTTTTTACATATTTTTCCCTCTAGAAAATGTGATGGAAGATGATGAGAGAGAAAGTGTGTGTAGGGAATAAAGAAGATTATAAATACTTGTTTGAATTATTACATATAATTTTGTATGAAATTATAAAACTAAGCTAATTTAATATTAAAATAATAAAAACATATTAAATATTTGTTTATAATGTAATTAAAACATGAAAAATATATACAATGAATTTAATAATAATGATTAATTGTATGAATAATTATATTCAATTATTGTATTATTATGTAATTACCTTGTAAATCTTGGATTTTGTATAATTACGATTTATATGTATTTCATATAGATGGATCAGCAATGGATGTACGCGGATCGGCGGTCGAAAGAGTTTATTGACGGCGTACAATATTTTTTGGGTGTGGCCAATGATAACAAGCGTAACGGTTTTATAAGTTGTCCATGCGACAAGTGCAAAAACCAGAAGGAGTATTCCACCACACGAACTATTCATGCCCACCTGTTTCATTGGGGGTTCATGCGTAGCTACAATTGTTGGACCTCGCACGGAGAGGTTGGGGTTGCAATGGAAGAAGATGAAGTAGAAGATGAGAACATTCCGGACTGGGCTCAGTATGGCGGATTTGAAGAAAACACAATGGGCGAGGCAGAGCTGGATGTTGAAGGGAATGACGGTGCTGATGAACTTGGTCAAATATTGCGGGACTTACAGGAGGACTGCGAAAGTGGAAAGGAGGTGCAGAAACTGGAGCGCATGTTAGCGGACCACAGAACAGCGTTGTACCCAGGTTGCGAGAAGGGCTACAAAAAGTTGAGTACAATCCTAGAATTCTTGCAATGGAAGGCTAAAAATGGTGTGAGTGACAAGGCATTCGGCGAGTTATTGAAACTCGTAAAGAACATTCTTCCGGAGGGGAACGAATTGCCCGAAAGTACGCACGAAGCTAAGAAGACAGTCTGCCCTCTAGGTCTGGAAGTACAGAAGATTCACGCGTGTCCGAACGACTGTATCCTGTATCGCGGTGAGTACGAAAACCTGGAAGCATGCCCTGTTTGCAAAGCACTATGATACAAGATAAGACGAGATGATCCAGGTGAAGTTGACGGACAGCCTTTGAAGAAGAGAATTCCTGCTAAGGTGATGTGGTATTTCCCTATAATACCAAGGCTGAAGCGGTTTTTCAGGAACAAATCACATGCTAGAATGATGCGGTGGCATGCAGAAGAACGTAAACAGGATGGGATGCTGAGACACCCCGCTGACGGGTCGCAGTGGCGAAATATCGACAGAACATTTAAAGACTTCGGCGAGGATGCACGAAACGTGAGGTTCGGTTTAAGCACGGATGGAATGAATACGTTTGGAGAGATGAGCAGTGGCCATAGCACCTGGCCAGTCACCATGTGCATCTACAATCTTCCCCCTTGGCTATGCATGAAGTGGAAGTACATCATGATGCCGATTATTATTCAAGGCCCAAAGCAACTTGGTAACGACATTGATGTGTACCTAAGACCATTGGTTGAAGATCTGAAAGTGTTGTGGAGGAAAGAGGGCGTCCCCGTGTGGGATGAGGACAAGCAAGAGCAATTTAACCTACGAGCATTGCTATTCGTTACAATTAACGATTGGCCTGCACTTAGTAACCTATCCGGACAATCAAACAAGGGGTACAACGCTTGCACTCACTGTTTGGATGAAACTGAAAGTACTTATCTAAAGCATTGCAGGAAGGTTGTGTACATGGGCCATCGTCGATTCCTTGCTGCAAACCACCTTGTACGGAAAAAAGGCAAGCACTTCGAACAGAAGGCAAACCATCGTACTAAGCCTAAACATCGCAACGGGAAAGCAGTGTTCGAAATGGTGAAGGATCTGAAAGTAGTATTTGGAAAGGGGCCTAGCAGCCAACCTATAGAGAGCAAAGATGGTCACGTGGCGATGTGGAAGAAAAACTCTATTTTTTGGGAGCTACCCTATTGGGAGGTCTTGGACGTTCGCCACGCAATCGACATGATGCACCTCACTAAGAACCTTTGCGTAAACCTGCTGGGCTTCTTAGACGTATATGGGAAGTCCAAAGATACACTCGAAGCACGCAATGATCTCAAGCATATGGAACAACGCGAGGGCCTTCATCCGGAACCGAACAAGAAAGGAAGCCATTACTTAAGTCCGGCGAGCTACACCCTAAGCAAGGAAGATAAGGAGAGTATGTTTCAATGCCTAGAGAGCATCAAGGTACCGTCCGGATACTCCTCCAATGTAAAGAGAATAATAAGCACGAAGGATAAGAAGTTCACAAACCTAAAGTCTCATGACTGTCACGTGCTTATGACACAGCTGCTTCCTGTTATAATTCGTGGTATCCTTCCTGATAATGTGCGGGCAACAATAACGAAGCTTTGTGCTTTCATGAACGCAATTTCACAGAAAGTCATCGATCCAGAAAGTTTAGCCGCCCTTCAGCATGACGTGGTGCAATGCCTTGTCAGCTTTGAGTTGATCTTTCCACCGTCATTCTTCAATATAATGACGCATCTTCTGTGCCACCTTGTAAAAGAGATCGGTATTCTCGGTCCTGTGTACCTACACAACATGTTTCCTTTCGAGAGGTACATGGGCGTTCTAAAGAAGTACGTTCGTAACCGTTCTCGTCCGGAAGCAAGCATCGCGAAGGGGTATGGAACAGAGGAGGTCATTGAGTTCTGCGTAGATTTTATTGAAGACCTCGAGCCAATCAGGGTACCCGAATCAATCCATGAGGGGAGACTACGGGGAAAGGGCACACTTGGAAGGAGAGCAATTATGACTGTAGACAACGGTTTATTCCGTAAAGCACATTTCACGGTTTTGCAACAATCTTCGTTGGTTGCTCCTTACATCGATGAGCACCTTGCGATTGTTCGCTCAGAAAGCAGTGGCAAGTCCGATGCCTGGATTACACGCCATCATATTGATACTTTCCCCGCTTGGCTGCGAGAACACCTCCTGGGTAACGAGACGATTGACCGACAACTAGCCTTCTTGGCTAGGGGACCCTCCGGCTCGGTAACTACATTCCAAGGTTATGAAATCAATGGATACACTTTTTACACAAGAGCCCAAGACAAAAGGAGCACGAACCAGAACAGTGGTGTTCGTATCGATGCCATAGGACACGATGGTCCAACTAGCACGTATTACGGTATTATCGACAACATTTGGGAACTAGAGTATGGACCCCTGAAGGTCCCTCTGTTTCGGTGCCAATGGGTTAGGCTGACTAGTGGAGGCATAACGATTGATGACAGCGGGATGACAACGGTTGACCTAAACAAGGTAGGATACTCAGATGAACCATTCGTTCTAGCCAATGATGTAACGCAAGTTTTTTACGTGAAGGACATGGATAGCAAACCAAAGAAGAGGAAAGGGCCCGATAAGCCAAGACGCCATGTTGTTCTCCCAGGAAAGAGGAAAATCATTGGAGTCGAGGATAAGACTGACGAAAATTACGATTTGTTTGAGGGGCAACCTCCGTTTGCAGTGACGGTTGACCCGAGCATCATACTATCAAAGGAGGACACGCCGTACTCACGCAACGATCATAGCGAAGGAACAATAGTGAGGAGAAAGTACGTGAGGAAGACAGTGACCTAGGTTGTTTGATGGAAGATGTAAATTATTTGTATTGTATTGAAGGTCGAACAATTTGGATCAATATATTATTCTCAACTGCTTAATTTGTAATGTATTACTATTTTTCAACCATATGATATTTATAAATGGTTACTTCCATTTATTTACACTTTGAATACAATTAATTAGGCAATATGTTATTTGTAACTGATTATTGGTATTTATTTCCACTTTGAAAACAATTAAGTAGGCCATATCTTAATTATAAATGATAATTTCTATTTATTTACACTTTGAATATAATTAAATTGGCCTTATGTTAATTATAAATGATTATTTCTATTTATTTATACTTTGAGACCATTTACTTAGGCATATCCTATTTATTTCTATTTATTAAAATTTTGAAAACATTTAATTCGGCCATACGTAAATTACGTACGATTTTGGTATTTATTTGGACTTTGAAACCATATAAATCAGCCATGTTCTAATTATATTGGATTTATTGGTATTTATTTCGACTTGTAAGACAATTTAAGAAGGCCATAAATCGGTTTTGTGTACACATCTTTAGTCCCGGTTATTAACAGTATCCGGGACCAATACAAATTTTGGAATAGAGGGAAAACATCTTTTGTCCCGGTTTGTGGCTTCCACTAGGCCTAAAGATATCTTTAGTCCCGGTTAGTAGTAACAACCGGGAGTAAACATTTGTTCTTTACTCCCGGTTGTTACTACCATGTTCTTTACTCCCGGTTGTTACTACCTATCTTTAGTCCCGGTTGAAGCCACGAACCGGGACAAAAGATTACCGGGTATAAATATCCACTGCATCGGCTTCCCCGCGCCACACTTAGACTTCTCCACGATCGATCTTCTTCCTCCCGCGCCATTACCGCCCCAGACGTCGCCGCTGCCTCCGCCATCGTCGTCATCGTGCTCGCCGCGCTCATCCGCCCTCGCAAACGCCACCGGCAGCGTTGCCTCCCTCAAGGTGAGGGGAGCAAATCTTGCGCCTCCGATCTCGCATTCTCTCTCTCTCTCTCGATCGATCTTGACACGCGCCGGCCGACCGGACCTCGCCGCCATCGTCGTCGCCGACTCCACCGCCGGCCGCCGCCGCCGCGCGCCGACTCCACCTCCACCGCCGCCGCGCGCCGACACCACCGCCGCCGCGCGCCACCTCCACCTCCACCGCCGCCGCCGCCGCCGCGCGCCGACTCCACCTCCGCCGCCGCCGCGTGCCGACTCCACCGCCGCCGCCATCGCCGCCGCCGCCGCGCGCCGACTCCACCGCCGACTCCACGGTCAAACGTTTGAACGAGAATGTTTTAGCGAACGACGACTTAGCGACTTAGCGACTTAGCGAGAACGACGTCTTAGCGACTTAGCGACTTAACGACTTTCACGAACGACGACTTAGCGACTTAACGACTTTCACGAACGACGACTTAGCGACTTAGCGACTTAGCGAGAACGACGTCTTAGCGACTAAATGACTTTCACGAACGACGACTTAGCGACTTTGACAGACAACGACTTAGCGACTTAGCGACTTTCACGAATGACGACTTAGCGACTTTCACGAACGACGACTTAGCAACTTAGCGACTTTCACGAACGACGACTTAGCGACTTTGACGGACAACGACTTAGCGACTTAGCGAGTTAGCGACTTAGCGAGAACGACGACTTAGCGACTTAACGACTTAACGAGAACAATGACTTAGCGAATTATACATGTAAACTTGTAGGGTTTAGACGTATGAGCTGTACATGTTGATGTCCATGACCTCACTGTCTTTTTTTCTTTGCACGCACAGATGGTAGACCGCGATGACGAACAAATCCTGTTAGACACGATCGCAGAGGGCAGCAGTCAGTACTGGGTAGATGATGAGGGGAACGAGGATCCCAACCAATACCTGAACGAGGAGGGCAATGATGAGGGTAACTAGGAGGCTAACCAGGAGGGGACCGAGGAGGGGACTGATAGTCAACCGTCGGCCGGACAGAAGAGGCCACGCGGGAAAAGAGGTCCCGTGATGAAGCTTGAGGGAAGGCACATCGTTACTGAGATTGCCCCAGACGGCGAACCAGTAGCCCCGGCGGGTATAGGACGAAAGTTTGTGAATCATTGTGGTTGGGTCGTGAGAGACAACGTCCCCATTAGCATAGTGTACTGGCGTCGAACTAGGTCATGCGGGGATGAAGATAGCTTTCTCCCTGACACAGAGAAGGACTTGTTGTGGACCACCATGCTGGAGACATTCACGATCCCTGAGGCAGATCGTCCCAGATGCAAAGAATGGACCCTGAAGAAAATGGCAGAACTATTCCAGAGCTACAAATCAGATTTGTACAAGAGATACATCCTCAAGGGCTTGACACCTGATTTCAACGTGCATAACAAGCTTAGGGATCACTGAGATGCGTTTGTGCCATACAAGACTGGAGCGCAAGGGCAAGCACAGATAGAAAAGAATAAAGCCAATGCAGCTAAGAAGAAATACCATCACCGGCTTGGGTCAGGCAGATATGGAAAGGCAATCCCCAAGTGGGACAAGTTGGAAGCTGACTTGATAGTAAGGGGTATCGAGCCGGCCACGGCTAATTGGCCTGAGCGATCGAGGAACTGGTTCTATGCACACGGTGGATCGCTCAATCTAGGTGATGGCTCCCTCATATTCGGCGATGAGATTCGAGATGCTGCACGCCGACTTGCGGATGCAATTGAAGCCTCTACGCAGGGGACTTTCCAGCCCGACAGAGAGAAGGACGAGCGCACCCTCGCACTACAGAATCCTGAGCATCCAGGACGAACGCGAGGAAAAGGCGTCCTTCCTTGGAAACATGGATTCAAAGAGGACATCCACATGTATGGGAGTCGGATGAGGAGCAAGAGGGATACAGAGGCTAAGATCGTCGATCTTGAGTACAGGGTGTCCACCTACGAGGCAAGGATGCAAGAGGAGGTGACAAGACAGGTGGACCAACGCCTGGCTGAGCAGCGCGGAATGGAAACACAAGCGCTCGTCATGGTGAGCCCCTCGGGCAACCGCAGCAGCTGCGCATCAACGGGCCAAGTTGGATCAGAGGGCATTGAGGCAGTGGCAGCTCACGAAGCAACCCACTTCCCCGTTGATGATATCACGCAGCGAACACCCTGCGATATGCATACTCCCTTTAGGAACTTGTCTATCAAGGTATGCGAAATGCGAAATTTGTTACATATATATGTTGATTAGTAATTAATGAACTATATTTCTTGTGAAGGTCGCGTCGGGCATGGCCATACCCACGGATCCTTCGAGTACATACCATTGCAGGCCCATTACACATGGATATGCGAAGGTCGAGATAGAGCTGGTGGAACGAACCTATGAGGATCTCGAGCTTGACATCCCCGGAGGAGACGGGGAGAAGAAACTTGGAGATACAGCCCACGCCATCATACTCTAGCTTAAGAAGTACATCGTGTTTCCCGGGCAAGAACGGCCGCTCGCTCCTCCTTCACCGCCGCAAGCACAGTCTCCTCCGCCATCACCGCCTCGTCAGTCTCCTCCGGCTCCTTCCCCTGCACCACCACCTCCTCCGCGTGCACCAGCTGCCAAGTCTGCACCGTCGGGCCCGCGGGCAACTACTCCTCCACGTGCACCTGCTGCCAAGTCTACACCGTCAAGGTCCCGCCCATATGAACCCACACCATCAAGGCCGAAGAAGAAAGCCAGATCTGACGAGCCACGGCTCCCCGCTCTCAAGAAAAGGGCGTACGACTTGACTCCGGGGGAGCTTGATGAAGCCGTAAGAGCGGAAGTTAGGGAGCAGTTGAAGCCACGTAGTCCAGAAAAGAAGATCCCTATAGCCCCAGAGGTTCAGGATCACTTTATTAAGATGGCCGAACCGGGCAAACCGGTCGAAGTTTTTGACTATGATCGAACATTGAGGAAGGCTCTTAAAGCCAAGCCTTCAGCAGTGAAGTGCGGAAAGGAAGTCCCTCAGCTGGGGCAACAGCCAAGACAAGAGGTTGAACCGTTAGTCATAGAACCGGCACAACTAGAGATATGCAACTTCTTGAAAGATACGGGACTGAGTATGGAGCAGTTGCTAGAGGACGCACCTATCGAAACGGCTCCGGTCATGTACACGTTTAAACTCGGTGAACCGCTAGTCACGCCTGATAAGATCAGAGAGCTACCTACACAGATGTACCGATTCCATCAATTGTACATGGACAAATCAGTGATGGGTAGAGAGATGTTCGGAGCTAGGGTGCGAAACTCAGATTATTACCAACGAGAAGATGTTATTTGAATCCGCTACAAAGAAGTTTTCGACTTATACCACCTGAAGGCCCTCGACGTCTCTATTCTTTGTGCTTGGACTTTGTAAGTACTGTTTATAGTTCAATTTTGTTCCTCGTTTGAACGTTGCTCACACACATTCCTTTTCCCCGTTGTAGAATGGAGATTCAGTTGTGCCGTCAACATAACAAATTCAATACTGGATTCATGGACCCACACAAAGTGAACACGCTGATGATACAACAATACGAGAAACAAACCGAGGACAATATCGTCCATTTCCTGGTGCAGCAGCATTATAAGAGGTTCATACTACTTCCCTACAACACATCGTGAGTTCCTACAATCATAATTAACTTCAATTTTGTTCCTTCAATTTTGTTCCTACAAAGTTCCTACAATTATACTATATATCATGTAATGCAAATTGCAGATTCCATTGGGTCCTTCTTCTTTTCGACCTTGAGAAATCCAAAGTTCATGTCTATGATTCAATGGATAAACCGGAGAAAACTTTCGCAAAGATTTTCGAAGTGATAGATAGGTATTGTCATATATTGCACTGTCATTATGAATCATTGTATAACTACTAGATCTCGGATAATAAATTAATCCTTCCTAACAACTCTAAATAGAGCATGGATTCGGTTCCGTACATTGGTCCGCGGGATCTGGAATGAAAAACTCACCCGGAGGTTCAATTTTCCGGTTAGTACATGCTAGCTTCAATTTTGTATTGAATCACTTCTTTGTTCTAAATCAGATATGCATACTAAATCTCTCGTTGTTTCTCTTTCAGTGTGCAAAGCAGGAAAATGGGACTAACTTGTGCGGCTACTACGTATGCCATTACATGCACTGCTTAGCACACCAAATCAGGACTGGCCAGGACCTTGAAGTACGTAAATTTATTCTTCCGTCAATTATTGCTTACTGGTTTTATATATATAATCCCGTTTTTTTCCAAATAACAGATGATTTACCTGATAGATAACACCACCCACGATGATTTCATAAGGACTGTTCAAGAATAGATAATGGGATTCATCAACAAGCATATTCTCCATCCCACAGGAGAATTCTATTACGATGGATCGACTATTCATAAAGCCGGTCCTTCTTCTTCCGATGTCACCAAGTCGTAGTAGCAGAAACAAAGATTACAACGTCCGAACGAATTGTAATATATATCTATATATTCATATATGCACACATGCATTTACTTTTGTGTACTTGGTTTGGTAATATATGTGTATATTTACTTACTTGCAAACTCATATTTTGTTAATATATATATGCATATGGCCTCTAATTACTTAAGTGCACACATATTTGTATATACATACATACATATATATATATATATATATATATATATATATATATATATATATATATATATATATATATACATATATATATATATATATATATGTATGTATGTATGTATGTATGTATGTATGTATGTATAATGTATATATTACACACATGCATATATGTGTGCACTATATACATTTCTATATTATACATATACATATATATATATATATATATATATATATATATATATATATATATATGTACACCAGGCAGCACAACCAAATTAAAAAAAAATAAAAGAAAATTCTTTAGTCCCGGTTGGTGTCACCAACCGGGACTAAAGATGGAGATTTACTCCCGGGTATTTGAACCGGGACTAAAGACCGCCATCTTTAGTCCCGGATTCTCCCTCCCGGTTCGCTACCCGGGAGTAAAGGGGGTTGCGAACGGGAGAGATGAGCACTTCTCCAGTAGTAAAACTTTAAAATAATACATGGTTTGAAATATATAAGTCATAAAAAATTTAAAATAGACTAGTACTACATAGTAAAATTTCAAAGTATAATATACACCGT'
+    # #copy_seq3 = 'TTGTCACTACAGACGGCTAATGCGAAAGGTCTGTGTTTTAATTATTTTGGGTATTAAATAACCTGTATCACAAAAATGAGAAGCAGTCGGACTTGTCTATAGTCACTACGCCAGATCCTCACACCTCTGACGGGATACCTGTGACGGGCAAACGAATTGGTCAGTAGTGACCATTACCTTTGACGGGTTATACGGGATGCCGTCACCGGTGAGGCATCTGGCCGCGGCCCGTCACAGGTATCCCCTCACCTGTGACGGGCCGAAAGGAAAACCCGTCAGAGGTATACCAGTGACGAGTTTTTCTTCCAACCCGTCACTGGTATCCCCTCACCTGTGACGGGCCGATACATTAGAAGCCGTCAGAGGTGATGGGCCGCCACCTGTGACGGCTTTCATTTCTGGCCCGTCACAGGTGAGAGGATACCAGTGACGGGCCGTTGAATAGAAGCCCGTCAAAGGTATGAGCAATACCTTTGACGGGCTTTTTTTATCTAACCCGTTTGAGGTGTGTTGGGTCTATAAATACCCCCAAACTGCCAACTGCTTTCCATCCCGACCATTGTACTGTCCACAAATCGGTTGGGAGGGCAAGGGGGGCGATTTTTTACTAAAATTCAAGGTAAAAAACACATTATTCTCCATTCATTCTCAACATATCGATCATCATTTATTTTTCTTCGTATGTTGTTGATTTCAGATGGATCGTAGATGGATGTACTATGCGCATCGTTCGTCTACCGAGTATAGAGAGGGGGTCACTGAATTTGTCACATTTGCGGATAATGACAGAAAAAGTAGGATGAGCATGCACATGTTGTGCCCATGTAGGGACTGTAAGAATGAACAGATGATCGAAGACAAGGATGAAGTGCATGCTCATTTGATAATGAATGGATTCATGAAGAAATATACCTGCTGGACCAAGCATGGAGAGCAAGAGGCGCCTGATGTCGCAGCTGAAGAAGTGTTGGATCAGGATGTAGAGAACACCGCCGCAGCTCGAGAAGGCATGTTCGTACCTTCTCCTTTAGGTGGAGAGACCATAGATTTGGACACTCAATGTCTATCTACAATGTTGCATGACATTGAAGACGCAGAGGACAACGACAGAGATTATGAGAAGTTTAGTAAGTTGGTGGAAGATTGCCAGATGCCGTTGTATGATGGATGCAAGTCGAAGCACAGCAAGTTGTCATGCGTGTTGGAACTCATGAAGCTTAAGGCTAGTAATGGCTGGTCGGACAAGAGTTTTACAGAACTCTTTGAGCTGTTAAAGGATCTGTTGCCAGAGGGGAACAATTTACCTCAGACGACATATGAAGCGAAGCAAGTATTATGTCCGTTGGGCCTGGAGGTCAGAAGAATTCATGCATGTCCGAACGACTGCATTTTGTATTACAAGGAATACGCTGACTTGGATGTCTGCCCTATCTGTGGGGCATCAAGATACAAACGAGCAAAGAGTGAAGGTGAAGGAAGTAAGTCAAAGAGGGGAGGCCCAGCAAAGGTGGTGTGGTATCTCCCAATTGCGGAGCGCATGAAGAGAATGTTTGCGAACAAGGAACAAGCTAAGCTTGTGCGCTGGCATGCCGAAGAACGGAAAGTCGATACTATGCTGAGGCACCCAGCAGATTCAGTACAGTGGAGGACAATCGATAGGATTTACCAGGAATTCTCAAATGACCCAAGAAACATGCGTTTCGCAATGTGTACGGACGGCATTAATCCTTTTGGTGATTTGAGCAGTCGTCACAGTACATGGCCAGTTCTGCTTGTTAACTATAACCTTCCTCCCTGGTTGTGTTTCAAAAGAAAGTACATTATGCTTGCCATGCTCATTCAAGGACCGAGACAACCTGGCAACGATATCGATGTGTTCCTTGAACCGATAATCGATGACTTCGAAAGGCTATGGAATGAGGGCACACGAACATGGGACGCATATGCACAAGAGTATTTCAACCTCCATGCGATGCTGTTTTGTACCATCAACGATTATCCGGCCCTTGGCAACCTTTCTGGCCAAACTGTGAAAGGGAAATGGGCGTGTTCGGAGTGTATGGAGGAAACAAGAAGCAAATGGTTGAAGCATTCACACAAGACGGTCTACATGGGTCACAGGAGATTTCTCCCAAGGTATCACCCGTATAGGAATATGAGAAAGAATTTCAATGGACACAGAGATACAGCCGGACCCCCGACAGAGCTAACAGGGACAGAGGTGCACAACTTAGTGATGGGAATAACCAACGAGTTTGGAAAAAAGAGGAAAGTTGGAAAGCGAAAAGAGAAGAGCACATCGAAGGAAAAAACAGAGGAGCATGTGGAAAAACAAAAGACAAAAGAGAGGAGCATGTGGAAAAAGAAGTCAATATTCTGGAGACTACCATACTGGAAGGATCTTGAAGTTCGCCACTGCATAGATTTGATGCATGTCGAGAAGAATGTATGCGAGAGTTTAATGGGATTACTACTTAACCCAGGTACTACAAAGGATGGTCTCAACGCCCGACGAGATCTGGAAGATATGGGTGTTCGGTCGGAGCTACATCCCATAACCACGGAATCCGGCAGGGTTTACCTTCCTCCAGCCTGCTACACTCTCTCGAAAGAAGAGAAGATTGATTTGCTAACATGTTTGAGTGGTATAAAGGTTCCATCTGGTTACTCATCAAGAATCAGTAGGCTCGTTTCACTGCAAGATCTTAAGTTGGTTGGAATGAAGTCGCATGATTGCCACGTTCTTATCACACAGCTGTTGCCCGTTGCAATAAGGAATATTTTGCCTCCTAAGGTGCGACACACGATCCAGCGGTTGTGTTCCTTCTTCCATGCAATCGGCCAGAAGATCATTGATCCCGAGGGACTAGATGAACTACAGGCAGAACTTGTGAGAACCCTATGTCATCTTGAGATGTACTTTCCTCCAACTTTCTTTGACATAATGGAACATCTTCCGGTGCACCTTGTGAGGCAAACAAAGTGCTGTGGTCCAGCATTCATGACGCAGATGTATCCTTGCGAAAGGTACCTGGGGATCCTTAAGGGTTATGTACGGAACCGTTCACACCCCGAGGGGAGTATCATCGAGAGTTACACCACCGAAGAGGCCATCGAATTTTATGTGGACTACATGTCAGAAACATCTTCAATTGGATTACCACGATCTCATCACGAAGGGAGGCTTGACGGTGTTGGTACTGTTGGAAGAAAGACTATTAGGTTGGATCGTAAGGTATACGATAAAGCTCATTTCACGGTACTACAGCATATGACTGAGGTGGTGCCGTACGTTGACGAACACCTTGCAGTTATCCGACAAGAGAACCCAGGCCGATCAGAGAGTTGGGTCAGGAATAAGCACATGTCTTCTTTCAACGAGTGGCTGAAGAACCGAATTGCCAGGTTGCAGAACTTGCCTAGTGAAACACTTCAGTGGTTGTCACAGGGTCCTGAATGGAGTGCCACCACCTGGCAAGGATATGACATAAATGGATACACCTTTCACACGGTCAAGCAAGACAGCAAATGCACAGTGCAGAACAGTGGGTTACGCATCGAGGCTGCTAGTGACGGTGGTCGTCGTTATCAATACTATGGTAGAGTTGAGCAAATATTGGAGCTAGATTACTTGAAGTTCAAAGTCCCGTTGTTTCGTTGTCGATGGGTCGATCTTCGCAATGTAAAAGTTGACAATGAAGCTTTCACCACTGTCAACTTGGCTAACAACGCGTACAAGGATGAACCATTCGTTCTCGCCAAACAAGTTGTTCAAGTGTTCTACATAGTTGACCCGTGTAACAAGAAACTACATGTTGTTCGTGAAGGGAAAAGGAGAATTGTTGGATTGGACAATATTGCAGACGAGGATGATTACAACCAGCACGTCCATGGCATAGGTCAAGAAATACCTCTAGAAGAGGAGGAGGAAGAAGATGAAGTTCAATATGCACGTGTCGACCATGAGGAAGGATTATTTTTGTAATTTATGTACGTAGTTTATGTCTACATGTCTGTTATCTGTATAATAATGAAGTGCAATTACTACTGTTAGTGAAATAAAATAATTAAGTATAAAAAAATATGTAGTGTATGTGAAAATATGTTAAGGAAAATAAAAGAACTAAGTGAAATAAAATAAAATAAAATTGCTCTAGGCAAACTCACCTGTGACGGGCTCTATCTGTAGGGCCGTCACAGGTGACCTCACCTGTGACGGCCCAGAGTGCTGGGCCCGTCACAGGTGGTCTTACCTGTGACGGCTCCACGGTTGGCGCCCATCACAGGTGAGGCCACCTGTGACAGCCACATAGTTGGAGCCCGTCACAGGTGAGTTTGACTAGGGTTGACCTAGGGTTGGACATCTTCTAGATCGATCCAGATCCGGCGCCCACTCTCACTCACTCACTCTCTCGACCGCCGCCTCGCCTCTCTCGACCTCTCTGCCGCCCTCTACGCCCTCCTCTCCACCGCCGCCTCGACCTCTCCACCGACGCCGGCCTGCACCACCGCCGCCGCACTCACTCTCTCGACCGCCGCCATCCATCTCCACCGCCATCTCCACCGTCGCCGTCTCGACCTCTCCGCCGCCATCTCCGCCGCCATCCAGACCCTCCTCGCCGCCGCCCTCTCTGCCGCCATCTCCGCCCTCTCCGCCGCCCTCGCCGCCTCCTTCTCCACCGCCGCCTCCTCACTCACTCTCTCGACCGCCGCCGTCCTCTCCACCGCCATCTCCACCGTCGCCGCCTCAACCTCTCCTCCGCCCTCTCCGCCGCCATCTCCGCTGCCCTCTCTGCCGCCATCTCTGCCGTCCTCTCCACCGCCATCTCCGCCGCCGCCTCCACCGCCGCCCTCGCCGCCGGTCGTCCTCTCCGCCGTCCGTCCATCGACTTCCCCGACCTCCCCGACCCTGACCTCCCCGACGCCGGGATCCCCGACCACCGCCGACCGCCTCGACCTCTTCGCCACTGCCTCTCCGCCGCCGCCACTAGGATCCAGGACGACTACGGCCTGCGCCGCCGTCTCCAAGTACGCCGCTTCTCCAAGTATGCCGCCACCCTCCCCCATTCCTCCTTTTTTCCGATGGATGAATTGCATTGTTTAGATGAATGAAATGTGATTTGTTGTTTCGATTATTGGTGCTGCTGTATAGATGAATTAAATGTGATTTGTTGTCTGTGGATGTTTTGGATGAATGTAGGGGCTAGATTTTATATACATGATTTTGGTGCAGTGAATCTTAGCATCAATAGAGGATCTTAGCATGAATTTTTAATGCATTTTGTTTTCTATAATTCTTTGATAATTAAGGACCTTTATTAGGTGTAGGGTTTGAAATCTAGTTACAAGGGAAGAATTGATAGATTGGCCGCAGATTTAATGTAGTTCCGAGGTTATCAAACCATCACAGAATACAAAATGCATGGGGAATTTTGGTGGATAGGCCAGTGTAGTCCATGGACGGAACCGACCTAGACACCAAAATTCTCCATGCATTTTGTTTTCTGTCATAATTTGATGATTAAGGAGGCTTTGCAGATTATCTAAACTTGTTGATTTATATACCCTTTTTGTCTATGAATAGGTCAATTGTATGAATTGTTGTTTATATACATGATTTATATACCCTTGCTGCTGCTGCCACAATGATTGTGGGCTGTTTTATTATCTAGACTTGCTTGAATTGAATGGATGAATTGCTGTTTACATGAAGTTAGTAGTACTGTCTCCTTTTTTATCTACACCCCTGCTACTGCCCCTACACTTGTTCACTTGTTCCTTATTAAATGGCCAGTGTAGAGTGGTTATATACCTCTACACTTGTTCTTTTTTTATGCATAAGAACAGATTTTGTGCACTTGCTCTTTTTTTATGCATAAGAACAGATTTTCTGCACTTGCTCTTTTCTTCTGGATTGATAAATGGCCAGTGATGAATTGCTCAATAAGAACAGATTATCTACACTTGTTCATTTTTTTATCTATTCTTCTTTTTGCCCCTGTTGTGGCTCAATAAGTAATGAATTGCTCAATAAGAATAGTTTATCTGTACCCTTATTGTGGGCTGTTTTTTAAATTTGCATGATTGACTCAGTGGTTATATACCTCTACACTTGTTCTTTATGGATAAGAACAGAGTATCTACACTTGTTCTTTTTTTATGCATAAGAACAGATTTTCTGCACTTGCTCTTTTGATGTTATGATTTCCTCTTTTTATCCCTTCATGCAAATGAATATAATTGATGCATATTTCTGAGCAAAACTGAGGCCATATCTTTCATAGTATACCCCGTATTACATGATTTTGGTGCAGTGAATCTTGAATGTGGATTTAAGTGCAACTGCTGCTGTCTATGTTTGCCCTTGCTGTCTATGTTTGCCCATGCTGCTGCCTATGGTTGCAACTGTTAGTTAAGTGCAACTTGAATGTGGATTTAAGTGCCATTTGGACATATAACCATTCATGGAGTGTGTACTGCTATATATGTTGCTAGACCTATTGAATTTTGTGGACTTGCATTTATACTCCTGCTGCTGTTTTATGTCAATCATGCAAATTCTGTACCCTTGCTGCTGCTGTTTTTTAAATTTGAATGATTGATTCAGTGGTTATATACCTCTACACTTGTTCTTTTTTTATGCATAAGAACAGATTTTGTGCACTTGCTCTTTTTTTATGCATAAGAACAGATTTTCTGCACTTGTTCATTTTTTTATCTACAATAATATATGCATGATTTATATACCACTGCTGTTGTTGCCCCTGTACTTCTTGTTAAATGGCCAAGGATGAATTGCTTAATAACATTCTATCTATACCTGTTCTTTTCTTTATGGATAAGAACAGATTATCTACACTTGTTGATTTATATACCCTTGCTGTCTATGTGAATTTCCCTCTGCTGTTGCTGTTTATGTGAATTTCCACCCTGCTGTTGCTGTTTATGTGAATTTCCACCCTGCTGTTGCTGTTTATGTGAATCTCCCCTTGCTGTTGCTGCCCCTGTGGCATATATACCCCTACTGCTGTTATATGGCCCTGCTACTGCTCTTATTGCTGCTATTATATGGCCATGCTGTTGCTACTACTCTAATTTCCTGCACTTGCTCTTTTCCTTATGGATAAGAACAGATGAACTACACTTGTTCTATTTTATTGATAAGAACAGATGAACTACACTTGTCCTATTTTATTTGGGTTGCTTTTTTCTCCTAGTAGCTGATTTCCTCTTTTTATCCCTTCATGCAAATGATTGTAATTGATGCATATTTCTCAGCAAAACTGAGGCCATATCTTTCATAGTATACCCCGTCACTACATTGGATCTAATGCTATTTAGTCTAATGGTAGGAAATTTATAATCTTTTTCGCGAAAGTTAAACCATGTCAATGCCCGGCGCAAACCCGCCCTCCCCAACACCTGCGAGGATCCAGGAAGAAGCAAACCCAACCACAGAGGCAGTTGCCGAAGGTCATCCCGCGACAACGGCGGTCCAACAACCCGAAATTCATGGTAATTTATAGGATAAATTTTCACCACATGACCACATAAATTTTAGCTAGCACCCCTTAGCAAATATTGCCTTCTGTTTGTGCTGCAGAATTGCCGCAGGAACAACATACGTCGATGTCGGGTGAGACAAGTGCAAGTAGGTCTAGTAGAAATCCGCGGTCACAAAATATATGGCCGACCACAGTGCAAGTTATAAGAGAGGTTGACGCTAGTGGTAGGCCCACGGCGCCCAGGACTGTCATTGGAAGATGGTCTAACTGCTGCGGGATAGCGGCACGTGAGAACTTCGGGATCCTCCATAAAGATATCGGGAAGGTCACAGAAGCCGAGAAAGAGCGAGCTTGGACGGCAATGGAGAAATGGTTCACATTTCCAGCCGAAGCAAAGGATAGGCTCAAGCGGAAGGCATTCCAAAAGATGGGCAAAGCTTGGAAGAATTGGAAGTCGAAGCTCTTCACCGAGTATGTCAACCCGCCCGGCAATCATACGCCGTTCGATGAATACCCTCAAATAACCGAAGCGGTGTGGGAGGAATTCTGCTCTCTCAAGACCACCCAAGAGTTTAGGGAATCCAGCGAGGCACATCGCGTACTGCAACAGCGGAATGAGCACCCGCATCGGCTGGGCACCGCAGGGTACATCGGCAAGGAGGCAATATGGGCCCAAGAAGATGCAGCCGCTGCAGCAGCGAATGTCCCTGACCCGTTTTCAGACATCCCTGAACAAAGAGCTCGCAACTGGGCGCGGGCAAGGGGTAAGGTCAACCCGGACGGCTCTGTCACATTTGAGAACAAAAGTGATGCCGTCGTCTATCAGGAACTGGTGAGTTCACTACTTAACCTAACTAATTTCCGTTCGTATAAAGTACAAGTTCGTATAAACGACTATCTTCTTTTCTAGTTGGGCTTGGTTGCTGAACAAGCTTCACAAAGCGAGGTTGAGTCCGCGCCGAAGAGGCGCGAAGATGACATCCTCACAAAGGCGCTCGGAACCAAAGAACATCCTGGCCGAACTCGGGGAATTGGTAGCGATGTGCCCTGGAAGCATGGACTCCCTCAGTACAGCTCCCAATACAGGAAACGGAAAGTCTCCAAGGAAGAGAGGGACGCTCGTTTGAAGGCCGAACTTAAGGTTGAGGTCATTCAAGAACTAGAAGCTAGCATGAATGCAAGGGTGGAAGAAAGGGTTAACAAGGTGCTCGCCGACATGAATATACCCCGAGTCACAACACCTGCTGTGCAACCAACTCCTCGTGTACAACACGACGCGAGTCCGTCACAGCATAGGAGTAGTTGTGCATCCACAGAGGTGCCGGCCCCTGGTCTCCCGATCGCACCACTAGCTGCAGTGGACCACATCGAGGTAATTGTTGTTATCCGATCCATATCTAATAAAAGACATTTACACATTCCAATATTAAATTCAAACTTTCACCTTATGCAGGGCGCAGCACAGTGTGTCCTACTAGCGAGAGTCCACCCAACTTTCGCTCCTGAAGTCGCTGAGGGCATGGCTTTCAAGCCCTCGGTTACAGACAAGGTCCACGGCGCAGACCTGCTAGCTGGGTATGCCAAGGTGTCCATCGATACAGTAAAGGACACCTGGTCAGGCTATCCGCTGCCCGTGCCCCCAAATGATGAAATCATGACTTTGGGCGATGCGCGCAAGACGTTCATACAATGGCCTAAAGAAGACATAGTTGTGAAGATGACTCCTCGTCCAAGTCGACCGACGGAGCTTACACCTCCCAAGTCTAAGCTATCAATTGAGGCTCCCCGTGGACCGGCATTGTCAGTACCTCATTCTCCCGGTGGAGCTGATATGGACTTGGCAGATATAGCTCAAAGCTTGGCTCCAATAAAGACCACAAGAAAGGCCGATAGCTCCCCACCACTTGTCAAGGGCCAGAAGCGTGAACGAGGCAAGGGGAAGGTCGGGGAGTTGGCGCCGGAGCCAAAAAGGGGCAAGGCTGCGACGTCGATGCCGGTGAGCAAATCGGGGAAGGTCGTGAGGGCGCCAGCCCAATTTGAGCTAGGCATGCCATTGGTGGAGGACAATGTGTTAGCTGTGATGGGTATTGCTTGCCGAGAGCTACATAAGCAATACATGGAGCTAAGCAATGCCAAGCGGAAAATGAGGGAGTCATCCATAGTTGGACATCACGACCACCAGCCGTTCCTATCGTCGCCTGCCTATATAACTATAGGCTTTGATGACCTCTTCGACCTTTTCAGGATCCGGAAGTTGGACACTGGTCTTCTAAAATGCTACTCCTTGTAAGTGCATACCTTCTATACTTGTGATATGACTGGACTATATCTCCTAATTAAATTAGTTCTAATACGTAAATATTTTAAGGTTGTGTTGGATCGAGAGTCGTCGCCATGGTAATCAGGTTGGGTTCCTTGATCCATCCATGGTAAATGAGGTTAATTTACGACAGAGCTTCACTGAGGTGGTTGACTATGTCAACCGGTGTTTATGGGCCCATCAAGACAAGGAGTACATCATGTGCGCACACAACCAAGAGTAAGAGGACAATACCCTTCGTGTATATTGTTTTTGAAGTTAAGGTTCTTAGTACTAACGCTACATAACCACTGCGCAGGCGACATTGGATTCTCCTAGTCATCGTACCTAAGTGGAGTAGGGTTACCTACCTTAACTCCAATAAGTCCAAAGATTATGATTTCAGTGAAATCACCAAGGCCTTAAATATGGCTTGGGGCCCATATGTGGAAAAGGGTGGTAGGCACAAGGAGGGCAAGAATGAACTTTATCATGACACCAAGTTTGCATGCGCACAACAGATCGGAGACCAATGTGGTTTCCACGTGTGCCACAACATGTCAACACTTCTAAGAGAGGTGAAAGATTTCGACCCTGAGGTTGTTGCTAATGGCGAATAAGCTCATTTCAATATCTACATTGCTATTCAAAACGTGCTAATTAACCTCTTATTTATTAAACAGAAAGGTAGAGCTGGCTTCAAGATCTCACCCATCAACCCCCCCGCTATCAGAGGCGAATTGTGCGCCTTTATTCTTGCAGAAATAATGAACAAGAAAGGACGTTTTCATGCCAAATAGACTCATGAACTTGGCTAGATAATTTATTGTGATGTAAAAAAGATGTTTTTATAATTTCTGGCGATGTAAAAAATTATGTTTTTATAGAGTGCAATGTAATTTACTTTCATATGTGCAATATTTATGGTACTTTACTAAATTGTCATCACATTTGATCAACTACGATTTATGTTGTACTATTCATCTGTTTTCTCCTTTTTTTTTCCCTTATTGACAGGTTGTGGAGGTTCACAACGAACAGAATACAAGAAATTTTGGTAATCATTTGAGGACTTTCATGGGGTATGAATTGTGTGCTATAATAAATTAAATTGTTGCATATGTGATGTTGTAAATTGTTGCTTTGTGATGGATCTGTGATATGTGATGCATCTGTGATGTTGGGCAGTTGGGGAATATGTGATATGGAGGGGGGGTGACTGGCACCTGTGATGTTTCTGTTTTTCAGAGGGCATGGCTAGCAATTCCTGAGGCTAGCCAATATTTAGCATTTATTTTTTTTCTGGAATTAACTCATCAGTGACGGTTCGGAAGAAACATCCGTCACAGGTAACCTCACCTGTGACGGACTCGCAAACGTCGGACCGTCACAGGTGACCCACCTGTGACGGGCTTTTACTTTCGGGCCCGTCACAGGTGGGTCACCCTGTGACGGCTACTATATACCGGAGATCATCACCTCTGACGGGCCTTTATTTAGGGGCTCGTCAGAGATGAGACACCTGTGACGGGTCCTAACAAGCCCTAGTCTAGCTTAGACCAACACCTCTGACGGCCTTCTATTAACTTGCCCGTCAGAGGTGGATGTCACCACTGACGGCCGGCCACCCGTCAAAGGTGACTGGACTTACCAGTGACCACTGATCACTGACCAAGCCCAAAACCGTCAAAGGTGAGGGTTTGGGCCCGTCACAGGTGACCTTGACCAGTGTAGTGAGTGTGGTTCTGCTGTAGTTCGTTTGTATATATATAGTTCGATTTCTCCTATTGCATGCCCTCTTAATTTTGTGTACACAAACTGAATGCCTATTATAAAGG'
+    # cur_segments = [('N_164346', [('NC_029261.1', 20610928, 20621109, 20621109-20610928+1, copy_seq1),
+    #                                     ('NC_029260.1', 11013741, 11023946, 11023946-11013741+1, copy_seq2),
+    #                                     #('NC_029267.1', 17312986, 17324427, 17324427-17312986 + 1, copy_seq3)
+    #                                     ])]
+    # search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant)
 
-    # ex = ProcessPoolExecutor(48)
-    # bigint = 1024*1024*1024
-    # big_list = list(x for x in range(bigint))
-    #
-    # MAX_JOBS_IN_QUEUE = 500
-    # jobs_left = len(big_list)
-    # jobs_iter = iter(big_list)
-    # jobs = {}
-    # while jobs_left:
-    #     for num in jobs_iter:
-    #         job = ex.submit(test, num)
-    #         jobs[job] = 1
-    #         if len(jobs) > MAX_JOBS_IN_QUEUE:
-    #             break  # limit the job submission for now job
-    #
-    #     for job in as_completed(jobs):
-    #         jobs_left -= 1
-    #         num = job.result()
-    #         del jobs[job]
-    #         break
-    # ex.shutdown(wait=True)
-    # param_config_path = os.getcwd() + "/ParamConfig.json"
-    # # read param config
-    # with open(param_config_path, 'r') as load_f:
-    #     param = json.load(load_f)
-    # load_f.close()
 
-    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/dmel/CRD.2022-05-26.10-28-8'
-    # reference = '/public/home/hpc194701009/Ref/dmel-all-chromosome-r5.43.fasta'
-    #
-    # (ref_dir, ref_filename) = os.path.split(reference)
-    # (ref_name, ref_extension) = os.path.splitext(ref_filename)
-    # output_dir = tmp_output_dir
-    # repeats_consensus = tmp_output_dir + '/repeats.fa'
-    # unique_kmer_path = tmp_output_dir + '/kmer.txt'
-    # skip_threshold = 200
-    # identity_threshold = 0.90
-    # length_similarity_cutoff = 0.90
-    # tandem_region_cutoff = 0.5
-    # k_num = 31
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    # reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna'
+    # ref_names, ref_contigs = read_fasta(reference)
+    # repeats_path = (tmp_output_dir + '/longest_repeats_blast/12247.fa', tmp_output_dir + '/repeats_0.fa', tmp_output_dir + '/longest_repeats_blast/12247.out', ref_contigs)
+    # blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
+    # fixed_extend_base_threshold = 1000
+    # max_single_repeat_len = 30000
+    # get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_threshold, max_single_repeat_len)
+
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    # reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna'
+    # ref_index = 0
     # threads = 48
-    # partitions_num = threads
-    # tools_dir = os.getcwd() + '/tools'
-    # alias = 'dmel'
-    # # chrom_seg_length = int(param['chrom_seg_length'])
-    # # fault_tolerant_bases = 100
+    # valid_TIR_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.rename.fa'
+    # blastnResults_path = tmp_output_dir + '/valid_tir.ref.out'
+    # valid_tir_blast_dir = tmp_output_dir + '/valid_tir_blast'
+    # all_copies = get_copies(blastnResults_path, valid_TIR_path, reference, query_coverage=0.99, threads=threads)
+    # test_path = tmp_output_dir + '/ltr_test/test1.fa'
+    # blastnResults_path = tmp_output_dir + '/ltr_test/test1.out'
+    # blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
+    # temp_dir = tmp_output_dir + '/ltr_test/test1_blast'
+    # multi_process_align(test_path, reference, blastnResults_path, blast_program_dir, temp_dir, threads)
+    # all_copies = get_copies(blastnResults_path, test_path, reference, threads=threads)
     #
-    # reference = '/public/home/hpc194701009/KmerRepFinder_test/genome/GCF_000001215.4_Release_6_plus_ISO1_MT_genomic.fna'
-    # repbase = '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepBase26.05.fasta/drorep.ref'
-    # use_align_tools = 'bwa'
-    # sam_path_bwa = run_alignment(repbase, reference, use_align_tools, threads, tools_dir)
+    # # 在copies的两端 flanking 20bp的序列
+    # flanking_len = 20
+    # all_copies = flanking_copies(all_copies, reference, flanking_len, copy_num=10)
+    #
+    # # 判断copy的TSD信息
+    # # tsd_info = {query_name: {copy1: tsd+','+seq}, {copy2: tsd+','+seq}, {total_copy_num:}, {tsd_copy_num:}}
+    # tsd_info = get_TSD(all_copies, flanking_len)
+    #
+    # copy_info_path = tmp_output_dir + '/ltr_test/test1.copies.info'
+    # store_copies(tsd_info, copy_info_path)
 
-#
-#
-#     # Step1: generate candidate repeat regions
-#     unique_kmer_map = {}
-#     with open(unique_kmer_path, 'r') as f_r:
-#         for line in f_r:
-#             line = line.replace('\n', '')
-#             kmer = line.split(' ')[0]
-#             r_kmer = getReverseSequence(kmer)
-#             unique_key = kmer if kmer < r_kmer else r_kmer
-#             if unique_key.__contains__('N'):
-#                 continue
-#             unique_kmer_map[unique_key] = 1
-#
-#     # using multiple threads to gain speed
-#     reference_pre = convertToUpperCase_v1(reference)
-#     reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
-#
-#     segments = []
-#     with open(reference_tmp, 'r') as f_r:
-#         for line in f_r:
-#             line = line.replace('\n', '')
-#             segments.append(line)
-#     segments_cluster = split2cluster(segments, partitions_num)
-#
-#     ex = ProcessPoolExecutor(partitions_num)
-#     repeat_dict = {}
-#     jobs = []
-#     for partiton_index in segments_cluster.keys():
-#         cur_segments = segments_cluster[partiton_index]
-#         job = ex.submit(generate_candidate_repeats_v2, cur_segments, k_num, unique_kmer_map, partiton_index,
-#                         fault_tolerant_bases)
-#         jobs.append(job)
-#     ex.shutdown(wait=True)
-#
-#     for job in as_completed(jobs):
-#         cur_repeat_dict = job.result()
-#         for ref_name in cur_repeat_dict.keys():
-#             parts = ref_name.split('$')
-#             true_ref_name = parts[0]
-#             start_pos = int(parts[1])
-#             if not repeat_dict.__contains__(true_ref_name):
-#                 repeat_dict[true_ref_name] = []
-#             new_repeat_list = repeat_dict[true_ref_name]
-#             cur_repeat_list = cur_repeat_dict[ref_name]
-#             for repeat_item in cur_repeat_list:
-#                 new_repeat_item = (start_pos + repeat_item[0], start_pos + repeat_item[1], repeat_item[2])
-#                 new_repeat_list.append(new_repeat_item)
-#     for ref_name in repeat_dict.keys():
-#         repeat_list = repeat_dict[ref_name]
-#         repeat_list.sort(key=lambda x: (x[1], x[2]))
-#
-#     repeats_path = tmp_output_dir + '/repeats.fa'
-#     node_index = 0
-#     with open(repeats_path, 'w') as f_save:
-#         for ref_name in repeat_dict.keys():
-#             repeat_list = repeat_dict[ref_name]
-#             for repeat_item in repeat_list:
-#                 start_pos = repeat_item[0]
-#                 end_pos = repeat_item[1]
-#                 query_name = 'N' + str(node_index) + '-s_' + str(ref_name) + '-' + str(start_pos) + '-' + str(end_pos)
-#                 repeat = repeat_item[2]
-#                 f_save.write('>' + query_name + '\n' + repeat + '\n')
-#                 node_index += 1
-#
-#      # store repeat_dict for testing
-#     repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
-#     with codecs.open(repeat_dict_file, 'w', encoding='utf-8') as f:
-#         json.dump(repeat_dict, f)
-#
-#     # Step2: ensure repeats boundary
-#     # round-1
-#     repeats_path = tmp_output_dir + '/repeats.fa'
-#     use_align_tools = 'bwa'
-#     sam_path_bwa = run_alignment(repeats_path, reference, use_align_tools, threads, tools_dir)
-# #sam_path_bwa = tmp_output_dir + '/repeats.sam'
-#     cut_repeats_path = tmp_output_dir + '/repeats.cut.fa'
-#     cut_repeat(sam_path_bwa, repeats_path, cut_repeats_path)
-#
-#     # Step3: merge redundant sequences
-#     cut_repeats_consensus = tmp_output_dir + '/repeats.cut.cons.fa'
-#     cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -c ' + str(0.95) + ' -i ' + cut_repeats_path + ' -o ' + cut_repeats_consensus + ' -T 0 -M 0'
-# #log.logger.debug(cd_hit_command)
-#     os.system(cd_hit_command)
-#
-#
-#     # Step4: get multiple alignment sequences
-#     cut_repeats_consensus = tmp_output_dir + '/repeats.cut.cons.fa'
-#     use_align_tools = 'bwa'
-#     sam_path_bwa = run_alignment(cut_repeats_consensus, reference, use_align_tools, threads, tools_dir)
-# #sam_path_bwa = tmp_output_dir + '/repeats.cut.cons.sam'
-#     sam_paths = []
-#     sam_paths.append(sam_path_bwa)
-#     new_mapping_repeatIds, query_position = get_alignment_info_v3(sam_paths, cut_repeats_consensus)
-#     repeat_multiple_path = tmp_output_dir + '/repeats.cut.cons.multiple.fa'
-#     cut_repeat_contigNames, cut_repeat_contigs = read_fasta(cut_repeats_consensus)
-#     node_index = 0
-#     with open(repeat_multiple_path, 'w') as f_save:
-#         for repeat_id in new_mapping_repeatIds.keys():
-#             freq = new_mapping_repeatIds[repeat_id][0]
-#             seq = cut_repeat_contigs[repeat_id]
-#             #f_save.write('>' + repeat_id + '\n' + seq + '\n')
-#             #f_save.write('>' + repeat_id + '\tcopies=' + str(freq) + '\n' + seq + '\n')
-#             f_save.write('>N' + str(node_index) + '\n' + seq + '\n')
-#             node_index += 1
-
-#     repeat_multiple_path = tmp_output_dir + '/repeats.cut.cons.multiple.fa'
-#     starttime = time.time()
-#     # Step0. use RepeatMasker/trf to mask all low complexity/tandem repeats in raw repeat region
-#     # >= tandem_region_cutoff region of the whole repeat region, then it should be filtered, since maybe false positive
-#     RepeatMasker_Home = param['RepeatMasker_Home']
-#     RepeatMasker_output_dir = tmp_output_dir + '/noint'
-#     RepeatMasker_command = 'cd ' + tmp_output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(threads) \
-#                            + ' -noint -x -dir ' + RepeatMasker_output_dir + ' ' + repeat_multiple_path
-# #os.system('rm -rf ' + RepeatMasker_output_dir)
-# #log.logger.debug(RepeatMasker_command)
-#     #os.system(RepeatMasker_command)
-#
-#     (repeat_multiple_dir, repeat_multiple_filename) = os.path.split(repeat_multiple_path)
-#     (repeat_multiple_name, repeat_multiple_extension) = os.path.splitext(repeat_multiple_filename)
-#     trf_masked_repeats = RepeatMasker_output_dir + '/' + repeat_multiple_filename + '.masked'
-#     trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-#     repeats_contigNames, repeats_contigs = read_fasta(repeat_multiple_path)
-#     repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-#     with open(repeats_path, 'w') as f_save:
-#         for name in trf_contigNames:
-#             seq = trf_contigs[name]
-#             if float(seq.count('X')) / len(seq) < tandem_region_cutoff:
-#                 f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
-#     RepeatMasker_Home = param['RepeatMasker_Home']
-#     RepeatMasker_output_dir = tmp_output_dir + '/noint'
-#     RepeatMasker_command = 'cd ' + tmp_output_dir + ' && ' + RepeatMasker_Home + '/RepeatMasker -parallel ' + str(
-#         threads) + ' -lib ' + repeats_path + ' -dir ' + RepeatMasker_output_dir + ' ' + reference
-#     os.system(RepeatMasker_command)
-
-#     TRF_Path = param['TRF_Path']
-#
-#     trf_dir = tmp_output_dir + '/trf_temp'
-#     if not os.path.exists(trf_dir):
-#         os.makedirs(trf_dir)
-#
-#     trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + reference + ' 2 7 7 80 10 50 500 -f -d -m'
-# #log.logger.debug(trf_command)
-#     os.system(trf_command)
-#     trf_masked_repeats = trf_dir + '/' + ref_filename + '.2.7.7.80.10.50.500.mask'
-
-    # trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    # repeats_contigNames, repeats_contigs = read_fasta(merge_pure_consensus)
-    # repeats_path = tmp_output_dir + '/repeats.filter_tandem.fa'
-    # with open(repeats_path, 'w') as f_save:
-    #     for name in trf_contigNames:
-    #         seq = trf_contigs[name]
-    #         if float(seq.count('N')) / len(seq) < tandem_region_cutoff:
-    #             f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
-
-    # endtime = time.time()
-    # dtime = endtime - starttime
-#log.logger.debug("Step0: use trf to mask genome: %.8s s" % (dtime))
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    cut_ltr_tsd_path = tmp_output_dir + '/candidate_ltr_cut_0.fa'
+    reanme_cut_ltr_tsd_path = tmp_output_dir + '/candidate_ltr_cut_0.rename.fa'
+    # reference = tmp_output_dir + '/GCF_000004555.2_CB4_genomic.fna'
+    # flanking_len = 100
+    # threads = 48
+    # ref_index = 0
+    # raw_candidate_ltrs_file = tmp_output_dir + '/raw_candidate_ltr_' + str(ref_index) + '.fa'
+    # # 1.因为现在的TIR序列不能准确的确定边界，因此下面的步骤都是为了能够准确获得边界
+    # valid_TIR_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.rename.fa'
+    # blastnResults_path = tmp_output_dir + '/valid_tir.ref.out'
+    # valid_tir_blast_dir = tmp_output_dir + '/valid_tir_blast'
+    # all_copies = get_copies(blastnResults_path, valid_TIR_path, reference, query_coverage=0.99, threads=threads)
+    #
+    # raw_candidate_ltrs = generate_candidate_ltrs(all_copies, reference, flanking_len)
+    # # raw_candidate_ltrs，在后面的judge LTR 会用到
+    # with codecs.open(raw_candidate_ltrs_file, 'w', encoding='utf-8') as f:
+    #     json.dump(raw_candidate_ltrs, f)
 
 
+    #reference = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/oryza_sativa/GCF_001433935.1_IRGSP-1.0_genomic.rename.fna'
+    ref_index = 0
+    # ltrharvest_output = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.rename.fna.finder.combine.scn'
+    # candidate_ltr_path = tmp_output_dir + '/candidate_ltr_finder_'+str(ref_index)+'.fa'
+    # candidate_ltr_cut_path = tmp_output_dir + '/candidate_ltr_finder_cut_'+str(ref_index)+'.fa'
+    # store_LTR_seq_v1(ltrharvest_output, reference, candidate_ltr_path, candidate_ltr_cut_path)
+    #
+    # candidate_ltr_cut_path = tmp_output_dir + '/candidate_ltr_finder_cut.fa'
+    # candidate_ltr_cut_rename = tmp_output_dir + '/candidate_ltr_finder_cut.rename.fa'
+    # rename_fasta(candidate_ltr_cut_path, candidate_ltr_cut_rename)
 
+    # # reference = tmp_output_dir + '/dmel-all-chromosome-r5.43.fasta'
+    # # ltrharvest_output = tmp_output_dir + '/genome.fa.harvest.scn'
+    # candidate_ltr_path = tmp_output_dir + '/candidate_ltr_harvest.fa'
+    # candidate_ltr_cut_path = tmp_output_dir + '/candidate_ltr_harvest_cut.fa'
+    # # store_LTR_seq(ltrharvest_output, reference, candidate_ltr_path, candidate_ltr_cut_path)
+    # candidate_ltr_cut_rename = tmp_output_dir + '/candidate_ltr_harvest_cut.rename.fa'
+    # rename_fasta(candidate_ltr_cut_path, candidate_ltr_cut_rename)
 
+    # candidate_TIRs = {}
+    # all_candidate_TIRs_path = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/cb4/tir_tsd_temp/9.fa'
+    # all_copies_out = all_candidate_TIRs_path + '.itr'
+    # all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    #
+    # # 对all_copies_out_contigs按照name进行分组
+    # # group_copies_contigs -> {query_name: {name: seq}}
+    # group_copies_contigs = {}
+    # for cur_name in all_copies_out_contigs.keys():
+    #     query_name = cur_name.split('-C_')[0]
+    #     if not group_copies_contigs.__contains__(query_name):
+    #         group_copies_contigs[query_name] = {}
+    #     cur_copies_out_contigs = group_copies_contigs[query_name]
+    #     cur_copies_out_contigs[cur_name] = all_copies_out_contigs[cur_name]
+    #
+    # for query_name in group_copies_contigs.keys():
+    #     cur_copies_out_contigs = group_copies_contigs[query_name]
+    #     TSD_len_count = {}
+    #     copies_candidate = {}
+    #     tsd_copy = {}
+    #
+    #     # 1.过滤假阳性TSD
+    #     # 去掉那些在不同copy_index中多次（超过一半）出现的TSD，这些大概率不是真实的TSD。
+    #     # 因为除了2bp TA, 3bp TAA/TTA, 4bp TTAA之外， 真实的TSD应该在所有的拷贝中不同
+    #     # tsd_copy -> {tsd: {copy_index1:[name1, name2], copy_index2: []}}
+    #     total_copy_index = set()
+    #     for name in cur_copies_out_contigs.keys():
+    #         copy_index = int(name.split('-C_')[1].split('_')[0])
+    #         total_copy_index.add(copy_index)
+    #         tsd_seq = name.split('-tsd_')[1].split('-')[0]
+    #         if not tsd_copy.__contains__(tsd_seq):
+    #             tsd_copy[tsd_seq] = {}
+    #         copy_index_dict = tsd_copy[tsd_seq]
+    #         if not copy_index_dict.__contains__(copy_index):
+    #             copy_index_dict[copy_index] = []
+    #         copy_index_list = copy_index_dict[copy_index]
+    #         copy_index_list.append(name)
+    #
+    #     for tsd_seq in tsd_copy.keys():
+    #         if tsd_seq == 'TA' or tsd_seq == 'TTA' or tsd_seq == 'TAA' or tsd_seq == 'TTAA':
+    #             continue
+    #         copy_index_dict = tsd_copy[tsd_seq]
+    #         if float(len(copy_index_dict)) / len(total_copy_index) > 0.5:
+    #             # 该TSD为假阳性序列，在cur_copies_out_contigs删除这些序列
+    #             for copy_index in copy_index_dict.keys():
+    #                 for name in copy_index_dict[copy_index]:
+    #                     del cur_copies_out_contigs[name]
+    #
+    #     # 2. 合并，选择distance最小（相同则取最长）的那条序列,当做这条拷贝的代表序列
+    #     # 根据name中的copy_index进行分组，copy_index = name.split('-C_')[1].split('_')[0]。
+    #     # copies_candidate -> {copy_index: (min_distance_seq_name, min_distance, tsd)}
+    #     for name in cur_copies_out_contigs.keys():
+    #         copy_index = int(name.split('-C_')[1].split('_')[0])
+    #         cur_distance = int(name.split('-distance_')[1])
+    #         tsd_seq = name.split('-tsd_')[1].split('-')[0]
+    #         seq_len = len(cur_copies_out_contigs[name])
+    #         if not copies_candidate.__contains__(copy_index):
+    #             copies_candidate[copy_index] = (name, cur_distance, tsd_seq, seq_len)
+    #         else:
+    #             last_min_item = copies_candidate[copy_index]
+    #             if (cur_distance == last_min_item[1] and seq_len > last_min_item[3]) or cur_distance < last_min_item[1]:
+    #                 copies_candidate[copy_index] = (name, cur_distance, tsd_seq, seq_len)
+    #
+    #     # 遍历copies_candidate，统计出现次数最多的tsd_len
+    #     for copy_index in copies_candidate.keys():
+    #         item = copies_candidate[copy_index]
+    #         cur_tsd_len = len(item[2])
+    #         if not TSD_len_count.__contains__(cur_tsd_len):
+    #             TSD_len_count[cur_tsd_len] = []
+    #         query_names = TSD_len_count[cur_tsd_len]
+    #         query_names.append(item[0])
+    #
+    #     # 判断当前拷贝中哪一个长度的TSD出现次数最多，那么该TSD对应的拷贝，最有可能是真实的TIR
+    #     max_count = 0
+    #     max_count_tsd_len = -1
+    #     for tsd_len in TSD_len_count.keys():
+    #         query_names = TSD_len_count[tsd_len]
+    #         if len(query_names) > max_count:
+    #             max_count = len(query_names)
+    #             max_count_tsd_len = tsd_len
+    #     # 取一条具有最多次数TSD长度的拷贝, 次数至少>=2
+    #     if max_count_tsd_len != -1 and max_count >= 2:
+    #         query_names = TSD_len_count[max_count_tsd_len]
+    #         first_query_name = query_names[0]
+    #         seq = cur_copies_out_contigs[first_query_name]
+    #         candidate_TIRs[first_query_name] = seq
+    # seq = 'AAAAATTTTT'
+    # start_seq = seq[0:5]
+    # end_seq = seq[-5:]
+    # print(start_seq, end_seq)
 
+    #统计longest_repeats_blast中最大的文件有多大
+    # library_dir = os.getcwd() + '/library'
+    # other_TE_lib = library_dir + '/other_TE.lib'
+    # names, contigs = read_fasta(other_TE_lib)
+    # for name in names:
+    #     seq = contigs[name]
+    #     new_seq = ''
+    #     for i, ch in enumerate(seq):
+    #         if ch == 'A' or ch == 'T' or ch == 'C' or ch == 'G':
+    #             new_seq += ch
+    #         else:
+    #             new_seq += 'N'
+    #     contigs[name] = new_seq
+    # store_fasta(contigs, other_TE_lib)
 
+    # flanking_region_distance = 10
+    # flanking_len = 50
+    # output_path = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/flank_tir_align/N_200524-C_0_14-tsd_TA-distance_41.out'
+    # judge_flank_align(flanking_region_distance, output_path, flanking_len)
+    log = Logger('HiTE.log', level='debug')
+    blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
+    threads = 48
+    flanking_len = 50
+    #TRsearch_dir = '/public/home/hpc194701009/repeat_detect_tools/REPET_linux-x64-3.0/bin'
+    reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna.cut0.fa'
+    repeats_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.filter_tandem.fa'
+    is_transposons(repeats_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, log)
 
-
-
-
-
-    #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/GenomeSimulator/10M_low_freq_out/krf_output/CRD.2022-05-25.20-12-12'
-
-    # Step3: According to valid paths, the fragments in the region are connected across gaps.
-    # Fragments in region are connected according to the longer path in valid paths.
-
-
-    # connected_frags_file = tmp_output_dir + '/connected_frags.csv'
-    # file = open(connected_frags_file, 'r')
+    # longest_repeats_flanked_copies_file = tmp_output_dir + '/longest_repeats_0.flanked.copies'
+    # file = open(longest_repeats_flanked_copies_file, 'r')
     # js = file.read()
-    # connected_frags = json.loads(js)
-    #
-    # refNames, refContigs = read_fasta(reference)
-    # repeats_connected_file = tmp_output_dir + '/repeats_connected.fa'
-    # repeats_connected = {}
-    # index = 0
-    # for region_index in connected_frags.keys():
-    #     for connected_frag in connected_frags[region_index]:
-    #         frag_name = connected_frag[0].split(',')[0]
-    #         ref_name = frag_name.split('-s_')[1].split('-')[0]
-    #         query_name = 'R' + str(index) + '-' + frag_name
-    #         seq = refContigs[ref_name][connected_frag[1]: connected_frag[2] + 1]
-    #         index += 1
-    #         repeats_connected[query_name] = seq
-    # sorted_repeats_connected = {k: v for k, v in sorted(repeats_connected.items(), key=lambda item: -len(item[1]))}
-    # store_fasta(sorted_repeats_connected, repeats_connected_file)
+    # all_copies = json.loads(js)
+    # tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp'
+    # partition_index = -1
+    # plant = 1
+    # for name in all_copies.keys():
+    #     if name == 'N_117446':
+    #         cur_segments = [(name, all_copies[name])]
+    #         search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index,
+    #                                    plant)

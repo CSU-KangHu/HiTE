@@ -1,16 +1,16 @@
-# KmerRepFinder: a comprehensive kmer-based  _de novo_  annotation method of transposable elements
-[![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/KmerRepFinder)](https://gitee.com/kkanghu/KmerRepFinder/blob/master/LICENSE)
+# HiTE, a Ensemble Method for High-Precision Transposable Element Annotation
+[![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/HiTE)](https://gitee.com/kkanghu/HiTE/blob/master/LICENSE)
 
 
 ## Getting started
 Clone the [latest release](https://github.com/yangao07/TideHunter/releases):
 ```
-git clone https://github.com/BioinformaticsCSU/KmerRepFinder.git
+git clone https://github.com/BioinformaticsCSU/HiTE.git
 ```
 ## Table of Contents
 
 - [Introduction](#introduction)
-  - [Pipeline of KmerRepFinder](#pipeline)
+  - [Pipeline of HiTE](#pipeline)
   - [Genome coverage by each major subclass](#cover_genome)
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
@@ -26,11 +26,11 @@ git clone https://github.com/BioinformaticsCSU/KmerRepFinder.git
 - [Contact](#contact)
 
 ## <a name="introduction"></a>Introduction
-KmerRepFinder is an efficient TE annotation tool for genome assemblies based on the masking of repeated kmers.
+HiTE is an efficient TE annotation tool for genome assemblies based on the masking of repeated kmers.
 
-KmerRepFinder offers a more **comprehensive** ability to annotate TEs and achieves remarkable efficiency. e.g., more than **21** times faster than RepeatModeler2 in the rice genome. It can serve as a novel solution to the existing methods to promote TE annotation performance.
+HiTE offers a more **comprehensive** ability to annotate TEs and achieves remarkable efficiency. e.g., more than **21** times faster than RepeatModeler2 in the rice genome. It can serve as a novel solution to the existing methods to promote TE annotation performance.
 
-### <a name="pipeline"></a>Pipeline of KmerRepFinder
+### <a name="pipeline"></a>Pipeline of HiTE
 ![输入图片说明](pic/Framework_1.png) 
 
 ### <a name="cover_genome"></a>Genome coverage by each major subclass 
@@ -63,9 +63,13 @@ tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
 
+记得chmod +x tools_dir里的所有工具
+
+运行成功，记得check每个阶段的文件是否存在。
+
 ### <a name="configure"></a>Configuring dependencies
 ```
-cd /your_path_to/KmerRepFinder/ReferenceMode
+cd /your_path_to/HiTE/ReferenceMode
 vim ParamConfig.json
 ```
 Change
@@ -79,7 +83,7 @@ to the actual installation directories of RepeatMasker, Genome_Tools, LTR_retrie
 Then, run
 
 ```
-cd /your_path_to/KmerRepFinder/ReferenceMode
+cd /your_path_to/HiTE/ReferenceMode
 python configure.py
 ```
 to validate all configurations.
@@ -101,7 +105,7 @@ usage: main.py [-h] [-k kmer size] [-t thread num] [-s sensitive mode]
                [--long_repeat_threshold long_repeat_threshold]
                Genome assembly alias name
 
-run kmerRepFinder...
+run HiTE...
 
 positional arguments:
   Genome assembly       input genome assembly path
@@ -138,15 +142,15 @@ optional arguments:
 
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
-cd /your_path_to/KmerRepFinder/ReferenceMode
+cd /your_path_to/HiTE/ReferenceMode
 python main.py ../demo/Ecoli_K12_Ref.fasta ecoli
 ```
 
 ## <a name="input"></a>Input
-KmerRepFinder works with genome assemblies in FASTA, FA, and FNA formats.
+HiTE works with genome assemblies in FASTA, FA, and FNA formats.
 
 ## <a name="output"></a>Output
-KmerRepFinder outputs an annotated consensus TE library in FASTA format.
+HiTE outputs an annotated consensus TE library in FASTA format.
 
 ### <a name="repeatmasker_annotation_info"></a>Genome annotation information
 The annotated TE library is further input into RepeatMasker for annotating the whole genome, and the annotation information for the genome is also output.

@@ -425,7 +425,7 @@ elsif ( $engine eq "rmblast" ) {
         "$NCBIBLASTX_PRGM "
       . "-db $REPEATMASKER_DIR/Libraries/RepeatPeps.lib "
       . $additionalOpts
-      . "-query tmpConsensi.fa.masked -word_size 7 > tmpBlastXResults.out 2>&1";
+      . "-query tmpConsensi.fa.masked -word_size 9 > tmpBlastXResults.out 2>&1";
   print "      + Running rmblastx vs RepeatPeps.lib...\n" if ( $DEBUG );
 }
 

@@ -189,16 +189,6 @@ def divided_array(original_array, partitions):
             read_from_start = bool(1 - read_from_start)
     return final_partitions
 
-def run_alignment(repeat_contig_path, reference_path, use_align_tools, thread_num, tools_dir):
-    sam_path = ''
-    if use_align_tools == 'bwa':
-        sam_path = run_bwa(repeat_contig_path, reference_path, thread_num, tools_dir)
-    elif use_align_tools == 'minimap2':
-        sam_path = run_minimap2(repeat_contig_path, reference_path, thread_num, tools_dir)
-    elif use_align_tools == 'bowtie2':
-        sam_path = run_bowtie2(repeat_contig_path, reference_path, thread_num, tools_dir)
-    return sam_path
-
 def multi_line(fasta_path, line_len, k_num):
     k_num = int(k_num)
     tmp_fasta_path = fasta_path + ".tmp"

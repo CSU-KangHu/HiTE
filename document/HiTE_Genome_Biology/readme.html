@@ -1,0 +1,218 @@
+<html>
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=windows-1252">
+<title>BioMed Central TeX template files</title>
+<style>
+tt
+{
+  font-size:10.0pt;
+  font-family:"Courier New";
+}
+p
+{
+  font-size:10.0pt;
+  font-family:"Times New Roman";
+}
+td
+{
+width:284px;
+}
+#small
+{
+  font-size:9.0pt;
+}
+</style>
+</head>
+<body lang=EN-GB link=blue vlink=purple class="Normal" bgcolor="#FFFFFF">
+<h1>BioMed Central TeX template - Version 0.7 (August 17<sup>th</sup> 2020)</h1>
+<h2>1 BioMed Central LaTeX template distribution</h2>
+<table border=1 cellspacing=0 cellpadding=0>
+  <tr>
+    <td valign=top>
+      <tt>bmc_article.tex</tt>
+    </td>
+    <td valign=top>
+      <p>The BioMed Central manuscript template. Edit a copy of this file.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>bmc_article.pdf</tt>
+    </td>
+    <td valign=top>
+      <p>PDF created from The BioMed Central manuscript template.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>bmc_article_2col.pdf</tt>
+    </td>
+    <td valign=top>
+      <p>Two column layout PDF created from The BioMed Central manuscript template.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>bmc_article.bib</tt>
+    </td>
+    <td valign=top>
+      <p>A sample BibTeX bibliography file used to create a <tt>.bbl</tt> by BibTeX
+      using the <tt>bmc-mathphys.bst</tt> file.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>bmc_article.bbl</tt>
+    </td>
+    <td valign=top>
+      <p>A sample bibliography file created by BibTeX using the <tt>bmc-mathphys.bst</tt> file.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>bmc-mathphys.bst</tt>
+    </td>
+    <td valign=top>
+      <p>The BibTeX bibliography style file for the BioMed Central reference format</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>spbasic.bst</tt>
+    </td>
+    <td valign=top>
+      <p>The BibTeX bibliography style file for the Springer Basic reference format</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>vancouver.bst</tt>
+    </td>
+    <td valign=top>
+      <p>The BibTeX bibliography style file for the Vancouver reference format</p>
+    </td>
+  </tr>
+  <tr>
+  <tr>
+  <tr>
+    <td valign=top>
+      <tt>bmcart.cls</tt>
+    </td>
+    <td valign=top>
+      <p>Page layout style class for for manuscripts.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>bmcart-biblio.sty</tt>
+    </td>
+    <td valign=top>
+      <p>Style for bibliography tags.</p>
+    </td>
+  </tr>
+  <tr>
+    <td valign=top>
+      <tt>readme.html</tt>
+    </td>
+    <td valign=top>
+      <p>This document.</p>
+    </td>
+  </tr>
+</table>
+<h2>2 Requirements</h2>
+<h3>2.1</h3>
+<p>The BioMed Central TeX template
+  should work with TeX distributions on any platform - it has been tested with
+  <a href="https://pages.uoregon.edu/koch/texshop/">TeXShop</a> on Mac OS
+  X and <a href="https://miktex.org/">MiKTeX</a> for Windows.</p>
+<h3>2.2</h3>
+<p>In order to submit a manuscript
+as a <tt>.tex</tt> file to BioMed Central, you <i>must</i></p>
+<ul type=disc>
+  <li>use the BioMed Central template</li>
+  <li>format your references with BibTeX using
+    the </span><tt>bmc-mathphys.bst</tt> style file</li>
+  <li>not rely on any non-standard macros,
+    classes or files</li>
+</ul>
+<p>If your TeX manuscript does not
+  meet the criteria above it will need to be converted to DVI format prior to
+  submission.</p>
+<h2>3 Guidelines for creating your manuscript using TeX</h2>
+<h3>3.1</h3>
+<p>Follow the guidelines in the BioMed Central instructions
+  for authors given at <a href="https://www.biomedcentral.com/getpublished">https://www.biomedcentral.com/getpublished</a>.</p>
+<h3>3.2</h3>
+<p>Make sure your manuscript is compiled with LaTeX2e by using <tt>\documentclass{...}</tt> and not <tt>\documentstyle{...}</tt>
+  in the preamble at the top of your <tt>.tex </tt> document.</p>
+<p>A template manuscript is supplied entitled <tt>bmc_article.tex</tt> which
+  sets up the preferred page layout based on the standard <tt>article.cls</tt>. Additional styles can be achieved by
+  <tt>\documenclass</tt> options: <i>doublespacing</i> - for double spaced text, <i>linenumbers</i> - for the line numbers on margins,
+  <i>twocolumn</i> - for twocolumn layout. Please note that for twocolumn layout <tt>\end{fmbox}</tt> position is different,
+  comment one after <tt>\end{artnotes}</tt> environment and uncomment one after <tt>\end{abstractbox}</tt> environment.</p>
+<h3>3.3</h3>
+<p>Make sure that you only a single <tt>.tex </tt> document
+  for the entire manuscript, as you will need to upload it as a single file (together
+  with its associated formatted bibliography file). Do not use the <tt>\input</tt> command
+  to include other <tt>.tex</tt> files.</p>
+<h3>3.4</h3>
+<p>Additional packages can be used in The BioMed Central template: <i>amsthm</i> and <i>amsmath</i> for
+  theorems and mathematics respectively, <i>natbib</i> for citation style, <i>hyperref</i> for url references.</p>
+<p>See</p>
+<p><a href="https://www.ctan.org/pkg/amsthm">https://www.ctan.org/pkg/amsthm</a><br>
+   <a href="https://www.ctan.org/pkg/amsmath">https://www.ctan.org/pkg/amsmath</a><br>
+   <a href="https://www.ctan.org/pkg/natbib">https://www.ctan.org/pkg/natbib</a><br>
+   <a href="https://www.ctan.org/pkg/hyperref">https://www.ctan.org/pkg/hyperref</a>
+</p>
+<p>for these style files if they are not in your local archive.</p>
+<p><i>natbib.sty</i> with <tt>sort&compress</tt> option turns [1,2,3,4] into [1-4].</p>
+<p><i>hyperref.sty</i> formats urls so they can be broken down
+  cleanly when overflowing the right text boundary.</p>
+<h2>4 BibTeX</h2>
+<p>References <i>must</i> be formatted with BibTeX using
+  the BioMed Central style file.</p>
+<p>I.e. when using the template, choose one of the following: <tt>\bibliographystyle{bmc-mathphys}</tt>,
+  <tt>\bibliographystyle{vancouver}</tt> or <tt>\bibliographystyle{spbasic}</tt> depending on the reference
+  style that your journal is using.<p>
+<p>The bibliography datafile is referred to with <tt>\bibliography{datafile1, ..., ...}</tt>.</p>
+<p>The template makes use of a sample bibliography called <tt>bmc_article.bib</tt> -
+  you should update the <tt>\bibliography</tt> tag to refer to your own bibliography.</p>
+<p>For <i>author-year</i> bibliography (<tt>bmc-mathphys</tt> or <tt>spbasic</tt>):
+<ol>
+  <li>write to bib file (<tt>bmc-mathphys</tt> only): <code>@settings{label, options="nameyear"}</code></li>
+  <li>write to tex file: <code>\nocite{label}</code></li>
+</ol>
+<h2>5 Notes on uploading your manuscript</h2>
+<h3>5.1</h3>
+<p>Make sure you are submitting only one <tt>.tex</tt> document. Please note that figures,
+  large tables and any other reference material should be submitted as separate files, not embedded in the
+  manuscript.</p>
+<h3>5.2</h3>
+<p>A <tt>.bbl</tt> file is generated when you use BibTeX
+  to format your article's reference list. It contains formatted details of all
+  references used in the manuscript. After uploading a TeX file to BioMed Central,
+  you will then be prompted to upload the <tt>.bbl</tt> file which goes with it.</p>
+<h2>6 The TeX article layout</h2>
+<p>This is the sectioning for a BMC-series Research Article l
+  manuscript submission . . .<br/>For other types of articles or for non-BMC series journals, see the relevant section headings at <a
+href="https://www.biomedcentral.com/getpublished/writing-resources">https://www.biomedcentral.com/getpublished/writing-resources</a>.</p>
+<p id="small">&bullet; Abstract</p>
+<p id="small">&bullet; Background</p>
+<p id="small">&bullet; Results</p>
+<p id="small">&bullet; Conclusions</p>
+<p id="small">&bullet; Background</p>
+<p id="small">&bullet; Methods</p>
+<p id="small">&bullet; Results and Discussion</p>
+<p id="small">&bullet; Conclusions</p>
+<p id="small">&bullet; Authors' contributions</p>
+<p id="small">&bullet; Acknowledgements</p>
+<p id="small">&bullet; References</p>
+<p id="small">&bullet; Figures</p>
+<p id="small">&bullet; Tables</p>
+<p id="small">&bullet; Additional files</p>
+<h2>7 Further information</h2>
+<p>The latest version of the BioMed Central TeX
+  template distribution, and full instructions on its use, are available here:</p>
+<p><a href="https://www.biomedcentral.com/getpublished/writing-resources/additional-files">https://www.biomedcentral.com/getpublished/writing-resources/additional-files</a></p>
+</body>
+</html>
