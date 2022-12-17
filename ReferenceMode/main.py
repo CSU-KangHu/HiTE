@@ -65,9 +65,10 @@ if __name__ == '__main__':
     default_flanking_len = 50
     default_global_flanking_filter = 1
 
+    version_num = '1.0.1'
 
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='########################## HiTE, version ' + str(version_num) + ' ##########################')
     parser.add_argument('-g', metavar='Genome assembly',
                         help='input genome assembly path')
     parser.add_argument('-k', metavar='kmer size',
@@ -127,6 +128,7 @@ if __name__ == '__main__':
 
     if reference is None:
         log.logger.error('\nreference path can not be empty')
+        parser.print_help()
         exit(-1)
     if output_dir is None:
         output_dir = os.getcwd() + '/output'
@@ -205,6 +207,7 @@ if __name__ == '__main__':
     partitions_num = int(threads)
 
     log.logger.info('\n-------------------------------------------------------------------------------------------\n'
+                    'HiTE, version ' + str(version_num) + '\n'
                     'Copyright (C) 2022 Kang Hu ( kanghu@csu.edu.cn )\n'
                     'Hunan Provincial Key Lab on Bioinformatics, School of Computer Science and \n'
                     'Engineering, Central South University, Changsha 410083, P.R. China.\n'
@@ -564,7 +567,7 @@ if __name__ == '__main__':
             other_identification_command = 'cd ' + test_home + ' && python ' + test_home + '/judge_Other_transposons.py ' \
                                            + ' --seqs ' + longest_repeats_flanked_path\
                                            + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
-                                           + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.95) \
+                                           + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
                                            + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index)
             os.system(other_identification_command)
             endtime = time.time()

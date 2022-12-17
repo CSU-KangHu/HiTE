@@ -44,7 +44,7 @@ def extract_sequence_from_db(db_path, features, store_path):
 def preprocess():
     db_path = '/public/home/hpc194701009/repeat_detect_tools/RepeatMasker-4.1.2/RepeatMasker/Libraries/RepeatMasker.lib'
     features = ['#LINE', '#SINE', 'DIRS', '#DNA/Crypton']
-    store_path = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/other_TE.lib'
+    store_path = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/non_LTR.lib'
     extract_sequence_from_db(db_path, features, store_path)
 
 
@@ -112,23 +112,23 @@ if __name__ == '__main__':
 
     # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
     library_dir = os.getcwd() + '/../library'
-    other_TE_lib = library_dir + '/other_TE.lib'
+    non_LTR_lib = library_dir + '/non_LTR.lib'
 
     other_TE_dir = tmp_output_dir + '/other_TE'
     os.system('rm -rf ' + other_TE_dir)
     if not os.path.exists(other_TE_dir):
         os.makedirs(other_TE_dir)
 
-    # blastnResults_path = tmp_output_dir + '/other_TE.lib.out'
+    # blastnResults_path = tmp_output_dir + '/non_LTR.lib.out'
     # multi_process_align(longest_repeats_path, other_TE_lib, blastnResults_path, blast_program_dir, other_TE_dir, threads)
     # all_copies = get_copies(blastnResults_path, longest_repeats_path, other_TE_lib,
     #                         query_coverage=0.9, subject_coverage=0.9, threads=threads)
 
 
-    all_copies = multi_process_align_and_get_copies(other_TE_lib, longest_repeats_flanked_path, blast_program_dir, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
+    all_copies = multi_process_align_and_get_copies(non_LTR_lib, longest_repeats_flanked_path, blast_program_dir, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
 
     flanking_len = 0
-    all_copies = flanking_copies_v2(all_copies, other_TE_lib, longest_repeats_flanked_path, flanking_len, copy_num=1)
+    all_copies = flanking_copies_v2(all_copies, non_LTR_lib, longest_repeats_flanked_path, flanking_len, copy_num=1)
 
     confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
     confident_other_contigs = {}

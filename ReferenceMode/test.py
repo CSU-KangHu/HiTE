@@ -274,7 +274,7 @@ if __name__ == '__main__':
 
     #统计longest_repeats_blast中最大的文件有多大
     # library_dir = os.getcwd() + '/library'
-    # other_TE_lib = library_dir + '/other_TE.lib'
+    # other_TE_lib = library_dir + '/non_LTR.lib'
     # names, contigs = read_fasta(other_TE_lib)
     # for name in names:
     #     seq = contigs[name]

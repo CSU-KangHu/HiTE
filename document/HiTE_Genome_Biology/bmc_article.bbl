@@ -1,6 +1,6 @@
 %% BioMed_Central_Bib_Style_v1.01
 
-\begin{thebibliography}{13}
+\begin{thebibliography}{23}
 % BibTex style file: bmc-mathphys.bst (version 2.1), 2014-07-24
 \ifx \bisbn   \undefined \def \bisbn  #1{ISBN #1}\fi
 \ifx \binits  \undefined \def \binits#1{#1}\fi
@@ -259,6 +259,149 @@
 \end{barticle}
 \endbibitem
 
+%%% 14
+\bibitem{lee2016mgescan}
+\begin{barticle}
+\bauthor{\bsnm{Lee}, \binits{H.}},
+\bauthor{\bsnm{Lee}, \binits{M.}},
+\bauthor{\bsnm{Mohammed~Ismail}, \binits{W.}},
+\bauthor{\bsnm{Rho}, \binits{M.}},
+\bauthor{\bsnm{Fox}, \binits{G.C.}},
+\bauthor{\bsnm{Oh}, \binits{S.}},
+\bauthor{\bsnm{Tang}, \binits{H.}}:
+\batitle{Mgescan: a galaxy-based system for identifying retrotransposons in
+  genomes}.
+\bjtitle{Bioinformatics}
+\bvolume{32}(\bissue{16}),
+\bfpage{2502}--\blpage{2504}
+(\byear{2016})
+\end{barticle}
+\endbibitem
+
+%%% 15
+\bibitem{mccarthy2003ltr_struc}
+\begin{barticle}
+\bauthor{\bsnm{McCarthy}, \binits{E.M.}},
+\bauthor{\bsnm{McDonald}, \binits{J.F.}}:
+\batitle{Ltr\_struc: a novel search and identification program for ltr
+  retrotransposons}.
+\bjtitle{Bioinformatics}
+\bvolume{19}(\bissue{3}),
+\bfpage{362}--\blpage{367}
+(\byear{2003})
+\end{barticle}
+\endbibitem
+
+%%% 16
+\bibitem{xu2007ltr_finder}
+\begin{barticle}
+\bauthor{\bsnm{Xu}, \binits{Z.}},
+\bauthor{\bsnm{Wang}, \binits{H.}}:
+\batitle{Ltr\_finder: an efficient tool for the prediction of full-length ltr
+  retrotransposons}.
+\bjtitle{Nucleic acids research}
+\bvolume{35}(\bissue{suppl\_2}),
+\bfpage{265}--\blpage{268}
+(\byear{2007})
+\end{barticle}
+\endbibitem
+
+%%% 17
+\bibitem{ellinghaus2008ltrharvest}
+\begin{barticle}
+\bauthor{\bsnm{Ellinghaus}, \binits{D.}},
+\bauthor{\bsnm{Kurtz}, \binits{S.}},
+\bauthor{\bsnm{Willhoeft}, \binits{U.}}:
+\batitle{Ltrharvest, an efficient and flexible software for de novo detection
+  of ltr retrotransposons}.
+\bjtitle{BMC bioinformatics}
+\bvolume{9}(\bissue{1}),
+\bfpage{1}--\blpage{14}
+(\byear{2008})
+\end{barticle}
+\endbibitem
+
+%%% 18
+\bibitem{valencia2019ltrdetector}
+\begin{barticle}
+\bauthor{\bsnm{Valencia}, \binits{J.D.}},
+\bauthor{\bsnm{Girgis}, \binits{H.Z.}}:
+\batitle{Ltrdetector: A tool-suite for detecting long terminal repeat
+  retrotransposons de-novo}.
+\bjtitle{BMC genomics}
+\bvolume{20}(\bissue{1}),
+\bfpage{1}--\blpage{14}
+(\byear{2019})
+\end{barticle}
+\endbibitem
+
+%%% 19
+\bibitem{ou2018ltr_retriever}
+\begin{barticle}
+\bauthor{\bsnm{Ou}, \binits{S.}},
+\bauthor{\bsnm{Jiang}, \binits{N.}}:
+\batitle{Ltr\_retriever: a highly accurate and sensitive program for
+  identification of long terminal repeat retrotransposons}.
+\bjtitle{Plant physiology}
+\bvolume{176}(\bissue{2}),
+\bfpage{1410}--\blpage{1422}
+(\byear{2018})
+\end{barticle}
+\endbibitem
+
+%%% 20
+\bibitem{zhao2016makes}
+\begin{barticle}
+\bauthor{\bsnm{Zhao}, \binits{D.}},
+\bauthor{\bsnm{Ferguson}, \binits{A.A.}},
+\bauthor{\bsnm{Jiang}, \binits{N.}}:
+\batitle{What makes up plant genomes: The vanishing line between transposable
+  elements and genes}.
+\bjtitle{Biochimica et Biophysica Acta (BBA)-Gene Regulatory Mechanisms}
+\bvolume{1859}(\bissue{2}),
+\bfpage{366}--\blpage{380}
+(\byear{2016})
+\end{barticle}
+\endbibitem
+
+%%% 21
+\bibitem{dewannieux2003line}
+\begin{barticle}
+\bauthor{\bsnm{Dewannieux}, \binits{M.}},
+\bauthor{\bsnm{Esnault}, \binits{C.}},
+\bauthor{\bsnm{Heidmann}, \binits{T.}}:
+\batitle{Line-mediated retrotransposition of marked alu sequences}.
+\bjtitle{Nature genetics}
+\bvolume{35}(\bissue{1}),
+\bfpage{41}--\blpage{48}
+(\byear{2003})
+\end{barticle}
+\endbibitem
+
+%%% 22
+\bibitem{mao2017sine_scan}
+\begin{barticle}
+\bauthor{\bsnm{Mao}, \binits{H.}},
+\bauthor{\bsnm{Wang}, \binits{H.}}:
+\batitle{Sine\_scan: an efficient tool to discover short interspersed nuclear
+  elements (sines) in large-scale genomic datasets}.
+\bjtitle{Bioinformatics}
+\bvolume{33}(\bissue{5}),
+\bfpage{743}--\blpage{745}
+(\byear{2017})
+\end{barticle}
+\endbibitem
+
+%%% 23
+\bibitem{Smit2008repeatmodeler}
+\begin{botherref}
+\oauthor{\bsnm{Smit}, \binits{A.}},
+\oauthor{\bsnm{Hubley}, \binits{R.}}:
+Repeatmodeler open-1.0
+(2008-2010)
+\end{botherref}
+\endbibitem
+
 \end{thebibliography}
 
 \newcommand{\BMCxmlcomment}[1]{}
@@ -512,6 +655,168 @@
   <issue>28</issue>
   <fpage>10263</fpage>
   <lpage>-10268</lpage>
+</bibl>
+
+<bibl id="B14">
+  <title><p>MGEScan: a Galaxy-based system for identifying retrotransposons in
+  genomes</p></title>
+  <aug>
+    <au><snm>Lee</snm><fnm>H</fnm></au>
+    <au><snm>Lee</snm><fnm>M</fnm></au>
+    <au><snm>Mohammed Ismail</snm><fnm>W</fnm></au>
+    <au><snm>Rho</snm><fnm>M</fnm></au>
+    <au><snm>Fox</snm><fnm>GC</fnm></au>
+    <au><snm>Oh</snm><fnm>S</fnm></au>
+    <au><snm>Tang</snm><fnm>H</fnm></au>
+  </aug>
+  <source>Bioinformatics</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2016</pubdate>
+  <volume>32</volume>
+  <issue>16</issue>
+  <fpage>2502</fpage>
+  <lpage>-2504</lpage>
+</bibl>
+
+<bibl id="B15">
+  <title><p>LTR\_STRUC: a novel search and identification program for LTR
+  retrotransposons</p></title>
+  <aug>
+    <au><snm>McCarthy</snm><fnm>EM</fnm></au>
+    <au><snm>McDonald</snm><fnm>JF</fnm></au>
+  </aug>
+  <source>Bioinformatics</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2003</pubdate>
+  <volume>19</volume>
+  <issue>3</issue>
+  <fpage>362</fpage>
+  <lpage>-367</lpage>
+</bibl>
+
+<bibl id="B16">
+  <title><p>LTR\_FINDER: an efficient tool for the prediction of full-length
+  LTR retrotransposons</p></title>
+  <aug>
+    <au><snm>Xu</snm><fnm>Z</fnm></au>
+    <au><snm>Wang</snm><fnm>H</fnm></au>
+  </aug>
+  <source>Nucleic acids research</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2007</pubdate>
+  <volume>35</volume>
+  <issue>suppl\_2</issue>
+  <fpage>W265</fpage>
+  <lpage>-W268</lpage>
+</bibl>
+
+<bibl id="B17">
+  <title><p>LTRharvest, an efficient and flexible software for de novo
+  detection of LTR retrotransposons</p></title>
+  <aug>
+    <au><snm>Ellinghaus</snm><fnm>D</fnm></au>
+    <au><snm>Kurtz</snm><fnm>S</fnm></au>
+    <au><snm>Willhoeft</snm><fnm>U</fnm></au>
+  </aug>
+  <source>BMC bioinformatics</source>
+  <publisher>Springer</publisher>
+  <pubdate>2008</pubdate>
+  <volume>9</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-14</lpage>
+</bibl>
+
+<bibl id="B18">
+  <title><p>LtrDetector: A tool-suite for detecting long terminal repeat
+  retrotransposons de-novo</p></title>
+  <aug>
+    <au><snm>Valencia</snm><fnm>JD</fnm></au>
+    <au><snm>Girgis</snm><fnm>HZ</fnm></au>
+  </aug>
+  <source>BMC genomics</source>
+  <publisher>Springer</publisher>
+  <pubdate>2019</pubdate>
+  <volume>20</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-14</lpage>
+</bibl>
+
+<bibl id="B19">
+  <title><p>LTR\_retriever: a highly accurate and sensitive program for
+  identification of long terminal repeat retrotransposons</p></title>
+  <aug>
+    <au><snm>Ou</snm><fnm>S</fnm></au>
+    <au><snm>Jiang</snm><fnm>N</fnm></au>
+  </aug>
+  <source>Plant physiology</source>
+  <publisher>American Society of Plant Biologists</publisher>
+  <pubdate>2018</pubdate>
+  <volume>176</volume>
+  <issue>2</issue>
+  <fpage>1410</fpage>
+  <lpage>-1422</lpage>
+</bibl>
+
+<bibl id="B20">
+  <title><p>What makes up plant genomes: The vanishing line between
+  transposable elements and genes</p></title>
+  <aug>
+    <au><snm>Zhao</snm><fnm>D</fnm></au>
+    <au><snm>Ferguson</snm><fnm>AA</fnm></au>
+    <au><snm>Jiang</snm><fnm>N</fnm></au>
+  </aug>
+  <source>Biochimica et Biophysica Acta (BBA)-Gene Regulatory
+  Mechanisms</source>
+  <publisher>Elsevier</publisher>
+  <pubdate>2016</pubdate>
+  <volume>1859</volume>
+  <issue>2</issue>
+  <fpage>366</fpage>
+  <lpage>-380</lpage>
+</bibl>
+
+<bibl id="B21">
+  <title><p>LINE-mediated retrotransposition of marked Alu
+  sequences</p></title>
+  <aug>
+    <au><snm>Dewannieux</snm><fnm>M</fnm></au>
+    <au><snm>Esnault</snm><fnm>C</fnm></au>
+    <au><snm>Heidmann</snm><fnm>T</fnm></au>
+  </aug>
+  <source>Nature genetics</source>
+  <publisher>Nature Publishing Group</publisher>
+  <pubdate>2003</pubdate>
+  <volume>35</volume>
+  <issue>1</issue>
+  <fpage>41</fpage>
+  <lpage>-48</lpage>
+</bibl>
+
+<bibl id="B22">
+  <title><p>SINE\_scan: an efficient tool to discover short interspersed
+  nuclear elements (SINEs) in large-scale genomic datasets</p></title>
+  <aug>
+    <au><snm>Mao</snm><fnm>H</fnm></au>
+    <au><snm>Wang</snm><fnm>H</fnm></au>
+  </aug>
+  <source>Bioinformatics</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2017</pubdate>
+  <volume>33</volume>
+  <issue>5</issue>
+  <fpage>743</fpage>
+  <lpage>-745</lpage>
+</bibl>
+
+<bibl id="B23">
+  <title><p>RepeatModeler Open-1.0</p></title>
+  <aug>
+    <au><snm>Smit</snm><fnm>AFA</fnm></au>
+    <au><snm>Hubley</snm><fnm>R</fnm></au>
+  </aug>
+  <pubdate>2008-2010</pubdate>
 </bibl>
 
 </refgrp>
