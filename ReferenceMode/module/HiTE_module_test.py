@@ -15,7 +15,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, getReverseSequence, allow_mismatch, \
     run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, flanking_copies, \
-    store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2
+    store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference
 
 
 def generate_repbases():
@@ -678,5 +678,10 @@ if __name__ == '__main__':
 
     #test_EAHelitron()
 
-    reduce_library_size()
+    #reduce_library_size()
+
+    ref_dir = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays'
+    reference = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna'
+    rename_ref = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
+    rename_reference(reference, rename_ref)
 
