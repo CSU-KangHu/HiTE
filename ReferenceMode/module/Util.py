@@ -2892,15 +2892,26 @@ def multiple_alignment(repeats_path, blast_program_dir, tools_dir):
 
     return blastn2Results_path
 
-def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_threshold, max_single_repeat_len):
+def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_threshold, max_single_repeat_len, threads):
     split_repeats_path = repeats_path[0]
     original_repeats_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
     ref_contigs = repeats_path[3]
+    tmp_blast_dir = repeats_path[4]
 
-    align_command = blast_program_dir + '/bin/blastn -db ' + original_repeats_path + ' -num_threads ' \
-                    + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
-    os.system(align_command)
+    subject_tmp_dir = tmp_blast_dir + '/subject'
+    for partition_index in range(threads):
+        split_subject_file = subject_tmp_dir + '/' + str(partition_index) + '.fa'
+        if not os.path.exists(split_subject_file):
+            continue
+        align_command = blast_program_dir + '/bin/blastn -db ' + split_subject_file + ' -num_threads ' \
+                        + str(1) + ' -query ' + split_repeats_path
+        if partition_index == 0:
+            align_command1 = align_command + ' -outfmt 6 > ' + blastn2Results_path
+            os.system(align_command1)
+        else:
+            align_command2 = align_command + ' -outfmt 6 >> ' + blastn2Results_path
+            os.system(align_command2)
 
     query_names, query_contigs = read_fasta(split_repeats_path)
 
@@ -3266,11 +3277,12 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
 
     ref_names, ref_contigs = read_fasta(reference)
 
-    (repeat_dir, repeat_filename) = os.path.split(repeats_path)
+    #(repeat_dir, repeat_filename) = os.path.split(repeats_path)
 
-    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
-    os.system(makedb_command)
+    # makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
+    # os.system(makedb_command)
 
+    ## before method
     # repeat_files = []
     # data_partitions = PET(list(repeatContigs.items()), threads)
     # for partition_index, data_partition in enumerate(data_partitions):
@@ -3281,6 +3293,21 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
     #     store2file(data_partition, split_repeat_file)
     #     repeat_files.append((split_repeat_file, repeats_path,
     #                          single_tmp_dir + '/repeat.pairwise.out'))
+
+    # 2022-12-22 method
+    # repeats.fa通常会有几十上百M，只对query切割进行比对还是会有某个query的输出占据几个G的情况，有可能会导致内存溢出。
+    # 因此我们对query和subject同时进行切分比对，完成后将query对应的output合并
+    data_partitions = PET(list(repeatContigs.items()), threads)
+    for partition_index, data_partition in enumerate(data_partitions):
+        subject_tmp_dir = tmp_blast_dir + '/subject'
+        if not os.path.exists(subject_tmp_dir):
+            os.makedirs(subject_tmp_dir)
+        split_subject_file = subject_tmp_dir + '/' + str(partition_index) + '.fa'
+        store2file(data_partition, split_subject_file)
+
+        makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + split_subject_file + ' > /dev/null 2>&1'
+        os.system(makedb_command)
+
 
     repeat_files = []
     file_index = 0
@@ -3300,7 +3327,7 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
             split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
             store_fasta(cur_contigs, split_repeat_file)
             output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, repeats_path, output_file, cur_ref_contigs))
+            repeat_files.append((split_repeat_file, repeats_path, output_file, cur_ref_contigs, tmp_blast_dir))
             cur_contigs = {}
             cur_ref_contigs = {}
             file_index += 1
@@ -3309,7 +3336,7 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
         split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
         store_fasta(cur_contigs, split_repeat_file)
         output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, repeats_path, output_file, cur_ref_contigs))
+        repeat_files.append((split_repeat_file, repeats_path, output_file, cur_ref_contigs, tmp_blast_dir))
 
     ex = ProcessPoolExecutor(threads)
     longest_repeats = {}
@@ -3318,7 +3345,7 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
     for file in repeat_files:
         #为了减少内存，只传递需要的reference sequence
         job = ex.submit(get_longest_repeats_v1, file, blast_program_dir, fixed_extend_base_threshold,
-                        max_single_repeat_len)
+                        max_single_repeat_len, threads)
         jobs.append(job)
     ex.shutdown(wait=True)
 

@@ -1,6 +1,6 @@
 %% BioMed_Central_Bib_Style_v1.01
 
-\begin{thebibliography}{23}
+\begin{thebibliography}{47}
 % BibTex style file: bmc-mathphys.bst (version 2.1), 2014-07-24
 \ifx \bisbn   \undefined \def \bisbn  #1{ISBN #1}\fi
 \ifx \binits  \undefined \def \binits#1{#1}\fi
@@ -43,6 +43,199 @@
 \csname PreBibitemsHook\endcsname
 
 %%% 1
+\bibitem{mcclintock1947mutable}
+\begin{botherref}
+\oauthor{\bsnm{McClintock}, \binits{B.}}, et al.:
+Mutable loci in maize.
+Mutable loci in maize.
+(1947)
+\end{botherref}
+\endbibitem
+
+%%% 2
+\bibitem{mcclintock1950origin}
+\begin{barticle}
+\bauthor{\bsnm{McClintock}, \binits{B.}}:
+\batitle{The origin and behavior of mutable loci in maize}.
+\bjtitle{Proceedings of the National Academy of Sciences}
+\bvolume{36}(\bissue{6}),
+\bfpage{344}--\blpage{355}
+(\byear{1950})
+\end{barticle}
+\endbibitem
+
+%%% 3
+\bibitem{bourque2018ten}
+\begin{barticle}
+\bauthor{\bsnm{Bourque}, \binits{G.}},
+\bauthor{\bsnm{Burns}, \binits{K.H.}},
+\bauthor{\bsnm{Gehring}, \binits{M.}},
+\bauthor{\bsnm{Gorbunova}, \binits{V.}},
+\bauthor{\bsnm{Seluanov}, \binits{A.}},
+\bauthor{\bsnm{Hammell}, \binits{M.}},
+\bauthor{\bsnm{Imbeault}, \binits{M.}},
+\bauthor{\bsnm{Izsv{\'a}k}, \binits{Z.}},
+\bauthor{\bsnm{Levin}, \binits{H.L.}},
+\bauthor{\bsnm{Macfarlan}, \binits{T.S.}}, \betal:
+\batitle{Ten things you should know about transposable elements}.
+\bjtitle{Genome biology}
+\bvolume{19}(\bissue{1}),
+\bfpage{1}--\blpage{12}
+(\byear{2018})
+\end{barticle}
+\endbibitem
+
+%%% 4
+\bibitem{wells2020field}
+\begin{barticle}
+\bauthor{\bsnm{Wells}, \binits{J.N.}},
+\bauthor{\bsnm{Feschotte}, \binits{C.}}:
+\batitle{A field guide to eukaryotic transposable elements}.
+\bjtitle{Annual review of genetics}
+\bvolume{54},
+\bfpage{539}
+(\byear{2020})
+\end{barticle}
+\endbibitem
+
+%%% 5
+\bibitem{quesneville2020twenty}
+\begin{barticle}
+\bauthor{\bsnm{Quesneville}, \binits{H.}}:
+\batitle{Twenty years of transposable element analysis in the arabidopsis
+  thaliana genome}.
+\bjtitle{Mobile DNA}
+\bvolume{11}(\bissue{1}),
+\bfpage{1}--\blpage{13}
+(\byear{2020})
+\end{barticle}
+\endbibitem
+
+%%% 6
+\bibitem{kalendar2021mobile}
+\begin{botherref}
+\oauthor{\bsnm{Kalendar}, \binits{R.}},
+\oauthor{\bsnm{Sabot}, \binits{F.}},
+\oauthor{\bsnm{Rodriguez}, \binits{F.}},
+\oauthor{\bsnm{Karlov}, \binits{G.I.}},
+\oauthor{\bsnm{Natali}, \binits{L.}},
+\oauthor{\bsnm{Alix}, \binits{K.}}:
+mobile elements and plant genome evolution, comparative analyzes and
+  computational tools.
+Frontiers in plant science
+\textbf{12}
+(2021)
+\end{botherref}
+\endbibitem
+
+%%% 7
+\bibitem{kazazian2004mobile}
+\begin{barticle}
+\bauthor{\bsnm{Kazazian~Jr}, \binits{H.H.}}:
+\batitle{Mobile elements: drivers of genome evolution}.
+\bjtitle{science}
+\bvolume{303}(\bissue{5664}),
+\bfpage{1626}--\blpage{1632}
+(\byear{2004})
+\end{barticle}
+\endbibitem
+
+%%% 8
+\bibitem{finnegan1989eukaryotic}
+\begin{barticle}
+\bauthor{\bsnm{Finnegan}, \binits{D.J.}}:
+\batitle{Eukaryotic transposable elements and genome evolution}.
+\bjtitle{Trends in genetics}
+\bvolume{5},
+\bfpage{103}--\blpage{107}
+(\byear{1989})
+\end{barticle}
+\endbibitem
+
+%%% 9
+\bibitem{wicker2007unified}
+\begin{barticle}
+\bauthor{\bsnm{Wicker}, \binits{T.}},
+\bauthor{\bsnm{Sabot}, \binits{F.}},
+\bauthor{\bsnm{Hua-Van}, \binits{A.}},
+\bauthor{\bsnm{Bennetzen}, \binits{J.L.}},
+\bauthor{\bsnm{Capy}, \binits{P.}},
+\bauthor{\bsnm{Chalhoub}, \binits{B.}},
+\bauthor{\bsnm{Flavell}, \binits{A.}},
+\bauthor{\bsnm{Leroy}, \binits{P.}},
+\bauthor{\bsnm{Morgante}, \binits{M.}},
+\bauthor{\bsnm{Panaud}, \binits{O.}}, \betal:
+\batitle{A unified classification system for eukaryotic transposable elements}.
+\bjtitle{Nature Reviews Genetics}
+\bvolume{8}(\bissue{12}),
+\bfpage{973}--\blpage{982}
+(\byear{2007})
+\end{barticle}
+\endbibitem
+
+%%% 10
+\bibitem{kapitonov2007helitrons}
+\begin{barticle}
+\bauthor{\bsnm{Kapitonov}, \binits{V.V.}},
+\bauthor{\bsnm{Jurka}, \binits{J.}}:
+\batitle{Helitrons on a roll: eukaryotic rolling-circle transposons}.
+\bjtitle{TRENDS in Genetics}
+\bvolume{23}(\bissue{10}),
+\bfpage{521}--\blpage{529}
+(\byear{2007})
+\end{barticle}
+\endbibitem
+
+%%% 11
+\bibitem{su2019tir}
+\begin{barticle}
+\bauthor{\bsnm{Su}, \binits{W.}},
+\bauthor{\bsnm{Gu}, \binits{X.}},
+\bauthor{\bsnm{Peterson}, \binits{T.}}:
+\batitle{Tir-learner, a new ensemble method for tir transposable element
+  annotation, provides evidence for abundant new transposable elements in the
+  maize genome}.
+\bjtitle{Molecular plant}
+\bvolume{12}(\bissue{3}),
+\bfpage{447}--\blpage{460}
+(\byear{2019})
+\end{barticle}
+\endbibitem
+
+%%% 12
+\bibitem{peterson2013mechanism}
+\begin{botherref}
+\oauthor{\bsnm{Peterson}, \binits{T.}},
+\oauthor{\bsnm{Zhang}, \binits{J.}}:
+The mechanism of ac/ds transposition.
+Plant Transposons and Genome Dynamics in Evolution,
+41--59
+(2013)
+\end{botherref}
+\endbibitem
+
+%%% 13
+\bibitem{yasir2022long}
+\begin{barticle}
+\bauthor{\bsnm{Yasir}, \binits{M.}},
+\bauthor{\bsnm{Turner}, \binits{A.K.}},
+\bauthor{\bsnm{Lott}, \binits{M.}},
+\bauthor{\bsnm{Rudder}, \binits{S.}},
+\bauthor{\bsnm{Baker}, \binits{D.}},
+\bauthor{\bsnm{Bastkowski}, \binits{S.}},
+\bauthor{\bsnm{Page}, \binits{A.J.}},
+\bauthor{\bsnm{Webber}, \binits{M.A.}},
+\bauthor{\bsnm{Charles}, \binits{I.G.}}:
+\batitle{Long-read sequencing for identification of insertion sites in large
+  transposon mutant libraries}.
+\bjtitle{Scientific reports}
+\bvolume{12}(\bissue{1}),
+\bfpage{1}--\blpage{9}
+(\byear{2022})
+\end{barticle}
+\endbibitem
+
+%%% 14
 \bibitem{storer2022methodologies}
 \begin{barticle}
 \bauthor{\bsnm{Storer}, \binits{J.M.}},
@@ -58,24 +251,147 @@
 \end{barticle}
 \endbibitem
 
-%%% 2
-\bibitem{storer2021dfam}
+%%% 15
+\bibitem{gu2008identification}
 \begin{barticle}
-\bauthor{\bsnm{Storer}, \binits{J.}},
-\bauthor{\bsnm{Hubley}, \binits{R.}},
-\bauthor{\bsnm{Rosen}, \binits{J.}},
-\bauthor{\bsnm{Wheeler}, \binits{T.J.}},
-\bauthor{\bsnm{Smit}, \binits{A.F.}}:
-\batitle{The dfam community resource of transposable element families, sequence
-  models, and genome annotations}.
-\bjtitle{Mobile DNA}
-\bvolume{12}(\bissue{1}),
-\bfpage{1}--\blpage{14}
-(\byear{2021})
+\bauthor{\bsnm{Gu}, \binits{W.}},
+\bauthor{\bsnm{Castoe}, \binits{T.A.}},
+\bauthor{\bsnm{Hedges}, \binits{D.J.}},
+\bauthor{\bsnm{Batzer}, \binits{M.A.}},
+\bauthor{\bsnm{Pollock}, \binits{D.D.}}:
+\batitle{Identification of repeat structure in large genomes using repeat
+  probability clouds}.
+\bjtitle{Analytical biochemistry}
+\bvolume{380}(\bissue{1}),
+\bfpage{77}--\blpage{83}
+(\byear{2008})
 \end{barticle}
 \endbibitem
 
-%%% 3
+%%% 16
+\bibitem{quesneville2003detection}
+\begin{barticle}
+\bauthor{\bsnm{Quesneville}, \binits{H.}},
+\bauthor{\bsnm{Nouaud}, \binits{D.}},
+\bauthor{\bsnm{Anxolab{\'e}h{\`e}re}, \binits{D.}}:
+\batitle{Detection of new transposable element families in drosophila
+  melanogaster and anopheles gambiae genomes}.
+\bjtitle{Journal of molecular evolution}
+\bvolume{57}(\bissue{1}),
+\bfpage{50}--\blpage{59}
+(\byear{2003})
+\end{barticle}
+\endbibitem
+
+%%% 17
+\bibitem{bao2002automated}
+\begin{barticle}
+\bauthor{\bsnm{Bao}, \binits{Z.}},
+\bauthor{\bsnm{Eddy}, \binits{S.R.}}:
+\batitle{Automated de novo identification of repeat sequence families in
+  sequenced genomes}.
+\bjtitle{Genome research}
+\bvolume{12}(\bissue{8}),
+\bfpage{1269}--\blpage{1276}
+(\byear{2002})
+\end{barticle}
+\endbibitem
+
+%%% 18
+\bibitem{edgar2005piler}
+\begin{barticle}
+\bauthor{\bsnm{Edgar}, \binits{R.C.}},
+\bauthor{\bsnm{Myers}, \binits{E.W.}}:
+\batitle{Piler: identification and classification of genomic repeats}.
+\bjtitle{Bioinformatics}
+\bvolume{21}(\bissue{suppl\_1}),
+\bfpage{152}--\blpage{158}
+(\byear{2005})
+\end{barticle}
+\endbibitem
+
+%%% 19
+\bibitem{ellinghaus2008ltrharvest}
+\begin{barticle}
+\bauthor{\bsnm{Ellinghaus}, \binits{D.}},
+\bauthor{\bsnm{Kurtz}, \binits{S.}},
+\bauthor{\bsnm{Willhoeft}, \binits{U.}}:
+\batitle{Ltrharvest, an efficient and flexible software for de novo detection
+  of ltr retrotransposons}.
+\bjtitle{BMC bioinformatics}
+\bvolume{9}(\bissue{1}),
+\bfpage{1}--\blpage{14}
+(\byear{2008})
+\end{barticle}
+\endbibitem
+
+%%% 20
+\bibitem{ou2018ltr_retriever}
+\begin{barticle}
+\bauthor{\bsnm{Ou}, \binits{S.}},
+\bauthor{\bsnm{Jiang}, \binits{N.}}:
+\batitle{Ltr\_retriever: a highly accurate and sensitive program for
+  identification of long terminal repeat retrotransposons}.
+\bjtitle{Plant physiology}
+\bvolume{176}(\bissue{2}),
+\bfpage{1410}--\blpage{1422}
+(\byear{2018})
+\end{barticle}
+\endbibitem
+
+%%% 21
+\bibitem{shi2019generic}
+\begin{barticle}
+\bauthor{\bsnm{Shi}, \binits{J.}},
+\bauthor{\bsnm{Liang}, \binits{C.}}:
+\batitle{Generic repeat finder: a high-sensitivity tool for genome-wide de novo
+  repeat detection}.
+\bjtitle{Plant physiology}
+\bvolume{180}(\bissue{4}),
+\bfpage{1803}--\blpage{1815}
+(\byear{2019})
+\end{barticle}
+\endbibitem
+
+%%% 22
+\bibitem{hu2019helitron}
+\begin{barticle}
+\bauthor{\bsnm{Hu}, \binits{K.}},
+\bauthor{\bsnm{Xu}, \binits{K.}},
+\bauthor{\bsnm{Wen}, \binits{J.}},
+\bauthor{\bsnm{Yi}, \binits{B.}},
+\bauthor{\bsnm{Shen}, \binits{J.}},
+\bauthor{\bsnm{Ma}, \binits{C.}},
+\bauthor{\bsnm{Fu}, \binits{T.}},
+\bauthor{\bsnm{Ouyang}, \binits{Y.}},
+\bauthor{\bsnm{Tu}, \binits{J.}}:
+\batitle{Helitron distribution in brassicaceae and whole genome helitron
+  density as a character for distinguishing plant species}.
+\bjtitle{BMC bioinformatics}
+\bvolume{20}(\bissue{1}),
+\bfpage{1}--\blpage{20}
+(\byear{2019})
+\end{barticle}
+\endbibitem
+
+%%% 23
+\bibitem{xiong2014helitronscanner}
+\begin{barticle}
+\bauthor{\bsnm{Xiong}, \binits{W.}},
+\bauthor{\bsnm{He}, \binits{L.}},
+\bauthor{\bsnm{Lai}, \binits{J.}},
+\bauthor{\bsnm{Dooner}, \binits{H.K.}},
+\bauthor{\bsnm{Du}, \binits{C.}}:
+\batitle{Helitronscanner uncovers a large overlooked cache of helitron
+  transposons in many plant genomes}.
+\bjtitle{Proceedings of the National Academy of Sciences}
+\bvolume{111}(\bissue{28}),
+\bfpage{10263}--\blpage{10268}
+(\byear{2014})
+\end{barticle}
+\endbibitem
+
+%%% 24
 \bibitem{ou2019benchmarking}
 \begin{barticle}
 \bauthor{\bsnm{Ou}, \binits{S.}},
@@ -97,7 +413,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 4
+%%% 25
 \bibitem{flynn2020repeatmodeler2}
 \begin{barticle}
 \bauthor{\bsnm{Flynn}, \binits{J.M.}},
@@ -116,7 +432,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 5
+%%% 26
 \bibitem{bao2015repbase}
 \begin{barticle}
 \bauthor{\bsnm{Bao}, \binits{W.}},
@@ -131,44 +447,43 @@
 \end{barticle}
 \endbibitem
 
-%%% 6
-\bibitem{wicker2007unified}
+%%% 27
+\bibitem{hubley2016dfam}
 \begin{barticle}
-\bauthor{\bsnm{Wicker}, \binits{T.}},
-\bauthor{\bsnm{Sabot}, \binits{F.}},
-\bauthor{\bsnm{Hua-Van}, \binits{A.}},
-\bauthor{\bsnm{Bennetzen}, \binits{J.L.}},
-\bauthor{\bsnm{Capy}, \binits{P.}},
-\bauthor{\bsnm{Chalhoub}, \binits{B.}},
-\bauthor{\bsnm{Flavell}, \binits{A.}},
-\bauthor{\bsnm{Leroy}, \binits{P.}},
-\bauthor{\bsnm{Morgante}, \binits{M.}},
-\bauthor{\bsnm{Panaud}, \binits{O.}}, \betal:
-\batitle{A unified classification system for eukaryotic transposable elements}.
-\bjtitle{Nature Reviews Genetics}
-\bvolume{8}(\bissue{12}),
-\bfpage{973}--\blpage{982}
-(\byear{2007})
+\bauthor{\bsnm{Hubley}, \binits{R.}},
+\bauthor{\bsnm{Finn}, \binits{R.D.}},
+\bauthor{\bsnm{Clements}, \binits{J.}},
+\bauthor{\bsnm{Eddy}, \binits{S.R.}},
+\bauthor{\bsnm{Jones}, \binits{T.A.}},
+\bauthor{\bsnm{Bao}, \binits{W.}},
+\bauthor{\bsnm{Smit}, \binits{A.F.}},
+\bauthor{\bsnm{Wheeler}, \binits{T.J.}}:
+\batitle{The dfam database of repetitive dna families}.
+\bjtitle{Nucleic acids research}
+\bvolume{44}(\bissue{D1}),
+\bfpage{81}--\blpage{89}
+(\byear{2016})
 \end{barticle}
 \endbibitem
 
-%%% 7
-\bibitem{su2019tir}
+%%% 28
+\bibitem{storer2021dfam}
 \begin{barticle}
-\bauthor{\bsnm{Su}, \binits{W.}},
-\bauthor{\bsnm{Gu}, \binits{X.}},
-\bauthor{\bsnm{Peterson}, \binits{T.}}:
-\batitle{Tir-learner, a new ensemble method for tir transposable element
-  annotation, provides evidence for abundant new transposable elements in the
-  maize genome}.
-\bjtitle{Molecular plant}
-\bvolume{12}(\bissue{3}),
-\bfpage{447}--\blpage{460}
-(\byear{2019})
+\bauthor{\bsnm{Storer}, \binits{J.}},
+\bauthor{\bsnm{Hubley}, \binits{R.}},
+\bauthor{\bsnm{Rosen}, \binits{J.}},
+\bauthor{\bsnm{Wheeler}, \binits{T.J.}},
+\bauthor{\bsnm{Smit}, \binits{A.F.}}:
+\batitle{The dfam community resource of transposable element families, sequence
+  models, and genome annotations}.
+\bjtitle{Mobile DNA}
+\bvolume{12}(\bissue{1}),
+\bfpage{1}--\blpage{14}
+(\byear{2021})
 \end{barticle}
 \endbibitem
 
-%%% 8
+%%% 29
 \bibitem{kempken2001hat}
 \begin{barticle}
 \bauthor{\bsnm{Kempken}, \binits{F.}},
@@ -182,7 +497,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 9
+%%% 30
 \bibitem{warburton2004inverted}
 \begin{barticle}
 \bauthor{\bsnm{Warburton}, \binits{P.E.}},
@@ -200,7 +515,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 10
+%%% 31
 \bibitem{gremme2013genometools}
 \begin{barticle}
 \bauthor{\bsnm{Gremme}, \binits{G.}},
@@ -215,51 +530,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 11
-\bibitem{shi2019generic}
-\begin{barticle}
-\bauthor{\bsnm{Shi}, \binits{J.}},
-\bauthor{\bsnm{Liang}, \binits{C.}}:
-\batitle{Generic repeat finder: a high-sensitivity tool for genome-wide de novo
-  repeat detection}.
-\bjtitle{Plant physiology}
-\bvolume{180}(\bissue{4}),
-\bfpage{1803}--\blpage{1815}
-(\byear{2019})
-\end{barticle}
-\endbibitem
-
-%%% 12
-\bibitem{kapitonov2007helitrons}
-\begin{barticle}
-\bauthor{\bsnm{Kapitonov}, \binits{V.V.}},
-\bauthor{\bsnm{Jurka}, \binits{J.}}:
-\batitle{Helitrons on a roll: eukaryotic rolling-circle transposons}.
-\bjtitle{TRENDS in Genetics}
-\bvolume{23}(\bissue{10}),
-\bfpage{521}--\blpage{529}
-(\byear{2007})
-\end{barticle}
-\endbibitem
-
-%%% 13
-\bibitem{xiong2014helitronscanner}
-\begin{barticle}
-\bauthor{\bsnm{Xiong}, \binits{W.}},
-\bauthor{\bsnm{He}, \binits{L.}},
-\bauthor{\bsnm{Lai}, \binits{J.}},
-\bauthor{\bsnm{Dooner}, \binits{H.K.}},
-\bauthor{\bsnm{Du}, \binits{C.}}:
-\batitle{Helitronscanner uncovers a large overlooked cache of helitron
-  transposons in many plant genomes}.
-\bjtitle{Proceedings of the National Academy of Sciences}
-\bvolume{111}(\bissue{28}),
-\bfpage{10263}--\blpage{10268}
-(\byear{2014})
-\end{barticle}
-\endbibitem
-
-%%% 14
+%%% 32
 \bibitem{lee2016mgescan}
 \begin{barticle}
 \bauthor{\bsnm{Lee}, \binits{H.}},
@@ -278,7 +549,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 15
+%%% 33
 \bibitem{mccarthy2003ltr_struc}
 \begin{barticle}
 \bauthor{\bsnm{McCarthy}, \binits{E.M.}},
@@ -292,7 +563,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 16
+%%% 34
 \bibitem{xu2007ltr_finder}
 \begin{barticle}
 \bauthor{\bsnm{Xu}, \binits{Z.}},
@@ -306,22 +577,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 17
-\bibitem{ellinghaus2008ltrharvest}
-\begin{barticle}
-\bauthor{\bsnm{Ellinghaus}, \binits{D.}},
-\bauthor{\bsnm{Kurtz}, \binits{S.}},
-\bauthor{\bsnm{Willhoeft}, \binits{U.}}:
-\batitle{Ltrharvest, an efficient and flexible software for de novo detection
-  of ltr retrotransposons}.
-\bjtitle{BMC bioinformatics}
-\bvolume{9}(\bissue{1}),
-\bfpage{1}--\blpage{14}
-(\byear{2008})
-\end{barticle}
-\endbibitem
-
-%%% 18
+%%% 35
 \bibitem{valencia2019ltrdetector}
 \begin{barticle}
 \bauthor{\bsnm{Valencia}, \binits{J.D.}},
@@ -335,21 +591,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 19
-\bibitem{ou2018ltr_retriever}
-\begin{barticle}
-\bauthor{\bsnm{Ou}, \binits{S.}},
-\bauthor{\bsnm{Jiang}, \binits{N.}}:
-\batitle{Ltr\_retriever: a highly accurate and sensitive program for
-  identification of long terminal repeat retrotransposons}.
-\bjtitle{Plant physiology}
-\bvolume{176}(\bissue{2}),
-\bfpage{1410}--\blpage{1422}
-(\byear{2018})
-\end{barticle}
-\endbibitem
-
-%%% 20
+%%% 36
 \bibitem{zhao2016makes}
 \begin{barticle}
 \bauthor{\bsnm{Zhao}, \binits{D.}},
@@ -364,7 +606,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 21
+%%% 37
 \bibitem{dewannieux2003line}
 \begin{barticle}
 \bauthor{\bsnm{Dewannieux}, \binits{M.}},
@@ -378,7 +620,7 @@
 \end{barticle}
 \endbibitem
 
-%%% 22
+%%% 38
 \bibitem{mao2017sine_scan}
 \begin{barticle}
 \bauthor{\bsnm{Mao}, \binits{H.}},
@@ -392,7 +634,57 @@
 \end{barticle}
 \endbibitem
 
-%%% 23
+%%% 39
+\bibitem{canapa2015transposons}
+\begin{barticle}
+\bauthor{\bsnm{Canapa}, \binits{A.}},
+\bauthor{\bsnm{Barucca}, \binits{M.}},
+\bauthor{\bsnm{Biscotti}, \binits{M.A.}},
+\bauthor{\bsnm{Forconi}, \binits{M.}},
+\bauthor{\bsnm{Olmo}, \binits{E.}}:
+\batitle{Transposons, genome size, and evolutionary insights in animals}.
+\bjtitle{Cytogenetic and genome research}
+\bvolume{147}(\bissue{4}),
+\bfpage{217}--\blpage{239}
+(\byear{2015})
+\end{barticle}
+\endbibitem
+
+%%% 40
+\bibitem{zhang2019landscape}
+\begin{barticle}
+\bauthor{\bsnm{Zhang}, \binits{X.}},
+\bauthor{\bsnm{Qi}, \binits{Y.}}:
+\batitle{The landscape of copia and gypsy retrotransposon during maize
+  domestication and improvement}.
+\bjtitle{Frontiers in plant science}
+\bvolume{10},
+\bfpage{1533}
+(\byear{2019})
+\end{barticle}
+\endbibitem
+
+%%% 41
+\bibitem{zuccolo2007transposable}
+\begin{barticle}
+\bauthor{\bsnm{Zuccolo}, \binits{A.}},
+\bauthor{\bsnm{Sebastian}, \binits{A.}},
+\bauthor{\bsnm{Talag}, \binits{J.}},
+\bauthor{\bsnm{Yu}, \binits{Y.}},
+\bauthor{\bsnm{Kim}, \binits{H.}},
+\bauthor{\bsnm{Collura}, \binits{K.}},
+\bauthor{\bsnm{Kudrna}, \binits{D.}},
+\bauthor{\bsnm{Wing}, \binits{R.A.}}:
+\batitle{Transposable element distribution, abundance and role in genome size
+  variation in the genus oryza}.
+\bjtitle{BMC Evolutionary Biology}
+\bvolume{7}(\bissue{1}),
+\bfpage{1}--\blpage{15}
+(\byear{2007})
+\end{barticle}
+\endbibitem
+
+%%% 42
 \bibitem{Smit2008repeatmodeler}
 \begin{botherref}
 \oauthor{\bsnm{Smit}, \binits{A.}},
@@ -400,6 +692,82 @@
 Repeatmodeler open-1.0
 (2008-2010)
 \end{botherref}
+\endbibitem
+
+%%% 43
+\bibitem{ou2019ltr_finder_parallel}
+\begin{barticle}
+\bauthor{\bsnm{Ou}, \binits{S.}},
+\bauthor{\bsnm{Jiang}, \binits{N.}}:
+\batitle{Ltr\_finder\_parallel: parallelization of ltr\_finder enabling rapid
+  identification of long terminal repeat retrotransposons}.
+\bjtitle{Mobile DNA}
+\bvolume{10}(\bissue{1}),
+\bfpage{1}--\blpage{3}
+(\byear{2019})
+\end{barticle}
+\endbibitem
+
+%%% 44
+\bibitem{quesneville2010repet}
+\begin{botherref}
+\oauthor{\bsnm{Quesneville}, \binits{H.}},
+\oauthor{\bsnm{Flutre}, \binits{T.}},
+\oauthor{\bsnm{Inizan}, \binits{O.}},
+\oauthor{\bsnm{Hoede}, \binits{C.}},
+\oauthor{\bsnm{Duprat}, \binits{E.}},
+\oauthor{\bsnm{Arnoux}, \binits{S.}},
+\oauthor{\bsnm{Faroux}, \binits{G.}},
+\oauthor{\bsnm{Alfama-Depauw}, \binits{F.}},
+\oauthor{\bsnm{Autard}, \binits{D.}},
+\oauthor{\bsnm{Bely}, \binits{B.}}, et al.:
+Repet
+(2010)
+\end{botherref}
+\endbibitem
+
+%%% 45
+\bibitem{benson1999tandem}
+\begin{barticle}
+\bauthor{\bsnm{Benson}, \binits{G.}}:
+\batitle{Tandem repeats finder: a program to analyze dna sequences}.
+\bjtitle{Nucleic acids research}
+\bvolume{27}(\bissue{2}),
+\bfpage{573}--\blpage{580}
+(\byear{1999})
+\end{barticle}
+\endbibitem
+
+%%% 46
+\bibitem{wenke2011targeted}
+\begin{barticle}
+\bauthor{\bsnm{Wenke}, \binits{T.}},
+\bauthor{\bsnm{D{\"o}bel}, \binits{T.}},
+\bauthor{\bsnm{S{\"o}rensen}, \binits{T.R.}},
+\bauthor{\bsnm{Junghans}, \binits{H.}},
+\bauthor{\bsnm{Weisshaar}, \binits{B.}},
+\bauthor{\bsnm{Schmidt}, \binits{T.}}:
+\batitle{Targeted identification of short interspersed nuclear element families
+  shows their widespread existence and extreme heterogeneity in plant genomes}.
+\bjtitle{The Plant Cell}
+\bvolume{23}(\bissue{9}),
+\bfpage{3117}--\blpage{3128}
+(\byear{2011})
+\end{barticle}
+\endbibitem
+
+%%% 47
+\bibitem{li2006cd}
+\begin{barticle}
+\bauthor{\bsnm{Li}, \binits{W.}},
+\bauthor{\bsnm{Godzik}, \binits{A.}}:
+\batitle{Cd-hit: a fast program for clustering and comparing large sets of
+  protein or nucleotide sequences}.
+\bjtitle{Bioinformatics}
+\bvolume{22}(\bissue{13}),
+\bfpage{1658}--\blpage{1659}
+(\byear{2006})
+\end{barticle}
 \endbibitem
 
 \end{thebibliography}
@@ -411,105 +779,126 @@ Repeatmodeler open-1.0
 <refgrp>
 
 <bibl id="B1">
-  <title><p>Methodologies for the De novo Discovery of Transposable Element
-  Families</p></title>
+  <title><p>Mutable loci in maize.</p></title>
   <aug>
-    <au><snm>Storer</snm><fnm>JM</fnm></au>
-    <au><snm>Hubley</snm><fnm>R</fnm></au>
-    <au><snm>Rosen</snm><fnm>J</fnm></au>
-    <au><snm>Smit</snm><fnm>AF</fnm></au>
+    <au><snm>McClintock</snm><fnm>B</fnm></au>
+    <au><cnm>others</cnm></au>
   </aug>
-  <source>Genes</source>
-  <publisher>Multidisciplinary Digital Publishing Institute</publisher>
-  <pubdate>2022</pubdate>
-  <volume>13</volume>
-  <issue>4</issue>
-  <fpage>709</fpage>
+  <source>Mutable loci in maize.</source>
+  <pubdate>1947</pubdate>
 </bibl>
 
 <bibl id="B2">
-  <title><p>The Dfam community resource of transposable element families,
-  sequence models, and genome annotations</p></title>
+  <title><p>The origin and behavior of mutable loci in maize</p></title>
   <aug>
-    <au><snm>Storer</snm><fnm>J</fnm></au>
-    <au><snm>Hubley</snm><fnm>R</fnm></au>
-    <au><snm>Rosen</snm><fnm>J</fnm></au>
-    <au><snm>Wheeler</snm><fnm>TJ</fnm></au>
-    <au><snm>Smit</snm><fnm>AF</fnm></au>
-  </aug>
-  <source>Mobile DNA</source>
-  <publisher>BioMed Central</publisher>
-  <pubdate>2021</pubdate>
-  <volume>12</volume>
-  <issue>1</issue>
-  <fpage>1</fpage>
-  <lpage>-14</lpage>
-</bibl>
-
-<bibl id="B3">
-  <title><p>Benchmarking transposable element annotation methods for creation
-  of a streamlined, comprehensive pipeline</p></title>
-  <aug>
-    <au><snm>Ou</snm><fnm>S</fnm></au>
-    <au><snm>Su</snm><fnm>W</fnm></au>
-    <au><snm>Liao</snm><fnm>Y</fnm></au>
-    <au><snm>Chougule</snm><fnm>K</fnm></au>
-    <au><snm>Agda</snm><fnm>JR</fnm></au>
-    <au><snm>Hellinga</snm><fnm>AJ</fnm></au>
-    <au><snm>Lugo</snm><fnm>CSB</fnm></au>
-    <au><snm>Elliott</snm><fnm>TA</fnm></au>
-    <au><snm>Ware</snm><fnm>D</fnm></au>
-    <au><snm>Peterson</snm><fnm>T</fnm></au>
-    <au><cnm>others</cnm></au>
-  </aug>
-  <source>Genome biology</source>
-  <publisher>BioMed Central</publisher>
-  <pubdate>2019</pubdate>
-  <volume>20</volume>
-  <issue>1</issue>
-  <fpage>1</fpage>
-  <lpage>-18</lpage>
-</bibl>
-
-<bibl id="B4">
-  <title><p>RepeatModeler2 for automated genomic discovery of transposable
-  element families</p></title>
-  <aug>
-    <au><snm>Flynn</snm><fnm>JM</fnm></au>
-    <au><snm>Hubley</snm><fnm>R</fnm></au>
-    <au><snm>Goubert</snm><fnm>C</fnm></au>
-    <au><snm>Rosen</snm><fnm>J</fnm></au>
-    <au><snm>Clark</snm><fnm>AG</fnm></au>
-    <au><snm>Feschotte</snm><fnm>C</fnm></au>
-    <au><snm>Smit</snm><fnm>AF</fnm></au>
+    <au><snm>McClintock</snm><fnm>B</fnm></au>
   </aug>
   <source>Proceedings of the National Academy of Sciences</source>
   <publisher>National Acad Sciences</publisher>
+  <pubdate>1950</pubdate>
+  <volume>36</volume>
+  <issue>6</issue>
+  <fpage>344</fpage>
+  <lpage>-355</lpage>
+</bibl>
+
+<bibl id="B3">
+  <title><p>Ten things you should know about transposable elements</p></title>
+  <aug>
+    <au><snm>Bourque</snm><fnm>G</fnm></au>
+    <au><snm>Burns</snm><fnm>KH</fnm></au>
+    <au><snm>Gehring</snm><fnm>M</fnm></au>
+    <au><snm>Gorbunova</snm><fnm>V</fnm></au>
+    <au><snm>Seluanov</snm><fnm>A</fnm></au>
+    <au><snm>Hammell</snm><fnm>M</fnm></au>
+    <au><snm>Imbeault</snm><fnm>M</fnm></au>
+    <au><snm>Izsv{\'a}k</snm><fnm>Z</fnm></au>
+    <au><snm>Levin</snm><fnm>HL</fnm></au>
+    <au><snm>Macfarlan</snm><fnm>TS</fnm></au>
+    <au><cnm>others</cnm></au>
+  </aug>
+  <source>Genome biology</source>
+  <publisher>Springer</publisher>
+  <pubdate>2018</pubdate>
+  <volume>19</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-12</lpage>
+</bibl>
+
+<bibl id="B4">
+  <title><p>A field guide to eukaryotic transposable elements</p></title>
+  <aug>
+    <au><snm>Wells</snm><fnm>JN</fnm></au>
+    <au><snm>Feschotte</snm><fnm>C</fnm></au>
+  </aug>
+  <source>Annual review of genetics</source>
+  <publisher>NIH Public Access</publisher>
   <pubdate>2020</pubdate>
-  <volume>117</volume>
-  <issue>17</issue>
-  <fpage>9451</fpage>
-  <lpage>-9457</lpage>
+  <volume>54</volume>
+  <fpage>539</fpage>
 </bibl>
 
 <bibl id="B5">
-  <title><p>Repbase Update, a database of repetitive elements in eukaryotic
-  genomes</p></title>
+  <title><p>Twenty years of transposable element analysis in the Arabidopsis
+  thaliana genome</p></title>
   <aug>
-    <au><snm>Bao</snm><fnm>W</fnm></au>
-    <au><snm>Kojima</snm><fnm>KK</fnm></au>
-    <au><snm>Kohany</snm><fnm>O</fnm></au>
+    <au><snm>Quesneville</snm><fnm>H</fnm></au>
   </aug>
-  <source>Mobile Dna</source>
-  <publisher>Springer</publisher>
-  <pubdate>2015</pubdate>
-  <volume>6</volume>
+  <source>Mobile DNA</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2020</pubdate>
+  <volume>11</volume>
   <issue>1</issue>
   <fpage>1</fpage>
-  <lpage>-6</lpage>
+  <lpage>-13</lpage>
 </bibl>
 
 <bibl id="B6">
+  <title><p>mobile elements and plant genome evolution, comparative analyzes
+  and computational tools</p></title>
+  <aug>
+    <au><snm>Kalendar</snm><fnm>R</fnm></au>
+    <au><snm>Sabot</snm><fnm>F</fnm></au>
+    <au><snm>Rodriguez</snm><fnm>F</fnm></au>
+    <au><snm>Karlov</snm><fnm>GI</fnm></au>
+    <au><snm>Natali</snm><fnm>L</fnm></au>
+    <au><snm>Alix</snm><fnm>K</fnm></au>
+  </aug>
+  <source>Frontiers in plant science</source>
+  <publisher>Frontiers Media SA</publisher>
+  <pubdate>2021</pubdate>
+  <volume>12</volume>
+</bibl>
+
+<bibl id="B7">
+  <title><p>Mobile elements: drivers of genome evolution</p></title>
+  <aug>
+    <au><snm>Kazazian Jr</snm><fnm>HH</fnm></au>
+  </aug>
+  <source>science</source>
+  <publisher>American Association for the Advancement of Science</publisher>
+  <pubdate>2004</pubdate>
+  <volume>303</volume>
+  <issue>5664</issue>
+  <fpage>1626</fpage>
+  <lpage>-1632</lpage>
+</bibl>
+
+<bibl id="B8">
+  <title><p>Eukaryotic transposable elements and genome evolution</p></title>
+  <aug>
+    <au><snm>Finnegan</snm><fnm>DJ</fnm></au>
+  </aug>
+  <source>Trends in genetics</source>
+  <publisher>Elsevier</publisher>
+  <pubdate>1989</pubdate>
+  <volume>5</volume>
+  <fpage>103</fpage>
+  <lpage>-107</lpage>
+</bibl>
+
+<bibl id="B9">
   <title><p>A unified classification system for eukaryotic transposable
   elements</p></title>
   <aug>
@@ -534,7 +923,23 @@ Repeatmodeler open-1.0
   <lpage>-982</lpage>
 </bibl>
 
-<bibl id="B7">
+<bibl id="B10">
+  <title><p>Helitrons on a roll: eukaryotic rolling-circle
+  transposons</p></title>
+  <aug>
+    <au><snm>Kapitonov</snm><fnm>VV</fnm></au>
+    <au><snm>Jurka</snm><fnm>J</fnm></au>
+  </aug>
+  <source>TRENDS in Genetics</source>
+  <publisher>Elsevier</publisher>
+  <pubdate>2007</pubdate>
+  <volume>23</volume>
+  <issue>10</issue>
+  <fpage>521</fpage>
+  <lpage>-529</lpage>
+</bibl>
+
+<bibl id="B11">
   <title><p>TIR-Learner, a new ensemble method for TIR transposable element
   annotation, provides evidence for abundant new transposable elements in the
   maize genome</p></title>
@@ -552,7 +957,322 @@ Repeatmodeler open-1.0
   <lpage>-460</lpage>
 </bibl>
 
-<bibl id="B8">
+<bibl id="B12">
+  <title><p>The mechanism of Ac/Ds transposition</p></title>
+  <aug>
+    <au><snm>Peterson</snm><fnm>T</fnm></au>
+    <au><snm>Zhang</snm><fnm>J</fnm></au>
+  </aug>
+  <source>Plant Transposons and Genome Dynamics in Evolution</source>
+  <publisher>Wiley-Blackwell</publisher>
+  <pubdate>2013</pubdate>
+  <fpage>41</fpage>
+  <lpage>-59</lpage>
+</bibl>
+
+<bibl id="B13">
+  <title><p>Long-read sequencing for identification of insertion sites in large
+  transposon mutant libraries</p></title>
+  <aug>
+    <au><snm>Yasir</snm><fnm>M</fnm></au>
+    <au><snm>Turner</snm><fnm>AK</fnm></au>
+    <au><snm>Lott</snm><fnm>M</fnm></au>
+    <au><snm>Rudder</snm><fnm>S</fnm></au>
+    <au><snm>Baker</snm><fnm>D</fnm></au>
+    <au><snm>Bastkowski</snm><fnm>S</fnm></au>
+    <au><snm>Page</snm><fnm>AJ</fnm></au>
+    <au><snm>Webber</snm><fnm>MA</fnm></au>
+    <au><snm>Charles</snm><fnm>IG</fnm></au>
+  </aug>
+  <source>Scientific reports</source>
+  <publisher>Nature Publishing Group</publisher>
+  <pubdate>2022</pubdate>
+  <volume>12</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-9</lpage>
+</bibl>
+
+<bibl id="B14">
+  <title><p>Methodologies for the De novo Discovery of Transposable Element
+  Families</p></title>
+  <aug>
+    <au><snm>Storer</snm><fnm>JM</fnm></au>
+    <au><snm>Hubley</snm><fnm>R</fnm></au>
+    <au><snm>Rosen</snm><fnm>J</fnm></au>
+    <au><snm>Smit</snm><fnm>AF</fnm></au>
+  </aug>
+  <source>Genes</source>
+  <publisher>Multidisciplinary Digital Publishing Institute</publisher>
+  <pubdate>2022</pubdate>
+  <volume>13</volume>
+  <issue>4</issue>
+  <fpage>709</fpage>
+</bibl>
+
+<bibl id="B15">
+  <title><p>Identification of repeat structure in large genomes using repeat
+  probability clouds</p></title>
+  <aug>
+    <au><snm>Gu</snm><fnm>W</fnm></au>
+    <au><snm>Castoe</snm><fnm>TA</fnm></au>
+    <au><snm>Hedges</snm><fnm>DJ</fnm></au>
+    <au><snm>Batzer</snm><fnm>MA</fnm></au>
+    <au><snm>Pollock</snm><fnm>DD</fnm></au>
+  </aug>
+  <source>Analytical biochemistry</source>
+  <publisher>Elsevier</publisher>
+  <pubdate>2008</pubdate>
+  <volume>380</volume>
+  <issue>1</issue>
+  <fpage>77</fpage>
+  <lpage>-83</lpage>
+</bibl>
+
+<bibl id="B16">
+  <title><p>Detection of new transposable element families in Drosophila
+  melanogaster and Anopheles gambiae genomes</p></title>
+  <aug>
+    <au><snm>Quesneville</snm><fnm>H</fnm></au>
+    <au><snm>Nouaud</snm><fnm>D</fnm></au>
+    <au><snm>Anxolab{\'e}h{\`e}re</snm><fnm>D</fnm></au>
+  </aug>
+  <source>Journal of molecular evolution</source>
+  <publisher>Springer</publisher>
+  <pubdate>2003</pubdate>
+  <volume>57</volume>
+  <issue>1</issue>
+  <fpage>S50</fpage>
+  <lpage>-S59</lpage>
+</bibl>
+
+<bibl id="B17">
+  <title><p>Automated de novo identification of repeat sequence families in
+  sequenced genomes</p></title>
+  <aug>
+    <au><snm>Bao</snm><fnm>Z</fnm></au>
+    <au><snm>Eddy</snm><fnm>SR</fnm></au>
+  </aug>
+  <source>Genome research</source>
+  <publisher>Cold Spring Harbor Lab</publisher>
+  <pubdate>2002</pubdate>
+  <volume>12</volume>
+  <issue>8</issue>
+  <fpage>1269</fpage>
+  <lpage>-1276</lpage>
+</bibl>
+
+<bibl id="B18">
+  <title><p>PILER: identification and classification of genomic
+  repeats</p></title>
+  <aug>
+    <au><snm>Edgar</snm><fnm>RC</fnm></au>
+    <au><snm>Myers</snm><fnm>EW</fnm></au>
+  </aug>
+  <source>Bioinformatics</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2005</pubdate>
+  <volume>21</volume>
+  <issue>suppl\_1</issue>
+  <fpage>i152</fpage>
+  <lpage>-i158</lpage>
+</bibl>
+
+<bibl id="B19">
+  <title><p>LTRharvest, an efficient and flexible software for de novo
+  detection of LTR retrotransposons</p></title>
+  <aug>
+    <au><snm>Ellinghaus</snm><fnm>D</fnm></au>
+    <au><snm>Kurtz</snm><fnm>S</fnm></au>
+    <au><snm>Willhoeft</snm><fnm>U</fnm></au>
+  </aug>
+  <source>BMC bioinformatics</source>
+  <publisher>Springer</publisher>
+  <pubdate>2008</pubdate>
+  <volume>9</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-14</lpage>
+</bibl>
+
+<bibl id="B20">
+  <title><p>LTR\_retriever: a highly accurate and sensitive program for
+  identification of long terminal repeat retrotransposons</p></title>
+  <aug>
+    <au><snm>Ou</snm><fnm>S</fnm></au>
+    <au><snm>Jiang</snm><fnm>N</fnm></au>
+  </aug>
+  <source>Plant physiology</source>
+  <publisher>American Society of Plant Biologists</publisher>
+  <pubdate>2018</pubdate>
+  <volume>176</volume>
+  <issue>2</issue>
+  <fpage>1410</fpage>
+  <lpage>-1422</lpage>
+</bibl>
+
+<bibl id="B21">
+  <title><p>Generic repeat finder: a high-sensitivity tool for genome-wide de
+  novo repeat detection</p></title>
+  <aug>
+    <au><snm>Shi</snm><fnm>J</fnm></au>
+    <au><snm>Liang</snm><fnm>C</fnm></au>
+  </aug>
+  <source>Plant physiology</source>
+  <publisher>American Society of Plant Biologists</publisher>
+  <pubdate>2019</pubdate>
+  <volume>180</volume>
+  <issue>4</issue>
+  <fpage>1803</fpage>
+  <lpage>-1815</lpage>
+</bibl>
+
+<bibl id="B22">
+  <title><p>Helitron distribution in Brassicaceae and whole Genome Helitron
+  density as a character for distinguishing plant species</p></title>
+  <aug>
+    <au><snm>Hu</snm><fnm>K</fnm></au>
+    <au><snm>Xu</snm><fnm>K</fnm></au>
+    <au><snm>Wen</snm><fnm>J</fnm></au>
+    <au><snm>Yi</snm><fnm>B</fnm></au>
+    <au><snm>Shen</snm><fnm>J</fnm></au>
+    <au><snm>Ma</snm><fnm>C</fnm></au>
+    <au><snm>Fu</snm><fnm>T</fnm></au>
+    <au><snm>Ouyang</snm><fnm>Y</fnm></au>
+    <au><snm>Tu</snm><fnm>J</fnm></au>
+  </aug>
+  <source>BMC bioinformatics</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2019</pubdate>
+  <volume>20</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-20</lpage>
+</bibl>
+
+<bibl id="B23">
+  <title><p>HelitronScanner uncovers a large overlooked cache of Helitron
+  transposons in many plant genomes</p></title>
+  <aug>
+    <au><snm>Xiong</snm><fnm>W</fnm></au>
+    <au><snm>He</snm><fnm>L</fnm></au>
+    <au><snm>Lai</snm><fnm>J</fnm></au>
+    <au><snm>Dooner</snm><fnm>HK</fnm></au>
+    <au><snm>Du</snm><fnm>C</fnm></au>
+  </aug>
+  <source>Proceedings of the National Academy of Sciences</source>
+  <publisher>National Acad Sciences</publisher>
+  <pubdate>2014</pubdate>
+  <volume>111</volume>
+  <issue>28</issue>
+  <fpage>10263</fpage>
+  <lpage>-10268</lpage>
+</bibl>
+
+<bibl id="B24">
+  <title><p>Benchmarking transposable element annotation methods for creation
+  of a streamlined, comprehensive pipeline</p></title>
+  <aug>
+    <au><snm>Ou</snm><fnm>S</fnm></au>
+    <au><snm>Su</snm><fnm>W</fnm></au>
+    <au><snm>Liao</snm><fnm>Y</fnm></au>
+    <au><snm>Chougule</snm><fnm>K</fnm></au>
+    <au><snm>Agda</snm><fnm>JR</fnm></au>
+    <au><snm>Hellinga</snm><fnm>AJ</fnm></au>
+    <au><snm>Lugo</snm><fnm>CSB</fnm></au>
+    <au><snm>Elliott</snm><fnm>TA</fnm></au>
+    <au><snm>Ware</snm><fnm>D</fnm></au>
+    <au><snm>Peterson</snm><fnm>T</fnm></au>
+    <au><cnm>others</cnm></au>
+  </aug>
+  <source>Genome biology</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2019</pubdate>
+  <volume>20</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-18</lpage>
+</bibl>
+
+<bibl id="B25">
+  <title><p>RepeatModeler2 for automated genomic discovery of transposable
+  element families</p></title>
+  <aug>
+    <au><snm>Flynn</snm><fnm>JM</fnm></au>
+    <au><snm>Hubley</snm><fnm>R</fnm></au>
+    <au><snm>Goubert</snm><fnm>C</fnm></au>
+    <au><snm>Rosen</snm><fnm>J</fnm></au>
+    <au><snm>Clark</snm><fnm>AG</fnm></au>
+    <au><snm>Feschotte</snm><fnm>C</fnm></au>
+    <au><snm>Smit</snm><fnm>AF</fnm></au>
+  </aug>
+  <source>Proceedings of the National Academy of Sciences</source>
+  <publisher>National Acad Sciences</publisher>
+  <pubdate>2020</pubdate>
+  <volume>117</volume>
+  <issue>17</issue>
+  <fpage>9451</fpage>
+  <lpage>-9457</lpage>
+</bibl>
+
+<bibl id="B26">
+  <title><p>Repbase Update, a database of repetitive elements in eukaryotic
+  genomes</p></title>
+  <aug>
+    <au><snm>Bao</snm><fnm>W</fnm></au>
+    <au><snm>Kojima</snm><fnm>KK</fnm></au>
+    <au><snm>Kohany</snm><fnm>O</fnm></au>
+  </aug>
+  <source>Mobile Dna</source>
+  <publisher>Springer</publisher>
+  <pubdate>2015</pubdate>
+  <volume>6</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-6</lpage>
+</bibl>
+
+<bibl id="B27">
+  <title><p>The Dfam database of repetitive DNA families</p></title>
+  <aug>
+    <au><snm>Hubley</snm><fnm>R</fnm></au>
+    <au><snm>Finn</snm><fnm>RD</fnm></au>
+    <au><snm>Clements</snm><fnm>J</fnm></au>
+    <au><snm>Eddy</snm><fnm>SR</fnm></au>
+    <au><snm>Jones</snm><fnm>TA</fnm></au>
+    <au><snm>Bao</snm><fnm>W</fnm></au>
+    <au><snm>Smit</snm><fnm>AF</fnm></au>
+    <au><snm>Wheeler</snm><fnm>TJ</fnm></au>
+  </aug>
+  <source>Nucleic acids research</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2016</pubdate>
+  <volume>44</volume>
+  <issue>D1</issue>
+  <fpage>D81</fpage>
+  <lpage>-D89</lpage>
+</bibl>
+
+<bibl id="B28">
+  <title><p>The Dfam community resource of transposable element families,
+  sequence models, and genome annotations</p></title>
+  <aug>
+    <au><snm>Storer</snm><fnm>J</fnm></au>
+    <au><snm>Hubley</snm><fnm>R</fnm></au>
+    <au><snm>Rosen</snm><fnm>J</fnm></au>
+    <au><snm>Wheeler</snm><fnm>TJ</fnm></au>
+    <au><snm>Smit</snm><fnm>AF</fnm></au>
+  </aug>
+  <source>Mobile DNA</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2021</pubdate>
+  <volume>12</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-14</lpage>
+</bibl>
+
+<bibl id="B29">
   <title><p>The hAT family: a versatile transposon group common to plants,
   fungi, animals, and man</p></title>
   <aug>
@@ -568,7 +1288,7 @@ Repeatmodeler open-1.0
   <lpage>-9</lpage>
 </bibl>
 
-<bibl id="B9">
+<bibl id="B30">
   <title><p>Inverted repeat structure of the human genome: the X-chromosome
   contains a preponderance of large, highly homologous inverted repeats that
   contain testes genes</p></title>
@@ -588,7 +1308,7 @@ Repeatmodeler open-1.0
   <lpage>-1869</lpage>
 </bibl>
 
-<bibl id="B10">
+<bibl id="B31">
   <title><p>GenomeTools: a comprehensive software library for efficient
   processing of structured genome annotations</p></title>
   <aug>
@@ -606,58 +1326,7 @@ Repeatmodeler open-1.0
   <lpage>-656</lpage>
 </bibl>
 
-<bibl id="B11">
-  <title><p>Generic repeat finder: a high-sensitivity tool for genome-wide de
-  novo repeat detection</p></title>
-  <aug>
-    <au><snm>Shi</snm><fnm>J</fnm></au>
-    <au><snm>Liang</snm><fnm>C</fnm></au>
-  </aug>
-  <source>Plant physiology</source>
-  <publisher>American Society of Plant Biologists</publisher>
-  <pubdate>2019</pubdate>
-  <volume>180</volume>
-  <issue>4</issue>
-  <fpage>1803</fpage>
-  <lpage>-1815</lpage>
-</bibl>
-
-<bibl id="B12">
-  <title><p>Helitrons on a roll: eukaryotic rolling-circle
-  transposons</p></title>
-  <aug>
-    <au><snm>Kapitonov</snm><fnm>VV</fnm></au>
-    <au><snm>Jurka</snm><fnm>J</fnm></au>
-  </aug>
-  <source>TRENDS in Genetics</source>
-  <publisher>Elsevier</publisher>
-  <pubdate>2007</pubdate>
-  <volume>23</volume>
-  <issue>10</issue>
-  <fpage>521</fpage>
-  <lpage>-529</lpage>
-</bibl>
-
-<bibl id="B13">
-  <title><p>HelitronScanner uncovers a large overlooked cache of Helitron
-  transposons in many plant genomes</p></title>
-  <aug>
-    <au><snm>Xiong</snm><fnm>W</fnm></au>
-    <au><snm>He</snm><fnm>L</fnm></au>
-    <au><snm>Lai</snm><fnm>J</fnm></au>
-    <au><snm>Dooner</snm><fnm>HK</fnm></au>
-    <au><snm>Du</snm><fnm>C</fnm></au>
-  </aug>
-  <source>Proceedings of the National Academy of Sciences</source>
-  <publisher>National Acad Sciences</publisher>
-  <pubdate>2014</pubdate>
-  <volume>111</volume>
-  <issue>28</issue>
-  <fpage>10263</fpage>
-  <lpage>-10268</lpage>
-</bibl>
-
-<bibl id="B14">
+<bibl id="B32">
   <title><p>MGEScan: a Galaxy-based system for identifying retrotransposons in
   genomes</p></title>
   <aug>
@@ -678,7 +1347,7 @@ Repeatmodeler open-1.0
   <lpage>-2504</lpage>
 </bibl>
 
-<bibl id="B15">
+<bibl id="B33">
   <title><p>LTR\_STRUC: a novel search and identification program for LTR
   retrotransposons</p></title>
   <aug>
@@ -694,7 +1363,7 @@ Repeatmodeler open-1.0
   <lpage>-367</lpage>
 </bibl>
 
-<bibl id="B16">
+<bibl id="B34">
   <title><p>LTR\_FINDER: an efficient tool for the prediction of full-length
   LTR retrotransposons</p></title>
   <aug>
@@ -710,24 +1379,7 @@ Repeatmodeler open-1.0
   <lpage>-W268</lpage>
 </bibl>
 
-<bibl id="B17">
-  <title><p>LTRharvest, an efficient and flexible software for de novo
-  detection of LTR retrotransposons</p></title>
-  <aug>
-    <au><snm>Ellinghaus</snm><fnm>D</fnm></au>
-    <au><snm>Kurtz</snm><fnm>S</fnm></au>
-    <au><snm>Willhoeft</snm><fnm>U</fnm></au>
-  </aug>
-  <source>BMC bioinformatics</source>
-  <publisher>Springer</publisher>
-  <pubdate>2008</pubdate>
-  <volume>9</volume>
-  <issue>1</issue>
-  <fpage>1</fpage>
-  <lpage>-14</lpage>
-</bibl>
-
-<bibl id="B18">
+<bibl id="B35">
   <title><p>LtrDetector: A tool-suite for detecting long terminal repeat
   retrotransposons de-novo</p></title>
   <aug>
@@ -743,23 +1395,7 @@ Repeatmodeler open-1.0
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B19">
-  <title><p>LTR\_retriever: a highly accurate and sensitive program for
-  identification of long terminal repeat retrotransposons</p></title>
-  <aug>
-    <au><snm>Ou</snm><fnm>S</fnm></au>
-    <au><snm>Jiang</snm><fnm>N</fnm></au>
-  </aug>
-  <source>Plant physiology</source>
-  <publisher>American Society of Plant Biologists</publisher>
-  <pubdate>2018</pubdate>
-  <volume>176</volume>
-  <issue>2</issue>
-  <fpage>1410</fpage>
-  <lpage>-1422</lpage>
-</bibl>
-
-<bibl id="B20">
+<bibl id="B36">
   <title><p>What makes up plant genomes: The vanishing line between
   transposable elements and genes</p></title>
   <aug>
@@ -777,7 +1413,7 @@ Repeatmodeler open-1.0
   <lpage>-380</lpage>
 </bibl>
 
-<bibl id="B21">
+<bibl id="B37">
   <title><p>LINE-mediated retrotransposition of marked Alu
   sequences</p></title>
   <aug>
@@ -794,7 +1430,7 @@ Repeatmodeler open-1.0
   <lpage>-48</lpage>
 </bibl>
 
-<bibl id="B22">
+<bibl id="B38">
   <title><p>SINE\_scan: an efficient tool to discover short interspersed
   nuclear elements (SINEs) in large-scale genomic datasets</p></title>
   <aug>
@@ -810,13 +1446,154 @@ Repeatmodeler open-1.0
   <lpage>-745</lpage>
 </bibl>
 
-<bibl id="B23">
+<bibl id="B39">
+  <title><p>Transposons, genome size, and evolutionary insights in
+  animals</p></title>
+  <aug>
+    <au><snm>Canapa</snm><fnm>A</fnm></au>
+    <au><snm>Barucca</snm><fnm>M</fnm></au>
+    <au><snm>Biscotti</snm><fnm>MA</fnm></au>
+    <au><snm>Forconi</snm><fnm>M</fnm></au>
+    <au><snm>Olmo</snm><fnm>E</fnm></au>
+  </aug>
+  <source>Cytogenetic and genome research</source>
+  <publisher>Karger Publishers</publisher>
+  <pubdate>2015</pubdate>
+  <volume>147</volume>
+  <issue>4</issue>
+  <fpage>217</fpage>
+  <lpage>-239</lpage>
+</bibl>
+
+<bibl id="B40">
+  <title><p>The landscape of Copia and Gypsy retrotransposon during maize
+  domestication and improvement</p></title>
+  <aug>
+    <au><snm>Zhang</snm><fnm>X</fnm></au>
+    <au><snm>Qi</snm><fnm>Y</fnm></au>
+  </aug>
+  <source>Frontiers in plant science</source>
+  <publisher>Frontiers Media SA</publisher>
+  <pubdate>2019</pubdate>
+  <volume>10</volume>
+  <fpage>1533</fpage>
+</bibl>
+
+<bibl id="B41">
+  <title><p>Transposable element distribution, abundance and role in genome
+  size variation in the genus Oryza</p></title>
+  <aug>
+    <au><snm>Zuccolo</snm><fnm>A</fnm></au>
+    <au><snm>Sebastian</snm><fnm>A</fnm></au>
+    <au><snm>Talag</snm><fnm>J</fnm></au>
+    <au><snm>Yu</snm><fnm>Y</fnm></au>
+    <au><snm>Kim</snm><fnm>H</fnm></au>
+    <au><snm>Collura</snm><fnm>K</fnm></au>
+    <au><snm>Kudrna</snm><fnm>D</fnm></au>
+    <au><snm>Wing</snm><fnm>RA</fnm></au>
+  </aug>
+  <source>BMC Evolutionary Biology</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2007</pubdate>
+  <volume>7</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-15</lpage>
+</bibl>
+
+<bibl id="B42">
   <title><p>RepeatModeler Open-1.0</p></title>
   <aug>
     <au><snm>Smit</snm><fnm>AFA</fnm></au>
     <au><snm>Hubley</snm><fnm>R</fnm></au>
   </aug>
   <pubdate>2008-2010</pubdate>
+</bibl>
+
+<bibl id="B43">
+  <title><p>LTR\_FINDER\_parallel: parallelization of LTR\_FINDER enabling
+  rapid identification of long terminal repeat retrotransposons</p></title>
+  <aug>
+    <au><snm>Ou</snm><fnm>S</fnm></au>
+    <au><snm>Jiang</snm><fnm>N</fnm></au>
+  </aug>
+  <source>Mobile DNA</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2019</pubdate>
+  <volume>10</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-3</lpage>
+</bibl>
+
+<bibl id="B44">
+  <title><p>REPET</p></title>
+  <aug>
+    <au><snm>Quesneville</snm><fnm>H</fnm></au>
+    <au><snm>Flutre</snm><fnm>T</fnm></au>
+    <au><snm>Inizan</snm><fnm>O</fnm></au>
+    <au><snm>Hoede</snm><fnm>C</fnm></au>
+    <au><snm>Duprat</snm><fnm>E</fnm></au>
+    <au><snm>Arnoux</snm><fnm>S</fnm></au>
+    <au><snm>Faroux</snm><fnm>G</fnm></au>
+    <au><snm>Alfama Depauw</snm><fnm>F</fnm></au>
+    <au><snm>Autard</snm><fnm>D</fnm></au>
+    <au><snm>Bely</snm><fnm>B</fnm></au>
+    <au><cnm>others</cnm></au>
+  </aug>
+  <pubdate>2010</pubdate>
+</bibl>
+
+<bibl id="B45">
+  <title><p>Tandem repeats finder: a program to analyze DNA
+  sequences</p></title>
+  <aug>
+    <au><snm>Benson</snm><fnm>G</fnm></au>
+  </aug>
+  <source>Nucleic acids research</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>1999</pubdate>
+  <volume>27</volume>
+  <issue>2</issue>
+  <fpage>573</fpage>
+  <lpage>-580</lpage>
+</bibl>
+
+<bibl id="B46">
+  <title><p>Targeted identification of short interspersed nuclear element
+  families shows their widespread existence and extreme heterogeneity in plant
+  genomes</p></title>
+  <aug>
+    <au><snm>Wenke</snm><fnm>T</fnm></au>
+    <au><snm>D{\"o}bel</snm><fnm>T</fnm></au>
+    <au><snm>S{\"o}rensen</snm><fnm>TR</fnm></au>
+    <au><snm>Junghans</snm><fnm>H</fnm></au>
+    <au><snm>Weisshaar</snm><fnm>B</fnm></au>
+    <au><snm>Schmidt</snm><fnm>T</fnm></au>
+  </aug>
+  <source>The Plant Cell</source>
+  <publisher>American Society of Plant Biologists</publisher>
+  <pubdate>2011</pubdate>
+  <volume>23</volume>
+  <issue>9</issue>
+  <fpage>3117</fpage>
+  <lpage>-3128</lpage>
+</bibl>
+
+<bibl id="B47">
+  <title><p>Cd-hit: a fast program for clustering and comparing large sets of
+  protein or nucleotide sequences</p></title>
+  <aug>
+    <au><snm>Li</snm><fnm>W</fnm></au>
+    <au><snm>Godzik</snm><fnm>A</fnm></au>
+  </aug>
+  <source>Bioinformatics</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2006</pubdate>
+  <volume>22</volume>
+  <issue>13</issue>
+  <fpage>1658</fpage>
+  <lpage>-1659</lpage>
 </bibl>
 
 </refgrp>

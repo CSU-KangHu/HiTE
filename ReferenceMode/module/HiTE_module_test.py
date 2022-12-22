@@ -680,8 +680,25 @@ if __name__ == '__main__':
 
     #reduce_library_size()
 
-    ref_dir = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays'
-    reference = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna'
-    rename_ref = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
-    rename_reference(reference, rename_ref)
+    # ref_dir = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays'
+    # reference = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna'
+    # rename_ref = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
+    # rename_reference(reference, rename_ref)
+
+    out_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/maize//longest_repeats_blast'
+    for filename in os.listdir(out_dir):
+        blastn2Results_path = out_dir + '/' + filename
+        if filename.endswith('.out'):
+            with open(blastn2Results_path, 'r') as f_r:
+                print('current path: ' + blastn2Results_path)
+                for idx, line in enumerate(f_r):
+                    parts = line.split('\t')
+                    query_name = parts[0]
+                    subject_name = parts[1]
+                    identity = float(parts[2])
+                    alignment_len = int(parts[3])
+                    q_start = int(parts[6])
+                    q_end = int(parts[7])
+                    s_start = int(parts[8])
+                    s_end = int(parts[9])
 
