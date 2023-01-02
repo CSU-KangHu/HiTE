@@ -138,7 +138,7 @@ optional arguments:
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python main.py ../demo/Ecoli_K12_Ref.fasta ecoli
+python3 main.py -g ../demo/Ecoli_K12_Ref.fasta -a ecoli -t 48 -o ../demo/ecoli --plant 0
 ```
 
 ## <a name="input"></a>Input
