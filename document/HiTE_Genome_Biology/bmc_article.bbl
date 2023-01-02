@@ -1,6 +1,6 @@
 %% BioMed_Central_Bib_Style_v1.01
 
-\begin{thebibliography}{47}
+\begin{thebibliography}{48}
 % BibTex style file: bmc-mathphys.bst (version 2.1), 2014-07-24
 \ifx \bisbn   \undefined \def \bisbn  #1{ISBN #1}\fi
 \ifx \binits  \undefined \def \binits#1{#1}\fi
@@ -215,6 +215,27 @@ Plant Transposons and Genome Dynamics in Evolution,
 \endbibitem
 
 %%% 13
+\bibitem{nurk2022complete}
+\begin{barticle}
+\bauthor{\bsnm{Nurk}, \binits{S.}},
+\bauthor{\bsnm{Koren}, \binits{S.}},
+\bauthor{\bsnm{Rhie}, \binits{A.}},
+\bauthor{\bsnm{Rautiainen}, \binits{M.}},
+\bauthor{\bsnm{Bzikadze}, \binits{A.V.}},
+\bauthor{\bsnm{Mikheenko}, \binits{A.}},
+\bauthor{\bsnm{Vollger}, \binits{M.R.}},
+\bauthor{\bsnm{Altemose}, \binits{N.}},
+\bauthor{\bsnm{Uralsky}, \binits{L.}},
+\bauthor{\bsnm{Gershman}, \binits{A.}}, \betal:
+\batitle{The complete sequence of a human genome}.
+\bjtitle{Science}
+\bvolume{376}(\bissue{6588}),
+\bfpage{44}--\blpage{53}
+(\byear{2022})
+\end{barticle}
+\endbibitem
+
+%%% 14
 \bibitem{yasir2022long}
 \begin{barticle}
 \bauthor{\bsnm{Yasir}, \binits{M.}},
@@ -235,7 +256,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 14
+%%% 15
 \bibitem{storer2022methodologies}
 \begin{barticle}
 \bauthor{\bsnm{Storer}, \binits{J.M.}},
@@ -251,7 +272,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 15
+%%% 16
 \bibitem{gu2008identification}
 \begin{barticle}
 \bauthor{\bsnm{Gu}, \binits{W.}},
@@ -268,7 +289,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 16
+%%% 17
 \bibitem{quesneville2003detection}
 \begin{barticle}
 \bauthor{\bsnm{Quesneville}, \binits{H.}},
@@ -283,7 +304,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 17
+%%% 18
 \bibitem{bao2002automated}
 \begin{barticle}
 \bauthor{\bsnm{Bao}, \binits{Z.}},
@@ -297,7 +318,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 18
+%%% 19
 \bibitem{edgar2005piler}
 \begin{barticle}
 \bauthor{\bsnm{Edgar}, \binits{R.C.}},
@@ -310,7 +331,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 19
+%%% 20
 \bibitem{ellinghaus2008ltrharvest}
 \begin{barticle}
 \bauthor{\bsnm{Ellinghaus}, \binits{D.}},
@@ -325,7 +346,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 20
+%%% 21
 \bibitem{ou2018ltr_retriever}
 \begin{barticle}
 \bauthor{\bsnm{Ou}, \binits{S.}},
@@ -339,7 +360,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 21
+%%% 22
 \bibitem{shi2019generic}
 \begin{barticle}
 \bauthor{\bsnm{Shi}, \binits{J.}},
@@ -353,7 +374,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 22
+%%% 23
 \bibitem{hu2019helitron}
 \begin{barticle}
 \bauthor{\bsnm{Hu}, \binits{K.}},
@@ -374,7 +395,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 23
+%%% 24
 \bibitem{xiong2014helitronscanner}
 \begin{barticle}
 \bauthor{\bsnm{Xiong}, \binits{W.}},
@@ -391,7 +412,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 24
+%%% 25
 \bibitem{ou2019benchmarking}
 \begin{barticle}
 \bauthor{\bsnm{Ou}, \binits{S.}},
@@ -413,7 +434,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 25
+%%% 26
 \bibitem{flynn2020repeatmodeler2}
 \begin{barticle}
 \bauthor{\bsnm{Flynn}, \binits{J.M.}},
@@ -432,7 +453,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 26
+%%% 27
 \bibitem{bao2015repbase}
 \begin{barticle}
 \bauthor{\bsnm{Bao}, \binits{W.}},
@@ -447,7 +468,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 27
+%%% 28
 \bibitem{hubley2016dfam}
 \begin{barticle}
 \bauthor{\bsnm{Hubley}, \binits{R.}},
@@ -466,7 +487,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 28
+%%% 29
 \bibitem{storer2021dfam}
 \begin{barticle}
 \bauthor{\bsnm{Storer}, \binits{J.}},
@@ -483,7 +504,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 29
+%%% 30
 \bibitem{kempken2001hat}
 \begin{barticle}
 \bauthor{\bsnm{Kempken}, \binits{F.}},
@@ -497,7 +518,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 30
+%%% 31
 \bibitem{warburton2004inverted}
 \begin{barticle}
 \bauthor{\bsnm{Warburton}, \binits{P.E.}},
@@ -515,7 +536,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 31
+%%% 32
 \bibitem{gremme2013genometools}
 \begin{barticle}
 \bauthor{\bsnm{Gremme}, \binits{G.}},
@@ -530,7 +551,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 32
+%%% 33
 \bibitem{lee2016mgescan}
 \begin{barticle}
 \bauthor{\bsnm{Lee}, \binits{H.}},
@@ -549,7 +570,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 33
+%%% 34
 \bibitem{mccarthy2003ltr_struc}
 \begin{barticle}
 \bauthor{\bsnm{McCarthy}, \binits{E.M.}},
@@ -563,7 +584,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 34
+%%% 35
 \bibitem{xu2007ltr_finder}
 \begin{barticle}
 \bauthor{\bsnm{Xu}, \binits{Z.}},
@@ -577,7 +598,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 35
+%%% 36
 \bibitem{valencia2019ltrdetector}
 \begin{barticle}
 \bauthor{\bsnm{Valencia}, \binits{J.D.}},
@@ -591,7 +612,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 36
+%%% 37
 \bibitem{zhao2016makes}
 \begin{barticle}
 \bauthor{\bsnm{Zhao}, \binits{D.}},
@@ -606,7 +627,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 37
+%%% 38
 \bibitem{dewannieux2003line}
 \begin{barticle}
 \bauthor{\bsnm{Dewannieux}, \binits{M.}},
@@ -620,7 +641,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 38
+%%% 39
 \bibitem{mao2017sine_scan}
 \begin{barticle}
 \bauthor{\bsnm{Mao}, \binits{H.}},
@@ -634,7 +655,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 39
+%%% 40
 \bibitem{canapa2015transposons}
 \begin{barticle}
 \bauthor{\bsnm{Canapa}, \binits{A.}},
@@ -650,7 +671,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 40
+%%% 41
 \bibitem{zhang2019landscape}
 \begin{barticle}
 \bauthor{\bsnm{Zhang}, \binits{X.}},
@@ -664,7 +685,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 41
+%%% 42
 \bibitem{zuccolo2007transposable}
 \begin{barticle}
 \bauthor{\bsnm{Zuccolo}, \binits{A.}},
@@ -684,7 +705,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 42
+%%% 43
 \bibitem{Smit2008repeatmodeler}
 \begin{botherref}
 \oauthor{\bsnm{Smit}, \binits{A.}},
@@ -694,7 +715,7 @@ Repeatmodeler open-1.0
 \end{botherref}
 \endbibitem
 
-%%% 43
+%%% 44
 \bibitem{ou2019ltr_finder_parallel}
 \begin{barticle}
 \bauthor{\bsnm{Ou}, \binits{S.}},
@@ -708,7 +729,7 @@ Repeatmodeler open-1.0
 \end{barticle}
 \endbibitem
 
-%%% 44
+%%% 45
 \bibitem{quesneville2010repet}
 \begin{botherref}
 \oauthor{\bsnm{Quesneville}, \binits{H.}},
@@ -726,7 +747,7 @@ Repet
 \end{botherref}
 \endbibitem
 
-%%% 45
+%%% 46
 \bibitem{benson1999tandem}
 \begin{barticle}
 \bauthor{\bsnm{Benson}, \binits{G.}}:
@@ -738,7 +759,7 @@ Repet
 \end{barticle}
 \endbibitem
 
-%%% 46
+%%% 47
 \bibitem{wenke2011targeted}
 \begin{barticle}
 \bauthor{\bsnm{Wenke}, \binits{T.}},
@@ -756,7 +777,7 @@ Repet
 \end{barticle}
 \endbibitem
 
-%%% 47
+%%% 48
 \bibitem{li2006cd}
 \begin{barticle}
 \bauthor{\bsnm{Li}, \binits{W.}},
@@ -971,6 +992,30 @@ Repet
 </bibl>
 
 <bibl id="B13">
+  <title><p>The complete sequence of a human genome</p></title>
+  <aug>
+    <au><snm>Nurk</snm><fnm>S</fnm></au>
+    <au><snm>Koren</snm><fnm>S</fnm></au>
+    <au><snm>Rhie</snm><fnm>A</fnm></au>
+    <au><snm>Rautiainen</snm><fnm>M</fnm></au>
+    <au><snm>Bzikadze</snm><fnm>AV</fnm></au>
+    <au><snm>Mikheenko</snm><fnm>A</fnm></au>
+    <au><snm>Vollger</snm><fnm>MR</fnm></au>
+    <au><snm>Altemose</snm><fnm>N</fnm></au>
+    <au><snm>Uralsky</snm><fnm>L</fnm></au>
+    <au><snm>Gershman</snm><fnm>A</fnm></au>
+    <au><cnm>others</cnm></au>
+  </aug>
+  <source>Science</source>
+  <publisher>American Association for the Advancement of Science</publisher>
+  <pubdate>2022</pubdate>
+  <volume>376</volume>
+  <issue>6588</issue>
+  <fpage>44</fpage>
+  <lpage>-53</lpage>
+</bibl>
+
+<bibl id="B14">
   <title><p>Long-read sequencing for identification of insertion sites in large
   transposon mutant libraries</p></title>
   <aug>
@@ -993,7 +1038,7 @@ Repet
   <lpage>-9</lpage>
 </bibl>
 
-<bibl id="B14">
+<bibl id="B15">
   <title><p>Methodologies for the De novo Discovery of Transposable Element
   Families</p></title>
   <aug>
@@ -1010,7 +1055,7 @@ Repet
   <fpage>709</fpage>
 </bibl>
 
-<bibl id="B15">
+<bibl id="B16">
   <title><p>Identification of repeat structure in large genomes using repeat
   probability clouds</p></title>
   <aug>
@@ -1029,7 +1074,7 @@ Repet
   <lpage>-83</lpage>
 </bibl>
 
-<bibl id="B16">
+<bibl id="B17">
   <title><p>Detection of new transposable element families in Drosophila
   melanogaster and Anopheles gambiae genomes</p></title>
   <aug>
@@ -1046,7 +1091,7 @@ Repet
   <lpage>-S59</lpage>
 </bibl>
 
-<bibl id="B17">
+<bibl id="B18">
   <title><p>Automated de novo identification of repeat sequence families in
   sequenced genomes</p></title>
   <aug>
@@ -1062,7 +1107,7 @@ Repet
   <lpage>-1276</lpage>
 </bibl>
 
-<bibl id="B18">
+<bibl id="B19">
   <title><p>PILER: identification and classification of genomic
   repeats</p></title>
   <aug>
@@ -1078,7 +1123,7 @@ Repet
   <lpage>-i158</lpage>
 </bibl>
 
-<bibl id="B19">
+<bibl id="B20">
   <title><p>LTRharvest, an efficient and flexible software for de novo
   detection of LTR retrotransposons</p></title>
   <aug>
@@ -1095,7 +1140,7 @@ Repet
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B20">
+<bibl id="B21">
   <title><p>LTR\_retriever: a highly accurate and sensitive program for
   identification of long terminal repeat retrotransposons</p></title>
   <aug>
@@ -1111,7 +1156,7 @@ Repet
   <lpage>-1422</lpage>
 </bibl>
 
-<bibl id="B21">
+<bibl id="B22">
   <title><p>Generic repeat finder: a high-sensitivity tool for genome-wide de
   novo repeat detection</p></title>
   <aug>
@@ -1127,7 +1172,7 @@ Repet
   <lpage>-1815</lpage>
 </bibl>
 
-<bibl id="B22">
+<bibl id="B23">
   <title><p>Helitron distribution in Brassicaceae and whole Genome Helitron
   density as a character for distinguishing plant species</p></title>
   <aug>
@@ -1150,7 +1195,7 @@ Repet
   <lpage>-20</lpage>
 </bibl>
 
-<bibl id="B23">
+<bibl id="B24">
   <title><p>HelitronScanner uncovers a large overlooked cache of Helitron
   transposons in many plant genomes</p></title>
   <aug>
@@ -1169,7 +1214,7 @@ Repet
   <lpage>-10268</lpage>
 </bibl>
 
-<bibl id="B24">
+<bibl id="B25">
   <title><p>Benchmarking transposable element annotation methods for creation
   of a streamlined, comprehensive pipeline</p></title>
   <aug>
@@ -1194,7 +1239,7 @@ Repet
   <lpage>-18</lpage>
 </bibl>
 
-<bibl id="B25">
+<bibl id="B26">
   <title><p>RepeatModeler2 for automated genomic discovery of transposable
   element families</p></title>
   <aug>
@@ -1215,7 +1260,7 @@ Repet
   <lpage>-9457</lpage>
 </bibl>
 
-<bibl id="B26">
+<bibl id="B27">
   <title><p>Repbase Update, a database of repetitive elements in eukaryotic
   genomes</p></title>
   <aug>
@@ -1232,7 +1277,7 @@ Repet
   <lpage>-6</lpage>
 </bibl>
 
-<bibl id="B27">
+<bibl id="B28">
   <title><p>The Dfam database of repetitive DNA families</p></title>
   <aug>
     <au><snm>Hubley</snm><fnm>R</fnm></au>
@@ -1253,7 +1298,7 @@ Repet
   <lpage>-D89</lpage>
 </bibl>
 
-<bibl id="B28">
+<bibl id="B29">
   <title><p>The Dfam community resource of transposable element families,
   sequence models, and genome annotations</p></title>
   <aug>
@@ -1272,7 +1317,7 @@ Repet
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B29">
+<bibl id="B30">
   <title><p>The hAT family: a versatile transposon group common to plants,
   fungi, animals, and man</p></title>
   <aug>
@@ -1288,7 +1333,7 @@ Repet
   <lpage>-9</lpage>
 </bibl>
 
-<bibl id="B30">
+<bibl id="B31">
   <title><p>Inverted repeat structure of the human genome: the X-chromosome
   contains a preponderance of large, highly homologous inverted repeats that
   contain testes genes</p></title>
@@ -1308,7 +1353,7 @@ Repet
   <lpage>-1869</lpage>
 </bibl>
 
-<bibl id="B31">
+<bibl id="B32">
   <title><p>GenomeTools: a comprehensive software library for efficient
   processing of structured genome annotations</p></title>
   <aug>
@@ -1326,7 +1371,7 @@ Repet
   <lpage>-656</lpage>
 </bibl>
 
-<bibl id="B32">
+<bibl id="B33">
   <title><p>MGEScan: a Galaxy-based system for identifying retrotransposons in
   genomes</p></title>
   <aug>
@@ -1347,7 +1392,7 @@ Repet
   <lpage>-2504</lpage>
 </bibl>
 
-<bibl id="B33">
+<bibl id="B34">
   <title><p>LTR\_STRUC: a novel search and identification program for LTR
   retrotransposons</p></title>
   <aug>
@@ -1363,7 +1408,7 @@ Repet
   <lpage>-367</lpage>
 </bibl>
 
-<bibl id="B34">
+<bibl id="B35">
   <title><p>LTR\_FINDER: an efficient tool for the prediction of full-length
   LTR retrotransposons</p></title>
   <aug>
@@ -1379,7 +1424,7 @@ Repet
   <lpage>-W268</lpage>
 </bibl>
 
-<bibl id="B35">
+<bibl id="B36">
   <title><p>LtrDetector: A tool-suite for detecting long terminal repeat
   retrotransposons de-novo</p></title>
   <aug>
@@ -1395,7 +1440,7 @@ Repet
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B36">
+<bibl id="B37">
   <title><p>What makes up plant genomes: The vanishing line between
   transposable elements and genes</p></title>
   <aug>
@@ -1413,7 +1458,7 @@ Repet
   <lpage>-380</lpage>
 </bibl>
 
-<bibl id="B37">
+<bibl id="B38">
   <title><p>LINE-mediated retrotransposition of marked Alu
   sequences</p></title>
   <aug>
@@ -1430,7 +1475,7 @@ Repet
   <lpage>-48</lpage>
 </bibl>
 
-<bibl id="B38">
+<bibl id="B39">
   <title><p>SINE\_scan: an efficient tool to discover short interspersed
   nuclear elements (SINEs) in large-scale genomic datasets</p></title>
   <aug>
@@ -1446,7 +1491,7 @@ Repet
   <lpage>-745</lpage>
 </bibl>
 
-<bibl id="B39">
+<bibl id="B40">
   <title><p>Transposons, genome size, and evolutionary insights in
   animals</p></title>
   <aug>
@@ -1465,7 +1510,7 @@ Repet
   <lpage>-239</lpage>
 </bibl>
 
-<bibl id="B40">
+<bibl id="B41">
   <title><p>The landscape of Copia and Gypsy retrotransposon during maize
   domestication and improvement</p></title>
   <aug>
@@ -1479,7 +1524,7 @@ Repet
   <fpage>1533</fpage>
 </bibl>
 
-<bibl id="B41">
+<bibl id="B42">
   <title><p>Transposable element distribution, abundance and role in genome
   size variation in the genus Oryza</p></title>
   <aug>
@@ -1501,7 +1546,7 @@ Repet
   <lpage>-15</lpage>
 </bibl>
 
-<bibl id="B42">
+<bibl id="B43">
   <title><p>RepeatModeler Open-1.0</p></title>
   <aug>
     <au><snm>Smit</snm><fnm>AFA</fnm></au>
@@ -1510,7 +1555,7 @@ Repet
   <pubdate>2008-2010</pubdate>
 </bibl>
 
-<bibl id="B43">
+<bibl id="B44">
   <title><p>LTR\_FINDER\_parallel: parallelization of LTR\_FINDER enabling
   rapid identification of long terminal repeat retrotransposons</p></title>
   <aug>
@@ -1526,7 +1571,7 @@ Repet
   <lpage>-3</lpage>
 </bibl>
 
-<bibl id="B44">
+<bibl id="B45">
   <title><p>REPET</p></title>
   <aug>
     <au><snm>Quesneville</snm><fnm>H</fnm></au>
@@ -1544,7 +1589,7 @@ Repet
   <pubdate>2010</pubdate>
 </bibl>
 
-<bibl id="B45">
+<bibl id="B46">
   <title><p>Tandem repeats finder: a program to analyze DNA
   sequences</p></title>
   <aug>
@@ -1559,7 +1604,7 @@ Repet
   <lpage>-580</lpage>
 </bibl>
 
-<bibl id="B46">
+<bibl id="B47">
   <title><p>Targeted identification of short interspersed nuclear element
   families shows their widespread existence and extreme heterogeneity in plant
   genomes</p></title>
@@ -1580,7 +1625,7 @@ Repet
   <lpage>-3128</lpage>
 </bibl>
 
-<bibl id="B47">
+<bibl id="B48">
   <title><p>Cd-hit: a fast program for clustering and comparing large sets of
   protein or nucleotide sequences</p></title>
   <aug>
