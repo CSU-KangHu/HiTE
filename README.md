@@ -14,7 +14,6 @@ git clone https://github.com/BioinformaticsCSU/HiTE.git
   - [Genome coverage by each major subclass](#cover_genome)
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
-  - [Installing pysam and psutil](#pysam)
   - [Installing genome tools](#genome_tools)
   - [Installing LTR_retriever](#ltrretriever)
   - [Configuring dependencies](#configure)
