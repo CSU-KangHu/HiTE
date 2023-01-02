@@ -79,7 +79,7 @@ Then, run
 
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python configure.py
+python3 configure.py
 ```
 to validate all configurations.
 
