@@ -44,12 +44,6 @@ from the [RepeatMasker Download page](http://www.repeatmasker.org/RepeatMasker/)
 
 Please install  **RMBlast** as the Sequence Search Engine of RepeatMasker.
 
-### <a name="pysam"></a>Installing pysam and psutil
-```
-pip install pysam
-pip install psutil
-```
-
 ### <a name="genome_tools"></a>Installing genome tools
 Download [Genome Tools](http://genometools.org/pub/binary_distributions/).
 
