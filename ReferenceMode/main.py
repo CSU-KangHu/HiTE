@@ -575,61 +575,6 @@ if __name__ == '__main__':
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
-        log.logger.info('Start step2: Structural Based LTR Searching')
-        # 1.重命名reference文件
-        ref_rename_path = tmp_output_dir + '/' + cut_ref_name + '.rename.fa'
-        rename_reference(cut_reference, ref_rename_path)
-
-        backjob = None
-        resut_file = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.harvest.scn'
-        if not is_recover or not file_exist(resut_file):
-            log.logger.info('Start step2.1: Running LTR_harvest')
-            # -------------------------------Stage01: this stage is used to generate kmer coverage repeats-------------------------------
-            # --------------------------------------------------------------------------------------
-            # run LTRharvest background job
-            backjob = multiprocessing.Process(target=run_LTR_harvest,
-                                              args=(Genome_Tools_Home, ref_rename_path, tmp_output_dir, ref_index, log,))
-            backjob.start()
-        else:
-            log.logger.info(resut_file + ' exists, skip...')
-
-        resut_file = ref_rename_path + '.finder.combine.scn'
-        if not is_recover or not file_exist(resut_file):
-            starttime = time.time()
-            log.logger.info('Start step2.2: Running LTR finder parallel to obtain candidate LTRs')
-
-            # 运行LTR_finder_parallel来获取候选的LTR序列
-            # 2.运行LTR_finder_parallel
-            LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home + '/LTR_FINDER_parallel -harvest_out -seq ' + ref_rename_path + ' -threads ' + str(threads)
-            os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
-
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of obtaining candidate LTRs: %.8s s" % (dtime))
-        else:
-            log.logger.info(resut_file + ' exists, skip...')
-
-        # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever
-        if backjob is not None:
-            backjob.join()
-        ltrharvest_output = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.harvest.scn'
-        ltrfinder_output = ref_rename_path + '.finder.combine.scn'
-        ltr_output = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.rawLTR.scn'
-        os.system('cat '+ltrharvest_output+' '+ltrfinder_output+' > '+ltr_output)
-
-        resut_file = ref_rename_path + '.LTRlib.fa'
-        if not is_recover or not file_exist(resut_file):
-            starttime = time.time()
-            log.logger.info('Start step2.3: run LTR_retriever to get confident LTR')
-            run_LTR_retriever(LTR_retriever_Home, ref_rename_path, tmp_output_dir, ref_index, threads, log)
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of step2.3: %.8s s" % (dtime))
-        else:
-            log.logger.info(resut_file + ' exists, skip...')
-
-        cur_confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut_' + str(ref_index) + '.fa'
-        os.system('cp '+resut_file+' '+cur_confident_ltr_cut_path)
         #合并Helitron、TIR、other转座子
         cur_confident_TE_path = tmp_output_dir + '/confident_TE_'+str(ref_index)+'.fa'
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.fa'
@@ -640,18 +585,81 @@ if __name__ == '__main__':
     # 过滤TIR候选序列中的LTR转座子（intact LTR or LTR terminals or LTR internals）
     # 1.1 合并所有parts的TIR序列
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-    confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
     confident_other_path = tmp_output_dir + '/confident_other.fa'
+    ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
     os.system('rm -f ' + confident_tir_path)
-    os.system('rm -f ' + confident_ltr_cut_path)
     os.system('rm -f ' + confident_other_path)
-    for ref_index, cut_reference in enumerate(cut_references):
+    os.system('rm -f ' + ltr_output)
+    for ref_index, ref_rename_path in enumerate(cut_references):
         cur_confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
-        cur_confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut_' + str(ref_index) + '.fa'
         cur_confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
-        os.system('cat ' + cur_confident_ltr_cut_path + ' >> ' + confident_ltr_cut_path)
         os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
+
+        cur_ltr_output = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.rawLTR.scn'
+        os.system('cat ' + cur_ltr_output + ' > ' + ltr_output)
+
+    log.logger.info('Start step2: Structural Based LTR Searching')
+    # 1.重命名reference文件
+    (ref_dir, ref_filename) = os.path.split(reference)
+    (ref_name, ref_extension) = os.path.splitext(ref_filename)
+
+    ref_rename_path = tmp_output_dir + '/' + ref_name + '.rename.fa'
+    rename_reference(reference, ref_rename_path)
+
+    backjob = None
+    resut_file = tmp_output_dir + '/genome_all.fa.harvest.scn'
+    if not is_recover or not file_exist(resut_file):
+        log.logger.info('Start step2.1: Running LTR_harvest')
+        # -------------------------------Stage01: this stage is used to generate kmer coverage repeats-------------------------------
+        # --------------------------------------------------------------------------------------
+        # run LTRharvest background job
+        backjob = multiprocessing.Process(target=run_LTR_harvest,
+                                          args=(Genome_Tools_Home, ref_rename_path, tmp_output_dir, log,))
+        backjob.start()
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    resut_file = ref_rename_path + '.finder.combine.scn'
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        log.logger.info('Start step2.2: Running LTR finder parallel to obtain candidate LTRs')
+
+        # 运行LTR_finder_parallel来获取候选的LTR序列
+        # 2.运行LTR_finder_parallel
+        LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home + '/LTR_FINDER_parallel -harvest_out -seq ' + ref_rename_path + ' -threads ' + str(
+            threads)
+        os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
+
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of obtaining candidate LTRs: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever
+    if backjob is not None:
+        backjob.join()
+    ltrharvest_output = tmp_output_dir + '/genome_all.fa.harvest.scn'
+    ltrfinder_output = ref_rename_path + '.finder.combine.scn'
+    ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
+    os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)
+
+    resut_file = ref_rename_path + '.LTRlib.fa'
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        log.logger.info('Start step2.3: run LTR_retriever to get confident LTR')
+        run_LTR_retriever(LTR_retriever_Home, ref_rename_path, tmp_output_dir, threads, log)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step2.3: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+
+
     # 1.2 confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
     temp_dir = tmp_output_dir + '/tir_blast_ltr'
     all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, blast_program_dir, temp_dir, 'tir', threads, query_coverage=0.8)

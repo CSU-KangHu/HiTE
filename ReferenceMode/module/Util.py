@@ -500,14 +500,14 @@ def store_LTR_seq_v1(ltrharvest_output, longest_repeats_path, confident_ltr_path
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
-def run_LTR_harvest(Genome_Tools_Home, reference, tmp_output_dir, ref_index, log):
+def run_LTR_harvest(Genome_Tools_Home, reference, tmp_output_dir, log):
     starttime = time.time()
     log.logger.debug('start LTR_harvest detection...')
     ltrharvest_command1 = Genome_Tools_Home + '/bin/gt suffixerator -db ' + reference + ' -indexname ' \
                           + reference + ' -tis -suf -lcp -des -ssp -sds -dna'
     ltrharvest_command2 = Genome_Tools_Home + '/bin/gt ltrharvest -index ' + reference \
                           + ' -seed 20 -minlenltr 100 -maxlenltr 7000 -similar 85 -motif TGCA -motifmis 1 -mintsd 4 -maxtsd 6 ' \
-                            '-vic 10 -seqids yes > ' + tmp_output_dir + '/genome_'+str(ref_index)+'.fa.harvest.scn'
+                            '-vic 10 -seqids yes > ' + tmp_output_dir + '/genome_all.fa.harvest.scn'
 
     os.system(ltrharvest_command1)
     os.system(ltrharvest_command2)
@@ -515,11 +515,11 @@ def run_LTR_harvest(Genome_Tools_Home, reference, tmp_output_dir, ref_index, log
     dtime = endtime - starttime
     log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
 
-def run_LTR_retriever(LTR_retriever_Home, reference, tmp_output_dir, ref_index, threads, log):
+def run_LTR_retriever(LTR_retriever_Home, reference, tmp_output_dir, threads, log):
     starttime = time.time()
     log.logger.debug('start LTR_retriever detection...')
     LTR_retriever_command = 'cd ' + tmp_output_dir + ' && ' + LTR_retriever_Home + '/LTR_retriever -genome ' + reference \
-                            + ' -inharvest ' + tmp_output_dir + '/genome_' + str(ref_index) + '.fa.rawLTR.scn -noanno -threads ' + str(threads)
+                            + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads)
     os.system(LTR_retriever_command)
     endtime = time.time()
     dtime = endtime - starttime
@@ -4818,7 +4818,8 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
     new_all_copies = {}
     for query_name in all_copies.keys():
         if TE_type == 'tir':
-            tsd = query_name.split('-tsd_')[1]
+            # tsd = query_name.split('-tsd_')[1]
+            tsd = ''
         else:
             tsd = ''
         copies = all_copies[query_name]
