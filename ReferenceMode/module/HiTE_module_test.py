@@ -15,7 +15,8 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, getReverseSequence, allow_mismatch, \
     run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, flanking_copies, \
-    store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference
+    store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
+    run_LTR_harvest, run_LTR_retriever
 
 
 def generate_repbases():
@@ -648,6 +649,36 @@ def reduce_library_size():
     os.system(cd_hit_command)
 
 
+def run_LTR_test():
+    log = Logger('HiTE.log', level='debug')
+    param_config_path = os.getcwd() + "/../ParamConfig.json"
+    # read param config
+    with open(param_config_path, 'r') as load_f:
+        param = json.load(load_f)
+    load_f.close()
+    Genome_Tools_Home = param['Genome_Tools_Home']
+    LTR_finder_parallel_Home = param['LTR_finder_parallel_Home']
+    LTR_retriever_Home = param['LTR_retriever_Home']
+
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/maize/LTR_test'
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
+    ref_rename_path = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
+    ref_index = 'all'
+    threads = 48
+
+    # run_LTR_harvest(Genome_Tools_Home, ref_rename_path, tmp_output_dir, ref_index, log)
+    # LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home + '/LTR_FINDER_parallel -harvest_out -seq ' + ref_rename_path + ' -threads ' + str(
+    #     threads)
+    # os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
+    ltrharvest_output = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.harvest.scn'
+    ltrfinder_output = tmp_output_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna.finder.combine.scn'
+    ltr_output = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.rawLTR.scn'
+    os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)
+    run_LTR_retriever(LTR_retriever_Home, ref_rename_path, tmp_output_dir, ref_index, threads, log)
+
+
+
 if __name__ == '__main__':
     repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/dmel'
@@ -685,20 +716,17 @@ if __name__ == '__main__':
     # rename_ref = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
     # rename_reference(reference, rename_ref)
 
-    out_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/maize//longest_repeats_blast'
-    for filename in os.listdir(out_dir):
-        blastn2Results_path = out_dir + '/' + filename
-        if filename.endswith('.out'):
-            with open(blastn2Results_path, 'r') as f_r:
-                print('current path: ' + blastn2Results_path)
-                for idx, line in enumerate(f_r):
-                    parts = line.split('\t')
-                    query_name = parts[0]
-                    subject_name = parts[1]
-                    identity = float(parts[2])
-                    alignment_len = int(parts[3])
-                    q_start = int(parts[6])
-                    q_end = int(parts[7])
-                    s_start = int(parts[8])
-                    s_end = int(parts[9])
+    #run_LTR_test()
+
+    # tools_dir = os.getcwd() + '/../tools'
+    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    # long_repeats = tmp_dir + '/longest_repeats_0.filter_tandem.fa'
+    # long_repeats_cons = tmp_dir + '/longest_repeats_0.cons.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + long_repeats + ' -o ' + long_repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+
+    long_repeats_cons = tmp_dir + '/longest_repeats_0.cons.fa'
+    long_repeats_rename_cons = tmp_dir + '/longest_repeats_0.cons.rename.fa'
+    rename_fasta(long_repeats_cons, long_repeats_rename_cons)
 
