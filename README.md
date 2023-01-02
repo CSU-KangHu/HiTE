@@ -36,6 +36,7 @@ HiTE offers a more **comprehensive** ability to annotate TEs and achieves remark
 ![输入图片说明](pic/cover_genome_1.png)
 
 ## <a name="install"></a>Installation
+### HiTE requires python3, please ensure you run HiTE with python3.
 
 ### <a name="repeatmasker"></a>Installing RepeatMasker
 It is recommended to download the latest release of RepeatMasker 
