@@ -55,6 +55,7 @@ tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 ### <a name="ltrretriever"></a>Installing LTR_retriever
 Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
+Install [LTRharvest](http://genometools.org/pub/binary_distributions/) and [LTR_FINDER_parallel](https://github.com/oushujun/LTR_FINDER_parallel).
 
 记得chmod +x tools_dir里的所有工具
 
