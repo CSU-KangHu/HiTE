@@ -14,7 +14,6 @@ git clone https://github.com/BioinformaticsCSU/HiTE.git
   - [Genome coverage by each major subclass](#cover_genome)
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
-  - [Installing pysam and psutil](#pysam)
   - [Installing genome tools](#genome_tools)
   - [Installing LTR_retriever](#ltrretriever)
   - [Configuring dependencies](#configure)
@@ -37,18 +36,13 @@ HiTE offers a more **comprehensive** ability to annotate TEs and achieves remark
 ![输入图片说明](pic/cover_genome_1.png)
 
 ## <a name="install"></a>Installation
+HiTE requires python3, please ensure you run HiTE with python3.
 
 ### <a name="repeatmasker"></a>Installing RepeatMasker
 It is recommended to download the latest release of RepeatMasker 
 from the [RepeatMasker Download page](http://www.repeatmasker.org/RepeatMasker/).
 
 Please install  **RMBlast** as the Sequence Search Engine of RepeatMasker.
-
-### <a name="pysam"></a>Installing pysam and psutil
-```
-pip install pysam
-pip install psutil
-```
 
 ### <a name="genome_tools"></a>Installing genome tools
 Download [Genome Tools](http://genometools.org/pub/binary_distributions/).
@@ -62,6 +56,7 @@ tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 ### <a name="ltrretriever"></a>Installing LTR_retriever
 Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
+Install [LTRharvest](http://genometools.org/pub/binary_distributions/) and [LTR_FINDER_parallel](https://github.com/oushujun/LTR_FINDER_parallel).
 
 记得chmod +x tools_dir里的所有工具
 
@@ -84,7 +79,7 @@ Then, run
 
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python configure.py
+python3 configure.py
 ```
 to validate all configurations.
 
@@ -143,7 +138,7 @@ optional arguments:
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python main.py ../demo/Ecoli_K12_Ref.fasta ecoli
+python3 main.py -g ../demo/genome.fa -a test -t 48 -o ../demo/test --plant 0
 ```
 
 ## <a name="input"></a>Input
