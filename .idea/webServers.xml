@@ -5,7 +5,7 @@
       <webServer id="387563d7-eaac-4171-823e-ee02649d4c08" name="super">
         <fileTransfer accessType="SFTP" host="hpclogin1.csu.edu.cn" port="8220" sshConfigId="ebe826fd-acce-4118-901f-49d555f57967" sshConfig="hpc194701009@hpclogin1.csu.edu.cn:8220 password">
           <advancedOptions>
-            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>

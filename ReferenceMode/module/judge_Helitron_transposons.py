@@ -1,3 +1,4 @@
+#-- coding: UTF-8 --
 import argparse
 import codecs
 import os

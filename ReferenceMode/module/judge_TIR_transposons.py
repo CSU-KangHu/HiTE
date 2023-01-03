@@ -1,3 +1,4 @@
+#-- coding: UTF-8 --
 import argparse
 import codecs
 import os
@@ -23,7 +24,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
     flanking_len = 50
     similar_ratio = 0.1
     TE_type = 'tir'
-    print(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index)
+    #print(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index)
     confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
     endtime = time.time()
     dtime = endtime - starttime

@@ -726,7 +726,29 @@ if __name__ == '__main__':
     #                  + ' -G 0 -g 1 -A 80 -i ' + long_repeats + ' -o ' + long_repeats_cons + ' -T 0 -M 0'
     # os.system(cd_hit_command)
 
-    long_repeats_cons = tmp_dir + '/longest_repeats_0.cons.fa'
-    long_repeats_rename_cons = tmp_dir + '/longest_repeats_0.cons.rename.fa'
-    rename_fasta(long_repeats_cons, long_repeats_rename_cons)
+    # long_repeats_cons = tmp_dir + '/longest_repeats_0.cons.fa'
+    # long_repeats_rename_cons = tmp_dir + '/longest_repeats_0.cons.rename.fa'
+    # rename_fasta(long_repeats_cons, long_repeats_rename_cons)
+
+
+
+    # chrs = ["chr_0", "chr_1", "chr_2", "chr_3", "chr_4", "chr_5", "chr_6", "chr_7", "chr_8", "chr_9", "chr_10", "chr_11"]
+    # gff_path = 'C:/Users/Admin/Downloads/krf.gff'
+    # new_gff_path = 'C:/Users/Admin/Downloads/krf1.gff'
+    # with open(gff_path, 'r') as f_r:
+    #     with open(new_gff_path, 'w') as f_save:
+    #         for line in f_r:
+    #             parts = line.split('\t')
+    #             chr_name = parts[0]
+    #             #print(line)
+    #             if line.startswith("##sequence-region"):
+    #                 cur_chr_name = line.split(' ')[1]
+    #                 print(cur_chr_name)
+    #                 if cur_chr_name not in chrs:
+    #                     continue
+    #             else:
+    #                 if chr_name not in chrs:
+    #                     continue
+    #             #print(line)
+    #             f_save.write(line)
 

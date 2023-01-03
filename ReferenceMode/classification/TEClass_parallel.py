@@ -399,20 +399,23 @@ if __name__ == '__main__':
     for partition_index in range(partitions_num):
         cur_tmp_dir = tmp_output_dir + '/' + str(partition_index)
         cur_classified_path = cur_tmp_dir + '/consensus.fasta.final.classified'
-        merge_command = 'cat ' + cur_classified_path + ' >> ' + final_classified_path
-        #print(merge_command)
-        os.system(merge_command)
+        if os.path.exists(cur_classified_path):
+            merge_command = 'cat ' + cur_classified_path + ' >> ' + final_classified_path
+            #print(merge_command)
+            os.system(merge_command)
 
         cur_tmpBlastxOutput = cur_tmp_dir + '/tmpBlastXResults.out.bxsummary'
-        merge_command = 'cat ' + cur_tmpBlastxOutput + ' >> ' + final_tmpBlastX_path
-        #print(merge_command)
-        os.system(merge_command)
+        if os.path.exists(cur_tmpBlastxOutput):
+            merge_command = 'cat ' + cur_tmpBlastxOutput + ' >> ' + final_tmpBlastX_path
+            #print(merge_command)
+            os.system(merge_command)
 
         cur_tmpBlastnOutput = cur_tmp_dir + '/blastn.out'
-        merge_command = 'cat ' + cur_tmpBlastnOutput + ' >> ' + final_tmpBlastn_path
-        #print(merge_command)
-        os.system(merge_command)
-        #merge_fasta(cur_classified_path, final_classified_path)
+        if os.path.exists(cur_tmpBlastnOutput):
+            merge_command = 'cat ' + cur_tmpBlastnOutput + ' >> ' + final_tmpBlastn_path
+            #print(merge_command)
+            os.system(merge_command)
+            #merge_fasta(cur_classified_path, final_classified_path)
 
 
 

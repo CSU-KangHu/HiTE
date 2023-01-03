@@ -113,11 +113,24 @@ if __name__ == '__main__':
         print('----can not find LTR_retriever in %s directory' %ltr_retriever_home)
         sys.exit(-1)
 
+    LTR_finder_parallel_home = param['LTR_finder_parallel_Home'] + "/LTR_FINDER_parallel"
+    if not os.path.exists(LTR_finder_parallel_home):
+        print('error:')
+        print('----can not find LTR_finder_parallel in %s' % LTR_finder_parallel_home)
+        sys.exit(-1)
+
     trf_program = os.getcwd() + "/tools/trf409.linux64"
     if not os.path.exists(trf_program):
         print('error:')
         print('----can not find trf in %s' %trf_program)
         sys.exit(-1)
+
+    EAHelitron_program = param['EAHelitron'] + "/EAHelitron"
+    if not os.path.exists(EAHelitron_program):
+        print('error:')
+        print('----can not find EAHelitron in %s' % EAHelitron_program)
+        sys.exit(-1)
+
 
     # 2. modify RepModelConfig.pm in RepeatClassifier directory
     RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"

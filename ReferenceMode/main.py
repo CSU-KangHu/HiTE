@@ -1,3 +1,4 @@
+#-- coding: UTF-8 --
 import argparse
 
 import codecs
@@ -8,8 +9,8 @@ import os
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count, set_start_method
-
-set_start_method('forkserver', force=True)
+#
+# set_start_method('forkserver', force=True)
 
 from module.Util import read_fasta, Logger, store_fasta, \
     get_candidate_repeats, split2cluster_normal, \
@@ -519,7 +520,7 @@ if __name__ == '__main__':
             starttime = time.time()
             log.logger.info('Start step1.3: determine fine-grained TIR')
             # 识别TIR转座子
-            tir_identification_command = 'cd ' + test_home + ' && python ' + test_home + '/judge_TIR_transposons.py -g ' \
+            tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
                                          + cut_reference + ' --seqs ' + longest_repeats_flanked_path\
                                          + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
                                          + ' --tmp_output_dir ' + tmp_output_dir + ' --blast_program_dir ' \
@@ -538,7 +539,7 @@ if __name__ == '__main__':
             starttime = time.time()
             log.logger.info('Start step1.4: determine fine-grained Helitron')
             # 识别Helitron转座子
-            helitron_identification_command = 'cd ' + test_home + ' && python ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
+            helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
                                               + ' --tmp_output_dir ' + tmp_output_dir + ' --EAHelitron ' + EAHelitron \
                                               + ' --blast_program_dir ' + blast_program_dir \
@@ -563,7 +564,7 @@ if __name__ == '__main__':
             starttime = time.time()
             log.logger.info('Start step1.5: homology-based other TE searching')
             #同源搜索其他转座子
-            other_identification_command = 'cd ' + test_home + ' && python ' + test_home + '/judge_Other_transposons.py ' \
+            other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
                                            + ' --seqs ' + longest_repeats_flanked_path\
                                            + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
                                            + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
@@ -586,18 +587,13 @@ if __name__ == '__main__':
     # 1.1 合并所有parts的TIR序列
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
     confident_other_path = tmp_output_dir + '/confident_other.fa'
-    ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
     os.system('rm -f ' + confident_tir_path)
     os.system('rm -f ' + confident_other_path)
-    os.system('rm -f ' + ltr_output)
     for ref_index, ref_rename_path in enumerate(cut_references):
         cur_confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
         cur_confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
         os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
-
-        cur_ltr_output = tmp_output_dir + '/genome_' + str(ref_index) + '.fa.rawLTR.scn'
-        os.system('cat ' + cur_ltr_output + ' > ' + ltr_output)
 
     log.logger.info('Start step2: Structural Based LTR Searching')
     # 1.重命名reference文件
@@ -689,7 +685,7 @@ if __name__ == '__main__':
 
     # 1.5 解开TIR中包含的nested TE
     clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
-    remove_nested_command = 'cd ' + test_home + ' && python remove_nested_lib.py ' \
+    remove_nested_command = 'cd ' + test_home + ' && python3 remove_nested_lib.py ' \
                             + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
                             + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
                             + ' --input1 ' + confident_tir_rename_consensus \
@@ -744,7 +740,7 @@ if __name__ == '__main__':
         temp_confident_TE_path = tmp_output_dir + '/confident_TE.temp.fa'
         os.system('cat ' + confident_ltr_cut_path + ' > ' + temp_confident_TE_path)
         os.system('cat ' + confident_TE_path + ' >> ' + temp_confident_TE_path)
-        remove_nested_command = 'cd ' + test_home + ' && python remove_nested_lib.py ' \
+        remove_nested_command = 'cd ' + test_home + ' && python3 remove_nested_lib.py ' \
                                 + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
                                 + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
                                 + ' --input1 ' + temp_confident_TE_path \
@@ -767,7 +763,7 @@ if __name__ == '__main__':
 
     starttime = time.time()
     log.logger.info('Start step3: generate non-redundant library')
-    generate_lib_command = 'cd ' + test_home + ' && python ' + test_home + '/get_nonRedundant_lib.py' \
+    generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir
     os.system(generate_lib_command)
