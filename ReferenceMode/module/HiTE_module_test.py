@@ -716,7 +716,7 @@ if __name__ == '__main__':
     # rename_ref = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
     # rename_reference(reference, rename_ref)
 
-    #run_LTR_test()
+    #run_LTR_test() 
 
     # tools_dir = os.getcwd() + '/../tools'
     tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
@@ -730,6 +730,16 @@ if __name__ == '__main__':
     # long_repeats_rename_cons = tmp_dir + '/longest_repeats_0.cons.rename.fa'
     # rename_fasta(long_repeats_cons, long_repeats_rename_cons)
 
+
+    novel_tir_copies = tmp_dir + '/novel_tir.copies.info'
+    novel_tir_copies1 = tmp_dir + '/novel_tir.copies.v1.info'
+    with open(novel_tir_copies, 'r') as f_r:
+        with open(novel_tir_copies, 'r') as f_save:
+            for line in f_r:
+                if line.startswith('\t'):
+                    continue
+                else:
+                    f_save.write(line)
 
 
     # chrs = ["chr_0", "chr_1", "chr_2", "chr_3", "chr_4", "chr_5", "chr_6", "chr_7", "chr_8", "chr_9", "chr_10", "chr_11"]
