@@ -6,10 +6,10 @@ import codecs
 
 import json
 
-# import numpy as np
-# from matplotlib import pyplot as plt
-# import seaborn as sns
-# import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+import seaborn as sns
+import pandas as pd
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -585,10 +585,12 @@ def draw_dist():
 
     y = list(query_copy_num.values())
     x = pd.Series(y, name="copy number")
+    sns.set_theme(style="whitegrid", font='Times New Roman', font_scale=1.4)
     ax = sns.distplot(x, kde=True)
     #plt.show()
     #plt.savefig(tmp_output_dir + "/copy_num.eps", format='eps', dpi=1000)
-    plt.savefig(tmp_output_dir + "/copy_num.svg", format='svg', dpi=150)
+
+    plt.savefig(tmp_output_dir + "/copy_num.svg", format='svg', dpi=150, bbox_inches='tight')
 
 
 def test_EAHelitron():
@@ -705,7 +707,7 @@ if __name__ == '__main__':
 
     #identify_new_TIR()
 
-    #draw_dist()
+    draw_dist()
 
     #test_EAHelitron()
 
@@ -716,7 +718,7 @@ if __name__ == '__main__':
     # rename_ref = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
     # rename_reference(reference, rename_ref)
 
-    #run_LTR_test() 
+    #run_LTR_test()
 
     # tools_dir = os.getcwd() + '/../tools'
     tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
@@ -731,15 +733,33 @@ if __name__ == '__main__':
     # rename_fasta(long_repeats_cons, long_repeats_rename_cons)
 
 
-    novel_tir_copies = tmp_dir + '/novel_tir.copies.info'
-    novel_tir_copies1 = tmp_dir + '/novel_tir.copies.v1.info'
-    with open(novel_tir_copies, 'r') as f_r:
-        with open(novel_tir_copies, 'r') as f_save:
-            for line in f_r:
-                if line.startswith('\t'):
-                    continue
-                else:
-                    f_save.write(line)
+    # novel_tir_copies = tmp_dir + '/novel_tir.copies.info'
+    # novel_tir_dir = tmp_dir + '/novel_tir'
+    # if not os.path.exists(novel_tir_dir):
+    #     os.makedirs(novel_tir_dir)
+    # novel_tir_copies1 = novel_tir_dir + '/novel_tir.copies.v1.info'
+    # novel_tirs = {}
+    # with open(novel_tir_copies, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         if line.startswith('N_'):
+    #             if not novel_tirs.__contains__(line):
+    #                 novel_tirs[line] = []
+    #             copies = novel_tirs[line]
+    #         else:
+    #             if line.startswith('\t'):
+    #                 continue
+    #             else:
+    #                 copies.append(line)
+    # for name in novel_tirs.keys():
+    #     seqs = novel_tirs[name]
+    #     path = novel_tir_dir + '/' + name + '.fa'
+    #     node_index = 0
+    #     with open(path, 'w') as f_save:
+    #         for seq in seqs:
+    #             f_save.write('>N_'+str(node_index)+'\n'+seq+'\n')
+    #             node_index += 1
+
 
 
     # chrs = ["chr_0", "chr_1", "chr_2", "chr_3", "chr_4", "chr_5", "chr_6", "chr_7", "chr_8", "chr_9", "chr_10", "chr_11"]

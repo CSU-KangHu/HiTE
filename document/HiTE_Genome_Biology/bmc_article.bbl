@@ -488,6 +488,20 @@ Plant Transposons and Genome Dynamics in Evolution,
 \endbibitem
 
 %%% 29
+\bibitem{xu2007ltr_finder}
+\begin{barticle}
+\bauthor{\bsnm{Xu}, \binits{Z.}},
+\bauthor{\bsnm{Wang}, \binits{H.}}:
+\batitle{Ltr\_finder: an efficient tool for the prediction of full-length ltr
+  retrotransposons}.
+\bjtitle{Nucleic acids research}
+\bvolume{35}(\bissue{suppl\_2}),
+\bfpage{265}--\blpage{268}
+(\byear{2007})
+\end{barticle}
+\endbibitem
+
+%%% 30
 \bibitem{storer2021dfam}
 \begin{barticle}
 \bauthor{\bsnm{Storer}, \binits{J.}},
@@ -504,7 +518,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 30
+%%% 31
 \bibitem{kempken2001hat}
 \begin{barticle}
 \bauthor{\bsnm{Kempken}, \binits{F.}},
@@ -518,7 +532,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 31
+%%% 32
 \bibitem{warburton2004inverted}
 \begin{barticle}
 \bauthor{\bsnm{Warburton}, \binits{P.E.}},
@@ -536,7 +550,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 32
+%%% 33
 \bibitem{gremme2013genometools}
 \begin{barticle}
 \bauthor{\bsnm{Gremme}, \binits{G.}},
@@ -551,7 +565,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 33
+%%% 34
 \bibitem{lee2016mgescan}
 \begin{barticle}
 \bauthor{\bsnm{Lee}, \binits{H.}},
@@ -570,7 +584,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 34
+%%% 35
 \bibitem{mccarthy2003ltr_struc}
 \begin{barticle}
 \bauthor{\bsnm{McCarthy}, \binits{E.M.}},
@@ -581,20 +595,6 @@ Plant Transposons and Genome Dynamics in Evolution,
 \bvolume{19}(\bissue{3}),
 \bfpage{362}--\blpage{367}
 (\byear{2003})
-\end{barticle}
-\endbibitem
-
-%%% 35
-\bibitem{xu2007ltr_finder}
-\begin{barticle}
-\bauthor{\bsnm{Xu}, \binits{Z.}},
-\bauthor{\bsnm{Wang}, \binits{H.}}:
-\batitle{Ltr\_finder: an efficient tool for the prediction of full-length ltr
-  retrotransposons}.
-\bjtitle{Nucleic acids research}
-\bvolume{35}(\bissue{suppl\_2}),
-\bfpage{265}--\blpage{268}
-(\byear{2007})
 \end{barticle}
 \endbibitem
 
@@ -1299,6 +1299,22 @@ Repet
 </bibl>
 
 <bibl id="B29">
+  <title><p>LTR\_FINDER: an efficient tool for the prediction of full-length
+  LTR retrotransposons</p></title>
+  <aug>
+    <au><snm>Xu</snm><fnm>Z</fnm></au>
+    <au><snm>Wang</snm><fnm>H</fnm></au>
+  </aug>
+  <source>Nucleic acids research</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2007</pubdate>
+  <volume>35</volume>
+  <issue>suppl\_2</issue>
+  <fpage>W265</fpage>
+  <lpage>-W268</lpage>
+</bibl>
+
+<bibl id="B30">
   <title><p>The Dfam community resource of transposable element families,
   sequence models, and genome annotations</p></title>
   <aug>
@@ -1317,7 +1333,7 @@ Repet
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B30">
+<bibl id="B31">
   <title><p>The hAT family: a versatile transposon group common to plants,
   fungi, animals, and man</p></title>
   <aug>
@@ -1333,7 +1349,7 @@ Repet
   <lpage>-9</lpage>
 </bibl>
 
-<bibl id="B31">
+<bibl id="B32">
   <title><p>Inverted repeat structure of the human genome: the X-chromosome
   contains a preponderance of large, highly homologous inverted repeats that
   contain testes genes</p></title>
@@ -1353,7 +1369,7 @@ Repet
   <lpage>-1869</lpage>
 </bibl>
 
-<bibl id="B32">
+<bibl id="B33">
   <title><p>GenomeTools: a comprehensive software library for efficient
   processing of structured genome annotations</p></title>
   <aug>
@@ -1371,7 +1387,7 @@ Repet
   <lpage>-656</lpage>
 </bibl>
 
-<bibl id="B33">
+<bibl id="B34">
   <title><p>MGEScan: a Galaxy-based system for identifying retrotransposons in
   genomes</p></title>
   <aug>
@@ -1392,7 +1408,7 @@ Repet
   <lpage>-2504</lpage>
 </bibl>
 
-<bibl id="B34">
+<bibl id="B35">
   <title><p>LTR\_STRUC: a novel search and identification program for LTR
   retrotransposons</p></title>
   <aug>
@@ -1406,22 +1422,6 @@ Repet
   <issue>3</issue>
   <fpage>362</fpage>
   <lpage>-367</lpage>
-</bibl>
-
-<bibl id="B35">
-  <title><p>LTR\_FINDER: an efficient tool for the prediction of full-length
-  LTR retrotransposons</p></title>
-  <aug>
-    <au><snm>Xu</snm><fnm>Z</fnm></au>
-    <au><snm>Wang</snm><fnm>H</fnm></au>
-  </aug>
-  <source>Nucleic acids research</source>
-  <publisher>Oxford University Press</publisher>
-  <pubdate>2007</pubdate>
-  <volume>35</volume>
-  <issue>suppl\_2</issue>
-  <fpage>W265</fpage>
-  <lpage>-W268</lpage>
 </bibl>
 
 <bibl id="B36">
