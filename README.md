@@ -10,8 +10,8 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 ## Table of Contents
 
 - [Introduction](#introduction)
-  - [Pipeline of HiTE](#pipeline)
-  - [Genome coverage by each major subclass](#cover_genome)
+  - [The workflow of HiTE](#pipeline)
+  - [Performance](#performance)
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
   - [Installing genome tools](#genome_tools)
@@ -33,7 +33,7 @@ novel TEs with low copy numbers that are not included in known libraries.
 ### <a name="pipeline"></a>The workflow of HiTE
 ![输入图片说明](pic/Framework.png)
 
-### <a name="cover_genome"></a>Performance of general-purpose TE annotators based on benckmarking method of RepeatModeler2 and EDTA. 
+### <a name="performance"></a>Performance of general-purpose TE annotators based on benckmarking method of RepeatModeler2 and EDTA 
 ![输入图片说明](pic/RM2_results.png)
 
 ![输入图片说明](pic/EDTA_results.png)
