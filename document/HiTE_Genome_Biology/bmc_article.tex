@@ -310,43 +310,43 @@ Repbase Update (RU) is a database of representative repeat sequences in eukaryot
 
 \begin{table}[h!]
 	\caption{TE content in the benchmarking genomes.}\label{repbase_genome}
-	\setlength{\tabcolsep}{2.5 mm}{
-		\renewcommand{\arraystretch}{1.5}
-	\begin{tabular}{cccccc}
-		\hline
-		& & Class & RepBase26.05  & Number of elements & Total (\%)\\ \hline
-		\multirow{5}{*}{O. sativa*} &
-		LTR & Class I & 88.4 Mb & 46595 & 23.61 \\
-		& Non-LTR & Class I & 5.7 Mb & 13381 & 1.51 \\
-		& TIR & Class II  & 67.7 Mb & 230281 & 18.09 \\
-		& Helitron & Class II & 17.2 Mb & 66469 & 4.60 \\
-		& Total & - & 179.0 Mb & 356726 & 47.81 \\ \hline  
-		\multirow{5}{*}{C. briggsae*} &
-		LTR & Class I & 0.2 Mb & 234 & 0.2 \\
-		& Non-LTR & Class I & 0.9 Mb & 3085 & 0.59 \\
-		& TIR & Class II  & 14.5 Mb & 68146 & 13.41 \\
-		& Helitron & Class II & 1.8 Mb & 8509 & 1.63 \\
-		& Total & - & 17.4 Mb & 79974 & 15.83 \\ \hline
-		\multirow{5}{*}{D. melanogaster*} &
-		LTR & Class I & 19.9 Mb & 21050 & 11.78 \\
-		& Non-LTR & Class I & 10.8 Mb & 15428 & 6.37 \\
-		& TIR & Class II  & 2.6 Mb & 6204 & 1.53 \\
-		& Helitron & Class II & 1.0 Mb & 4822 & 0.60 \\
-		& Total & - & 34.2 Mb & 47504 & 20.28 \\ \hline
-		\multirow{5}{*}{D. rerio*} &
-		LTR & Class I & 119.0 Mb & 296556 & 7.09 \\
-		& Non-LTR & Class I & 74.3 Mb & 215393 & 4.42 \\
-		& TIR & Class II  & 719.4 Mb & 3372500 & 42.84 \\
-		& Helitron & Class II & 50.5 Mb & 178913 & 3.01 \\
-		& Total & - & 963.2 Mb & 4063362 & 57.36 \\ \hline
-	\end{tabular}
-	\begin{tablenotes}
-		\item[1] *Oryza sativa Japonica Group ``assembly IRGSP-1.0"
-		\item[2] *Caenorhabditis briggsae ``assembly CB4"
-		\item[3] *Drosophila melanogaster ``assembly Release 6 plus ISO1 MT"
-		\item[4] *Danio rerio ``assembly GRCz11"
-	\end{tablenotes}
-	}
+%	\setlength{\tabcolsep}{2.5 mm}{
+%		\renewcommand{\arraystretch}{1.5}
+%	\begin{tabular}{cccccc}
+%		\hline
+%		& & Class & RepBase26.05  & Number of elements & Total (\%)\\ \hline
+%		\multirow{5}{*}{O. sativa*} &
+%		LTR & Class I & 88.4 Mb & 46595 & 23.61 \\
+%		& Non-LTR & Class I & 5.7 Mb & 13381 & 1.51 \\
+%		& TIR & Class II  & 67.7 Mb & 230281 & 18.09 \\
+%		& Helitron & Class II & 17.2 Mb & 66469 & 4.60 \\
+%		& Total & - & 179.0 Mb & 356726 & 47.81 \\ \hline  
+%		\multirow{5}{*}{C. briggsae*} &
+%		LTR & Class I & 0.2 Mb & 234 & 0.2 \\
+%		& Non-LTR & Class I & 0.9 Mb & 3085 & 0.59 \\
+%		& TIR & Class II  & 14.5 Mb & 68146 & 13.41 \\
+%		& Helitron & Class II & 1.8 Mb & 8509 & 1.63 \\
+%		& Total & - & 17.4 Mb & 79974 & 15.83 \\ \hline
+%		\multirow{5}{*}{D. melanogaster*} &
+%		LTR & Class I & 19.9 Mb & 21050 & 11.78 \\
+%		& Non-LTR & Class I & 10.8 Mb & 15428 & 6.37 \\
+%		& TIR & Class II  & 2.6 Mb & 6204 & 1.53 \\
+%		& Helitron & Class II & 1.0 Mb & 4822 & 0.60 \\
+%		& Total & - & 34.2 Mb & 47504 & 20.28 \\ \hline
+%		\multirow{5}{*}{D. rerio*} &
+%		LTR & Class I & 119.0 Mb & 296556 & 7.09 \\
+%		& Non-LTR & Class I & 74.3 Mb & 215393 & 4.42 \\
+%		& TIR & Class II  & 719.4 Mb & 3372500 & 42.84 \\
+%		& Helitron & Class II & 50.5 Mb & 178913 & 3.01 \\
+%		& Total & - & 963.2 Mb & 4063362 & 57.36 \\ \hline
+%	\end{tabular}
+%	\begin{tablenotes}
+%		\item[1] *Oryza sativa Japonica Group ``assembly IRGSP-1.0"
+%		\item[2] *Caenorhabditis briggsae ``assembly CB4"
+%		\item[3] *Drosophila melanogaster ``assembly Release 6 plus ISO1 MT"
+%		\item[4] *Danio rerio ``assembly GRCz11"
+%	\end{tablenotes}
+%	}
 \end{table}
 
 \begin{figure}[h!]
@@ -607,7 +607,7 @@ The rapid development of sequencing technologies is producing more reliable geno
 \subsection*{Kmer-Based De Novo TE Searching}
 The majority of \emph{de novo} identification methods, such as RECON, are based on pairwise alignments to identify repeats. However, pairwise alignments of genomes will consume a lot of computing resources. To solve this problem, we designed the RepeatMasking method, which can reduce the search scope of the whole genome into marked candidate repeats.
 
-The discovery of the raw repeat region is based on the following observation: if there are two repeat sequences, regardless of the variations, the \emph{k}-mers composed of these two repeat sequences are also repeated. Therefore, we can in turn identify candidate repeat sequences by covering the repeated \emph{k}-mers in the genome (Fig. \ref{fig:framework}k; Additional file 1: AlgorithmS1). It is worth noting that due to the variations between the two repeat sequences, the continuous repeat regions may break into small pieces due to a lack of duplicate \emph{k}-mers. We try to skip these small gaps and connect the scattered repeat areas. Furthermore, the fake \emph{k}-mers may falsely connect multiple repeat regions together to form a larger repeat region, which can be degraded by the fault-tolerant mapping expansion algorithm.
+The discovery of the raw repeat region is based on the following observation: if there are two repeat sequences, regardless of the variations, the \emph{k}-mers composed of these two repeat sequences are also repeated. Therefore, we can in turn identify candidate repeat sequences by covering the repeated \emph{k}-mers in the genome (Fig. \ref{fig:framework}k; Additional file 1: AlgorithmS1). It is worth noting that due to the variations between the two repeat sequences, the continuous repeat regions may break into small pieces due to a lack of duplicate \emph{k}-mers. We try to skip these small gaps and connect the scattered repeat areas. Furthermore, the fake \emph{k}-mers may falsely connect multiple repeat regions together to form a larger repeat region, which can be distinguished by the fault-tolerant mapping expansion algorithm.
 
 %\begin{figure}[h!]
 %	\centerline{\includegraphics[width=1.0\textwidth]{figures/RepeatMasking.pdf}}
@@ -710,8 +710,8 @@ Non-LTR elements (LINES and SINEs) are particularly challenging to discover due 
 To achieve high-precision non-LTR element annotation, we identify LINE and SINE transposons based on the method of homology search (Fig. \ref{fig:framework}j). Dfam is a public TE database, freely available under the Creative Commons Zero (``CC0") license. We extract known LINEs and SINEs from the Dfam library of RepeatMasker 4.1.2 to generate a non-LTR library. The non-LTR library is used to discover confident non-LTR elements by searching through the candidate TEs generated by the FMEA algorithm.
 
 \subsection*{Generating the TE library}
-\subsubsection*{Disjuncting nested TEs}
-Nested TE, usually formed by transposons inserted into other transposons, has a complex chimeric structure. HiTE implements a method to disjunct the nested TEs by (i) removing the full-length TEs contained in other sequences with more than 95\% coverage and 95\% identity and connecting the remaining sequences; (ii) filtering out the sequence if the length is less than 100; otherwise, treating the remaining sequence as a new TE sequence; and (iii) iterating several times to disjunct heavily nested TEs.
+\subsubsection*{Unwrapping nested TEs}
+Nested TE, usually formed by transposons inserted into other transposons, has a complex chimeric structure. HiTE implements a method to unwrap the nested TEs by (i) removing the full-length TEs contained in other sequences with more than 95\% coverage and 95\% identity and connecting the remaining sequences; (ii) filtering out the sequence if the length is less than 100; otherwise, treating the remaining sequence as a new TE sequence; and (iii) iterating several times to unwrap heavily nested TEs.
 
 \subsubsection*{Generating classified and consensus models}
 HiTE generates TE consensus models using the clustering tool CD-HIT\cite{li2006cd} with the parameter ``-aS 0.95 -aL 0.95  -c 0.8 -G 0 -g 1 -A 80" (Additional file 2: Table S4). Notably, we divide the LTR-RTs into 5$'$ LTRs, 3$'$ LTRs, and LTR internal regions before clustering. To determine the classification information of TE, we use the RepeatClassifier module in RepeatModeler2\cite{flynn2020repeatmodeler2} to classify the TE consensus library.
@@ -837,67 +837,67 @@ KH and JW conceived the study. JW supervised the project. KH conducted the analy
 %\end{figure}
 
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/Framework1.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/Framework1.pdf}}
 %	\caption{The workflow of HiTE. \textbf{a} HiTE takes the genome assembly as input; \textbf{b} the genome assembly is split into chunks to reduce the amount of single-round computation; \textbf{c, i, and j} three main modules of HiTE are used to identify different types of TEs; \textbf{d} the candidates with a large amount of tandem repeats are regarded as false positives and are filtered out; \textbf{e} the fine-grained boundaries of TEs are determined using signature-based methods; \textbf{f} the candidates with repetitive flanking sequences within copies that are parts of a larger repetitive element are considered false positives and are filtered out; \textbf{g} CD-HIT and RepeatClassifier are used to generate TE libraries; \textbf{h} the TE libraries generated by HiTE contain intact TE structures; \textbf{k} the candidate repeat regions within the genome are masked based on the low-frequency \emph{k}-mer masking method, RepeatMasking; \textbf{l} the coarse boundaries of TEs are identified based on the fault-tolerant mapping expansion algorithm, FMEA; and \textbf{m, n, and o} the true ends of TEs are discovered by searching for the fine-grained TE boundaries, and the robust evidence of true TEs are checked by non-homology flanking regions within multiple copies.}
 %	\label{fig:framework}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/RM2Results.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/RM2Results.pdf}}
 %	\caption{Performance of general-purpose TE annotators based on benckmarking method of RepeatModeler2. \textbf{a} Performance using benckmarking method of RepeatModeler2 based on O. sativa genome. \textbf{b} Performance using benckmarking method of RepeatModeler2 based on C. briggsae genome. \textbf{c} Performance using benckmarking method of RepeatModeler2 based on D. rerio genome. \textbf{d} Performance using benckmarking method of RepeatModeler2 based on D. melanogaster genome.}
 %	\label{fig:rm2_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/EDTAResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/EDTAResults.pdf}}
 %	\caption{Performance of general-purpose TE annotators based on benckmarking method of EDTA.  \textbf{a} Performance using benckmarking method of EDTA based on O. sativa genome. \textbf{b} Performance using benckmarking method of EDTA based on C. briggsae genome. \textbf{c} Performance using benckmarking method of EDTA based on D. rerio genome. \textbf{d} Performance using benckmarking method of EDTA based on D. melanogaster genome.}
 %	\label{fig:edta_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/SeqLogos.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/SeqLogos.pdf}}
 %	\caption{Sequence logos of terminal and flanking sequences of LTR, Helitron, and EnSpm candidates generated by HiTE. \textbf{(a)} 5$'$ terminal of LTR candidates with the starting position labeled as 0; \textbf{(b)} 3$'$ terminal of LTR candidates with the last position labeled as 0; \textbf{(c)} 5$'$ terminal of Helitron candidates with the starting position labeled as 1; \textbf{(d)} 3$'$ terminal of Helitron candidates with the last position labeled as -1; \textbf{(e)} 5$'$ terminal of EnSpm candidates with the starting position labeled as 0; \textbf{(f)} 3$'$ terminal of EnSpm candidates with the last position labeled as 0.}
 %	\label{fig:seq_logos}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/RatioResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/RatioResults.pdf}}
 %	\caption{Percent of genome masked by each major subclass based on five types of TE libraries, generated by manually curated, HiTE, RepeatModeler2, EDTA, and RepeatScout, respectively. \textbf{a} The percentage of the O. sativa genome masked by TE libraries. \textbf{b} The percentage of the C. briggsae genome masked by TE libraries. \textbf{c} The percentage of the D. rerio genome masked by TE libraries. \textbf{d} The percentage of the D. melanogaster genome masked by TE libraries. }
 %	\label{fig:ratio_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/TIRResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/TIRResults.pdf}}
 %	\caption{Performance of TIR annotators. \textbf{a} the performance based on benckmarking method of RepeatModeler2 and \textbf{b} the performance based on benckmarking method of EDTA.}
 %	\label{fig:tir_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/NovelTIRs.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/NovelTIRs.pdf}}
 %	\caption{Characteristic of novel TIR elements identified by HiTE. \textbf{a} the number of novel TIR elements with different types of terminals; \textbf{b} the number of novel TIR elements with copy numbers $>$ 3 and $<=$ 3; \textbf{c} the distribution of copy numbers of TIR elements identified by HiTE; and \textbf{d} the multiple sequence alignment example of a novel TIR element discovered by HiTE.}
 %	\label{fig:novel_tirs}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/HelitronResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/HelitronResults.pdf}}
 %	\caption{Performance of Helitron annotators. \textbf{a} the performance based on benckmarking method of RepeatModeler2 and \textbf{b} the performance based on benckmarking method of EDTA.}
 %	\label{fig:helitron_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/LTRResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/LTRResults.pdf}}
 %	\caption{Performance of LTR annotators. \textbf{a} the performance based on benckmarking method of RepeatModeler2 and \textbf{b} the performance based on benckmarking method of EDTA.}
 %	\label{fig:ltr_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/NonLTRResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/NonLTRResults.pdf}}
 %	\caption{Performance of Non-LTR annotators. \textbf{a} the performance based on benckmarking method of RepeatModeler2 and \textbf{b} the performance based on benckmarking method of EDTA.}
 %	\label{fig:non_ltr_results}
 %\end{figure}
 %
 %\begin{figure}[h!]
-%	%\centerline{\includegraphics[width=1.0\textwidth]{figures/ParamResults.pdf}}
+%	\centerline{\includegraphics[width=1.0\textwidth]{figures/ParamResults.pdf}}
 %	\caption{Influence of parameter changes on results. \textbf{a} influence of k\_num parameter on results; \textbf{b} influence of freq\_threshold parameter on results; \textbf{c} influence of chunk\_size parameter on results; and \textbf{d} influence of flanking\_len parameter on results.}
 %	\label{fig:param_results}
 %\end{figure}

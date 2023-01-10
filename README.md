@@ -1,5 +1,5 @@
 # HiTE, a Ensemble Method for High-Precision Transposable Element Annotation
-[![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/HiTE)](https://gitee.com/kkanghu/HiTE/blob/master/LICENSE)
+<!-- [![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/HiTE)](https://gitee.com/kkanghu/HiTE/blob/master/LICENSE) -->
 
 
 ## Getting started
@@ -25,7 +25,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 
 ## <a name="introduction"></a>Introduction
 We have developed an ensemble method for high-precision TE annotation, known as **HiTE**, 
-which has undergone extensive benchmarking and proven to be the best TE annotation tool available. 
+which has undergone extensive benchmarking and has proven to be the best TE annotation tool available. 
 HiTE achieved the highest precision and restored the most gold standard TE models based on four model species: 
 Oryza sativa, Caenorhabditis briggsae, Drosophila melanogaster, and Danio rerio. Moreover, HiTE can discover 
 novel TEs with low copy numbers that are not included in known libraries.
