@@ -1,4 +1,4 @@
-This is BibTeX, Version 0.99d (TeX Live 2020/W32TeX)
+This is BibTeX, Version 0.99d (TeX Live 2021/W32TeX)
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: bmc_article.aux
 The style file: bmc-mathphys.bst
@@ -25,44 +25,44 @@ Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
-You've used 48 entries,
+You've used 54 entries,
             7128 wiz_defined-function locations,
-            1408 strings with 18905 characters,
-and the built_in function-call counts, 279903 in all, are:
-= -- 32645
-> -- 1954
-< -- 1141
-+ -- 5947
-- -- 468
-* -- 23435
-:= -- 56437
-add.period$ -- 46
-call.type$ -- 48
-change.case$ -- 474
-chr.to.int$ -- 2412
-cite$ -- 48
-duplicate$ -- 5177
-empty$ -- 17355
-format.name$ -- 2044
-if$ -- 61430
+            1436 strings with 20337 characters,
+and the built_in function-call counts, 323298 in all, are:
+= -- 37623
+> -- 2266
+< -- 1323
++ -- 6833
+- -- 545
+* -- 27143
+:= -- 65185
+add.period$ -- 52
+call.type$ -- 54
+change.case$ -- 545
+chr.to.int$ -- 2808
+cite$ -- 54
+duplicate$ -- 5911
+empty$ -- 20126
+format.name$ -- 2357
+if$ -- 70909
 int.to.chr$ -- 1
-int.to.str$ -- 128
-missing$ -- 1752
-newline$ -- 1570
-num.names$ -- 240
-pop$ -- 1949
+int.to.str$ -- 149
+missing$ -- 1984
+newline$ -- 1777
+num.names$ -- 270
+pop$ -- 2198
 preamble$ -- 1
-purify$ -- 222
-quote$ -- 96
-skip$ -- 15340
+purify$ -- 255
+quote$ -- 108
+skip$ -- 17588
 stack$ -- 0
-substring$ -- 38762
-swap$ -- 1890
-text.length$ -- 724
+substring$ -- 45211
+swap$ -- 2179
+text.length$ -- 825
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 2068
+type$ -- 2340
 warning$ -- 0
-while$ -- 1869
+while$ -- 2137
 width$ -- 0
-write$ -- 2230
+write$ -- 2541

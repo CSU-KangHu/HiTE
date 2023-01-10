@@ -1,6 +1,6 @@
 %% BioMed_Central_Bib_Style_v1.01
 
-\begin{thebibliography}{48}
+\begin{thebibliography}{54}
 % BibTex style file: bmc-mathphys.bst (version 2.1), 2014-07-24
 \ifx \bisbn   \undefined \def \bisbn  #1{ISBN #1}\fi
 \ifx \binits  \undefined \def \binits#1{#1}\fi
@@ -488,6 +488,35 @@ Plant Transposons and Genome Dynamics in Evolution,
 \endbibitem
 
 %%% 29
+\bibitem{ou2018assessing}
+\begin{barticle}
+\bauthor{\bsnm{Ou}, \binits{S.}},
+\bauthor{\bsnm{Chen}, \binits{J.}},
+\bauthor{\bsnm{Jiang}, \binits{N.}}:
+\batitle{Assessing genome assembly quality using the ltr assembly index (lai)}.
+\bjtitle{Nucleic acids research}
+\bvolume{46}(\bissue{21}),
+\bfpage{126}--\blpage{126}
+(\byear{2018})
+\end{barticle}
+\endbibitem
+
+%%% 30
+\bibitem{jedlicka2020can}
+\begin{barticle}
+\bauthor{\bsnm{Jedlicka}, \binits{P.}},
+\bauthor{\bsnm{Lexa}, \binits{M.}},
+\bauthor{\bsnm{Kejnovsky}, \binits{E.}}:
+\batitle{What can long terminal repeats tell us about the age of ltr
+  retrotransposons, gene conversion and ectopic recombination?}
+\bjtitle{Frontiers in plant science}
+\bvolume{11},
+\bfpage{644}
+(\byear{2020})
+\end{barticle}
+\endbibitem
+
+%%% 31
 \bibitem{xu2007ltr_finder}
 \begin{barticle}
 \bauthor{\bsnm{Xu}, \binits{Z.}},
@@ -501,7 +530,26 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 30
+%%% 32
+\bibitem{bell2022transposable}
+\begin{barticle}
+\bauthor{\bsnm{Bell}, \binits{E.A.}},
+\bauthor{\bsnm{Butler}, \binits{C.L.}},
+\bauthor{\bsnm{Oliveira}, \binits{C.}},
+\bauthor{\bsnm{Marburger}, \binits{S.}},
+\bauthor{\bsnm{Yant}, \binits{L.}},
+\bauthor{\bsnm{Taylor}, \binits{M.I.}}:
+\batitle{Transposable element annotation in non-model species: The benefits of
+  species-specific repeat libraries using semi-automated edta and deepte de
+  novo pipelines}.
+\bjtitle{Molecular Ecology Resources}
+\bvolume{22}(\bissue{2}),
+\bfpage{823}--\blpage{833}
+(\byear{2022})
+\end{barticle}
+\endbibitem
+
+%%% 33
 \bibitem{storer2021dfam}
 \begin{barticle}
 \bauthor{\bsnm{Storer}, \binits{J.}},
@@ -518,7 +566,122 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 31
+%%% 34
+\bibitem{crooks2004weblogo}
+\begin{barticle}
+\bauthor{\bsnm{Crooks}, \binits{G.E.}},
+\bauthor{\bsnm{Hon}, \binits{G.}},
+\bauthor{\bsnm{Chandonia}, \binits{J.-M.}},
+\bauthor{\bsnm{Brenner}, \binits{S.E.}}:
+\batitle{Weblogo: a sequence logo generator}.
+\bjtitle{Genome research}
+\bvolume{14}(\bissue{6}),
+\bfpage{1188}--\blpage{1190}
+(\byear{2004})
+\end{barticle}
+\endbibitem
+
+%%% 35
+\bibitem{zhou2021comprehensive}
+\begin{barticle}
+\bauthor{\bsnm{Zhou}, \binits{S.-S.}},
+\bauthor{\bsnm{Yan}, \binits{X.-M.}},
+\bauthor{\bsnm{Zhang}, \binits{K.-F.}},
+\bauthor{\bsnm{Liu}, \binits{H.}},
+\bauthor{\bsnm{Xu}, \binits{J.}},
+\bauthor{\bsnm{Nie}, \binits{S.}},
+\bauthor{\bsnm{Jia}, \binits{K.-H.}},
+\bauthor{\bsnm{Jiao}, \binits{S.-Q.}},
+\bauthor{\bsnm{Zhao}, \binits{W.}},
+\bauthor{\bsnm{Zhao}, \binits{Y.-J.}}, \betal:
+\batitle{A comprehensive annotation dataset of intact ltr retrotransposons of
+  300 plant genomes}.
+\bjtitle{Scientific Data}
+\bvolume{8}(\bissue{1}),
+\bfpage{1}--\blpage{9}
+(\byear{2021})
+\end{barticle}
+\endbibitem
+
+%%% 36
+\bibitem{yang2009structure}
+\begin{barticle}
+\bauthor{\bsnm{Yang}, \binits{L.}},
+\bauthor{\bsnm{Bennetzen}, \binits{J.L.}}:
+\batitle{Structure-based discovery and description of plant and animal
+  helitrons}.
+\bjtitle{Proceedings of the National Academy of Sciences}
+\bvolume{106}(\bissue{31}),
+\bfpage{12832}--\blpage{12837}
+(\byear{2009})
+\end{barticle}
+\endbibitem
+
+%%% 37
+\bibitem{demarco2006smtrc1}
+\begin{barticle}
+\bauthor{\bsnm{DeMarco}, \binits{R.}},
+\bauthor{\bsnm{Venancio}, \binits{T.M.}},
+\bauthor{\bsnm{Verjovski-Almeida}, \binits{S.}}:
+\batitle{Smtrc1, a novel schistosoma mansoni dna transposon, discloses new
+  families of animal and fungi transposons belonging to the cacta superfamily}.
+\bjtitle{BMC Evolutionary Biology}
+\bvolume{6}(\bissue{1}),
+\bfpage{1}--\blpage{13}
+(\byear{2006})
+\end{barticle}
+\endbibitem
+
+%%% 38
+\bibitem{harris1988sequence}
+\begin{botherref}
+\oauthor{\bsnm{Harris}, \binits{L.J.}},
+\oauthor{\bsnm{Baillie}, \binits{D.}},
+\oauthor{\bsnm{Rose}, \binits{A.}}:
+Sequence identity between an inverted repeat family of transposable elements in
+  drosophila and caenorhabditis
+(1988)
+\end{botherref}
+\endbibitem
+
+%%% 39
+\bibitem{howe2013zebrafish}
+\begin{barticle}
+\bauthor{\bsnm{Howe}, \binits{K.}},
+\bauthor{\bsnm{Clark}, \binits{M.D.}},
+\bauthor{\bsnm{Torroja}, \binits{C.F.}},
+\bauthor{\bsnm{Torrance}, \binits{J.}},
+\bauthor{\bsnm{Berthelot}, \binits{C.}},
+\bauthor{\bsnm{Muffato}, \binits{M.}},
+\bauthor{\bsnm{Collins}, \binits{J.E.}},
+\bauthor{\bsnm{Humphray}, \binits{S.}},
+\bauthor{\bsnm{McLaren}, \binits{K.}},
+\bauthor{\bsnm{Matthews}, \binits{L.}}, \betal:
+\batitle{The zebrafish reference genome sequence and its relationship to the
+  human genome}.
+\bjtitle{Nature}
+\bvolume{496}(\bissue{7446}),
+\bfpage{498}--\blpage{503}
+(\byear{2013})
+\end{barticle}
+\endbibitem
+
+%%% 40
+\bibitem{lerat2003sequence}
+\begin{barticle}
+\bauthor{\bsnm{Lerat}, \binits{E.}},
+\bauthor{\bsnm{Rizzon}, \binits{C.}},
+\bauthor{\bsnm{Bi{\'e}mont}, \binits{C.}}:
+\batitle{Sequence divergence within transposable element families in the
+  drosophila melanogaster genome}.
+\bjtitle{Genome research}
+\bvolume{13}(\bissue{8}),
+\bfpage{1889}--\blpage{1896}
+(\byear{2003})
+\end{barticle}
+\endbibitem
+
+%%% 41
 \bibitem{kempken2001hat}
 \begin{barticle}
 \bauthor{\bsnm{Kempken}, \binits{F.}},
@@ -532,7 +695,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 32
+%%% 42
 \bibitem{warburton2004inverted}
 \begin{barticle}
 \bauthor{\bsnm{Warburton}, \binits{P.E.}},
@@ -550,7 +713,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 33
+%%% 43
 \bibitem{gremme2013genometools}
 \begin{barticle}
 \bauthor{\bsnm{Gremme}, \binits{G.}},
@@ -565,7 +728,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 34
+%%% 44
 \bibitem{lee2016mgescan}
 \begin{barticle}
 \bauthor{\bsnm{Lee}, \binits{H.}},
@@ -584,7 +747,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 35
+%%% 45
 \bibitem{mccarthy2003ltr_struc}
 \begin{barticle}
 \bauthor{\bsnm{McCarthy}, \binits{E.M.}},
@@ -598,7 +761,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 36
+%%% 46
 \bibitem{valencia2019ltrdetector}
 \begin{barticle}
 \bauthor{\bsnm{Valencia}, \binits{J.D.}},
@@ -612,7 +775,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 37
+%%% 47
 \bibitem{zhao2016makes}
 \begin{barticle}
 \bauthor{\bsnm{Zhao}, \binits{D.}},
@@ -627,7 +790,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 38
+%%% 48
 \bibitem{dewannieux2003line}
 \begin{barticle}
 \bauthor{\bsnm{Dewannieux}, \binits{M.}},
@@ -641,7 +804,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 39
+%%% 49
 \bibitem{mao2017sine_scan}
 \begin{barticle}
 \bauthor{\bsnm{Mao}, \binits{H.}},
@@ -655,67 +818,7 @@ Plant Transposons and Genome Dynamics in Evolution,
 \end{barticle}
 \endbibitem
 
-%%% 40
-\bibitem{canapa2015transposons}
-\begin{barticle}
-\bauthor{\bsnm{Canapa}, \binits{A.}},
-\bauthor{\bsnm{Barucca}, \binits{M.}},
-\bauthor{\bsnm{Biscotti}, \binits{M.A.}},
-\bauthor{\bsnm{Forconi}, \binits{M.}},
-\bauthor{\bsnm{Olmo}, \binits{E.}}:
-\batitle{Transposons, genome size, and evolutionary insights in animals}.
-\bjtitle{Cytogenetic and genome research}
-\bvolume{147}(\bissue{4}),
-\bfpage{217}--\blpage{239}
-(\byear{2015})
-\end{barticle}
-\endbibitem
-
-%%% 41
-\bibitem{zhang2019landscape}
-\begin{barticle}
-\bauthor{\bsnm{Zhang}, \binits{X.}},
-\bauthor{\bsnm{Qi}, \binits{Y.}}:
-\batitle{The landscape of copia and gypsy retrotransposon during maize
-  domestication and improvement}.
-\bjtitle{Frontiers in plant science}
-\bvolume{10},
-\bfpage{1533}
-(\byear{2019})
-\end{barticle}
-\endbibitem
-
-%%% 42
-\bibitem{zuccolo2007transposable}
-\begin{barticle}
-\bauthor{\bsnm{Zuccolo}, \binits{A.}},
-\bauthor{\bsnm{Sebastian}, \binits{A.}},
-\bauthor{\bsnm{Talag}, \binits{J.}},
-\bauthor{\bsnm{Yu}, \binits{Y.}},
-\bauthor{\bsnm{Kim}, \binits{H.}},
-\bauthor{\bsnm{Collura}, \binits{K.}},
-\bauthor{\bsnm{Kudrna}, \binits{D.}},
-\bauthor{\bsnm{Wing}, \binits{R.A.}}:
-\batitle{Transposable element distribution, abundance and role in genome size
-  variation in the genus oryza}.
-\bjtitle{BMC Evolutionary Biology}
-\bvolume{7}(\bissue{1}),
-\bfpage{1}--\blpage{15}
-(\byear{2007})
-\end{barticle}
-\endbibitem
-
-%%% 43
-\bibitem{Smit2008repeatmodeler}
-\begin{botherref}
-\oauthor{\bsnm{Smit}, \binits{A.}},
-\oauthor{\bsnm{Hubley}, \binits{R.}}:
-Repeatmodeler open-1.0
-(2008-2010)
-\end{botherref}
-\endbibitem
-
-%%% 44
+%%% 50
 \bibitem{ou2019ltr_finder_parallel}
 \begin{barticle}
 \bauthor{\bsnm{Ou}, \binits{S.}},
@@ -729,7 +832,7 @@ Repeatmodeler open-1.0
 \end{barticle}
 \endbibitem
 
-%%% 45
+%%% 51
 \bibitem{quesneville2010repet}
 \begin{botherref}
 \oauthor{\bsnm{Quesneville}, \binits{H.}},
@@ -747,7 +850,7 @@ Repet
 \end{botherref}
 \endbibitem
 
-%%% 46
+%%% 52
 \bibitem{benson1999tandem}
 \begin{barticle}
 \bauthor{\bsnm{Benson}, \binits{G.}}:
@@ -759,7 +862,7 @@ Repet
 \end{barticle}
 \endbibitem
 
-%%% 47
+%%% 53
 \bibitem{wenke2011targeted}
 \begin{barticle}
 \bauthor{\bsnm{Wenke}, \binits{T.}},
@@ -777,7 +880,7 @@ Repet
 \end{barticle}
 \endbibitem
 
-%%% 48
+%%% 54
 \bibitem{li2006cd}
 \begin{barticle}
 \bauthor{\bsnm{Li}, \binits{W.}},
@@ -1299,6 +1402,38 @@ Repet
 </bibl>
 
 <bibl id="B29">
+  <title><p>Assessing genome assembly quality using the LTR Assembly Index
+  (LAI)</p></title>
+  <aug>
+    <au><snm>Ou</snm><fnm>S</fnm></au>
+    <au><snm>Chen</snm><fnm>J</fnm></au>
+    <au><snm>Jiang</snm><fnm>N</fnm></au>
+  </aug>
+  <source>Nucleic acids research</source>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>2018</pubdate>
+  <volume>46</volume>
+  <issue>21</issue>
+  <fpage>e126</fpage>
+  <lpage>-e126</lpage>
+</bibl>
+
+<bibl id="B30">
+  <title><p>What can long terminal repeats tell us about the age of LTR
+  retrotransposons, gene conversion and ectopic recombination?</p></title>
+  <aug>
+    <au><snm>Jedlicka</snm><fnm>P</fnm></au>
+    <au><snm>Lexa</snm><fnm>M</fnm></au>
+    <au><snm>Kejnovsky</snm><fnm>E</fnm></au>
+  </aug>
+  <source>Frontiers in plant science</source>
+  <publisher>Frontiers Media SA</publisher>
+  <pubdate>2020</pubdate>
+  <volume>11</volume>
+  <fpage>644</fpage>
+</bibl>
+
+<bibl id="B31">
   <title><p>LTR\_FINDER: an efficient tool for the prediction of full-length
   LTR retrotransposons</p></title>
   <aug>
@@ -1314,7 +1449,28 @@ Repet
   <lpage>-W268</lpage>
 </bibl>
 
-<bibl id="B30">
+<bibl id="B32">
+  <title><p>Transposable element annotation in non-model species: The benefits
+  of species-specific repeat libraries using semi-automated EDTA and DeepTE de
+  novo pipelines</p></title>
+  <aug>
+    <au><snm>Bell</snm><fnm>EA</fnm></au>
+    <au><snm>Butler</snm><fnm>CL</fnm></au>
+    <au><snm>Oliveira</snm><fnm>C</fnm></au>
+    <au><snm>Marburger</snm><fnm>S</fnm></au>
+    <au><snm>Yant</snm><fnm>L</fnm></au>
+    <au><snm>Taylor</snm><fnm>MI</fnm></au>
+  </aug>
+  <source>Molecular Ecology Resources</source>
+  <publisher>Wiley Online Library</publisher>
+  <pubdate>2022</pubdate>
+  <volume>22</volume>
+  <issue>2</issue>
+  <fpage>823</fpage>
+  <lpage>-833</lpage>
+</bibl>
+
+<bibl id="B33">
   <title><p>The Dfam community resource of transposable element families,
   sequence models, and genome annotations</p></title>
   <aug>
@@ -1333,7 +1489,137 @@ Repet
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B31">
+<bibl id="B34">
+  <title><p>WebLogo: a sequence logo generator</p></title>
+  <aug>
+    <au><snm>Crooks</snm><fnm>GE</fnm></au>
+    <au><snm>Hon</snm><fnm>G</fnm></au>
+    <au><snm>Chandonia</snm><fnm>JM</fnm></au>
+    <au><snm>Brenner</snm><fnm>SE</fnm></au>
+  </aug>
+  <source>Genome research</source>
+  <publisher>Cold Spring Harbor Lab</publisher>
+  <pubdate>2004</pubdate>
+  <volume>14</volume>
+  <issue>6</issue>
+  <fpage>1188</fpage>
+  <lpage>-1190</lpage>
+</bibl>
+
+<bibl id="B35">
+  <title><p>A comprehensive annotation dataset of intact LTR retrotransposons
+  of 300 plant genomes</p></title>
+  <aug>
+    <au><snm>Zhou</snm><fnm>SS</fnm></au>
+    <au><snm>Yan</snm><fnm>XM</fnm></au>
+    <au><snm>Zhang</snm><fnm>KF</fnm></au>
+    <au><snm>Liu</snm><fnm>H</fnm></au>
+    <au><snm>Xu</snm><fnm>J</fnm></au>
+    <au><snm>Nie</snm><fnm>S</fnm></au>
+    <au><snm>Jia</snm><fnm>KH</fnm></au>
+    <au><snm>Jiao</snm><fnm>SQ</fnm></au>
+    <au><snm>Zhao</snm><fnm>W</fnm></au>
+    <au><snm>Zhao</snm><fnm>YJ</fnm></au>
+    <au><cnm>others</cnm></au>
+  </aug>
+  <source>Scientific Data</source>
+  <publisher>Nature Publishing Group</publisher>
+  <pubdate>2021</pubdate>
+  <volume>8</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-9</lpage>
+</bibl>
+
+<bibl id="B36">
+  <title><p>Structure-based discovery and description of plant and animal
+  Helitrons</p></title>
+  <aug>
+    <au><snm>Yang</snm><fnm>L</fnm></au>
+    <au><snm>Bennetzen</snm><fnm>JL</fnm></au>
+  </aug>
+  <source>Proceedings of the National Academy of Sciences</source>
+  <publisher>National Acad Sciences</publisher>
+  <pubdate>2009</pubdate>
+  <volume>106</volume>
+  <issue>31</issue>
+  <fpage>12832</fpage>
+  <lpage>-12837</lpage>
+</bibl>
+
+<bibl id="B37">
+  <title><p>SmTRC1, a novel Schistosoma mansoni DNA transposon, discloses new
+  families of animal and fungi transposons belonging to the CACTA
+  superfamily</p></title>
+  <aug>
+    <au><snm>DeMarco</snm><fnm>R</fnm></au>
+    <au><snm>Venancio</snm><fnm>TM</fnm></au>
+    <au><snm>Verjovski Almeida</snm><fnm>S</fnm></au>
+  </aug>
+  <source>BMC Evolutionary Biology</source>
+  <publisher>BioMed Central</publisher>
+  <pubdate>2006</pubdate>
+  <volume>6</volume>
+  <issue>1</issue>
+  <fpage>1</fpage>
+  <lpage>-13</lpage>
+</bibl>
+
+<bibl id="B38">
+  <title><p>Sequence identity between an inverted repeat family of transposable
+  elements in Drosophila and Caenorhabditis</p></title>
+  <aug>
+    <au><snm>Harris</snm><fnm>LJ</fnm></au>
+    <au><snm>Baillie</snm><fnm>DL</fnm></au>
+    <au><snm>Rose</snm><fnm>AM</fnm></au>
+  </aug>
+  <publisher>Oxford University Press</publisher>
+  <pubdate>1988</pubdate>
+</bibl>
+
+<bibl id="B39">
+  <title><p>The zebrafish reference genome sequence and its relationship to the
+  human genome</p></title>
+  <aug>
+    <au><snm>Howe</snm><fnm>K</fnm></au>
+    <au><snm>Clark</snm><fnm>MD</fnm></au>
+    <au><snm>Torroja</snm><fnm>CF</fnm></au>
+    <au><snm>Torrance</snm><fnm>J</fnm></au>
+    <au><snm>Berthelot</snm><fnm>C</fnm></au>
+    <au><snm>Muffato</snm><fnm>M</fnm></au>
+    <au><snm>Collins</snm><fnm>JE</fnm></au>
+    <au><snm>Humphray</snm><fnm>S</fnm></au>
+    <au><snm>McLaren</snm><fnm>K</fnm></au>
+    <au><snm>Matthews</snm><fnm>L</fnm></au>
+    <au><cnm>others</cnm></au>
+  </aug>
+  <source>Nature</source>
+  <publisher>Nature Publishing Group</publisher>
+  <pubdate>2013</pubdate>
+  <volume>496</volume>
+  <issue>7446</issue>
+  <fpage>498</fpage>
+  <lpage>-503</lpage>
+</bibl>
+
+<bibl id="B40">
+  <title><p>Sequence divergence within transposable element families in the
+  Drosophila melanogaster genome</p></title>
+  <aug>
+    <au><snm>Lerat</snm><fnm>E</fnm></au>
+    <au><snm>Rizzon</snm><fnm>C</fnm></au>
+    <au><snm>Bi{\'e}mont</snm><fnm>C</fnm></au>
+  </aug>
+  <source>Genome research</source>
+  <publisher>Cold Spring Harbor Lab</publisher>
+  <pubdate>2003</pubdate>
+  <volume>13</volume>
+  <issue>8</issue>
+  <fpage>1889</fpage>
+  <lpage>-1896</lpage>
+</bibl>
+
+<bibl id="B41">
   <title><p>The hAT family: a versatile transposon group common to plants,
   fungi, animals, and man</p></title>
   <aug>
@@ -1349,7 +1635,7 @@ Repet
   <lpage>-9</lpage>
 </bibl>
 
-<bibl id="B32">
+<bibl id="B42">
   <title><p>Inverted repeat structure of the human genome: the X-chromosome
   contains a preponderance of large, highly homologous inverted repeats that
   contain testes genes</p></title>
@@ -1369,7 +1655,7 @@ Repet
   <lpage>-1869</lpage>
 </bibl>
 
-<bibl id="B33">
+<bibl id="B43">
   <title><p>GenomeTools: a comprehensive software library for efficient
   processing of structured genome annotations</p></title>
   <aug>
@@ -1387,7 +1673,7 @@ Repet
   <lpage>-656</lpage>
 </bibl>
 
-<bibl id="B34">
+<bibl id="B44">
   <title><p>MGEScan: a Galaxy-based system for identifying retrotransposons in
   genomes</p></title>
   <aug>
@@ -1408,7 +1694,7 @@ Repet
   <lpage>-2504</lpage>
 </bibl>
 
-<bibl id="B35">
+<bibl id="B45">
   <title><p>LTR\_STRUC: a novel search and identification program for LTR
   retrotransposons</p></title>
   <aug>
@@ -1424,7 +1710,7 @@ Repet
   <lpage>-367</lpage>
 </bibl>
 
-<bibl id="B36">
+<bibl id="B46">
   <title><p>LtrDetector: A tool-suite for detecting long terminal repeat
   retrotransposons de-novo</p></title>
   <aug>
@@ -1440,7 +1726,7 @@ Repet
   <lpage>-14</lpage>
 </bibl>
 
-<bibl id="B37">
+<bibl id="B47">
   <title><p>What makes up plant genomes: The vanishing line between
   transposable elements and genes</p></title>
   <aug>
@@ -1458,7 +1744,7 @@ Repet
   <lpage>-380</lpage>
 </bibl>
 
-<bibl id="B38">
+<bibl id="B48">
   <title><p>LINE-mediated retrotransposition of marked Alu
   sequences</p></title>
   <aug>
@@ -1475,7 +1761,7 @@ Repet
   <lpage>-48</lpage>
 </bibl>
 
-<bibl id="B39">
+<bibl id="B49">
   <title><p>SINE\_scan: an efficient tool to discover short interspersed
   nuclear elements (SINEs) in large-scale genomic datasets</p></title>
   <aug>
@@ -1491,71 +1777,7 @@ Repet
   <lpage>-745</lpage>
 </bibl>
 
-<bibl id="B40">
-  <title><p>Transposons, genome size, and evolutionary insights in
-  animals</p></title>
-  <aug>
-    <au><snm>Canapa</snm><fnm>A</fnm></au>
-    <au><snm>Barucca</snm><fnm>M</fnm></au>
-    <au><snm>Biscotti</snm><fnm>MA</fnm></au>
-    <au><snm>Forconi</snm><fnm>M</fnm></au>
-    <au><snm>Olmo</snm><fnm>E</fnm></au>
-  </aug>
-  <source>Cytogenetic and genome research</source>
-  <publisher>Karger Publishers</publisher>
-  <pubdate>2015</pubdate>
-  <volume>147</volume>
-  <issue>4</issue>
-  <fpage>217</fpage>
-  <lpage>-239</lpage>
-</bibl>
-
-<bibl id="B41">
-  <title><p>The landscape of Copia and Gypsy retrotransposon during maize
-  domestication and improvement</p></title>
-  <aug>
-    <au><snm>Zhang</snm><fnm>X</fnm></au>
-    <au><snm>Qi</snm><fnm>Y</fnm></au>
-  </aug>
-  <source>Frontiers in plant science</source>
-  <publisher>Frontiers Media SA</publisher>
-  <pubdate>2019</pubdate>
-  <volume>10</volume>
-  <fpage>1533</fpage>
-</bibl>
-
-<bibl id="B42">
-  <title><p>Transposable element distribution, abundance and role in genome
-  size variation in the genus Oryza</p></title>
-  <aug>
-    <au><snm>Zuccolo</snm><fnm>A</fnm></au>
-    <au><snm>Sebastian</snm><fnm>A</fnm></au>
-    <au><snm>Talag</snm><fnm>J</fnm></au>
-    <au><snm>Yu</snm><fnm>Y</fnm></au>
-    <au><snm>Kim</snm><fnm>H</fnm></au>
-    <au><snm>Collura</snm><fnm>K</fnm></au>
-    <au><snm>Kudrna</snm><fnm>D</fnm></au>
-    <au><snm>Wing</snm><fnm>RA</fnm></au>
-  </aug>
-  <source>BMC Evolutionary Biology</source>
-  <publisher>BioMed Central</publisher>
-  <pubdate>2007</pubdate>
-  <volume>7</volume>
-  <issue>1</issue>
-  <fpage>1</fpage>
-  <lpage>-15</lpage>
-</bibl>
-
-<bibl id="B43">
-  <title><p>RepeatModeler Open-1.0</p></title>
-  <aug>
-    <au><snm>Smit</snm><fnm>AFA</fnm></au>
-    <au><snm>Hubley</snm><fnm>R</fnm></au>
-  </aug>
-  <pubdate>2008-2010</pubdate>
-</bibl>
-
-<bibl id="B44">
+<bibl id="B50">
   <title><p>LTR\_FINDER\_parallel: parallelization of LTR\_FINDER enabling
   rapid identification of long terminal repeat retrotransposons</p></title>
   <aug>
@@ -1571,7 +1793,7 @@ Repet
   <lpage>-3</lpage>
 </bibl>
 
-<bibl id="B45">
+<bibl id="B51">
   <title><p>REPET</p></title>
   <aug>
     <au><snm>Quesneville</snm><fnm>H</fnm></au>
@@ -1589,7 +1811,7 @@ Repet
   <pubdate>2010</pubdate>
 </bibl>
 
-<bibl id="B46">
+<bibl id="B52">
   <title><p>Tandem repeats finder: a program to analyze DNA
   sequences</p></title>
   <aug>
@@ -1604,7 +1826,7 @@ Repet
   <lpage>-580</lpage>
 </bibl>
 
-<bibl id="B47">
+<bibl id="B53">
   <title><p>Targeted identification of short interspersed nuclear element
   families shows their widespread existence and extreme heterogeneity in plant
   genomes</p></title>
@@ -1625,7 +1847,7 @@ Repet
   <lpage>-3128</lpage>
 </bibl>
 
-<bibl id="B48">
+<bibl id="B54">
   <title><p>Cd-hit: a fast program for clustering and comparing large sets of
   protein or nucleotide sequences</p></title>
   <aug>
