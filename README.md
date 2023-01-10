@@ -21,7 +21,6 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 - [Commands and options](#cmd)
 - [Input](#inputs)
 - [Output](#outputs)
-  - [Genome annotation information](#repeatmasker_annotation_info)
 - [Contact](#contact)
 
 ## <a name="introduction"></a>Introduction
