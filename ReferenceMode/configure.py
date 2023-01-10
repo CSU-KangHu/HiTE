@@ -137,7 +137,7 @@ if __name__ == '__main__':
     modify_RepModel(RepModelConfig_path, repeatmasker_home, rmblast_home, trf_program)
 
     # 3. add executable
-    os.system('chmod +x ' + repeatclassifier_path)
+    os.system('cd ' + os.getcwd() + '/tools && chmod +x ./*')
 
     #print('Start set REPCLASS...')
     # 1. set repclass.conf

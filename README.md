@@ -3,9 +3,9 @@
 
 
 ## Getting started
-Clone the [latest release](https://github.com/yangao07/TideHunter/releases):
+<!-- Clone the [latest release](https://github.com/yangao07/TideHunter/releases): -->
 ```
-git clone https://github.com/BioinformaticsCSU/HiTE.git
+git clone https://github.com/CSU-KangHu/HiTE.git
 ```
 ## Table of Contents
 
@@ -19,21 +19,25 @@ git clone https://github.com/BioinformaticsCSU/HiTE.git
   - [Configuring dependencies](#configure)
 - [Getting started with toy example in `demo`](#start)
 - [Commands and options](#cmd)
-- [Input](#input)
-- [Output](#output)
+- [Input](#inputs)
+- [Output](#outputs)
   - [Genome annotation information](#repeatmasker_annotation_info)
 - [Contact](#contact)
 
 ## <a name="introduction"></a>Introduction
-HiTE is an efficient TE annotation tool for genome assemblies based on the masking of repeated kmers.
+We have developed an ensemble method for high-precision TE annotation, known as **HiTE**, 
+which has undergone extensive benchmarking and proven to be the best TE annotation tool available. 
+HiTE achieved the highest precision and restored the most gold standard TE models based on four model species: 
+Oryza sativa, Caenorhabditis briggsae, Drosophila melanogaster, and Danio rerio. Moreover, HiTE can discover 
+novel TEs with low copy numbers that are not included in known libraries.
 
-HiTE offers a more **comprehensive** ability to annotate TEs and achieves remarkable efficiency. e.g., more than **21** times faster than RepeatModeler2 in the rice genome. It can serve as a novel solution to the existing methods to promote TE annotation performance.
+### <a name="pipeline"></a>The workflow of HiTE
+![输入图片说明](pic/Framework.png)
 
-### <a name="pipeline"></a>Pipeline of HiTE
-![输入图片说明](pic/Framework_1.png) 
+### <a name="cover_genome"></a>Performance of general-purpose TE annotators based on benckmarking method of RepeatModeler2 and EDTA. 
+![输入图片说明](pic/RM2_results.png)
 
-### <a name="cover_genome"></a>Genome coverage by each major subclass 
-![输入图片说明](pic/cover_genome_1.png)
+![输入图片说明](pic/EDTA_results.png)
 
 ## <a name="install"></a>Installation
 HiTE requires python3, please ensure you run HiTE with python3.
@@ -58,10 +62,6 @@ Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
 Install [LTRharvest](http://genometools.org/pub/binary_distributions/) and [LTR_FINDER_parallel](https://github.com/oushujun/LTR_FINDER_parallel).
 
-记得chmod +x tools_dir里的所有工具
-
-运行成功，记得check每个阶段的文件是否存在。
-
 ### <a name="configure"></a>Configuring dependencies
 ```
 cd /your_path_to/HiTE/ReferenceMode
@@ -85,54 +85,61 @@ to validate all configurations.
 
 ## <a name="cmd"></a>Commands and options
 ```
-python main.py $genome_assembly $alias_name
+The simplest command:
+python3 main.py -g $genome_assembly -a $alias_name -o $output_dir
 
-usage: main.py [-h] [-k kmer size] [-t thread num] [-s sensitive mode]
-               [--fault_tolerant_bases fault_tolerant_bases] [-o output dir]
-               [--min_ltr_complete_len min_ltr_complete_len]
-               [--max_ltr_complete_len max_ltr_complete_len]
-               [--min_ltr_direct_repeat_len min_ltr_direct_repeat_len]
-               [--max_ltr_direct_repeat_len max_ltr_direct_repeat_len]
-               [--min_tir_complete_len min_tir_complete_len]
-               [--max_tir_complete_len max_tir_complete_len]
-               [--min_tir_direct_repeat_len min_tir_direct_repeat_len]
-               [--max_tir_direct_repeat_len max_tir_direct_repeat_len]
-               [--long_repeat_threshold long_repeat_threshold]
-               Genome assembly alias name
+Most frequently used commands:
+python3 main.py -g $genome_assembly -a $alias_name -o $output_dir -t 40 --chunk_size 400 --plant 0 --recover 1
 
-run HiTE...
+usage: main.py [-h] [-g Genome assembly] [-k kmer size] [-t thread num]
+               [-a alias name] [--fault_tolerant_bases fault_tolerant_bases]
+               [--fixed_extend_base_threshold fixed_extend_base_threshold]
+               [--chunk_size chunk_size] [--freq_threshold freq_threshold]
+               [--tandem_region_cutoff tandem_region_cutoff]
+               [--max_repeat_len max_repeat_len] [--flanking_len flanking_len]
+               [--plant is_plant] [--remove_nested remove_nested]
+               [--global_flanking_filter global_flanking_filter]
+               [--recover recover] [-o output dir]
 
-positional arguments:
-  Genome assembly       input genome assembly path
-  alias name            input alias name
+########################## HiTE, version 1.0.1 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
+  -g Genome assembly    input genome assembly path
   -k kmer size          input kmer size, default = [ 31 ]
-  -t thread num         input thread num
-  -s sensitive mode     sensitive mode, default = [ 0 ]
+  -t thread num         input thread num, default = [ 40 ]
+  -a alias name         input alias name
   --fault_tolerant_bases fault_tolerant_bases
                         the base number of fault tolerant in repeated kmers
-                        masking, default = [ 50 ]
+                        masking, default = [ 200 ]
+  --fixed_extend_base_threshold fixed_extend_base_threshold
+                        the base number of extend base, default = [ 1000 ]
+  --chunk_size chunk_size
+                        the chunk size of large genome, default = [ 200 MB ]
+  --freq_threshold freq_threshold
+                        the frequency threshold of kmer, default = [ 2 ]
+  --tandem_region_cutoff tandem_region_cutoff
+                        Cutoff of the raw masked repeat regarded as tandem
+                        region, default = [ 0.5 ]
+  --max_repeat_len max_repeat_len
+                        the maximum length of repeat, default = [ 30000 ]
+  --flanking_len flanking_len
+                        the flanking length of repeat to find the true
+                        boundary, default = [ 50 ]
+  --plant is_plant      is it a plant genome, 1: true, 0: false. default = [ 1
+                        ]
+  --remove_nested remove_nested
+                        Whether to clear the nested TE, 1: true, 0: false.
+                        default = [ 1 ]
+  --global_flanking_filter global_flanking_filter
+                        Whether to filter false positives by global flanking
+                        alignment, significantly reduce false positives but
+                        require more memory, especially when inputting a large
+                        genome. 1: true (require more memory), 0: false.
+                        default = [ 1 ]
+  --recover recover     Whether to enable recovery mode to avoid repeated
+                        calculations, 1: true, 0: false. default = [ 0 ]
   -o output dir         output dir
-  --min_ltr_complete_len min_ltr_complete_len
-                        Minimum complete LTR length, default = [ 400 ]
-  --max_ltr_complete_len max_ltr_complete_len
-                        Maximum complete LTR length, default = [ 22000 ]
-  --min_ltr_direct_repeat_len min_ltr_direct_repeat_len
-                        Minimum LTR direct repeat length, default = [ 100 ]
-  --max_ltr_direct_repeat_len max_ltr_direct_repeat_len
-                        Maximum LTR direct repeat length, default = [ 6000 ]
-  --min_tir_complete_len min_tir_complete_len
-                        Minimum complete TIR length, default = [ 1000 ]
-  --max_tir_complete_len max_tir_complete_len
-                        Maximum complete TIR length, default = [ 40000 ]
-  --min_tir_direct_repeat_len min_tir_direct_repeat_len
-                        Minimum TIR direct repeat length, default = [ 0 ]
-  --max_tir_direct_repeat_len max_tir_direct_repeat_len
-                        Maximum TIR direct repeat length, default = [ 1000 ]
-  --long_repeat_threshold long_repeat_threshold
-                        Threshold of long repeat, default = [ 2000 ]
 ```
 
 ## <a name="start"></a>Getting started with toy example in `demo`
@@ -141,15 +148,29 @@ cd /your_path_to/HiTE/ReferenceMode
 python3 main.py -g ../demo/genome.fa -a test -t 48 -o ../demo/test --plant 0
 ```
 
-## <a name="input"></a>Input
+## <a name="inputs"></a>Inputs
 HiTE works with genome assemblies in FASTA, FA, and FNA formats.
 
-## <a name="output"></a>Output
-HiTE outputs an annotated consensus TE library in FASTA format.
+## <a name="outputs"></a>Outputs
+HiTE outputs many temporary files, which allow you to quickly restore the previous running 
+state in case of any accidents during the running process. To ensure that the pipeline completes successfully,
+you should check that the following files are generated:
 
-### <a name="repeatmasker_annotation_info"></a>Genome annotation information
-The annotated TE library is further input into RepeatMasker for annotating the whole genome, and the annotation information for the genome is also output.
+* repeats_*.fa. `(Note that "*" represents the number of blocks that the genome is divided into. 
+For example, if the genome input is 400 MB and the chunk size input is set to 100, then you can 
+find repeats_0.fa, repeats_1.fa, repeats_2.fa, and repeats_3.fa in your output directory. 
+The following cases are similar.)`
+* longest_repeats_*.fa.
+* confident_tir_*.fa
+* confident_helitron_*.fa
+* confident_other_*.fa
+* confident_ltr_cut.fa
+* confident_TE.cons.fa
+* confident_TE.cons.fa.final.classified
 
+### Importantly
+**confident_TE.cons.fa** and **confident_TE.cons.fa.final.classified** are the unclassified and classified TE models generated by HiTE, respectively.
+**confident_TE.cons.fa.final.classified** can be used directly as TE library in RepeatMasker by `-lib`.
 
 
 ## <a name="contact"></a>Contact
