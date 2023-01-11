@@ -25,7 +25,7 @@ Oryza sativa, Caenorhabditis briggsae, Drosophila melanogaster, and Danio rerio.
 novel TEs with low copy numbers that are not included in known libraries.
 
 ### <a name="pipeline"></a>The workflow of HiTE
-![输入图片说明](pic/Framework.png)
+![输入图片说明](pic/Framework.png) 
 
 ### <a name="performance"></a>Performance comparison of general-purpose TE annotators based on benckmarking method of RepeatModeler2 and EDTA 
 ![输入图片说明](pic/RM2_results.png)
