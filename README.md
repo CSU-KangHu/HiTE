@@ -1,11 +1,19 @@
 # HiTE, an Ensemble Method for High-Precision Transposable Element Annotation
-<!-- [![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/HiTE)](https://gitee.com/kkanghu/HiTE/blob/master/LICENSE) -->
+[![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/HiTE)](https://github.com/CSU-KangHu/HiTE/blob/master/LICENSE)
+
+<!-- ## <a name="introduction"></a>Introduction
+We have developed an ensemble method for high-precision TE annotation, known as **HiTE**, 
+which has undergone extensive benchmarking and has proven to be the best TE annotation tool available. 
+HiTE achieved the highest precision and discovered the most gold standard TE models based on four model species: 
+Oryza sativa, Caenorhabditis briggsae, Drosophila melanogaster, and Danio rerio. Furthermore, HiTE can discover 
+novel TEs with low copy numbers that are not included in known libraries. -->
 
 ## Table of Contents
 
-- [Introduction](#introduction)
+<!-- - [Introduction](#introduction)
   - [The workflow of HiTE](#pipeline)
   - [Performance](#performance)
+-->
 - [Installation](#install)
   - [Installing RepeatMasker](#repeatmasker)
   - [Installing genome tools](#genome_tools)
@@ -17,20 +25,13 @@
 - [Output](#outputs)
 - [Contact](#contact)
 
-## <a name="introduction"></a>Introduction
-We have developed an ensemble method for high-precision TE annotation, known as **HiTE**, 
-which has undergone extensive benchmarking and has proven to be the best TE annotation tool available. 
-HiTE achieved the highest precision and discovered the most gold standard TE models based on four model species: 
-Oryza sativa, Caenorhabditis briggsae, Drosophila melanogaster, and Danio rerio. Furthermore, HiTE can discover 
-novel TEs with low copy numbers that are not included in known libraries.
-
-### <a name="pipeline"></a>The workflow of HiTE
+<!-- ### <a name="pipeline"></a>The workflow of HiTE
 ![输入图片说明](pic/Framework.png) 
 
 ### <a name="performance"></a>Performance comparison of general-purpose TE annotators based on benckmarking method of RepeatModeler2 and EDTA 
 ![输入图片说明](pic/RM2_results.png)
 
-![输入图片说明](pic/EDTA_results.png)
+![输入图片说明](pic/EDTA_results.png) -->
 
 ## <a name="install"></a>Installation
 ### Download project 
