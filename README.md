@@ -1,5 +1,6 @@
 # HiTE, an Ensemble Method for High-Precision Transposable Element Annotation
-[![GitHub](https://img.shields.io/github/license/BioinformaticsCSU/HiTE)](https://github.com/CSU-KangHu/HiTE/blob/master/LICENSE)
+[![GitHub](https://img.shields.io/badge/python-3-blue)](https://www.python.org/)
+[![GitHub](https://img.shields.io/badge/license-GPL--3.0-green)](https://github.com/CSU-KangHu/HiTE/blob/master/LICENSE)
 
 <!-- ## <a name="introduction"></a>Introduction
 We have developed an ensemble method for high-precision TE annotation, known as **HiTE**, 
