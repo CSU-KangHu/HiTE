@@ -16,10 +16,8 @@ novel TEs with low copy numbers that are not included in known libraries. -->
   - [Performance](#performance)
 -->
 - [Installation](#install)
-  - [Installing RepeatMasker](#repeatmasker)
-  - [Installing genome tools](#genome_tools)
-  - [Installing LTR_retriever](#ltrretriever)
-  - [Configuring dependencies](#configure)
+  - [One-step installation](#one-step)
+  - [Step-by-step installation](#step-step)
 - [Getting started with toy example in `demo`](#start)
 - [Commands and options](#cmd)
 - [Input](#inputs)
@@ -35,11 +33,13 @@ novel TEs with low copy numbers that are not included in known libraries. -->
 ![输入图片说明](pic/EDTA_results.png) -->
 
 ## <a name="install"></a>Installation
-### Option 1. One-step installation (recommended)
+### <a name="one-step"></a>Option 1. One-step installation (recommended)
 ### Download project 
 ```
 git clone https://github.com/CSU-KangHu/HiTE.git
-
+```
+Find the **yml** file in the project directory and run:
+```
 conda env create --name HiTE -f environment.yaml
 
 conda activate HiTE
@@ -54,14 +54,11 @@ This error is caused by the incompatibility between the local perl of the system
 
 `export PERL5LIB=/`
 
-### Option 2. Step-by-step installation
+### <a name="step-step"></a>Option 2. Step-by-step installation
 ### Download project 
 ```
 git clone https://github.com/CSU-KangHu/HiTE.git
 ```
-
-Find the yml file in the folder and run:Find the yml file in the folder and run:
-
 
 ### python3
 HiTE requires python3, please ensure you run HiTE with python3.
@@ -104,14 +101,14 @@ Then, run
 
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python3 configure.py
+python configure.py
 ```
 to validate all configurations.
 
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python3 main.py -g ../demo/genome.fa -a test -t 48 -o ../demo/test --plant 0
+python main.py -g ../demo/genome.fa -a test -t 48 -o ../demo/test --plant 0
 ```
 
 ## <a name="inputs"></a>Inputs
