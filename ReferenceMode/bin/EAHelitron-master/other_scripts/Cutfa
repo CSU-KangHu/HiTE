@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+
+#AUTHORS
+# Kaining Hu (c) 2018
+# Cut Helitron upstream fasta.(Cutfa) v1.1000 2018/03/08
+# hukaining@gmail.com
+#
+use strict;
+use warnings;
+#use 5.010;
+use Getopt::Long;
+use Pod::Usage;
+use Time::HiRes 'time';
+#use Parallel::ForkManager;
+#our $MAX_processes=2;
+#my $pm=Parallel::ForkManager->new($MAX_processes);
+use re 'eval';
+our $opfn="";
+our $txonname="";
+my $verbose;
+our $upstreml=1000;
+our $strict="yes";
+
+
+GetOptions("o=s" => \$opfn,"verbose"=>\$verbose,"n=s"=>\$txonname,"u=i"=>\$upstreml,"s=s"=>\$strict)
+or die("Error in command line arguments\nUsage: 	perl Cutfa [options] <inputfile>\n
+	 options:\n
+	 [-o string|output prefix default: testup$upstreml]\n
+	 [-n string|Add prefix to seqs. default: \"\" ]\n
+	 [-u int|cut upstream bp. default: $upstreml]\n
+	 [-s string| use strict mode: No NNN No different lenghth. default: yes]\n
+	 Note: Cut Helitron upstream fasta.(Cutfa) v1.0000 2017/06/07\n");
+
+
+if ($upstreml<=0) {
+	die ("[-] Error: Can't cut $upstreml bp.\n");
+}
+#print $ARGV[0],"\n";
+if (not $ARGV[0]) {
+	die ("[-] Error: Not find a inputfile.\n");
+}
+my @tmpfliename=@ARGV;
+if ($opfn eq ""){
+	$opfn="$ARGV[0]up$upstreml";
+	print "Output file: $opfn.fa \n";
+}else{
+	print "Output file: $opfn.fa \n";
+}
+
+open OUT, "> $opfn.fa" or die ("[-] Error: Can't open or creat $opfn.fa\n");
+
+our $starttime=time();
+
+our $tmpseqname="";
+our $count1=0;
+our $count2=0;
+our $cutseq="";
+
+######main
+
+LINE: while(defined(our $seq=<>)){
+  	if ($seq =~ m/^.*>/) {
+  	 $seq=~m/^.*>([a-zA-Z0-9_.-]+) ?.*/;
+  	 #print "$txonname$1$upstreml\n";
+  	 #print OUT ">$txonname$1$upstreml\n";
+  	 $tmpseqname=">$txonname$1u$upstreml";
+  	 $count1++;
+  	 #next;
+  	 }else{
+  		$seq=~s/\s//g;
+  		my $seql=0;
+  		$seql=length($seq);
+  		#print $seql=length($seq);
+  		next LINE if($strict=~m/Y/ig && $seql<$upstreml);
+  	  $cutseq=substr($seq,-$upstreml);
+  	     #$cutseq=~s/\s//g;
+  	     #chomp $cutseq;
+  	     #print my $cutl=length($cutseq);
+  	     if ($strict=~m/Y/ig){
+  	       
+  	      
+  	       if ($seql<$upstreml || $cutseq=~/N/ig){next LINE;}else {; 
+  	               #print "$seql\n";
+  	               #print "$cutl\n";
+  			 		       print OUT "$tmpseqname\n";
+  			 		       print OUT "$cutseq\n";
+  			 		       $count2++;
+  			 		      }
+  	     }else{
+  	        print OUT "$tmpseqname\n";
+  		 	    print OUT "$cutseq\n";
+  		 	    $count2++;
+  	     }
+  	  
+  	  
+  #		 	if ($strict=~m/N/ig) {
+  #		 	   print OUT "$tmpseqname\n";
+  #		 	   print OUT "$cutseq\n";
+  #		 	   $count2++;
+  #		 	   next;
+  #		 	   }elsif ($strict=~m/Y/ig) {
+  #		 	    #print length($cutseq)."\n";
+  #			 		       next if (length($cutseq)!=$upstreml or $cutseq=~/N/ig); 
+  #			 		       print OUT "$tmpseqname\n";
+  #			 		       print OUT "$cutseq\n";
+  #			 		       $count2++;
+  #			 		                 #next;
+  #			 	                 
+  #		 	    }
+  	 }
+	} #while End.
+
+
+print "Finished Cut @tmpfliename upstream $upstreml bp to $opfn.fa\nStrict mode: $strict \n$count1 seqs cut $count2 seqs.\n";
+close OUT;
+our $endtime=time();
+printf "Done! %g Sec %g Min\n",$endtime-$starttime,($endtime-$starttime)/60;
+

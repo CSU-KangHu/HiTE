@@ -110,6 +110,8 @@ if __name__ == '__main__':
                         help='e.g., 20')
     parser.add_argument('--ref_index', metavar='ref_index',
                         help='e.g., 0')
+    parser.add_argument('--debug', metavar='debug',
+                        help='e.g., 0')
 
     args = parser.parse_args()
 
@@ -122,6 +124,7 @@ if __name__ == '__main__':
     tandem_region_cutoff = float(args.tandem_region_cutoff)
     flanking_len = int(args.flanking_len)
     ref_index = args.ref_index
+    debug = int(args.debug)
 
     log = Logger('HiTE.log', level='debug')
 
@@ -167,6 +170,10 @@ if __name__ == '__main__':
     #去掉那些在终端50 bp、LTR、Internal中存在50%以上串联重复的序列
     multi_process_TRF(candidate_ltr_cut_path, repeats_path, TRF_Path, trf_dir, tandem_region_cutoff, threads=threads, TE_type='ltr')
     filter_tandem_contignames, filter_tandem_contigs = read_fasta(repeats_path)
+
+    if debug == 0:
+        #remove temp dir
+        os.system('rm -rf ' + trf_dir)
 
     candidate_ltr_contigs = {}
     for name in contignames:

@@ -1,0 +1,10 @@
+{
+  "chrom_seg_length": "500000",
+  "RepeatMasker_Home": "/home/hukang/repeat_detect_tools/RepeatMasker",
+  "Genome_Tools_Home": "/home/hukang/repeat_detect_tools/genometools-1.5.9",
+  "LTR_retriever_Home": "/home/hukang/repeat_detect_tools/LTR_retriever-2.6",
+  "LTR_finder_parallel_Home": "/home/hukang/repeat_detect_tools/LTR_FINDER_parallel-master",
+  "RMBlast_Home": "/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2",
+  "TRF_Path": "/home/hukang/repeat_detect_tools/trf409.linux64",
+  "EAHelitron": "/home/hukang/repeat_detect_tools/EAHelitron-master"
+}

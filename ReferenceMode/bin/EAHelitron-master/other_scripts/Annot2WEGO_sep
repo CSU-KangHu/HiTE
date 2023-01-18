@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+#AUTHORS
+# Kaining Hu (c) 2017
+# Trans blast2go annot file to WEGO native fomat v1.0002 2017/06/30
+# hukaining@gmail.com
+#
+use strict;
+use warnings;
+#use 5.0100;
+use Getopt::Long;
+
+use re 'eval';
+our $opfn="native_out.wego";
+our $sep="\t";
+my $verbose;
+
+GetOptions("o=s" => \$opfn,"s=s" => \$sep,"verbose"=>\$verbose)
+or die("Error in command line arguments\nUsage: perl Annot2WEGO [-o outfile_name] [-s GOsep|default: ".'"\t"'."] <input_annot>\n");
+
+
+if ($opfn eq ""){
+	$opfn="native_out.wego";
+	print "Output file:$opfn\n";
+}else{
+	print "Output file:$opfn\n";
+}
+open OUT, "> $opfn" or die ("[-] Error: Can't open or creat $opfn\n");
+
+
+my $count=0;
+
+our $gene="gene";
+while(defined(our $seq = <>)){
+	#chomp $seq;
+	#print $seq;
+	while ($seq =~ /^(.+)\t(GO\:\d{7})(\s)?.*$/g){
+	#say $gene;
+	#say $1;
+	#say $2;
+	
+	if ($1 ne $gene){
+		print OUT "\n$1\t$2";
+		  $gene = "$1";
+		  $count++;
+		  #say $gene; 
+		}
+	else{print OUT "$sep$2";} 
+		
+	}	
+	
+	}
+
+close OUT;
+print "DONE! $count Genes\n";

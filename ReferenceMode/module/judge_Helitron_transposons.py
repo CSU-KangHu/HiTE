@@ -52,6 +52,8 @@ if __name__ == '__main__':
                         help='e.g., 50')
     parser.add_argument('--ref_index', metavar='ref_index',
                         help='e.g., 0')
+    parser.add_argument('--debug', metavar='debug',
+                        help='e.g., 0')
 
     args = parser.parse_args()
 
@@ -65,6 +67,7 @@ if __name__ == '__main__':
     blast_program_dir = args.blast_program_dir
     ref_index = args.ref_index
     flanking_len = int(args.flanking_len)
+    debug = int(args.debug)
 
     log = Logger('HiTE.log', level='debug')
 
@@ -83,6 +86,10 @@ if __name__ == '__main__':
     multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_helitron_path, temp_dir, EAHelitron, threads)
     candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
 
+    if debug == 0:
+        #remove temp dir
+        os.system('rm -rf ' + temp_dir)
+
     #运行helitronscanner
     # candidate_helitron_path = tmp_output_dir + '/candidate_helitronscanner_' + str(ref_index) + '.fa'
     # multi_process_helitronscanner(all_copies, candidate_helitron_path, sh_dir, temp_dir, HSDIR, HSJAR, threads)
@@ -99,7 +106,7 @@ if __name__ == '__main__':
         similar_ratio = 0.1
         TE_type = 'helitron'
         confident_copies = flank_region_align_v1(candidate_helitron_path, flanking_len, similar_ratio, reference,
-                                                 TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
+                                                 TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, debug, log)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of flanking Helitron copy and see if the flanking regions are repeated: %.8s s" % (dtime))

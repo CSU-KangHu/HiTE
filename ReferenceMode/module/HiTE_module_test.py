@@ -1,3 +1,4 @@
+#-- coding: UTF-8 --
 import argparse
 import os
 import sys
@@ -5,18 +6,20 @@ import sys
 import codecs
 
 import json
+import time
 
-import numpy as np
-from matplotlib import pyplot as plt
-import seaborn as sns
-import pandas as pd
+# import numpy as np
+# from matplotlib import pyplot as plt
+# import seaborn as sns
+# import pandas as pd
+import subprocess
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, getReverseSequence, allow_mismatch, \
     run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, flanking_copies, \
     store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
-    run_LTR_harvest, run_LTR_retriever
+    run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2
 
 
 def generate_repbases():
@@ -680,6 +683,43 @@ def run_LTR_test():
     run_LTR_retriever(LTR_retriever_Home, ref_rename_path, tmp_output_dir, ref_index, threads, log)
 
 
+def test_no_RepeatMasking_time():
+    log = Logger('HiTE.log', level='debug')
+
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib'
+    species_name = ['cb', 'dmel', 'rice', 'drerio']
+    ref_indexs_dict = {'cb': [0], 'dmel': [0], 'rice': [0], 'drerio': [0, 1, 2, 3, 4, 5, 6, 7]}
+
+    references = ['GCF_000004555.2_CB4_genomic.rename.fna', 'dmel-all-chromosome-r5.43.rename.fasta',
+                  'GCF_001433935.1_IRGSP-1.0_genomic.rename.fna', 'GCF_000002035.6_GRCz11_genomic.rename.fnaa']
+
+    blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
+    fixed_extend_base_threshold = 1000
+    max_repeat_len = 30000
+    threads = 40
+    debug = 1
+    for index, species in enumerate(species_name):
+        tmp_output_dir = tmp_dir + '/' + species + '/HiTE'
+        ref_indexs = ref_indexs_dict[species]
+        ref_name = references[index]
+        for ref_index in ref_indexs:
+            starttime = time.time()
+            log.logger.info('Species: ' + species)
+            log.logger.info('Start 2.2: Coarse-grained boundary mapping')
+            log.logger.info('------generate longest_repeats.fa')
+            repeats_path = tmp_output_dir + '/' + ref_name + '.cut' + str(ref_index) + '.fa'
+            longest_repeats_path = tmp_output_dir + '/genome_longest_repeats_' + str(ref_index) + '.fa'
+            log.logger.debug(repeats_path)
+            log.logger.debug(longest_repeats_path)
+            # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
+            determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
+                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, debug, threads)
+
+            endtime = time.time()
+            dtime = endtime - starttime
+            log.logger.info("Running time of generating longest_repeats.fa: %.8s s" % (dtime))
+        break
+
 
 if __name__ == '__main__':
     repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
@@ -707,7 +747,7 @@ if __name__ == '__main__':
 
     #identify_new_TIR()
 
-    draw_dist()
+    #draw_dist()
 
     #test_EAHelitron()
 
@@ -722,63 +762,28 @@ if __name__ == '__main__':
 
     # tools_dir = os.getcwd() + '/../tools'
     tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
-    # long_repeats = tmp_dir + '/longest_repeats_0.filter_tandem.fa'
-    # long_repeats_cons = tmp_dir + '/longest_repeats_0.cons.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
-    #                  + ' -G 0 -g 1 -A 80 -i ' + long_repeats + ' -o ' + long_repeats_cons + ' -T 0 -M 0'
+    # repeats = tmp_dir + '/candidate_helitron_0.fa'
+    # repeats_cons = tmp_dir + '/candidate_helitron_0.cons.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats + ' -o ' + repeats_cons + ' -T 0 -M 0'
     # os.system(cd_hit_command)
 
-    # long_repeats_cons = tmp_dir + '/longest_repeats_0.cons.fa'
-    # long_repeats_rename_cons = tmp_dir + '/longest_repeats_0.cons.rename.fa'
-    # rename_fasta(long_repeats_cons, long_repeats_rename_cons)
 
+    # repeats_cons = tmp_dir + '/candidate_helitron_0.cons.fa'
+    # repeats_rename_cons = tmp_dir + '/candidate_helitron_0.cons.rename.fa'
+    # rename_fasta(repeats_cons, repeats_rename_cons)
+    #
+    # repeats_cons = tmp_dir + '/tir_tsd_0.cons.fa'
+    # repeats_rename_cons = tmp_dir + '/tir_tsd_0.cons.rename.fa'
+    # rename_fasta(repeats_cons, repeats_rename_cons)
 
-    # novel_tir_copies = tmp_dir + '/novel_tir.copies.info'
-    # novel_tir_dir = tmp_dir + '/novel_tir'
-    # if not os.path.exists(novel_tir_dir):
-    #     os.makedirs(novel_tir_dir)
-    # novel_tir_copies1 = novel_tir_dir + '/novel_tir.copies.v1.info'
-    # novel_tirs = {}
-    # with open(novel_tir_copies, 'r') as f_r:
-    #     for line in f_r:
-    #         line = line.replace('\n', '')
-    #         if line.startswith('N_'):
-    #             if not novel_tirs.__contains__(line):
-    #                 novel_tirs[line] = []
-    #             copies = novel_tirs[line]
-    #         else:
-    #             if line.startswith('\t'):
-    #                 continue
-    #             else:
-    #                 copies.append(line)
-    # for name in novel_tirs.keys():
-    #     seqs = novel_tirs[name]
-    #     path = novel_tir_dir + '/' + name + '.fa'
-    #     node_index = 0
-    #     with open(path, 'w') as f_save:
-    #         for seq in seqs:
-    #             f_save.write('>N_'+str(node_index)+'\n'+seq+'\n')
-    #             node_index += 1
+    #test_no_RepeatMasking_time()
+
+    (status, blast_program_path) = subprocess.getstatusoutput('which LTR_retriever')
+    print(status, blast_program_path)
+    blast_program_dir = os.path.dirname(os.path.dirname(blast_program_path))
+    print(blast_program_dir)
 
 
 
-    # chrs = ["chr_0", "chr_1", "chr_2", "chr_3", "chr_4", "chr_5", "chr_6", "chr_7", "chr_8", "chr_9", "chr_10", "chr_11"]
-    # gff_path = 'C:/Users/Admin/Downloads/krf.gff'
-    # new_gff_path = 'C:/Users/Admin/Downloads/krf1.gff'
-    # with open(gff_path, 'r') as f_r:
-    #     with open(new_gff_path, 'w') as f_save:
-    #         for line in f_r:
-    #             parts = line.split('\t')
-    #             chr_name = parts[0]
-    #             #print(line)
-    #             if line.startswith("##sequence-region"):
-    #                 cur_chr_name = line.split(' ')[1]
-    #                 print(cur_chr_name)
-    #                 if cur_chr_name not in chrs:
-    #                     continue
-    #             else:
-    #                 if chr_name not in chrs:
-    #                     continue
-    #             #print(line)
-    #             f_save.write(line)
 

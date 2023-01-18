@@ -35,10 +35,33 @@ novel TEs with low copy numbers that are not included in known libraries. -->
 ![输入图片说明](pic/EDTA_results.png) -->
 
 ## <a name="install"></a>Installation
+### Option 1. One-step installation (recommended)
+### Download project 
+```
+git clone https://github.com/CSU-KangHu/HiTE.git
+
+conda env create --name HiTE -f environment.yaml
+
+conda activate HiTE
+```
+
+#### Possible issues
+Type `RepeatMasker` in the conda HiTE virtual environment, and an error similar to the following occurred:
+
+`/public/home/hpc194701009/anaconda3/envs/HiTE_v1.0.1/bin/perl: symbol lookup error: /public/home/hpc194701009/perl5/lib/perl5/x86_64-linux-thread-multi/auto/List/Util/Util.so: undefined symbol: Perl_xs_apiversion_bootcheck`
+
+This error is caused by the incompatibility between the local perl of the system and the perl installed by conda. The solution is:
+
+`export PERL5LIB=/`
+
+### Option 2. Step-by-step installation
 ### Download project 
 ```
 git clone https://github.com/CSU-KangHu/HiTE.git
 ```
+
+Find the yml file in the folder and run:Find the yml file in the folder and run:
+
 
 ### python3
 HiTE requires python3, please ensure you run HiTE with python3.
