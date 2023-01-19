@@ -1,0 +1,14 @@
+name: HiTE
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+  - r
+dependencies:
+  - python=3.6.15
+  - genometools-genometools=1.6.1
+  - ltr_retriever=2.9.0
+  - repeatmasker=4.1.1
+  - rmblast=2.10.0
+  - trf=4.09.1
+prefix: /public/home/hpc194701009/anaconda3/envs/HiTE
