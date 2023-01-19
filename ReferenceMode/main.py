@@ -369,7 +369,7 @@ if __name__ == '__main__':
         resut_file = tmp_output_dir + '/longest_repeats_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file) or not file_exist(longest_repeats_flanked_path):
             starttime = time.time()
-            log.logger.info('Start 2.2: Coarse-grained boundary mapping')
+            log.logger.info('Start 1.1: Coarse-grained boundary mapping')
             log.logger.info('------generate longest_repeats.fa')
             repeats_path = cut_reference
             # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
@@ -404,7 +404,7 @@ if __name__ == '__main__':
         resut_file = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
-            log.logger.info('Start step1.3: determine fine-grained TIR')
+            log.logger.info('Start step1.2: determine fine-grained TIR')
             # 识别TIR转座子
             tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
                                          + cut_reference + ' --seqs ' + longest_repeats_flanked_path\
@@ -424,7 +424,7 @@ if __name__ == '__main__':
         resut_file = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
-            log.logger.info('Start step1.4: determine fine-grained Helitron')
+            log.logger.info('Start step1.3: determine fine-grained Helitron')
             # 识别Helitron转座子
             helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
@@ -450,7 +450,7 @@ if __name__ == '__main__':
         resut_file = tmp_output_dir + '/confident_other_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
-            log.logger.info('Start step1.5: homology-based other TE searching')
+            log.logger.info('Start step1.4: homology-based other TE searching')
             #同源搜索其他转座子
             other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
                                            + ' --seqs ' + longest_repeats_flanked_path\

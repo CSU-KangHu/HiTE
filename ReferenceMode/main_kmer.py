@@ -259,13 +259,14 @@ if __name__ == '__main__':
     blast_program_dir = param['RMBlast_Home']
     Genome_Tools_Home = param['Genome_Tools_Home']
     LTR_retriever_Home = param['LTR_retriever_Home']
-    TRF_Path = param['TRF_Path']
+    RepeatModeler_Home = param['RepeatModeler_Home']
 
     # LTR_finder_parallel_Home = param['LTR_finder_parallel_Home']
     # EAHelitron = param['EAHelitron']
 
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
     EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
+    TRF_Path = os.getcwd() + '/tools/trf409.linux64'
 
     if blast_program_dir == '':
         (status, blast_program_path) = subprocess.getstatusoutput('which makeblastdb')
@@ -276,8 +277,9 @@ if __name__ == '__main__':
     if LTR_retriever_Home == '':
         (status, LTR_retriever_path) = subprocess.getstatusoutput('which LTR_retriever')
         LTR_retriever_Home = os.path.dirname(LTR_retriever_path)
-    if TRF_Path == '':
-        (status, TRF_Path) = subprocess.getstatusoutput('which trf')
+    if RepeatModeler_Home == '':
+        (status, RepeatClassifier_path) = subprocess.getstatusoutput('which RepeatClassifier')
+        RepeatModeler_Home = os.path.dirname(RepeatClassifier_path)
 
 
     log.logger.info('\n-------------------------------------------------------------------------------------------\n'
@@ -312,7 +314,7 @@ if __name__ == '__main__':
                     '  [Setting] Blast Program Home = [' + str(blast_program_dir) + ']\n'
                     '  [Setting] Genome Tools Program Home = [' + str(Genome_Tools_Home) + ']\n'
                     '  [Setting] LTR_retriever Program Home = [' + str(LTR_retriever_Home) + ']\n'
-                    '  [Setting] TRF Program Path = [' + str(TRF_Path) + ']'
+                    '  [Setting] RepeatModeler Program Home = [' + str(RepeatModeler_Home) + ']'
                     )
 
 
@@ -814,7 +816,9 @@ if __name__ == '__main__':
     log.logger.info('Start step3: generate non-redundant library')
     generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir
+                           + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir \
+                           + ' --RepeatModeler_Home ' + RepeatModeler_Home
+
     os.system(generate_lib_command)
     endtime = time.time()
     dtime = endtime - starttime
