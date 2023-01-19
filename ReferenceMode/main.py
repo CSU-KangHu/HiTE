@@ -514,7 +514,7 @@ if __name__ == '__main__':
 
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of obtaining candidate LTRs: %.8s s" % (dtime))
+        log.logger.info("Running time of LTR finder parallel: %.8s s" % (dtime))
     else:
         log.logger.info(resut_file + ' exists, skip...')
 

@@ -40,7 +40,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 ```
 Find the **yml** file in the project directory and run:
 ```
-conda env create --name HiTE -f environment.yaml
+conda env create --name HiTE -f environment.yml
 
 conda activate HiTE
 ```
@@ -55,6 +55,9 @@ This error is caused by the incompatibility between the local perl of the system
 `export PERL5LIB=/`
 
 ### <a name="step-step"></a>Option 2. Step-by-step installation
+<details>
+<summary>Click to view installation details</summary>
+
 ### Download project 
 ```
 git clone https://github.com/CSU-KangHu/HiTE.git
@@ -104,6 +107,8 @@ cd /your_path_to/HiTE/ReferenceMode
 python configure.py
 ```
 to validate all configurations.
+</details>
+
 
 ## <a name="start"></a>Getting started with toy example in `demo`
 ```
