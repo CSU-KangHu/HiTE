@@ -1,5 +1,4 @@
 {
-  "chrom_seg_length": "500000",
   "RepeatMasker_Home": "/home/hukang/repeat_detect_tools/RepeatMasker",
   "Genome_Tools_Home": "/home/hukang/repeat_detect_tools/genometools-1.5.9",
   "LTR_retriever_Home": "/home/hukang/repeat_detect_tools/LTR_retriever-2.6",

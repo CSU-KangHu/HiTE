@@ -625,16 +625,17 @@ if __name__ == '__main__':
         temp_confident_TE_path = tmp_output_dir + '/confident_TE.temp.fa'
         os.system('cat ' + confident_ltr_cut_path + ' > ' + temp_confident_TE_path)
         os.system('cat ' + confident_TE_path + ' >> ' + temp_confident_TE_path)
-        remove_nested_command = 'cd ' + test_home + ' && python3 remove_nested_lib.py ' \
-                                + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
-                                + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-                                + ' --input1 ' + temp_confident_TE_path \
-                                + ' --input2 ' + confident_ltr_internal_path \
-                                + ' --output ' + clean_ltr_internal_path
-        os.system(remove_nested_command)
+        if os.path.getsize(temp_confident_TE_path) > 0 and os.path.getsize(confident_ltr_internal_path) > 0:
+            remove_nested_command = 'cd ' + test_home + ' && python3 remove_nested_lib.py ' \
+                                    + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
+                                    + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
+                                    + ' --input1 ' + temp_confident_TE_path \
+                                    + ' --input2 ' + confident_ltr_internal_path \
+                                    + ' --output ' + clean_ltr_internal_path
+            os.system(remove_nested_command)
 
-        os.system('cat ' + confident_ltr_terminal_path + ' > ' + confident_ltr_cut_path)
-        os.system('cat ' + clean_ltr_internal_path + ' >> ' + confident_ltr_cut_path)
+            os.system('cat ' + confident_ltr_terminal_path + ' > ' + confident_ltr_cut_path)
+            os.system('cat ' + clean_ltr_internal_path + ' >> ' + confident_ltr_cut_path)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of step2.4: %.8s s" % (dtime))

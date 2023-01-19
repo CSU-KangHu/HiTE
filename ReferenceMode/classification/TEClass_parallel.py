@@ -234,8 +234,8 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
         file_removed = []
         #print("Thread idx:%d, Start Running WebTE HOMOLOGY module." %partition_index)
         starttime = time.time()
-        program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
-        homology_command = 'cd '+ cur_tmp_dir + ' && perl ' + program_path + ' -pa 1 -consensi ' + cur_consensus_path
+        #program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
+        homology_command = 'cd '+ cur_tmp_dir + ' && RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
         #print('homology_command:%s' % homology_command)
         os.system(homology_command + ' > /dev/null 2>&1')
         endtime = time.time()

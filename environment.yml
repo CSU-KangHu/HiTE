@@ -11,4 +11,5 @@ dependencies:
   - repeatmasker=4.1.1
   - rmblast=2.10.0
   - trf=4.09.1
+  - repeatmodeler=2.0.1
 prefix: /public/home/hpc194701009/anaconda3/envs/HiTE
