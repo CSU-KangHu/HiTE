@@ -315,7 +315,7 @@ if __name__ == '__main__':
                     '  [Setting] Blast Program Home = [' + str(blast_program_dir) + ']\n'
                     '  [Setting] Genome Tools Program Home = [' + str(Genome_Tools_Home) + ']\n'
                     '  [Setting] LTR_retriever Program Home = [' + str(LTR_retriever_Home) + ']\n'
-                    '  [Setting] TRF Program Path = [' + str(TRF_Path) + ']'
+                    '  [Setting] RepeatModeler Program Home = [' + str(RepeatModeler_Home) + ']'
                     )
 
 
