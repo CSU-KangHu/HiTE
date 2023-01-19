@@ -83,16 +83,16 @@ if __name__ == '__main__':
     load_f.close()
 
     # 1. get RepeatClassifier path
-    repeatclassifier_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepeatClassifier"
-    if not os.path.exists(repeatclassifier_path):
-        print('error:')
-        print('----can not find RepeatClassifier in %s' %repeatclassifier_path)
-        sys.exit(-1)
-
     repeatmasker_home = param['RepeatMasker_Home']
     if not os.path.exists(repeatmasker_home+'/RepeatMasker'):
         print('error:')
         print('----can not find RepeatMasker in %s directory' %repeatmasker_home)
+        sys.exit(-1)
+
+    repeatModeler_Home = param['RepeatModeler_Home']
+    if not os.path.exists(repeatModeler_Home + '/RepeatClassifier'):
+        print('error:')
+        print('----can not find RepeatClassifier in %s directory' % repeatModeler_Home)
         sys.exit(-1)
 
     rmblast_home = param['RMBlast_Home']
@@ -119,22 +119,10 @@ if __name__ == '__main__':
         print('----can not find LTR_finder_parallel in %s' % LTR_finder_parallel_home)
         sys.exit(-1)
 
-    trf_program = os.getcwd() + "/tools/trf409.linux64"
-    if not os.path.exists(trf_program):
-        print('error:')
-        print('----can not find trf in %s' %trf_program)
-        sys.exit(-1)
 
-    EAHelitron_program = param['EAHelitron'] + "/EAHelitron"
-    if not os.path.exists(EAHelitron_program):
-        print('error:')
-        print('----can not find EAHelitron in %s' % EAHelitron_program)
-        sys.exit(-1)
-
-
-    # 2. modify RepModelConfig.pm in RepeatClassifier directory
-    RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"
-    modify_RepModel(RepModelConfig_path, repeatmasker_home, rmblast_home, trf_program)
+    # # 2. modify RepModelConfig.pm in RepeatClassifier directory
+    # RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"
+    # modify_RepModel(RepModelConfig_path, repeatmasker_home, rmblast_home, trf_program)
 
     # 3. add executable
     os.system('cd ' + os.getcwd() + '/tools && chmod +x ./*')

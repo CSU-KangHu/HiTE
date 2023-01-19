@@ -83,6 +83,8 @@ if __name__ == '__main__':
                         help='e.g., rice')
     parser.add_argument('--blast_program_dir', metavar='blast_program_dir',
                         help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
+    parser.add_argument('--RepeatModeler_Home', metavar='RepeatModeler_Home',
+                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/RepeatModeler-2.0.1')
 
     args = parser.parse_args()
 
@@ -90,6 +92,7 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     sample_name = args.sample_name
     blast_program_dir = args.blast_program_dir
+    RepeatModeler_Home = args.RepeatModeler_Home
 
     log = Logger('HiTE.log', level='debug')
 
@@ -115,7 +118,8 @@ if __name__ == '__main__':
     TEClass_home = os.getcwd() + '/../classification'
     TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                       + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
-                      + ' --thread_num ' + str(threads) + ' --split_num ' + str(48) + ' -o ' + tmp_output_dir
+                      + ' --thread_num ' + str(threads) + ' --split_num ' + str(48) + ' -o ' + tmp_output_dir \
+                      + ' --RepeatModeler_Home ' + RepeatModeler_Home
     os.system(TEClass_command)
 
 
