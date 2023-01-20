@@ -83,24 +83,6 @@ if __name__ == '__main__':
     load_f.close()
 
     # 1. get RepeatClassifier path
-    repeatmasker_home = param['RepeatMasker_Home']
-    if not os.path.exists(repeatmasker_home+'/RepeatMasker'):
-        print('error:')
-        print('----can not find RepeatMasker in %s directory' %repeatmasker_home)
-        sys.exit(-1)
-
-    repeatModeler_Home = param['RepeatModeler_Home']
-    if not os.path.exists(repeatModeler_Home + '/RepeatClassifier'):
-        print('error:')
-        print('----can not find RepeatClassifier in %s directory' % repeatModeler_Home)
-        sys.exit(-1)
-
-    rmblast_home = param['RMBlast_Home']
-    if not os.path.exists(rmblast_home+'/bin/makeblastdb'):
-        print('error:')
-        print('----can not find makeblastdb in %s directory' %rmblast_home)
-        sys.exit(-1)
-
     genome_tools_home = param['Genome_Tools_Home']
     if not os.path.exists(genome_tools_home+'/bin/gt'):
         print('error:')
@@ -113,12 +95,23 @@ if __name__ == '__main__':
         print('----can not find LTR_retriever in %s directory' %ltr_retriever_home)
         sys.exit(-1)
 
-    LTR_finder_parallel_home = param['LTR_finder_parallel_Home'] + "/LTR_FINDER_parallel"
-    if not os.path.exists(LTR_finder_parallel_home):
+    rmblast_home = param['RMBlast_Home']
+    if not os.path.exists(rmblast_home + '/bin/makeblastdb'):
         print('error:')
-        print('----can not find LTR_finder_parallel in %s' % LTR_finder_parallel_home)
+        print('----can not find makeblastdb in %s directory' % rmblast_home)
         sys.exit(-1)
 
+    repeatmasker_home = param['RepeatMasker_Home']
+    if not os.path.exists(repeatmasker_home + '/RepeatMasker'):
+        print('error:')
+        print('----can not find RepeatMasker in %s directory' % repeatmasker_home)
+        sys.exit(-1)
+
+    repeatModeler_Home = param['RepeatModeler_Home']
+    if not os.path.exists(repeatModeler_Home + '/RepeatClassifier'):
+        print('error:')
+        print('----can not find RepeatClassifier in %s directory' % repeatModeler_Home)
+        sys.exit(-1)
 
     # # 2. modify RepModelConfig.pm in RepeatClassifier directory
     # RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"

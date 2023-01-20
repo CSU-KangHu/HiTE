@@ -55,10 +55,8 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
 if __name__ == '__main__':
     default_k_num = 31
     default_threads = int(cpu_count())
-    default_fault_tolerant_bases = 200
     default_fixed_extend_base_threshold = 1000
     default_chunk_size = 200
-    default_freq_threshold = 2
     default_tandem_region_cutoff = 0.5
     default_max_single_repeat_len = 30000
     default_plant = 1
@@ -68,6 +66,7 @@ if __name__ == '__main__':
     default_global_flanking_filter = 1
     default_debug = 0
     default_chrom_seg_length = 500000
+    default_classified = 1
 
     version_num = '1.0.1'
 
@@ -81,30 +80,16 @@ if __name__ == '__main__':
                         help='input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('-a', metavar='alias name',
                         help='input alias name')
-    parser.add_argument('--fault_tolerant_bases', metavar='fault_tolerant_bases',
-                        help='the base number of fault tolerant in repeated kmers masking, default = [ '+str(default_fault_tolerant_bases)+' ]')
-    parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold',
-                        help='the base number of extend base, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size',
-                        help='the chunk size of large genome, default = [ '+str(default_chunk_size)+' MB ]')
-    parser.add_argument('--freq_threshold', metavar='freq_threshold',
-                        help='the frequency threshold of kmer, default = [ '+str(default_freq_threshold)+' ]')
-    parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff',
-                        help='Cutoff of the raw masked repeat regarded as tandem region, default = [ '+str(default_tandem_region_cutoff)+' ]')
-    parser.add_argument('--max_repeat_len', metavar='max_repeat_len',
-                        help='the maximum length of repeat, default = [ ' + str(default_max_single_repeat_len) + ' ]')
-    parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length',
-                        help='the length of genome segments, default = [ ' + str(default_chrom_seg_length) + ' ]')
-    parser.add_argument('--flanking_len', metavar='flanking_len',
-                        help='the flanking length of repeat to find the true boundary, default = [ '+str(default_flanking_len)+' ]')
+                        help='the chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
     parser.add_argument('--plant', metavar='is_plant',
                         help='is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
     parser.add_argument('--remove_nested', metavar='remove_nested',
-                        help='Whether to clear the nested TE, 1: true, 0: false. default = [ ' + str(default_nested) + ' ]')
-    parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter',
-                        help='Whether to filter false positives by global flanking alignment, significantly reduce false positives '
-                             'but require more memory, especially when inputting a large genome. 1: true (require more memory), 0: false. default = [ ' + str(
-                            default_global_flanking_filter) + ' ]')
+                        help='Whether to clear the nested TE, 1: true, 0: false. default = [ ' + str(
+                            default_nested) + ' ]')
+    parser.add_argument('--classified', metavar='classified',
+                        help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(
+                            default_classified) + ' ]')
     parser.add_argument('--recover', metavar='recover',
                         help='Whether to enable recovery mode to avoid repeated calculations, 1: true, 0: false. default = [ ' + str(
                             default_recover) + ' ]')
@@ -113,6 +98,22 @@ if __name__ == '__main__':
     parser.add_argument('-o', metavar='output dir',
                         help='output dir')
 
+    parser.add_argument('--flanking_len', metavar='flanking_len',
+                        help='the flanking length of repeat to find the true boundary, default = [ ' + str(
+                            default_flanking_len) + ' ]')
+    parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold',
+                        help='the base number of extend base, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
+    parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff',
+                        help='Cutoff of the raw masked repeat regarded as tandem region, default = [ '+str(default_tandem_region_cutoff)+' ]')
+    parser.add_argument('--max_repeat_len', metavar='max_repeat_len',
+                        help='the maximum length of repeat, default = [ ' + str(default_max_single_repeat_len) + ' ]')
+    parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length',
+                        help='the length of genome segments, default = [ ' + str(default_chrom_seg_length) + ' ]')
+    parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter',
+                        help='Whether to filter false positives by global flanking alignment, significantly reduce false positives '
+                             'but require more memory, especially when inputting a large genome. 1: true (require more memory), 0: false. default = [ ' + str(
+                            default_global_flanking_filter) + ' ]')
+
     args = parser.parse_args()
 
     reference = args.g
@@ -120,10 +121,8 @@ if __name__ == '__main__':
     threads = args.t
     alias = args.a
     output_dir = args.o
-    fault_tolerant_bases = args.fault_tolerant_bases
     fixed_extend_base_threshold = args.fixed_extend_base_threshold
     chunk_size = args.chunk_size
-    freq_threshold = args.freq_threshold
     tandem_region_cutoff = args.tandem_region_cutoff
     max_repeat_len = args.max_repeat_len
     chrom_seg_length = args.chrom_seg_length
@@ -131,6 +130,7 @@ if __name__ == '__main__':
     plant = args.plant
     remove_nested = args.remove_nested
     global_flanking_filter = args.global_flanking_filter
+    classified = args.classified
     recover = args.recover
     debug = args.debug
 
@@ -159,11 +159,6 @@ if __name__ == '__main__':
     else:
         threads = int(threads)
 
-    if fault_tolerant_bases is None:
-        fault_tolerant_bases = default_fault_tolerant_bases
-    else:
-        fault_tolerant_bases = int(fault_tolerant_bases)
-
     if fixed_extend_base_threshold is None:
         fixed_extend_base_threshold = default_fixed_extend_base_threshold
     else:
@@ -173,11 +168,6 @@ if __name__ == '__main__':
         chunk_size = default_chunk_size
     else:
         chunk_size = float(chunk_size)
-
-    if freq_threshold is None:
-        freq_threshold = default_freq_threshold
-    else:
-        freq_threshold = int(freq_threshold)
 
     if tandem_region_cutoff is None:
         tandem_region_cutoff = default_tandem_region_cutoff
@@ -203,6 +193,11 @@ if __name__ == '__main__':
         global_flanking_filter = default_global_flanking_filter
     else:
         global_flanking_filter = int(global_flanking_filter)
+
+    if classified is None:
+        classified = default_classified
+    else:
+        classified = int(classified)
 
     if recover is None:
         recover = default_recover
@@ -296,21 +291,19 @@ if __name__ == '__main__':
                     '  [Setting] Alias = [ ' + str(alias) + ' ]\n'
                     '  [Setting] The K-mer Size = [ ' + str(k_num) + 'bp]  Default( ' + str(default_k_num) + ' )\n'
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
-                    '  [Setting] Fault tolerant bases threshold = [ ' + str(fault_tolerant_bases) + ' ] Default( ' + str(default_fault_tolerant_bases) + ' )\n'
-                    '  [Setting] Fixed extend bases threshold = [ ' + str(fixed_extend_base_threshold) + ' ] Default( ' + str(default_fixed_extend_base_threshold) + ' )\n'
-                    
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
-                    '  [Setting] The frequency threshold of kmer = [ ' + str(freq_threshold) + ' ] Default( ' + str(default_freq_threshold) + ' )\n'
-                    '  [Setting] Cutoff of the repeat regarded as tandem sequence = [ ' + str(tandem_region_cutoff) + ' ] Default( ' + str(default_tandem_region_cutoff) + ' )\n'
-                    '  [Setting] Maximum length of TE = [ ' + str(max_repeat_len) + ' ]  Default( ' + str(default_max_single_repeat_len) + ' )\n'
-                    '  [Setting] The length of genome segments = [ ' + str(chrom_seg_length) + ' ]  Default( ' + str(default_chrom_seg_length) + ' )\n'
-                    '  [Setting] Flanking length of TE = [ ' + str(flanking_len) + ' ]  Default( ' + str(default_flanking_len) + ' )\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
                     '  [Setting] Remove nested = [ ' + str(remove_nested) + ' ]  Default( ' + str(default_nested) + ' )\n'
                     '  [Setting] Global flanking filter = [ ' + str(global_flanking_filter) + ' ]  Default( ' + str(default_global_flanking_filter) + ' )\n'
                     '  [Setting] recover = [ ' + str(recover) + ' ]  Default( ' + str(default_recover) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
                     '  [Setting] Output Directory = [' + str(output_dir) + ']'
+                                                                                                                                                                                                           
+                    '  [Setting] Fixed extend bases threshold = [ ' + str(fixed_extend_base_threshold) + ' ] Default( ' + str(default_fixed_extend_base_threshold) + ' )\n'
+                    '  [Setting] Flanking length of TE = [ ' + str(flanking_len) + ' ]  Default( ' + str(default_flanking_len) + ' )\n'
+                    '  [Setting] Cutoff of the repeat regarded as tandem sequence = [ ' + str(tandem_region_cutoff) + ' ] Default( ' + str(default_tandem_region_cutoff) + ' )\n'
+                    '  [Setting] Maximum length of TE = [ ' + str(max_repeat_len) + ' ]  Default( ' + str(default_max_single_repeat_len) + ' )\n'
+                    '  [Setting] The length of genome segments = [ ' + str(chrom_seg_length) + ' ]  Default( ' + str(default_chrom_seg_length) + ' )\n'
 
                     '  [Setting] Blast Program Home = [' + str(blast_program_dir) + ']\n'
                     '  [Setting] Genome Tools Program Home = [' + str(Genome_Tools_Home) + ']\n'
@@ -655,7 +648,7 @@ if __name__ == '__main__':
     generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir \
-                           + ' --RepeatModeler_Home ' + RepeatModeler_Home
+                           + ' --RepeatModeler_Home ' + RepeatModeler_Home + ' --classified ' + str(classified)
     os.system(generate_lib_command)
     endtime = time.time()
     dtime = endtime - starttime

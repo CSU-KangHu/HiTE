@@ -66,10 +66,6 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 ### python3
 HiTE requires python3, please ensure you run HiTE with python3.
 
-### <a name="repeatmasker"></a>Installing RepeatMasker
-It is recommended to download the latest release of RepeatMasker 
-from the [RepeatMasker Download page](http://www.repeatmasker.org/RepeatMasker/).
-
 Please install  **RMBlast** as the Sequence Search Engine of RepeatMasker.
 
 ### <a name="genome_tools"></a>Installing genome tools
@@ -82,10 +78,16 @@ tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 ```
 
 ### <a name="ltrretriever"></a>Installing LTR_retriever
-Install [LTRharvest](http://genometools.org/pub/binary_distributions/) and [LTR_FINDER_parallel](https://github.com/oushujun/LTR_FINDER_parallel).
-
 Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
+
+### <a name="repeatmodeler"></a>Installing RepeatModeler (Optional)
+HiTE uses RepeatClassifier from [RepeatModeler](https://www.repeatmasker.org/RepeatModeler/) to classify the TE models.
+Use `--classified 0` if you do not need classified TE models.
+
+### <a name="repeatmasker"></a>Installing RepeatMasker (Optional)
+It is recommended to download the latest release of RepeatMasker 
+from the [RepeatMasker Download page](http://www.repeatmasker.org/RepeatMasker/).
 
 ### <a name="configure"></a>Configuring dependencies
 ```
@@ -93,10 +95,11 @@ cd /your_path_to/HiTE/ReferenceMode
 vim ParamConfig.json
 ```
 Change
-- RepeatMasker_Home
 - Genome_Tools_Home
 - LTR_retriever_Home
-- RMBlast_Home 
+- RMBlast_Home
+- RepeatMasker_Home
+- RepeatModeler_Home
 
 to the actual installation directories of RepeatMasker, Genome_Tools, LTR_retriever, and RMBlast, respectively.
 

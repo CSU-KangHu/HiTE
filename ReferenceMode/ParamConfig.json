@@ -1,8 +1,7 @@
 {
-  "RepeatMasker_Home": "",
-  "RepeatModeler_Home": "",
   "Genome_Tools_Home": "",
   "LTR_retriever_Home": "",
-  "LTR_finder_parallel_Home": "",
-  "RMBlast_Home": ""
+  "RMBlast_Home": "",
+  "RepeatMasker_Home": "",
+  "RepeatModeler_Home": ""
 }

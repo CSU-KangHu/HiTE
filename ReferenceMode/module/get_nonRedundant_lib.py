@@ -85,6 +85,8 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
     parser.add_argument('--RepeatModeler_Home', metavar='RepeatModeler_Home',
                         help='e.g., /public/home/hpc194701009/repeat_detect_tools/RepeatModeler-2.0.1')
+    parser.add_argument('--classified', metavar='classified',
+                        help='e.g., 1')
 
     args = parser.parse_args()
 
@@ -93,6 +95,7 @@ if __name__ == '__main__':
     sample_name = args.sample_name
     blast_program_dir = args.blast_program_dir
     RepeatModeler_Home = args.RepeatModeler_Home
+    classified = args.classified
 
     log = Logger('HiTE.log', level='debug')
 
@@ -115,11 +118,12 @@ if __name__ == '__main__':
                      + ' -G 0 -g 1 -A 80 -i ' + confident_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
-    TEClass_home = os.getcwd() + '/../classification'
-    TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                      + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
-                      + ' --thread_num ' + str(threads) + ' --split_num ' + str(48) + ' -o ' + tmp_output_dir \
-                      + ' --RepeatModeler_Home ' + RepeatModeler_Home
-    os.system(TEClass_command)
+    if classified is not None and int(classified) == 1:
+        TEClass_home = os.getcwd() + '/../classification'
+        TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+                          + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
+                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(48) + ' -o ' + tmp_output_dir \
+                          + ' --RepeatModeler_Home ' + RepeatModeler_Home
+        os.system(TEClass_command)
 
 
