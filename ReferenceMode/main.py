@@ -23,7 +23,7 @@ from module.Util import read_fasta, Logger, store_fasta, \
 
 #from module.judge_TIR_transposons import is_transposons
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, ref_index, debug, log):
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, ref_index, log):
     log.logger.info('determine true TIR')
 
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
@@ -33,7 +33,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
     flanking_len = 50
     similar_ratio = 0.1
     TE_type = 'tir'
-    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, debug, log)
+    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
@@ -359,7 +359,7 @@ if __name__ == '__main__':
 
         longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
         longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
-        resut_file = tmp_output_dir + '/longest_repeats_'+str(ref_index)+'.fa'
+        resut_file = longest_repeats_path
         if not is_recover or not file_exist(resut_file) or not file_exist(longest_repeats_flanked_path):
             starttime = time.time()
             log.logger.info('Start 1.1: Coarse-grained boundary mapping')
@@ -367,7 +367,7 @@ if __name__ == '__main__':
             repeats_path = cut_reference
             # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
             determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
-                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, debug, threads)
+                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads)
 
             endtime = time.time()
             dtime = endtime - starttime
@@ -380,9 +380,7 @@ if __name__ == '__main__':
             repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
             multi_process_TRF(longest_repeats_path, repeats_path, TRF_Path, trf_dir, tandem_region_cutoff,
                               threads=threads)
-            if debug == 0:
-                # remove temp dir
-                os.system('rm -rf ' + trf_dir)
+
             endtime = time.time()
             dtime = endtime - starttime
             log.logger.info("Running time of filtering tandem repeat in longest_repeats.fa: %.8s s" % (dtime))
@@ -405,8 +403,7 @@ if __name__ == '__main__':
                                          + ' --tmp_output_dir ' + tmp_output_dir + ' --blast_program_dir ' \
                                          + blast_program_dir + ' --TRF_Path ' + TRF_Path + ' --tandem_region_cutoff ' \
                                          + str(tandem_region_cutoff) + ' --ref_index ' + str(ref_index) \
-                                         + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) \
-                                         + ' --debug ' + str(debug)
+                                         + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len)
             os.system(tir_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -423,8 +420,7 @@ if __name__ == '__main__':
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
                                               + ' --tmp_output_dir ' + tmp_output_dir + ' --EAHelitron ' + EAHelitron \
                                               + ' --blast_program_dir ' + blast_program_dir \
-                                              + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
-                                              + ' --debug ' + str(debug)
+                                              + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len)
 
             # HSDIR = '/public/home/hpc194701009/repeat_detect_tools/TrainingSet'
             # HSJAR = '/public/home/hpc194701009/repeat_detect_tools/HelitronScanner/HelitronScanner.jar'
@@ -562,7 +558,7 @@ if __name__ == '__main__':
     if len(cut_references) > 1 and global_flanking_filter == 1:
         ref_index = -1
         is_transposons(confident_tir_rename_consensus, reference, threads, tmp_output_dir, flanking_len, blast_program_dir,
-                       ref_index, debug, log)
+                       ref_index, log)
 
     # 1.5 解开TIR中包含的nested TE
     clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
@@ -653,6 +649,43 @@ if __name__ == '__main__':
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of step3: %.8s s" % (dtime))
+
+    # remove temp files and directories
+    if debug == 0:
+        keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
+                      'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
+        keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
+                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.final.classified']
+
+        for ref_index, cut_reference in enumerate(cut_references):
+            for filename in keep_files_temp:
+                keep_files.append(filename.replace('*', str(ref_index)))
+
+        all_files = os.listdir(tmp_output_dir)
+        for filename in all_files:
+            if filename not in keep_files:
+                os.system('rm -rf ' + tmp_output_dir+'/'+filename)
+
+        # trf_dir = tmp_output_dir + '/trf_temp'
+        # os.system('rm -rf ' + trf_dir)
+        # tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
+        # os.system('rm -rf ' + tmp_blast_dir)
+        # trf_dir = tmp_output_dir + '/tir_trf_temp'
+        # os.system('rm -rf ' + trf_dir)
+        # tir_tsd_temp_dir = tmp_output_dir + '/tir_blast'
+        # os.system('rm -rf ' + tir_tsd_temp_dir)
+        # flank_align_dir = tmp_output_dir + '/flank_tir_align'
+        # os.system('rm -rf ' + flank_align_dir)
+        # temp_dir = tmp_output_dir + '/helitron_tmp'
+        # os.system('rm -rf ' + temp_dir)
+        # tir_tsd_temp_dir = tmp_output_dir + '/helitron_blast'
+        # os.system('rm -rf ' + tir_tsd_temp_dir)
+        # flank_align_dir = tmp_output_dir + '/flank_helitron_align'
+        # os.system('rm -rf ' + flank_align_dir)
+        #
+        # confident_copies_file = tmp_output_dir + '/tir_copies.info'
+        # os.system('rm -rf ' + confident_copies_file)
+
 
 
     pipeline_endtime = time.time()

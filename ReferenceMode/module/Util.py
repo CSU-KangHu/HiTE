@@ -3699,7 +3699,7 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
     return longest_repeats_path
 
 def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
-                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, debug, threads):
+                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads):
     repeatNames, repeatContigs = read_fasta(repeats_path)
     # parallel
     tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
@@ -3812,9 +3812,6 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
                     f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
                                  '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
-    if debug == 0:
-        #remove temp dir
-        os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
 
 
@@ -5234,15 +5231,11 @@ def judge_flank_align(flanking_region_distance, output, flanking_len, flank_alig
     # else:
     #     return ''
 
-def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, debug, log):
+def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log):
     log.logger.info('------generating candidate ' + TE_type + ' copies')
     starttime = time.time()
     tir_tsd_temp_dir = tmp_output_dir + '/' + TE_type + '_blast'
     all_copies = multi_process_align_and_get_copies(candidate_sequence_path, reference, blast_program_dir, tir_tsd_temp_dir, TE_type, threads)
-
-    if debug == 0:
-        # remove temp dir
-        os.system('rm -rf ' + tir_tsd_temp_dir)
 
     # multi_process_align(candidate_sequence_path, reference, blastnResults_path, blast_program_dir, tir_tsd_temp_dir, threads)
     # if not os.path.exists(blastnResults_path):
@@ -5279,17 +5272,16 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
             copy_list = new_all_copies[query_name]
             copy_list.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd))
 
-    if debug == 1:
-        # store confident_copies for testing
-        confident_copies_file = tmp_output_dir + '/'+TE_type+'_copies.info'
-        with open(confident_copies_file, 'w') as f_save:
-            f_save.write('# all copies have been flanked ' + str(flanking_len) +' bp at both ends\n')
-            for orig_query_name in new_all_copies.keys():
-                f_save.write(orig_query_name + '\n')
-                for copy in new_all_copies[orig_query_name]:
-                    f_save.write('\tfrom:' + str(copy[0]) + '_' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(
-                        copy[2] - copy[1] + 1) + '\n')
-                    f_save.write(copy[4] + '\n')
+    # store confident_copies for testing
+    confident_copies_file = tmp_output_dir + '/'+TE_type+'_copies.info'
+    with open(confident_copies_file, 'w') as f_save:
+        f_save.write('# all copies have been flanked ' + str(flanking_len) +' bp at both ends\n')
+        for orig_query_name in new_all_copies.keys():
+            f_save.write(orig_query_name + '\n')
+            for copy in new_all_copies[orig_query_name]:
+                f_save.write('\tfrom:' + str(copy[0]) + '_' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(
+                    copy[2] - copy[1] + 1) + '\n')
+                f_save.write(copy[4] + '\n')
 
     endtime = time.time()
     dtime = endtime - starttime
@@ -5359,10 +5351,6 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
                         flanking_len, flanking_region_distance, flank_align_dir)
         jobs.append(job)
     ex.shutdown(wait=True)
-
-    if debug == 0:
-        # remove temp dir
-        os.system('rm -rf ' + flank_align_dir)
 
     deleted_names = set()
     appeared_names = set()

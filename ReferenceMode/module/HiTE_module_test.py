@@ -778,11 +778,23 @@ if __name__ == '__main__':
     # rename_fasta(repeats_cons, repeats_rename_cons)
 
     #test_no_RepeatMasking_time()
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/recover_test/cb'
+    ref_name = 'GCF_000004555.2_CB4_genomic.rename'
+    keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
+                       'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
+    keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
+                  ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa',
+                  'confident_TE.cons.fa.final.classified']
 
-    (status, blast_program_path) = subprocess.getstatusoutput('which LTR_retriever')
-    print(status, blast_program_path)
-    blast_program_dir = os.path.dirname(os.path.dirname(blast_program_path))
-    print(blast_program_dir)
+    cut_references = ['0']
+    for ref_index, cut_reference in enumerate(cut_references):
+        for filename in keep_files_temp:
+            keep_files.append(filename.replace('*', str(ref_index)))
+
+    all_files = os.listdir(tmp_output_dir)
+    for filename in all_files:
+        if filename not in keep_files:
+            os.system('rm -rf ' + tmp_output_dir + '/' + filename)
 
 
 
