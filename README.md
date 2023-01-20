@@ -56,7 +56,7 @@ This error is caused by the incompatibility between the local perl of the system
 
 ### <a name="step-step"></a>Option 2. Step-by-step installation
 <details>
-<summary>Click to view installation details</summary>
+<summary>Show more details</summary>
 
 #### 1. Download project 
 ```
