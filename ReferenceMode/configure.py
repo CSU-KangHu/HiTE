@@ -82,35 +82,42 @@ if __name__ == '__main__':
         param = json.load(load_f)
     load_f.close()
 
+    found_error = False
+
     # 1. get RepeatClassifier path
     genome_tools_home = param['Genome_Tools_Home']
     if not os.path.exists(genome_tools_home+'/bin/gt'):
         print('error:')
-        print('----can not find gt in %s directory' %genome_tools_home)
-        sys.exit(-1)
+        print('----can not find gt in %s directory.' %genome_tools_home)
+        found_error = True
 
     ltr_retriever_home = param['LTR_retriever_Home']
     if not os.path.exists(ltr_retriever_home+'/LTR_retriever'):
         print('error:')
-        print('----can not find LTR_retriever in %s directory' %ltr_retriever_home)
-        sys.exit(-1)
+        print('----can not find LTR_retriever in %s directory.' %ltr_retriever_home)
+        found_error = True
 
     rmblast_home = param['RMBlast_Home']
     if not os.path.exists(rmblast_home + '/bin/makeblastdb'):
         print('error:')
-        print('----can not find makeblastdb in %s directory' % rmblast_home)
-        sys.exit(-1)
+        print('----can not find makeblastdb in %s directory.' % rmblast_home)
+        found_error = True
 
     repeatmasker_home = param['RepeatMasker_Home']
     if not os.path.exists(repeatmasker_home + '/RepeatMasker'):
         print('error:')
-        print('----can not find RepeatMasker in %s directory' % repeatmasker_home)
-        sys.exit(-1)
+        print('----can not find RepeatMasker in %s directory.' % repeatmasker_home)
+        found_error = True
 
     repeatModeler_Home = param['RepeatModeler_Home']
     if not os.path.exists(repeatModeler_Home + '/RepeatClassifier'):
         print('error:')
-        print('----can not find RepeatClassifier in %s directory' % repeatModeler_Home)
+        print('----can not find RepeatClassifier in %s directory.' % repeatModeler_Home)
+        found_error = True
+
+
+    if found_error:
+        print('Configuration error. please input the correct paths of tools in ParamConfig.json.' % repeatModeler_Home)
         sys.exit(-1)
 
     # # 2. modify RepModelConfig.pm in RepeatClassifier directory

@@ -34,7 +34,7 @@ novel TEs with low copy numbers that are not included in known libraries. -->
 
 ## <a name="install"></a>Installation
 ### <a name="one-step"></a>Option 1. One-step installation (recommended)
-### Download project 
+#### Download project 
 ```
 git clone https://github.com/CSU-KangHu/HiTE.git
 ```
@@ -58,38 +58,40 @@ This error is caused by the incompatibility between the local perl of the system
 <details>
 <summary>Click to view installation details</summary>
 
-### Download project 
+#### 1. Download project 
 ```
 git clone https://github.com/CSU-KangHu/HiTE.git
 ```
 
-### python3
+#### 2. installing python3
 HiTE requires python3, please ensure you run HiTE with python3.
 
-Please install  **RMBlast** as the Sequence Search Engine of RepeatMasker.
+#### 3. installing RMBlast
+Please install  [RMBlast](https://www.repeatmasker.org/rmblast/).
 
-### <a name="genome_tools"></a>Installing genome tools
+#### <a name="genome_tools"></a>4. Installing genome tools
 Download [Genome Tools](http://genometools.org/pub/binary_distributions/).
 
-For example:
+<!-- For example:
 ```
 wget http://genometools.org/pub/binary_distributions/gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
 ```
+-->
 
-### <a name="ltrretriever"></a>Installing LTR_retriever
+#### <a name="ltrretriever"></a>5. Installing LTR_retriever
 Install the latest release of LTR_retriever
 from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
 
-### <a name="repeatmodeler"></a>Installing RepeatModeler (Optional)
+#### <a name="repeatmodeler"></a>6. Installing RepeatModeler (Optional)
 HiTE uses RepeatClassifier from [RepeatModeler](https://www.repeatmasker.org/RepeatModeler/) to classify the TE models.
 Use `--classified 0` if you do not need classified TE models.
 
-### <a name="repeatmasker"></a>Installing RepeatMasker (Optional)
+#### <a name="repeatmasker"></a>7. Installing RepeatMasker (Optional)
 It is recommended to download the latest release of RepeatMasker 
 from the [RepeatMasker Download page](http://www.repeatmasker.org/RepeatMasker/).
 
-### <a name="configure"></a>Configuring dependencies
+#### <a name="configure"></a>8. Configuring dependencies
 ```
 cd /your_path_to/HiTE/ReferenceMode
 vim ParamConfig.json
