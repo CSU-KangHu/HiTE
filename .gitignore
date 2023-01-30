@@ -139,3 +139,5 @@ cython_debug/
 
 # IDEA
 **/.idea/
+.idea
+/.idea/
