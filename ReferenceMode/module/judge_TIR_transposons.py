@@ -183,9 +183,9 @@ if __name__ == '__main__':
 
     log = Logger('HiTE.log', level='debug')
 
-    confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
-    if os.path.exists(confident_tir_path):
-        os.remove(confident_tir_path)
+    # confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
+    # if os.path.exists(confident_tir_path):
+    #     os.remove(confident_tir_path)
 
     # log.logger.info('loading ' + longest_repeats_flanked_copies_file)
     # file = open(longest_repeats_flanked_copies_file, 'r')

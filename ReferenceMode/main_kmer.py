@@ -460,7 +460,7 @@ if __name__ == '__main__':
             repeats_path = tmp_output_dir + '/repeats_'+str(ref_index)+'.fa'
             # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
             determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_program_dir,
-                                         fixed_extend_base_threshold, max_repeat_len, reference, tmp_output_dir, debug, threads)
+                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads)
 
             endtime = time.time()
             dtime = endtime - starttime

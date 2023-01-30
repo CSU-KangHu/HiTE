@@ -17,9 +17,10 @@ import subprocess
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, getReverseSequence, allow_mismatch, \
-    run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, flanking_copies, \
+    run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, \
     store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
-    run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2
+    run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
+    get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1
 
 
 def generate_repbases():
@@ -713,13 +714,184 @@ def test_no_RepeatMasking_time():
             log.logger.debug(longest_repeats_path)
             # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
             determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
-                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, debug, threads)
+                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads)
 
             endtime = time.time()
             dtime = endtime - starttime
             log.logger.info("Running time of generating longest_repeats.fa: %.8s s" % (dtime))
         break
 
+def test_connect_RepeatMasking_results(tmp_output_dir):
+    log = Logger('HiTE.log', level='debug')
+    ref_index = 0
+
+    longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
+    repeats_path = tmp_output_dir + '/repeats_' + str(ref_index) + '.fa'
+
+    #连接repeats序列
+    avg_repeat_len = 500000
+    repeat_names, repeat_contigs = read_fasta(repeats_path)
+
+    connected_repeats = {}
+    node_index = 0
+    cur_repeat_len = 0
+    cur_repeat = ''
+    for name in repeat_names:
+        seq = repeat_contigs[name]
+        cur_repeat_len += len(seq)
+        cur_repeat += seq
+        if cur_repeat_len >= avg_repeat_len:
+            connected_repeats['N_'+str(node_index)] = cur_repeat
+            node_index += 1
+            cur_repeat_len = 0
+            cur_repeat = ''
+    if cur_repeat != '':
+        connected_repeats['N_' + str(node_index)] = cur_repeat
+
+    repeats_path = tmp_output_dir + '/connected_repeats_' + str(ref_index) + '.fa'
+    store_fasta(connected_repeats, repeats_path)
+
+    blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
+    fixed_extend_base_threshold = 1000
+    max_repeat_len = 30000
+    threads = 40
+    starttime = time.time()
+    log.logger.info('Start 2.2: Coarse-grained boundary mapping')
+    log.logger.info('------generate longest_repeats.fa')
+
+    # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
+    determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_program_dir,
+                                 fixed_extend_base_threshold, max_repeat_len, tmp_output_dir,
+                                 threads)
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of generating longest_repeats.fa: %.8s s" % (dtime))
+
+def flanking_copies(all_copies, query_path, reference, flanking_len, copy_num=10, query_coverage=0.99):
+    new_all_copies = {}
+    tsd_info = {}
+    query_names, query_contigs = read_fasta(query_path)
+    ref_names, ref_contigs = read_fasta(reference)
+    for query_name in all_copies.keys():
+        tsd_copy_num = 0
+        total_copy_len = 0
+        query_seq = query_contigs[query_name]
+        copies = all_copies[query_name]
+        new_copies = []
+        # 取最多copy_num条
+        for i, copy in enumerate(copies):
+            if copy_num != -1 and i >= copy_num:
+                break
+            ref_name = copy[0]
+            copy_ref_start = int(copy[1])
+            copy_ref_end = int(copy[2])
+            if copy_ref_start > copy_ref_end:
+                tmp = copy_ref_start
+                copy_ref_start = copy_ref_end
+                copy_ref_end = tmp
+            copy_len = copy_ref_end - copy_ref_start + 1
+            if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
+                continue
+            ref_seq = ref_contigs[ref_name]
+            orig_copy_seq = ref_seq[copy_ref_start-1: copy_ref_end]
+            copy_seq = ref_seq[copy_ref_start-1-flanking_len: copy_ref_end+flanking_len]
+            #如果是取全长拷贝，则需要判断拷贝的前5bp和后5bp是否与原始序列高度相似，只允许1 bp mismatch
+            if query_coverage != 0.99 or \
+                    (allow_mismatch(query_seq[0:5], orig_copy_seq[0:5], 1)
+                     and allow_mismatch(query_seq[-5:], orig_copy_seq[-5:], 1)):
+                new_copies.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq))
+
+            total_copy_len += len(copy_seq)
+            tir_start = flanking_len + 1  # (坐标都是以1开始的，start和end都是取到的)
+            tir_end = len(copy_seq) - flanking_len
+            left_tsd_seq, right_tsd_seq = TSDsearch_v4(copy_seq, tir_start, tir_end)
+            if left_tsd_seq != '':
+                tsd_copy_num += 1
+            copy_name = str(copy[0]) + '-' + str(copy[1]) + '-' + str(copy[2]) + '-' + str(copy_ref_end-copy_ref_start+1)
+            if not tsd_info.__contains__(query_name):
+                tsd_info[query_name] = {}
+            info = tsd_info[query_name]
+            info[copy_name] = left_tsd_seq + ',' + right_tsd_seq + ',' + copy_seq
+        if not tsd_info.__contains__(query_name):
+            tsd_info[query_name] = {}
+        info = tsd_info[query_name]
+        info['total_copy_num'] = len(copies)
+        info['tsd_copy_num'] = tsd_copy_num
+        info['total_copy_len'] = total_copy_len
+
+        if len(new_copies) > 0:
+            new_all_copies[query_name] = new_copies
+    return new_all_copies, tsd_info
+
+def get_seq_copies(input, tmp_output_dir):
+    threads = 40
+    reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna.cut0.fa'
+    blastnResults_path = tmp_output_dir + '/test/tir.repbase.out'
+    blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
+    temp_dir = tmp_output_dir + '/repbase_blast'
+    multi_process_align(input, reference, blastnResults_path, blast_program_dir, temp_dir, threads)
+    all_copies = get_copies(blastnResults_path, input, reference, threads=threads)
+    # 在copies的两端 flanking 20bp的序列
+    flanking_len = 50
+    all_copies, tsd_info = flanking_copies(all_copies, input, reference, flanking_len, copy_num=10)
+
+    copy_info_path = tmp_output_dir + '/test/tir.repbase.copies.info'
+    store_copies(tsd_info, copy_info_path)
+
+    # 输出无拷贝和单拷贝序列个数
+    delete_repbase_names = set()
+    no_copy_num = 0
+    single_copy_num = 0
+    for query_name in all_copies.keys():
+        copies = all_copies[query_name]
+        if len(copies) == 1:
+            single_copy_num += 1
+            delete_repbase_names.add(query_name)
+        elif len(copies) == 0:
+            no_copy_num += 1
+            delete_repbase_names.add(query_name)
+    print('no_copy_num: ' + str(no_copy_num) + ', single_copy_num: ' + str(single_copy_num))
+
+
+def lost_TIRs(tmp_output_dir):
+    tools_dir = os.getcwd() + '/../tools'
+    raw_tirs = tmp_output_dir + '/tir_tsd_0.filter_tandem.fa'
+    raw_tir_consensus = tmp_output_dir + '/tir_tsd_0.cons.fa'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + raw_tirs + ' -o ' + raw_tir_consensus + ' -T 0 -M 0'
+    #os.system(cd_hit_command)
+
+    rename_tir_consensus = tmp_output_dir + '/tir_tsd_0.rename.cons.fa'
+    #rename_fasta(raw_tir_consensus, rename_tir_consensus)
+
+    repbase_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/rice/tir.repbase.ref'
+    repbase_names, repbase_contigs = read_fasta(repbase_path)
+
+    #1.提取未过滤多出的100个perfect序列
+    raw_perfect_path = '/homeb/hukang/KmerRepFinder_test/library/raw_TIRs/perfect.families'
+    filter_perfect_path = '/homeb/hukang/KmerRepFinder_test/library/filtered_TIRs/perfect.families'
+
+    raw_perfect = set()
+    filter_perfect = set()
+    with open(raw_perfect_path, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            raw_perfect.add(line)
+    with open(filter_perfect_path, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            filter_perfect.add(line)
+    lost_tirs = raw_perfect.difference(filter_perfect)
+    print('lost tir size: ' + str(len(lost_tirs)))
+
+    lost_tirs_path = tmp_output_dir + '/lost_tir.fa'
+    with open(lost_tirs_path, 'w') as f_save:
+        for name in lost_tirs:
+            f_save.write('>'+name+'\n'+repbase_contigs[name]+'\n')
+
+    #2.将序列比对到参考上，获取拷贝
+    get_seq_copies(lost_tirs_path, tmp_output_dir)
 
 if __name__ == '__main__':
     repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
@@ -760,14 +932,8 @@ if __name__ == '__main__':
 
     #run_LTR_test()
 
-    # tools_dir = os.getcwd() + '/../tools'
-    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
-    # repeats = tmp_dir + '/candidate_helitron_0.fa'
-    # repeats_cons = tmp_dir + '/candidate_helitron_0.cons.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats + ' -o ' + repeats_cons + ' -T 0 -M 0'
-    # os.system(cd_hit_command)
-
+    tools_dir = os.getcwd() + '/../tools'
+    # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
 
     # repeats_cons = tmp_dir + '/candidate_helitron_0.cons.fa'
     # repeats_rename_cons = tmp_dir + '/candidate_helitron_0.cons.rename.fa'
@@ -777,25 +943,70 @@ if __name__ == '__main__':
     # repeats_rename_cons = tmp_dir + '/tir_tsd_0.cons.rename.fa'
     # rename_fasta(repeats_cons, repeats_rename_cons)
 
-    #test_no_RepeatMasking_time()
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/recover_test/cb'
-    ref_name = 'GCF_000004555.2_CB4_genomic.rename'
-    keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
-                       'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
-    keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-                  ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa',
-                  'confident_TE.cons.fa.final.classified']
+    # test_no_RepeatMasking_time()
 
-    cut_references = ['0']
-    for ref_index, cut_reference in enumerate(cut_references):
-        for filename in keep_files_temp:
-            keep_files.append(filename.replace('*', str(ref_index)))
+    #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_kmer'
+    #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/recover_test/cb_super'
+    #test_connect_RepeatMasking_results(tmp_output_dir)
 
-    all_files = os.listdir(tmp_output_dir)
-    for filename in all_files:
-        if filename not in keep_files:
-            os.system('rm -rf ' + tmp_output_dir + '/' + filename)
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
+    # repeats = tmp_output_dir + '/confident_tir_0.fa'
+    # repeats_rename = tmp_output_dir + '/confident_tir_0.rename.fa'
+    # rename_fasta(repeats, repeats_rename)
+    #
+    # repeats_rename = tmp_output_dir + '/confident_tir_0.rename.fa'
+    # repeats_rename_cons = tmp_output_dir + '/confident_tir_0.cons.rename.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats_rename + ' -o ' + repeats_rename_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
 
+
+    lost_TIRs(tmp_output_dir)
+    # lost_tirs_path = tmp_output_dir + '/test.fa'
+    # get_seq_copies(lost_tirs_path, tmp_output_dir)
+
+    # repeats = tmp_output_dir + '/tir_tsd_0.filter_tandem.fa'
+    #repeats_cons = tmp_output_dir + '/tir_tsd_0.cons.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+
+    # repeats_cons_rename = tmp_output_dir + '/tir_tsd_0.rename.cons.fa'
+    # rename_fasta(repeats_cons, repeats_cons_rename)
+
+    # flanking_region_distance = 10
+    # flanking_len = 50
+    # flank_align_dir = tmp_output_dir + '/flank_tir_align_0'
+    # mark = 'N_21202-len_1496-ref_NC_029260.1-22739190-22740686-C_29-tsd_TTTTTTCAT-distance_18'
+    # for name in os.listdir(flank_align_dir):
+    #     if name.endswith('.out'):
+    #         with open(flank_align_dir+'/'+name) as f_r:
+    #             for line in f_r:
+    #                 if line.__contains__(mark):
+    #                     print(name)
+
+    TE_type = 'tir'
+    tir_tsd_temp_dir = tmp_output_dir + '/' + TE_type + '_blast'
+    # mark = 'N_21202-len_1496-ref_NC_029260.1-22739190-22740686-C_29-tsd_TTTTTTCAT-distance_18'
+    # for name in os.listdir(tir_tsd_temp_dir):
+    #     if name.endswith('.out'):
+    #         with open(tir_tsd_temp_dir+'/'+name) as f_r:
+    #             for line in f_r:
+    #                 if line.__contains__(mark):
+    #                     print(name)
+
+    # # output = flank_align_dir + '/N_54503-len_5175-ref_NC_029264.1-11302200-11307375-C_27-tsd_TAA-distance_9.out'
+    # output = flank_align_dir + '/1952.out'
+    # judge_flank_align(flanking_region_distance, output, flanking_len, flank_align_dir)
+
+
+    # split_repeats_path = tir_tsd_temp_dir + '/790.fa'
+    # ref_db_path = tir_tsd_temp_dir + '/790.fa'
+    # blastnResults_path = tir_tsd_temp_dir + '/790.out'
+    # ref_db_path = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna.cut0.fa'
+    # query_coverage = 0.99
+    # subject_coverage = 0
+    # all_copies = get_copies_v1(blastnResults_path, split_repeats_path, ref_db_path, query_coverage=query_coverage, subject_coverage=subject_coverage)
 
 
 

@@ -1408,8 +1408,7 @@ def divided_array(original_array, partitions):
     return final_partitions
 
 
-def multi_line(fasta_path, line_len, k_num):
-    k_num = int(k_num)
+def multi_line(fasta_path, line_len):
     tmp_fasta_path = fasta_path + ".tmp"
     contigNames, contigs = read_fasta(fasta_path)
     with open(tmp_fasta_path, 'w') as f_w:
@@ -2896,8 +2895,7 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
     split_repeats_path = repeats_path[0]
     original_repeats_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
-    ref_contigs = repeats_path[3]
-    tmp_blast_dir = repeats_path[4]
+    tmp_blast_dir = repeats_path[3]
 
     subject_tmp_dir = tmp_blast_dir + '/subject'
     for partition_index in range(threads):
@@ -3114,29 +3112,16 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
         longest_queries.sort(key=lambda x: -x[2])
 
         keep_longest_query[query_name] = longest_queries
-        parts = query_name.split('-s_')[1].split('-')
-        chr_name = parts[0]
-        chr_start = int(parts[2])
-        chr_end = int(parts[3])
-        ref_seq = ref_contigs[chr_name]
+        #parts = query_name.split('-s_')[1].split('-')
+        #chr_name = parts[0]
+        #chr_start = int(parts[2])
+        #chr_end = int(parts[3])
+        chr_name = ''
+        chr_start = 0
+        chr_end = 0
 
         is_flank = False
-        flanking_len = 0
-        chr_start -= flanking_len
-        chr_end += flanking_len
-        if chr_start < 0 or chr_end > len(ref_seq) - 1:
-            is_flank = False
-        else:
-            is_flank = True
-
-        if not is_flank:
-            chr_start += flanking_len
-            chr_end -= flanking_len
-
-        query_seq = ref_seq[chr_start: chr_end+1]
-
-        # if query_name == 'P_0-N_118506-s_NC_029264.1-0-10233621-10234865':
-        #     print('here')
+        query_seq = query_contigs[query_name]
 
         # 计算所有片段的支持拷贝数，边界只保留最长边界
         copies = []
@@ -3170,40 +3155,6 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
 
         copies.sort(key=lambda x: -(x[1]-x[0]))
 
-        # # 我们将copies拿过来聚类，只要它满足与类中最近点的距离小于阈值，就把他加到类中，然后取类中的平均起始、终止位置当做represent sequence
-        # # cluster -> ([(x,y), (x,y), (x,y)], avg_x, avg_y)
-        # clusters = []
-        # for copy in copies:
-        #     # 去掉copy[2] < 2 且不是全长拷贝的copies，没有其余的拷贝支持它是一个重复。
-        #     if copy[2] < 2 and float(copy[1] - copy[0]) / query_len < 0.95:
-        #         continue
-        #     is_merge = False
-        #     for cluster in clusters:
-        #         # 计算与cluster中心点的距离
-        #         cluster_array = cluster['cluster']
-        #         avg_x = cluster['avg_x']
-        #         avg_y = cluster['avg_y']
-        #         distance = math.sqrt(pow(copy[0] - avg_x, 2) + pow(copy[1] - avg_y, 2))
-        #         if distance < 20 * math.sqrt(2):
-        #             # 更新cluster以及中心点
-        #             cluster_array.append((copy[0], copy[1]))
-        #             avg_x = 0
-        #             avg_y = 0
-        #             for dot in cluster_array:
-        #                 avg_x += dot[0]
-        #                 avg_y += dot[1]
-        #             cluster['avg_x'] = avg_x / len(cluster_array)
-        #             cluster['avg_y'] = avg_y / len(cluster_array)
-        #             is_merge = True
-        #             break
-        #     if not is_merge:
-        #         new_cluster_array = [(copy[0], copy[1])]
-        #         new_cluster = {}
-        #         new_cluster['cluster'] = new_cluster_array
-        #         new_cluster['avg_x'] = copy[0]
-        #         new_cluster['avg_y'] = copy[1]
-        #         clusters.append(new_cluster)
-
         #合并序列片段TE
         pure_copies = []
         for cur_copy in copies:
@@ -3230,21 +3181,15 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
             end_pos = copy[1]
             ori_start_pos = start_pos
             ori_end_pos = end_pos
-            if is_flank:
-                end_pos += 2*flanking_len
+
             copy_seq = query_seq[start_pos: end_pos]
 
             seq_ref_start = chr_start + ori_start_pos
-            if is_flank:
-                seq_ref_end = chr_start + ori_end_pos + 2*flanking_len
-            else:
-                seq_ref_end = chr_start + ori_end_pos
+            seq_ref_end = chr_start + ori_end_pos
 
             if len(copy_seq) >= 80:
                 intact_copies.append((ori_start_pos, ori_end_pos, chr_name, seq_ref_start, seq_ref_end, copy_seq))
         longest_repeats[query_name] = intact_copies
-
-    # print(longest_repeats)
     return longest_repeats, keep_longest_query
 
 
@@ -3575,15 +3520,13 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
     store_fasta(flanked_contigs, longest_repeats_flanked_path)
 
 def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_program_dir,
-                                 fixed_extend_base_threshold, max_single_repeat_len, reference, tmp_output_dir, debug, threads):
+                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads):
     repeatNames, repeatContigs = read_fasta(repeats_path)
     # parallel
     tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
     os.system('rm -rf ' + tmp_blast_dir)
     if not os.path.exists(tmp_blast_dir):
         os.makedirs(tmp_blast_dir)
-
-    ref_names, ref_contigs = read_fasta(reference)
 
     #(repeat_dir, repeat_filename) = os.path.split(repeats_path)
 
@@ -3621,30 +3564,26 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
     file_index = 0
     cur_seq_index = 0
     cur_contigs = {}
-    cur_ref_contigs = {}
     for name in repeatNames:
         cur_contigs[name] = repeatContigs[name]
         cur_seq_index += 1
         # 获取query_name中包含的染色体名称
-        parts = name.split('-s_')[1].split('-')
-        chr_name = parts[0]
-        if not cur_ref_contigs.__contains__(chr_name):
-            cur_ref_contigs[chr_name] = ref_contigs[chr_name]
+        # parts = name.split('-s_')[1].split('-')
+        # chr_name = parts[0]
 
         if cur_seq_index >= 10:
             split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
             store_fasta(cur_contigs, split_repeat_file)
             output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, repeats_path, output_file, cur_ref_contigs, tmp_blast_dir))
+            repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
             cur_contigs = {}
-            cur_ref_contigs = {}
             file_index += 1
             cur_seq_index = 0
     if len(cur_contigs) > 0:
         split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
         store_fasta(cur_contigs, split_repeat_file)
         output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, repeats_path, output_file, cur_ref_contigs, tmp_blast_dir))
+        repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
 
     ex = ProcessPoolExecutor(threads)
     longest_repeats = {}
@@ -3681,21 +3620,19 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
         for query_name in longest_repeats.keys():
             seqs_tuples = longest_repeats[query_name]
             for longest_seq in seqs_tuples:
-                orig_start_pos = longest_seq[0]
-                orig_end_pos = longest_seq[1]
-                chr_name = longest_seq[2]
-                seq_ref_start = longest_seq[3]
-                seq_ref_end = longest_seq[4]
+                # orig_start_pos = longest_seq[0]
+                # orig_end_pos = longest_seq[1]
+                # chr_name = longest_seq[2]
+                # seq_ref_start = longest_seq[3]
+                # seq_ref_end = longest_seq[4]
                 seq = longest_seq[5]
                 # 如果有连续10个以上的N过滤掉
                 if len(seq) >= 100 and not seq.__contains__('NNNNNNNNNN'):
-                    f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
-                                 '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
+                    f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) + '\n' + seq + '\n')
+                    # f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
+                    #              '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
 
-    if debug == 0:
-        #remove temp dir
-        os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
 
 def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
@@ -3818,6 +3755,7 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
 def get_TSD(all_copies, flanking_len):
     # tsd_info = {query_name: {copy1: tsd+','+seq}, {copy2: tsd+','+seq}, {total_copy_num:}, {tsd_copy_num:}}
     # copy: (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
+    # (subject_name, subject_start, subject_end, query_len, direct)
     tsd_info = {}
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
@@ -4396,6 +4334,10 @@ def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, 
                                             cluster_longest_query_len, cluster_longest_subject_start,
                                             cluster_longest_subject_end, cluster_longest_subject_len, subject_name,
                                             cluster_extend_num, cluster_identity))
+
+        if query_name.__contains__('N_21202-len_1496-ref_NC_029260.1-22739190-22740686-C_29-tsd_TTTTTTCAT-distance_18'):
+            print('here')
+
 
         # we now consider, we should take some sequences from longest_queries to represent this query sequence.
         # we take the longest sequence by length, if the latter sequence overlap with the former sequence largely (50%),
@@ -5145,6 +5087,9 @@ def judge_flank_align(flanking_region_distance, output, flanking_len, flank_alig
     delete_names = set()
     appeared_names = set()
     for query_name in query_groups.keys():
+        # if query_name.__contains__('N_54503-len_5175-ref_NC_029264.1-11302200-11307375-C_27-tsd_TAA-distance_9'):
+        #     print('here')
+
         # 统计整个flanking区域都能比对的次数，超过1次就过滤掉
         complete_false_num = 0
         # 统计明显超过边界的次数，超过5次就过滤掉
@@ -5184,18 +5129,27 @@ def judge_flank_align(flanking_region_distance, output, flanking_len, flank_alig
                 is_subject_start_covered = is_subject_start_covered or subject_start_covered
                 is_subject_end_covered = is_subject_end_covered or subject_end_covered
 
-                if direct == '+' and (q_start < (flanking_len + 1 - 20) or q_end > (orig_query_len + flanking_len + 20) or s_start < (flanking_len + 1 -20) or s_end > (orig_subject_len + flanking_len + 20)):
+                #如果边界位置向里向外各(20/40)bp的序列具有同源性，说明边界周围的序列具有同源性
+                if direct == '+' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20)) or
+                                      (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20)) or
+                                      (s_start < (flanking_len+1-20) and s_end > (flanking_len+1+20)) or
+                                      (s_start < (orig_subject_len+flanking_len-20) and s_end > (orig_subject_len+flanking_len+20))):
                     obvious_false_num += 1
-                elif direct == '-' and (q_start < (flanking_len + 1 - 20) or q_end > (orig_query_len + flanking_len + 20) or s_end < (flanking_len + 1 -20) or s_start > (orig_subject_len + flanking_len + 20)):
+                elif direct == '-' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20)) or
+                                        (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20)) or
+                                        (s_start > (flanking_len+1+20) and s_end < (flanking_len+1-20)) or
+                                        (s_start > (orig_subject_len+flanking_len+20) and s_end < (orig_subject_len+flanking_len-20))):
                     obvious_false_num += 1
 
-                if direct == '+' and (q_start < (flanking_len + 1 - 40) or q_end > (
-                        orig_query_len + flanking_len + 40) or s_start < (flanking_len + 1 - 40) or s_end > (
-                                              orig_subject_len + flanking_len + 40)):
+                if direct == '+' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40)) or
+                                      (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40)) or
+                                      (s_start < (flanking_len+1-40) and s_end > (flanking_len+1+40)) or
+                                      (s_start < (orig_subject_len+flanking_len-40) and s_end > (orig_subject_len+flanking_len+40))):
                     complete_false_num += 1
-                elif direct == '-' and (q_start < (flanking_len + 1 - 40) or q_end > (
-                        orig_query_len + flanking_len + 40) or s_end < (flanking_len + 1 - 40) or s_start > (
-                                                orig_subject_len + flanking_len + 40)):
+                elif direct == '-' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40)) or
+                                        (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40)) or
+                                        (s_start > (flanking_len+1+40) and s_end < (flanking_len+1-40)) or
+                                        (s_start > (orig_subject_len+flanking_len+40) and s_end < (orig_subject_len+flanking_len-40))):
                     complete_false_num += 1
 
 
@@ -5301,6 +5255,7 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
     single_copy_LTR = set()
 
     flanking_region_distance = int(flanking_len * similar_ratio)
+    #flanking_region_distance = 10
     ex = ProcessPoolExecutor(threads)
     jobs = []
     #一条orig_query_name调用一次比对，CPU利用率太低，我们尝试50条序列调用一次
@@ -5464,7 +5419,6 @@ def multi_process_align_and_get_copies(query_path, subject_path, blast_program_d
     orig_names, orig_contigs = read_fasta(query_path)
 
     blast_db_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
-    #print(blast_db_command)
     os.system(blast_db_command)
 
     #这里是不是可以考虑把序列划分的更细，以此来减少任务的不均衡

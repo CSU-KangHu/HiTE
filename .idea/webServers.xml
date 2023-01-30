@@ -12,7 +12,7 @@
       <webServer id="56966ab4-a410-477d-bbec-1582915c923a" name="bio1">
         <fileTransfer accessType="SFTP" host="122.207.108.56" port="5000" sshConfigId="082b9081-d029-46ab-97f7-abf2428ebd3d" sshConfig="hukang@122.207.108.56:5000 password">
           <advancedOptions>
-            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>

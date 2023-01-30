@@ -53,7 +53,6 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
 
 
 if __name__ == '__main__':
-    default_k_num = 31
     default_threads = int(cpu_count())
     default_fixed_extend_base_threshold = 1000
     default_chunk_size = 200
@@ -68,14 +67,12 @@ if __name__ == '__main__':
     default_chrom_seg_length = 500000
     default_classified = 1
 
-    version_num = '1.0.1'
+    version_num = '2.0.1'
 
     # 1.parse args
     parser = argparse.ArgumentParser(description='########################## HiTE, version ' + str(version_num) + ' ##########################')
     parser.add_argument('-g', metavar='Genome assembly',
                         help='input genome assembly path')
-    parser.add_argument('-k', metavar='kmer size',
-                        help='input kmer size, default = [ '+str(default_k_num)+' ]')
     parser.add_argument('-t', metavar='thread num',
                         help='input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('-a', metavar='alias name',
@@ -117,7 +114,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     reference = args.g
-    k_num = args.k
     threads = args.t
     alias = args.a
     output_dir = args.o
@@ -148,11 +144,6 @@ if __name__ == '__main__':
         reference = os.path.abspath(reference)
     if not os.path.isabs(output_dir):
         output_dir = os.path.abspath(output_dir)
-
-    if k_num is None:
-        k_num = int(default_k_num)
-    else:
-        k_num = int(k_num)
 
     if threads is None:
         threads = int(default_threads)
@@ -289,7 +280,6 @@ if __name__ == '__main__':
                     '====================================System settings========================================\n'
                     '  [Setting] Reference sequences / assemblies path = [ ' + str(reference) + ' ]\n'
                     '  [Setting] Alias = [ ' + str(alias) + ' ]\n'
-                    '  [Setting] The K-mer Size = [ ' + str(k_num) + 'bp]  Default( ' + str(default_k_num) + ' )\n'
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
@@ -324,7 +314,7 @@ if __name__ == '__main__':
     log.logger.info('Start Splitting Reference into chunks')
     # using multiple threads to gain speed
     reference_pre = convertToUpperCase_v1(reference)
-    reference_tmp = multi_line(reference_pre, chrom_seg_length, k_num)
+    reference_tmp = multi_line(reference_pre, chrom_seg_length)
     cut_references = []
     cur_ref_contigs = {}
     cur_base_num = 0
