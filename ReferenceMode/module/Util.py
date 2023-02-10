@@ -172,9 +172,10 @@ def run_itrsearch_v1(TRsearch_dir, tir_seq):
 def run_itrsearch(TRsearch_dir, input, input_dir):
     TRsearch_command = TRsearch_dir + '/itrsearch -i 0.7 -l 7 ' + input
     #print(TRsearch_command + "> /dev/null 2>&1")
-    os.system('cd ' + input_dir + ' && ' +TRsearch_command + '> /dev/null 2>&1')
+    TR_log = input + '.log'
+    os.system('cd ' + input_dir + ' && ' +TRsearch_command + ' > ' + TR_log)
     TR_out = input + '.itr'
-    return TR_out
+    return TR_out, TR_log
 
 def run_ltrsearch(TRsearch_dir, input, input_dir):
     TRsearch_command = TRsearch_dir + '/ltrsearch -i 0.85 ' + input
@@ -4335,8 +4336,8 @@ def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, 
                                             cluster_longest_subject_end, cluster_longest_subject_len, subject_name,
                                             cluster_extend_num, cluster_identity))
 
-        if query_name.__contains__('N_21202-len_1496-ref_NC_029260.1-22739190-22740686-C_29-tsd_TTTTTTCAT-distance_18'):
-            print('here')
+        # if query_name.__contains__('N_21202-len_1496-ref_NC_029260.1-22739190-22740686-C_29-tsd_TTTTTTCAT-distance_18'):
+        #     print('here')
 
 
         # we now consider, we should take some sequences from longest_queries to represent this query sequence.
@@ -4705,14 +4706,63 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
     for name in short_itr_contigs.keys():
         del all_copies_itr_contigs[name]
     store_fasta(all_copies_itr_contigs, all_candidate_TIRs_path)
-    run_itrsearch(TRsearch_dir, all_candidate_TIRs_path, tir_tsd_dir)
-    all_copies_out = all_candidate_TIRs_path + '.itr'
+    all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, all_candidate_TIRs_path, tir_tsd_dir)
     # 过滤掉终端TIR长度差距过大的序列
     # filter_large_gap_tirs(all_copies_out, all_copies_out)
     all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
-    all_copies_out_contigs.update(short_itr_contigs)
 
+    # 解析itrsearch log文件，提取比对偏移的序列名称
+    fake_tirs = get_fake_tirs(all_copies_log)
+    #过滤掉可能是fake tir的序列
+    for name in all_copies_out_name:
+        if name in fake_tirs:
+            del all_copies_out_contigs[name]
+
+    all_copies_out_contigs.update(short_itr_contigs)
     return all_copies_out_contigs
+
+def get_fake_tirs(itrsearch_log):
+    fake_tirs = set()
+    alignments = {}
+    line_count = 0
+    query_name = ''
+    with open(itrsearch_log, 'r') as f_r:
+        for line in f_r:
+            line_count += 1
+            if line.startswith('load sequence'):
+                parts = line.split('\t')
+                query_name = parts[0].split(' ')[3]
+                line_count = 0
+            if line_count == 3 or line_count == 4 or line_count == 5:
+                if line.strip() == '':
+                    continue
+                if query_name != '':
+                    if not alignments.__contains__(query_name):
+                        alignments[query_name] = []
+                    details = alignments[query_name]
+                    details.append(line)
+
+    for query_name in alignments.keys():
+        details = alignments[query_name]
+        if len(details) != 3:
+            continue
+        query_seq = details[0]
+        align_seq = details[1]
+        target_seq = details[2]
+        #print(query_name)
+        query_parts = query_seq.split(' ')
+        target_parts = target_seq.split(' ')
+        if len(query_parts) > 7 and len(target_parts) > 7:
+            if query_seq[8] == '-' or target_seq[8] == '-' or (align_seq[8] != '|' and align_seq[9] != '|'):
+                fake_tirs.add(query_name)
+                #print('Fake')
+            # print(query_seq)
+            # print(align_seq)
+            # print(target_seq)
+            # print(query_seq[8])
+            # print(align_seq[8])
+            # print(target_seq[8])
+    return fake_tirs
 
 def search_tsd_batch(cur_segments, flanking_len):
     all_copies_ltr_contigs = {}
@@ -4950,15 +5000,22 @@ def search_confident_tir(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distan
         if tir_seq[0:2] == 'TG' and tir_seq[-2:] == 'CA':
             continue
 
-        tir_start_5base = orig_seq[tir_start - 1: tir_start + 4]
-        tir_end_5base = orig_seq[tir_end - 5: tir_end]
+        # 过滤掉以TATATATA开头和结束的TIR
+        if str(tir_seq).startswith('TATATATA') or str(tir_seq).startswith('ATATATAT'):
+            continue
 
-        # 如果以候选TSD定位边界，且tir的起始和结束5bp满足高相似性，则大概率这是一条真实的具有TSD+TIR结构的序列
-        if allow_mismatch(getReverseSequence(tir_start_5base), tir_end_5base, 1):
-            new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_'+ str(distance)
-            itr_contigs[new_query_name] = tir_seq
+        # # 如果以候选TSD定位边界，且tir的起始和结束5bp满足高相似性，则大概率这是一条真实的具有TSD+TIR结构的序列
+        # tir_start_5base = orig_seq[tir_start - 1: tir_start + 4]
+        # tir_end_5base = orig_seq[tir_end - 5: tir_end]
+        # if allow_mismatch(getReverseSequence(tir_start_5base), tir_end_5base, 1):
+        #     new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_'+ str(distance)
+        #     itr_contigs[new_query_name] = tir_seq
+        #     query_dist.append((new_query_name, distance))
 
-            query_dist.append((new_query_name, distance))
+        # 我们使用itrsearch的比对信息排除了比对偏移的情况，所以不需要5bp限制
+        new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
+        itr_contigs[new_query_name] = tir_seq
+        query_dist.append((new_query_name, distance))
 
     #取distance最小的top 10
     max_top_num = 10

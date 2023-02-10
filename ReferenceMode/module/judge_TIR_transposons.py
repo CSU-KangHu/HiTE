@@ -11,7 +11,8 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
-    multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF
+    multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
+    multi_process_align_and_get_copies
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, ref_index, log):
@@ -41,6 +42,17 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
         copy_list = confident_copies[name]
         if len(copy_list) >= 2:
             confident_tir[name] = filter_dup_contigs[name]
+    store_fasta(confident_tir, confident_tir_path)
+
+    log.logger.info("Realign to genome to filter single copy TIR elements")
+    #重新比对到基因组，去除单比对TIR elements
+    temp_dir = tmp_output_dir + '/tir_temp'
+    all_copies = multi_process_align_and_get_copies(confident_tir_path, reference, blast_program_dir,
+                                                    temp_dir, 'tir', threads)
+    for query_name in all_copies.keys():
+        copies = all_copies[query_name]
+        if len(copies) <= 1:
+            del confident_tir[query_name]
     store_fasta(confident_tir, confident_tir_path)
 
 

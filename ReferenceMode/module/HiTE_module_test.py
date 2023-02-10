@@ -9,9 +9,9 @@ import json
 import time
 
 # import numpy as np
-# from matplotlib import pyplot as plt
-# import seaborn as sns
-# import pandas as pd
+from matplotlib import pyplot as plt
+import seaborn as sns
+import pandas as pd
 import subprocess
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -370,13 +370,12 @@ def get_LTR_seqs():
     candidate_ltr_cut_path = tmp_output_dir + '/candidate_ltr_harvest_cut_0.fa'
     store_LTR_seq_v2(ltr_harvest_output, cut_reference, candidate_ltr_path, candidate_ltr_cut_path)
 
-def identify_new_TIR():
+def identify_new_TIR(tmp_output_dir):
     # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
     confident_tir_path = tmp_output_dir + '/confident_tir.rename.cons.fa'
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/rice'
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/rice'
     tir_repbase_path = repbase_dir + '/tir.repbase.ref'
-    confident_tir_consensus = tmp_output_dir + '/confident_tir.rename.cons.fa'
+    confident_tir_consensus = tmp_output_dir + '/confident_tir.copy2.fa'
     total_tir_path = tmp_output_dir + '/total_tir.fa'
     total_tir_consensus = tmp_output_dir + '/total_tir.cons.fa'
     os.system('cat '+tir_repbase_path+' '+confident_tir_consensus+' > '+total_tir_path)
@@ -386,7 +385,7 @@ def identify_new_TIR():
     tools_dir = os.getcwd() + '/../tools'
     cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + total_tir_path + ' -o ' + total_tir_consensus + ' -T 0 -M 0'
-    #os.system(cd_hit_command)
+    os.system(cd_hit_command)
 
     cluster_file = total_tir_consensus + '.clstr'
     cluster_idx = -1
@@ -433,12 +432,12 @@ def identify_new_TIR():
     # print(len(exist_tir_names))
 
     # 1.用itrseach识别repbase_TIR以及新TIR中的TIRs
-    TRsearch_dir = '/public/home/hpc194701009/repeat_detect_tools/REPET_linux-x64-3.0/bin'
-    #run_itrsearch(TRsearch_dir, tir_repbase_path, repbase_dir)
+    TRsearch_dir = '/home/hukang/HiTE-2.0.1/ReferenceMode/tools'
+    run_itrsearch(TRsearch_dir, tir_repbase_path, repbase_dir)
     tir_repbase_out = tir_repbase_path + '.itr'
     repbase_itr_names, repbase_itr_contigs = read_fasta_v1(tir_repbase_out)
 
-    #run_itrsearch(TRsearch_dir, novel_tir_consensus, tmp_output_dir)
+    run_itrsearch(TRsearch_dir, novel_tir_consensus, tmp_output_dir)
     novel_tir_out = novel_tir_consensus + '.itr'
     novel_itr_names, novel_itr_contigs = read_fasta_v1(novel_tir_out)
 
@@ -488,7 +487,7 @@ def identify_new_TIR():
     # 2.用 cd-hit-est -aS 0.8 -aL 0.8 -c 0.8 对新的TIRs和repbase_TIR的TIRs进行聚类。
     cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + total_tirs + ' -o ' + total_tirs_consensus + ' -T 0 -M 0'
-    #os.system(cd_hit_command)
+    os.system(cd_hit_command)
 
     # 3.分析类中没有repbase_TIR的序列，为新的TIRs；有repbase_TIR的序列，为已知的TIRs。
     ##对于具有已知TIRs的，novel TIR，很可能是non-autonomous TIR。
@@ -524,21 +523,21 @@ def identify_new_TIR():
             if not has_repbase:
                 for name in cluster:
                     new_tir_names.add(name.split('-')[0])
-    print('novel TIR with novel TIR terminals:')
-    print(new_tir_names)
+    print('novel TIR with new TIR terminals:')
+    #print(new_tir_names)
     print(len(new_tir_names))
 
     #统计novel TIR的拷贝数量
-    threads = 48
+    threads = 40
     reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna'
     temp_dir = tmp_output_dir + '/temp'
-    blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
+    blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
     all_copies = multi_process_align_and_get_copies(novel_tir_consensus, reference, blast_program_dir,
                                                     temp_dir, 'tir', threads)
 
     # 在copies的两端 flanking 20bp的序列
     flanking_len = 20
-    all_copies = flanking_copies(all_copies, novel_tir_consensus, reference, flanking_len, copy_num=-1)
+    all_copies, tsd_info = flanking_copies(all_copies, novel_tir_consensus, reference, flanking_len, copy_num=-1)
 
     multicopy_novel_tirs_num = 0
     # 统计每个query_name拷贝的数量
@@ -547,10 +546,10 @@ def identify_new_TIR():
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
         query_copy_num[query_name] = len(copies)
-        if len(copies) > 3:
+        if len(copies) >= 2:
             multicopy_novel_tirs_num += 1
-    print(query_copy_num)
-    print('novel TIR with copy number > 3:')
+    #print(query_copy_num)
+    print('novel TIR with copy number >= 2:')
     print(multicopy_novel_tirs_num)
 
     query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
@@ -578,23 +577,85 @@ def identify_new_TIR():
     copy_info_path = tmp_output_dir + '/novel_tir.copies.info'
     store_copies(tsd_info, copy_info_path)
 
+    #计算Venn图指标
+    #1.novel tir copy > 3 and novel tirs with new terminals
+    #2.novel tir copy > 3 and novel tirs with known terminals
+    #3.novel tir copy <=3 and novel tirs with new terminals
+    #4.novel tir copy <=3 and novel tirs with known terminals
+    query_copy_over_3 = set()
+    query_copy_less_3 = set()
+    for query_name in query_copy_num.keys():
+        copy_num = query_copy_num[query_name]
+        if copy_num >= 2:
+            query_copy_over_3.add(query_name)
+        else:
+            query_copy_less_3.add(query_name)
+
+    c1 = 0
+    c2 = 0
+    c3 = 0
+    c4 = 0
+    for query_name in new_tir_contigs.keys():
+        if query_name in query_copy_over_3 and query_name in new_tir_names:
+            c1 += 1
+        elif query_name in query_copy_over_3 and query_name not in new_tir_names:
+            c2 += 1
+        elif query_name in query_copy_less_3 and query_name in new_tir_names:
+            c3 += 1
+        elif query_name in query_copy_less_3 and query_name not in new_tir_names:
+            c4 += 1
+
+    print(c1, c2, c3, c4)
+    print(new_tir_names)
+    print(new_tir_contigs.keys())
+    print(query_copy_over_3)
+
+
 
 def draw_dist():
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
     query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
     file = open(query_copy_num_path, 'r')
     js = file.read()
     query_copy_num = json.loads(js)
-    print(query_copy_num)
+    # print(query_copy_num)
+    # count = 0
+    # for name in query_copy_num.keys():
+    #     num = query_copy_num[name]
+    #     if num == 1:
+    #         count += 1
+    # print(count)
+
+    #画小提琴图
+    # output_path = tmp_output_dir + '/novel_tir_copy_dist.txt'
+    # with open(output_path, 'w') as f_save:
+    #     f_save.write('copy number\tmethods\n')
+    #     label = 'novel TIR elements'
+    #     for name in query_copy_num.keys():
+    #         num = query_copy_num[name]
+    #         f_save.write(str(num) + '\t' + str(label) + '\n')
+    #
+    # df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
+    # print(df)
+    #sns.boxplot(x=df["methods"], y=df["copy number"])
+    #sns.violinplot(x=df["methods"], y=df["copy number"])
+    # my_pal = {"HiTE-Helitron": "#4497B1", "HiTE-Helitron-NoFiltering": "#F7B92E"}
+    # sns.violinplot(x=df["methods"], y=df["length"], palette=my_pal)
+   # plt.show()
+    # # Calculate number of obs per group & median to position labels
+    # medians = df.groupby(['methods'])['copy number'].median().values
+    # print(medians)
 
     y = list(query_copy_num.values())
     x = pd.Series(y, name="copy number")
-    sns.set_theme(style="whitegrid", font='Times New Roman', font_scale=1.4)
+    sns.set_theme(style="ticks", font='Times New Roman', font_scale=1.4)
+    sns.set_context("paper")
     ax = sns.distplot(x, kde=True)
-    #plt.show()
-    #plt.savefig(tmp_output_dir + "/copy_num.eps", format='eps', dpi=1000)
-
-    plt.savefig(tmp_output_dir + "/copy_num.svg", format='svg', dpi=150, bbox_inches='tight')
+    #ax.set_xlim(5, )
+    plt.show()
+    # plt.savefig(tmp_output_dir + "/copy_num.eps", format='eps', dpi=1000)
+    # plt.savefig(tmp_output_dir + "/copy_num.svg", format='svg', dpi=150, bbox_inches='tight')
 
 
 def test_EAHelitron():
@@ -893,12 +954,208 @@ def lost_TIRs(tmp_output_dir):
     #2.将序列比对到参考上，获取拷贝
     get_seq_copies(lost_tirs_path, tmp_output_dir)
 
+
+def get_fake_tirs(itrsearch_log):
+    fake_tirs = set()
+    alignments = {}
+    line_count = 0
+    query_name = ''
+    with open(itrsearch_log, 'r') as f_r:
+        for line in f_r:
+            line_count += 1
+            if line.startswith('load sequence'):
+                parts = line.split('\t')
+                query_name = parts[0].split(' ')[3]
+                line_count = 0
+            if line_count == 3 or line_count == 4 or line_count == 5:
+                if line.strip() == '':
+                    continue
+                if query_name != '':
+                    if not alignments.__contains__(query_name):
+                        alignments[query_name] = []
+                    details = alignments[query_name]
+                    details.append(line)
+
+    for query_name in alignments.keys():
+        details = alignments[query_name]
+        if len(details) != 3:
+            continue
+        query_seq = details[0]
+        align_seq = details[1]
+        target_seq = details[2]
+        print(query_name)
+        query_parts = query_seq.split(' ')
+        target_parts = target_seq.split(' ')
+        if len(query_parts) > 7 and len(target_parts) > 7:
+            if query_seq[8] == '-' or target_seq[8] == '-' or (align_seq[8] != '|' and align_seq[9] != '|'):
+                fake_tirs.add(query_name)
+                print('Fake')
+            print(query_seq)
+            print(align_seq)
+            print(target_seq)
+            print(query_seq[8])
+            print(align_seq[8])
+            print(target_seq[8])
+    return fake_tirs
+
+
+def parse_novel_tir_locations(tmp_output_dir):
+    # 解析出novel tir对应的染色体坐标
+    novel_tir_copies = tmp_output_dir + '/novel_tir_copies.csv'
+    file = open(novel_tir_copies, 'r')
+    js = file.read()
+    all_copies = json.loads(js)
+
+    novel_tir_locations = tmp_output_dir + '/novel_tir_locations.txt'
+    chr_names = set()
+    #{query_name: set()}
+    matrix = {}
+    query_names = all_copies.keys()
+    with open(novel_tir_locations, 'w') as f_save:
+        for query_name in query_names:
+            # 取所有的chr name
+            new_copies = all_copies[query_name]
+            for item in new_copies:
+                chr_names.add(item[0].strip())
+
+        chr_names = list(chr_names)
+        header = 'id\t'
+        for chr_name in chr_names:
+            header += chr_name+'\t'
+        f_save.write(header + '\n')
+
+        for query_name in query_names:
+            # 取query_name <-> chr_name的矩阵
+            new_copies = all_copies[query_name]
+            if not matrix.__contains__(query_name):
+                matrix[query_name] = set()
+            chr_set = matrix[query_name]
+            for item in new_copies:
+                chr_set.add(item[0])
+
+        for query_name in query_names:
+            f_save.write(query_name+'\t')
+            chr_set = matrix[query_name]
+            for chr_name in chr_names:
+                if chr_name in chr_set:
+                    f_save.write(str(1) + '\t')
+                else:
+                    f_save.write(str(0) + '\t')
+            f_save.write('\n')
+    # new_copies.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq))
+
+
+def get_length_dist(paths, labels, output_path):
+    with open(output_path, 'w') as f_save:
+        f_save.write('length\tmethods\n')
+        for i, path in enumerate(paths):
+            label = labels[i]
+            names, contigs = read_fasta(path)
+            for name in names:
+                seq_len = len(contigs[name])
+                if seq_len >= 5000:
+                    continue
+                f_save.write(str(seq_len)+'\t'+str(label)+'\n')
+    df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
+    print(df)
+    my_pal = {"HiTE-Helitron": "#4497B1", "HiTE-Helitron-NoFiltering": "#F7B92E"}
+    sns.violinplot(x=df["methods"], y=df["length"], palette=my_pal)
+    plt.show()
+
+    # Calculate number of obs per group & median to position labels
+    medians = df.groupby(['methods'])['length'].median().values
+    print(medians)
+
+
+def test_remove_copy1_tirs(tmp_output_dir):
+    query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
+    file = open(query_copy_num_path, 'r')
+    js = file.read()
+    query_copy_num = json.loads(js)
+    count = 0
+    for name in query_copy_num.keys():
+        num = query_copy_num[name]
+        if num == 1:
+            count += 1
+    print(count)
+
+    confident_tir_path = tmp_output_dir + '/confident_tir.rename.cons.fa'
+    contignames, contigs = read_fasta(confident_tir_path)
+    for name in query_copy_num.keys():
+        num = query_copy_num[name]
+        if num == 1:
+            del contigs[name]
+
+    new_confident_tir_path = tmp_output_dir + '/confident_tir.copy2.fa'
+    store_fasta(contigs, new_confident_tir_path)
+
+
+def generate_seq_logos(tmp_output_dir):
+    labels = ['LTR', 'Helitron', 'EnSpm']
+    for label in labels:
+        output_path = tmp_output_dir + '/logos_'+label+'.txt'
+        logos = {}
+        logo_len = 30
+        if label == 'LTR':
+            TE_path = tmp_output_dir + '/confident_ltr_cut.terminal.fa'
+        elif label == 'Helitron':
+            TE_path = tmp_output_dir + '/confident_helitron_0.rename.cons.fa'
+            helitron_names, helitron_contigs = read_fasta(TE_path)
+            new_helitron_contigs = {}
+            for name in helitron_names:
+                seq = helitron_contigs[name]
+                new_helitron_contigs[name+'#Helitron'] = seq
+            store_fasta(new_helitron_contigs, TE_path)
+        else:
+            TE_path = tmp_output_dir + '/confident_TE.cons.fa.final.classified'
+        names, contigs = read_fasta(TE_path)
+        for name in names:
+            class_name = name.split('#')[1]
+            if class_name.__contains__(label):
+                #取序列的开始和结束序列
+                seq = contigs[name]
+                seq_start = seq[0:logo_len]
+                seq_end = seq[-logo_len:]
+                if not logos.__contains__('5\'-'+label):
+                    logos['5\'-'+label] = []
+                seqs = logos['5\'-'+label]
+                seqs.append(seq_start)
+
+                if not logos.__contains__('3\'-'+label):
+                    logos['3\'-'+label] = []
+                seqs = logos['3\'-'+label]
+                seqs.append(seq_end)
+        title_names = logos.keys()
+        with open(output_path, 'w') as f_save:
+            for logo in title_names:
+                f_save.write(logo + '\t')
+            f_save.write('\n')
+            line_num = 0
+            stop = False
+            while(not stop):
+                col_finish_num = 0
+                for name in title_names:
+                    seqs = logos[name]
+                    if line_num >= len(seqs):
+                        col_finish_num += 1
+                        f_save.write(' \t')
+                    else:
+                        f_save.write(seqs[line_num]+'\t')
+                if col_finish_num >= len(title_names):
+                    stop = True
+                f_save.write('\n')
+                line_num += 1
+
+
+
+
+
 if __name__ == '__main__':
     repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/dmel'
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
-
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
     #generate_zebrafish_repbases()
 
     # copy_info_path = tmp_out_dir + '/tir.repbase.copies.info'
@@ -917,13 +1174,34 @@ if __name__ == '__main__':
 
     #get_LTR_seqs()
 
-    #identify_new_TIR()
+    #identify_new_TIR(tmp_output_dir)
+
+    #parse_novel_tir_locations(tmp_output_dir)
 
     #draw_dist()
+
+    #test_remove_copy1_tirs(tmp_output_dir)
 
     #test_EAHelitron()
 
     #reduce_library_size()
+
+    generate_seq_logos(tmp_output_dir)
+
+
+
+    # paths = [tmp_output_dir+'/confident_tir.rename.cons.fa', tmp_output_dir+'/tir_tsd_0.cons.rename.fa', '/home/hukang/EDTA/krf_test/rice/EDTA_TIR/GCF_001433935.1_IRGSP-1.0_genomic.fna.mod.EDTA.raw/GCF_001433935.1_IRGSP-1.0_genomic.fna.mod.TIR.raw.fa']
+    # labels = ['HiTE-TIR', 'HiTE-TIR-NoFiltering', 'EDTA-TIR']
+    # output_path = tmp_output_dir + '/tir_length_dist.txt'
+
+    # paths = [tmp_output_dir + '/confident_TE.cons.fa.final.classified', tmp_output_dir + '/longest_repeats_0.cons.rename.fa']
+    # labels = ['HiTE', 'HiTE-FMEA']
+    # output_path = tmp_output_dir + '/TE_length_dist.txt'
+
+    paths = [tmp_output_dir + '/confident_helitron_0.rename.cons.fa', tmp_output_dir + '/candidate_helitron_0.cons.rename.fa']
+    labels = ['HiTE-Helitron', 'HiTE-Helitron-NoFiltering']
+    output_path = tmp_output_dir + '/tir_length_dist.txt'
+    #get_length_dist(paths, labels, output_path)
 
     # ref_dir = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays'
     # reference = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna'
@@ -934,10 +1212,34 @@ if __name__ == '__main__':
 
     tools_dir = os.getcwd() + '/../tools'
     # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
-
-    # repeats_cons = tmp_dir + '/candidate_helitron_0.cons.fa'
-    # repeats_rename_cons = tmp_dir + '/candidate_helitron_0.cons.rename.fa'
+    # repeats = tmp_output_dir + '/candidate_helitron_0.fa'
+    # repeats_cons = tmp_output_dir + '/candidate_helitron_0.cons.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    #
+    # repeats_rename_cons = tmp_output_dir + '/candidate_helitron_0.cons.rename.fa'
     # rename_fasta(repeats_cons, repeats_rename_cons)
+
+    # repeats = tmp_output_dir + '/tir_tsd_0.filter_tandem.fa'
+    # repeats_cons = tmp_output_dir + '/tir_tsd_0.cons.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    #
+    # repeats_rename_cons = tmp_output_dir + '/tir_tsd_0.cons.rename.fa'
+    # rename_fasta(repeats_cons, repeats_rename_cons)
+
+    # repeats = tmp_output_dir + '/longest_repeats_0.fa'
+    # repeats_cons = tmp_output_dir + '/longest_repeats_0.cons.fa'
+    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + repeats + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    #
+    # repeats_rename_cons = tmp_output_dir + '/longest_repeats_0.cons.rename.fa'
+    # rename_fasta(repeats_cons, repeats_rename_cons)
+
+
     #
     # repeats_cons = tmp_dir + '/tir_tsd_0.cons.fa'
     # repeats_rename_cons = tmp_dir + '/tir_tsd_0.cons.rename.fa'
@@ -949,7 +1251,7 @@ if __name__ == '__main__':
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/recover_test/cb_super'
     #test_connect_RepeatMasking_results(tmp_output_dir)
 
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
+
     # repeats = tmp_output_dir + '/confident_tir_0.fa'
     # repeats_rename = tmp_output_dir + '/confident_tir_0.rename.fa'
     # rename_fasta(repeats, repeats_rename)
@@ -961,7 +1263,8 @@ if __name__ == '__main__':
     # os.system(cd_hit_command)
 
 
-    lost_TIRs(tmp_output_dir)
+    #lost_TIRs(tmp_output_dir)
+
     # lost_tirs_path = tmp_output_dir + '/test.fa'
     # get_seq_copies(lost_tirs_path, tmp_output_dir)
 
@@ -1008,5 +1311,16 @@ if __name__ == '__main__':
     # subject_coverage = 0
     # all_copies = get_copies_v1(blastnResults_path, split_repeats_path, ref_db_path, query_coverage=query_coverage, subject_coverage=subject_coverage)
 
+    #解析itrsearch log文件，提取比对偏移的序列名称
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library'
+    # for name in os.listdir(tmp_output_dir):
+    #     if name.endswith('.log'):
+    #         file = tmp_output_dir+'/'+name
+    #         print('file:' + file)
+    #         get_fake_tirs(file)
+
+    #统计下开头就是mismatch或indel的repbase序列有多少个
+    # itrsearch_log = tmp_output_dir + '/curated_lib/repbase/rice/tir.repbase.ref.log'
+    # get_fake_tirs(itrsearch_log)
 
 
