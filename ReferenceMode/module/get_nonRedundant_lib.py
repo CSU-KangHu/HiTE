@@ -119,11 +119,24 @@ if __name__ == '__main__':
     os.system(cd_hit_command)
 
     if classified is not None and int(classified) == 1:
+        # # use RepeatClassifier to classify TE models
+        # command = 'cd ' + tmp_output_dir + ' && ' + RepeatModeler_Home + '/RepeatClassifier -pa ' + str(threads) + ' -consensi ' + confident_TE_consensus
+        # log.logger.debug(command)
+        # os.system(command + ' > /dev/null 2>&1')
+
         TEClass_home = os.getcwd() + '/../classification'
         TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                           + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
                           + ' --thread_num ' + str(threads) + ' --split_num ' + str(48) + ' -o ' + tmp_output_dir \
                           + ' --RepeatModeler_Home ' + RepeatModeler_Home
+        log.logger.debug(TEClass_command)
         os.system(TEClass_command)
 
+        # 把unknown的序列放在最后
+        classified_TE_path = confident_TE_consensus + '.classified'
+        names, contigs = read_fasta(classified_TE_path)
+        names.sort(key=lambda x: x.split('#')[1])
+        with open(classified_TE_path, 'w') as f_save:
+            for name in names:
+                f_save.write('>'+name+'\n'+contigs[name]+'\n')
 

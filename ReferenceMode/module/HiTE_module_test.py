@@ -20,7 +20,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, \
     store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
     run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
-    get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1
+    get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
+    determine_repeat_boundary_v3, search_confident_tir, store_copies_seq
 
 
 def generate_repbases():
@@ -194,7 +195,7 @@ def summary_TGCA_motif():
 def summary_tir_5bp(tir_repbase_path):
     tir_names, tir_contigs = read_fasta(tir_repbase_path)
     diversity_set = set()
-    allow_mismatch_num = 0
+    allow_mismatch_num = 2
     count = 0
     for name in tir_names:
         seq = tir_contigs[name]
@@ -651,7 +652,7 @@ def draw_dist():
     x = pd.Series(y, name="copy number")
     sns.set_theme(style="ticks", font='Times New Roman', font_scale=1.4)
     sns.set_context("paper")
-    ax = sns.distplot(x, kde=True)
+    ax = sns.distplot(x, kde=True, color='green')
     #ax.set_xlim(5, )
     plt.show()
     # plt.savefig(tmp_output_dir + "/copy_num.eps", format='eps', dpi=1000)
@@ -887,18 +888,24 @@ def flanking_copies(all_copies, query_path, reference, flanking_len, copy_num=10
 
 def get_seq_copies(input, tmp_output_dir):
     threads = 40
-    reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna.cut0.fa'
-    blastnResults_path = tmp_output_dir + '/test/tir.repbase.out'
+    reference = tmp_output_dir + '/all.chrs.con'
+
     blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
     temp_dir = tmp_output_dir + '/repbase_blast'
+    blastnResults_path = temp_dir + '/temp.out'
     multi_process_align(input, reference, blastnResults_path, blast_program_dir, temp_dir, threads)
     all_copies = get_copies(blastnResults_path, input, reference, threads=threads)
-    # 在copies的两端 flanking 20bp的序列
-    flanking_len = 50
-    all_copies, tsd_info = flanking_copies(all_copies, input, reference, flanking_len, copy_num=10)
 
-    copy_info_path = tmp_output_dir + '/test/tir.repbase.copies.info'
+    # 在copies的两端 flanking 20bp的序列
+    flanking_len = 0
+    all_copies, tsd_info = flanking_copies(all_copies, input, reference, flanking_len, copy_num=-1)
+
+    copy_info_path = tmp_output_dir + '/sMITE.copies.info'
     store_copies(tsd_info, copy_info_path)
+
+    copy_info_path = tmp_output_dir + '/sMITE.copies.fa'
+    store_copies_seq(all_copies, copy_info_path)
+
 
     # 输出无拷贝和单拷贝序列个数
     delete_repbase_names = set()
@@ -1045,7 +1052,7 @@ def parse_novel_tir_locations(tmp_output_dir):
     # new_copies.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq))
 
 
-def get_length_dist(paths, labels, output_path):
+def get_length_dist(paths, labels, my_pal, output_path):
     with open(output_path, 'w') as f_save:
         f_save.write('length\tmethods\n')
         for i, path in enumerate(paths):
@@ -1058,9 +1065,13 @@ def get_length_dist(paths, labels, output_path):
                 f_save.write(str(seq_len)+'\t'+str(label)+'\n')
     df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
     print(df)
-    my_pal = {"HiTE-Helitron": "#4497B1", "HiTE-Helitron-NoFiltering": "#F7B92E"}
-    sns.violinplot(x=df["methods"], y=df["length"], palette=my_pal)
+    sns.set_context("paper", rc={"font.size":20,"axes.titlesize":8,"axes.labelsize":20})
+    b = sns.violinplot(x=df["methods"], y=df["length"], palette=my_pal)
+    b.set_xlabel("", fontsize=20)
+    b.set_ylabel("Length", fontsize=20)
+    plt.tick_params(axis='x', which='major', labelsize=15)
     plt.show()
+
 
     # Calculate number of obs per group & median to position labels
     medians = df.groupby(['methods'])['length'].median().values
@@ -1147,15 +1158,123 @@ def generate_seq_logos(tmp_output_dir):
                 line_num += 1
 
 
+def test_split_genome():
+    tmp_output_dir = '/home/hukang/HiTE-2.0.1/demo'
+    reference = tmp_output_dir + '/genome.fa'
+    chunk_size = 4
 
+    reference_pre = convertToUpperCase_v1(reference)
+    ref_names, ref_contigs = read_fasta(reference_pre)
+
+    cut_references = []
+    cur_ref_contigs = {}
+    ref_index = 0
+    single_batch_size = chunk_size * 1024 * 1024
+    start = 0
+    cur_seq = ''
+    for ref_name in ref_names:
+        seq = ref_contigs[ref_name]
+        cur_ref_name = ref_name + '$' + str(start)
+        while len(seq) > 0:
+            seq_len = len(seq)
+            if len(cur_seq) + seq_len <= single_batch_size:
+                cur_seq += seq
+                cur_ref_contigs[cur_ref_name] = cur_seq
+                cur_seq = ''
+                seq = ''
+                start = 0
+            else:
+                remain_size = single_batch_size - len(cur_seq)
+                remain_seq = seq[0: remain_size]
+                cur_ref_contigs[cur_ref_name] = remain_seq
+                start += remain_size
+                cur_seq = ''
+                # store references
+                cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
+                store_fasta(cur_ref_contigs, cur_ref_path)
+                cut_references.append(cur_ref_path)
+                cur_ref_contigs = {}
+                ref_index += 1
+
+                cur_ref_name = ref_name + '$' + str(start)
+                seq = seq[remain_size:]
+
+    if len(cur_ref_contigs) > 0:
+        cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
+        store_fasta(cur_ref_contigs, cur_ref_path)
+        cut_references.append(cur_ref_path)
+
+    blast_program_dir = ''
+    if blast_program_dir == '':
+        (status, blast_program_path) = subprocess.getstatusoutput('which makeblastdb')
+        blast_program_dir = os.path.dirname(os.path.dirname(blast_program_path))
+
+    fixed_extend_base_threshold = 1000
+    max_repeat_len = 30000
+    threads = 40
+    for ref_index, cut_reference in enumerate(cut_references):
+        print(cut_reference)
+        (cut_ref_dir, cut_ref_filename) = os.path.split(cut_reference)
+        (cut_ref_name, cut_ref_extension) = os.path.splitext(cut_ref_filename)
+
+
+        longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
+        longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
+        resut_file = longest_repeats_path
+
+        repeats_path = cut_reference
+        # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
+        determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
+                                     fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads)
+
+
+def generate_MITE_identity_dist(sMITE_path, Hi_TIR_Ghd2_path, tmp_output_dir, dist_path):
+    TRsearch_dir = '/home/hukang/HiTE-2.0.1/ReferenceMode/tools'
+    sMITE_TR_out, sMITE_TR_log = run_itrsearch(TRsearch_dir, sMITE_path, tmp_output_dir)
+    Hi_TIR_Ghd2_TR_out, Hi_TIR_Ghd2_TR_log = run_itrsearch(TRsearch_dir, Hi_TIR_Ghd2_path, tmp_output_dir)
+
+    sMITE_identities = []
+    Hi_TIR_Ghd2_identities = []
+
+    with open(sMITE_TR_log, 'r') as f_r:
+        for line in f_r:
+            if line.__contains__('Identity percentage : '):
+                identity = float(line.split('Identity percentage :')[1].strip())
+                sMITE_identities.append(identity)
+
+    with open(Hi_TIR_Ghd2_TR_log, 'r') as f_r:
+        for line in f_r:
+            if line.__contains__('Identity percentage : '):
+                identity = float(line.split('Identity percentage :')[1].strip())
+                Hi_TIR_Ghd2_identities.append(identity)
+
+    print(len(sMITE_identities), len(Hi_TIR_Ghd2_identities))
+    with open(dist_path, 'w') as f_save:
+        f_save.write('identity' + '\t' + 'Type\n')
+        for identity in sMITE_identities:
+            f_save.write(str(identity)+'\t'+'sMITE\n')
+        for identity in Hi_TIR_Ghd2_identities:
+            f_save.write(str(identity)+'\t'+'Hi_TIR_Ghd2\n')
+
+
+def draw_violin(dist_path, my_pal):
+    df = pd.read_csv(dist_path, sep='\t', encoding='utf-8')
+    print(df)
+    sns.violinplot(x=df["Type"], y=df["identity"], palette=my_pal)
+    plt.show()
+
+    # Calculate number of obs per group & median to position labels
+    medians = df.groupby(['Type'])['identity'].median().values
+    print(medians)
 
 
 if __name__ == '__main__':
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
-    tmp_out_dir = repbase_dir + '/dmel'
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
+    tmp_out_dir = repbase_dir + '/rice'
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
+    #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
 
     # copy_info_path = tmp_out_dir + '/tir.repbase.copies.info'
@@ -1186,22 +1305,43 @@ if __name__ == '__main__':
 
     #reduce_library_size()
 
-    generate_seq_logos(tmp_output_dir)
+    #generate_seq_logos(tmp_output_dir)
+
+    #test_split_genome()
+    #summary_tir_5bp(tir_repbase_path)
 
 
+    # plant = 1
+    # query_name = 'N_136771-len_520-ref_Chr12-22058590-22059110'
+    # seq = 'TCAGGCAACGCGGTAGCTCCACGTTACTAATTAGCAAAACTAACACGACCAACAAACGAAAACTAAATAGGTACTTTCTCCATTTCACAATGTAAGTTATTCTAGCATTTTGCACATTTATAACAATGTTAATGAATCTAGATAAATATATATGTATTAATATCTAGATTCATTAACATCAATATAAATGTGGGAAATACTAGAATGACTTACATTGTGAAACGGAGGGAGTACATCATTGCTCAGATGACTTGCCTATTATATTTTCTCACTTCATATGGAAGTCCATATAAACTCTCTAAATTGTTACTCCCTCCTTCCCTAAATATTTGACACCGTTAACTTTTTAAATATGTTTGACCGTTCGTTTTATTCAAAAACTTTTGTGATATGTGTAAAACTATATGTATACATAAAAGTATATTTAACAATAAATCAAATGATAGAAAAAGAATTAACAATTACTTAAATTTTTTGAATAAGACGAACGGTCAAACATTTTTAAAAAAGTCAACGGCATCAAACATTTTGGGATGGAGGTAGTATGTACTTGTGTTTTTTCTCCAAAAACTTTACGTGCCAGCATATTGCTTAGATGACTTGTCTATTCTATTCTTTTA'
+    # flanking_len = 50
+    # tir_start = flanking_len + 1
+    # tir_end = len(seq) - flanking_len
+    # # 寻找所有可能的TSD序列，计算每条序列的边界与原始边界的距离，并存到header里
+    # tsd_search_distance = 50
+    # top_itr_contigs = search_confident_tir(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
+    # print(top_itr_contigs)
 
-    # paths = [tmp_output_dir+'/confident_tir.rename.cons.fa', tmp_output_dir+'/tir_tsd_0.cons.rename.fa', '/home/hukang/EDTA/krf_test/rice/EDTA_TIR/GCF_001433935.1_IRGSP-1.0_genomic.fna.mod.EDTA.raw/GCF_001433935.1_IRGSP-1.0_genomic.fna.mod.TIR.raw.fa']
-    # labels = ['HiTE-TIR', 'HiTE-TIR-NoFiltering', 'EDTA-TIR']
+    paths = [tmp_output_dir + '/confident_other_0.fa', '/home/hukang/HiTE-2.0.1/ReferenceMode/library/non_LTR.lib']
+    labels = ['HiTE-Non-LTR', 'Non-LTR']
+    my_pal = {"HiTE-Non-LTR": "#4497B1", "Non-LTR": "#F7B92E"}
+    output_path = tmp_output_dir + '/non_ltr_length_dist.txt'
+
+    # paths = [tmp_output_dir+'/confident_tir.rename.cons.fa', tmp_output_dir+'/tir_tsd_0.cons.rename.fa']
+    # labels = ['HiTE-TIR', 'HiTE-TIR-NoFiltering']
+    # my_pal = {"HiTE-TIR": "#4497B1", "HiTE-TIR-NoFiltering": "#F7B92E"}
     # output_path = tmp_output_dir + '/tir_length_dist.txt'
 
     # paths = [tmp_output_dir + '/confident_TE.cons.fa.final.classified', tmp_output_dir + '/longest_repeats_0.cons.rename.fa']
     # labels = ['HiTE', 'HiTE-FMEA']
+    # my_pal = {"HiTE": "#4497B1", "HiTE-FMEA": "#F7B92E"}
     # output_path = tmp_output_dir + '/TE_length_dist.txt'
 
-    paths = [tmp_output_dir + '/confident_helitron_0.rename.cons.fa', tmp_output_dir + '/candidate_helitron_0.cons.rename.fa']
-    labels = ['HiTE-Helitron', 'HiTE-Helitron-NoFiltering']
-    output_path = tmp_output_dir + '/tir_length_dist.txt'
-    #get_length_dist(paths, labels, output_path)
+    # paths = [tmp_output_dir + '/confident_helitron_0.rename.cons.fa', tmp_output_dir + '/candidate_helitron_0.cons.rename.fa']
+    # labels = ['HiTE-Helitron', 'HiTE-Helitron-NoFiltering']
+    # my_pal = {"HiTE-Helitron": "#4497B1", "HiTE-Helitron-NoFiltering": "#F7B92E"}
+    # output_path = tmp_output_dir + '/helitron_length_dist.txt'
+    get_length_dist(paths, labels, my_pal, output_path)
 
     # ref_dir = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays'
     # reference = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna'
@@ -1267,6 +1407,17 @@ if __name__ == '__main__':
 
     # lost_tirs_path = tmp_output_dir + '/test.fa'
     # get_seq_copies(lost_tirs_path, tmp_output_dir)
+
+    # sMITE_path = tmp_output_dir + '/sMITE.copies.fa'
+    # Hi_TIR_Ghd2_path = tmp_output_dir + '/Hi_TIR_Ghd2.copies.fa'
+    # dist_path = tmp_output_dir + '/MITE_dist.txt'
+    # generate_MITE_identity_dist(sMITE_path, Hi_TIR_Ghd2_path, tmp_output_dir, dist_path)
+    dist_path = tmp_output_dir + '/MITE_dist.txt'
+    my_pal = {"sMITE": "#16499D", "Hi_TIR_Ghd2": "#E71F19"}
+    #draw_violin(dist_path, my_pal)
+
+
+
 
     # repeats = tmp_output_dir + '/tir_tsd_0.filter_tandem.fa'
     #repeats_cons = tmp_output_dir + '/tir_tsd_0.cons.fa'

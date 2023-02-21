@@ -237,6 +237,7 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
         #program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
         homology_command = 'cd '+ cur_tmp_dir + ' && ' + RepeatModeler_Home + '/RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
         #print('homology_command:%s' % homology_command)
+        #os.system(homology_command)
         os.system(homology_command + ' > /dev/null 2>&1')
         endtime = time.time()
         dtime = endtime - starttime
@@ -390,7 +391,7 @@ if __name__ == '__main__':
     pool.join()
 
     # Step 3: merge final classified of each thread
-    final_classified_path = consensus_path + '.final.classified'
+    final_classified_path = consensus_path + '.classified'
     final_tmpBlastX_path = consensus_path + '.tmpBlastXResults.out.bxsummary'
     final_tmpBlastn_path = consensus_path + '.tmpBlastnResults.out'
     if os.path.exists(final_classified_path):

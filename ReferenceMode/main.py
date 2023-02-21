@@ -18,7 +18,7 @@ from module.Util import read_fasta, Logger, store_fasta, \
     determine_repeat_boundary_v1, multi_process_TRF, multi_process_align, get_copies, flanking_copies, store_copies_v1, \
     generate_candidate_ltrs, rename_reference, store_LTR_seq_v1, store_LTR_seq, multi_process_align_and_get_copies, \
     remove_ltr_from_tir, flanking_seq, rename_fasta, run_LTR_retriever, flank_region_align_v1, \
-    determine_repeat_boundary_v2
+    determine_repeat_boundary_v2, determine_repeat_boundary_v3
 
 
 #from module.judge_TIR_transposons import is_transposons
@@ -55,7 +55,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
 if __name__ == '__main__':
     default_threads = int(cpu_count())
     default_fixed_extend_base_threshold = 1000
-    default_chunk_size = 200
+    default_chunk_size = 400
     default_tandem_region_cutoff = 0.5
     default_max_single_repeat_len = 30000
     default_plant = 1
@@ -294,7 +294,7 @@ if __name__ == '__main__':
                     '  [Setting] Cutoff of the repeat regarded as tandem sequence = [ ' + str(tandem_region_cutoff) + ' ] Default( ' + str(default_tandem_region_cutoff) + ' )\n'
                     '  [Setting] Maximum length of TE = [ ' + str(max_repeat_len) + ' ]  Default( ' + str(default_max_single_repeat_len) + ' )\n'
                     '  [Setting] The length of genome segments = [ ' + str(chrom_seg_length) + ' ]  Default( ' + str(default_chrom_seg_length) + ' )\n'
-
+                                                                                                                                                 
                     '  [Setting] Blast Program Home = [' + str(blast_program_dir) + ']\n'
                     '  [Setting] Genome Tools Program Home = [' + str(Genome_Tools_Home) + ']\n'
                     '  [Setting] LTR_retriever Program Home = [' + str(LTR_retriever_Home) + ']\n'
@@ -314,6 +314,8 @@ if __name__ == '__main__':
     log.logger.info('Start Splitting Reference into chunks')
     # using multiple threads to gain speed
     reference_pre = convertToUpperCase_v1(reference)
+
+    #将基因组切成更小的块，以提升后续的比对性能
     reference_tmp = multi_line(reference_pre, chrom_seg_length)
     cut_references = []
     cur_ref_contigs = {}
@@ -331,7 +333,7 @@ if __name__ == '__main__':
             cur_base_num += len(line)
             if cur_base_num >= chunk_size * 1024 * 1024:
                 # store references
-                cur_ref_path = reference + '.cut'+str(ref_index)+'.fa'
+                cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
                 store_fasta(cur_ref_contigs, cur_ref_path)
                 cut_references.append(cur_ref_path)
                 cur_ref_contigs = {}
@@ -341,6 +343,44 @@ if __name__ == '__main__':
             cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
+
+    # #我们取消将reference切成更小块以提升性能，测试发现并没有用。
+    # ref_names, ref_contigs = read_fasta(reference_pre)
+    # cut_references = []
+    # cur_ref_contigs = {}
+    # ref_index = 0
+    # single_batch_size = chunk_size * 1024 * 1024
+    # start = 0
+    # cur_seq = ''
+    # for ref_name in ref_names:
+    #     seq = ref_contigs[ref_name]
+    #     cur_ref_name = ref_name + '$' + str(start)
+    #     while len(seq) > 0:
+    #         if len(cur_seq) + len(seq) <= single_batch_size:
+    #             cur_seq += seq
+    #             cur_ref_contigs[cur_ref_name] = cur_seq
+    #             cur_seq = ''
+    #             seq = ''
+    #             start = 0
+    #         else:
+    #             remain_size = single_batch_size-len(cur_seq)
+    #             remain_seq = seq[0: remain_size]
+    #             cur_ref_contigs[cur_ref_name] = remain_seq
+    #             start += remain_size
+    #             cur_seq = ''
+    #             # store references
+    #             cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
+    #             store_fasta(cur_ref_contigs, cur_ref_path)
+    #             cut_references.append(cur_ref_path)
+    #             cur_ref_contigs = {}
+    #             ref_index += 1
+    #
+    #             cur_ref_name = ref_name + '$' + str(start)
+    #             seq = seq[remain_size:]
+    # if len(cur_ref_contigs) > 0:
+    #     cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
+    #     store_fasta(cur_ref_contigs, cur_ref_path)
+    #     cut_references.append(cur_ref_path)
 
     for ref_index, cut_reference in enumerate(cut_references):
         (cut_ref_dir, cut_ref_filename) = os.path.split(cut_reference)
@@ -356,7 +396,7 @@ if __name__ == '__main__':
             log.logger.info('------generate longest_repeats.fa')
             repeats_path = cut_reference
             # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
-            determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
+            determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
                                          fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads)
 
             endtime = time.time()
@@ -635,6 +675,7 @@ if __name__ == '__main__':
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir \
                            + ' --RepeatModeler_Home ' + RepeatModeler_Home + ' --classified ' + str(classified)
+    log.logger.debug(generate_lib_command)
     os.system(generate_lib_command)
     endtime = time.time()
     dtime = endtime - starttime
@@ -645,7 +686,7 @@ if __name__ == '__main__':
         keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
                       'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
         keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.final.classified']
+                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.classified']
 
         for ref_index, cut_reference in enumerate(cut_references):
             for filename in keep_files_temp:

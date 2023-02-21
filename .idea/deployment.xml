@@ -10,13 +10,6 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="hukang@122.207.108.56:5000 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/home/hukang/HiTE-2.0.1" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="hpc194701009@hpclogin1.csu.edu.cn:8220">
         <serverdata>
           <mappings>
@@ -34,7 +27,7 @@
       <paths name="super">
         <serverdata>
           <mappings>
-            <mapping deploy="/public/home/hpc194701009/HiTE_v1.0.1" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/public/home/hpc194701009/HiTE_github/HiTE-2.0.2" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
