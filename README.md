@@ -46,20 +46,11 @@ conda env create --name HiTE -f environment.yml
 conda activate HiTE
 ```
 
-#### Possible issues
-Type `RepeatMasker` in the conda HiTE virtual environment, and an error similar to the following occurred:
-
-`undefined symbol: Perl_xs_apiversion_bootcheck`
-
-This error is caused by the incompatibility between the local perl of the system and the perl installed by conda. The solution is:
-
-`export PERL5LIB=/`
-
 #### Replacing the Dfam library in RepeatMasker (optional)
 HiTE is ready to go, but if you require the TE library to be **comprehensively classified**, you need to configure RepeatMasker with the complete Dfam library.
 Use `--classified 0` if you do not need classified TE models.
 
-[The way to update the Dfam library](#classified)
+[The simplest way to replace the Dfam library](#classified)
 
 ### <a name="step-step"></a>Option 2. Step-by-step installation
 <details>
@@ -98,8 +89,6 @@ Please follow the documentation to install RepeatModeler2 and configure RepeatMa
 
 If you do not need classified TE models, you can skip this step and run HiTE with `--classified 0`.
 
-
-
 #### <a name="configure"></a>7. Configuring dependencies
 ```
 cd /your_path_to/HiTE/ReferenceMode
@@ -128,15 +117,34 @@ to validate all configurations.
 cd /your_path_to/HiTE/ReferenceMode
 python main.py -g ../demo/genome.fa -t 48 -o ../demo/test --plant 0
 ```
+
+If the following files exist in the **demo/test** directory, it means the program runs successfully: 
+* confident_helitron_0.fa (9.1 KB)
+* confident_other_0.fa (0 KB)
+* confident_TE.cons.fa (117 KB)
+* confident_tir_0.fa (159 KB)
+* genome_all.fa.harvest.scn (11 KB)
+* genome.rename.fa.finder.combine.scn (1.3 KB)
+* Genome.rename.fa.LTRlib.fa (48 KB)
+* longest_repeats_0.fa (1.2 MB)
+* longest_repeats_0.flanked.fa (1.5 MB)
+
 Note:
 1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE/ReferenceMode** directory.
 2. To avoid automatic deletion of files, set the output path parameter ```-o``` to a new directory.
  
-## <a name="inputs"></a>Inputs
-1. HiTE works with genome assemblies in FASTA, FA, and FNA formats using `-g`.
+#### Possible issues
+Type `RepeatMasker` in the conda HiTE virtual environment, and an error similar to the following occurred:
 
-2. HiTE uses `-a` to alias the genome assembly. For example, we often set 
-`Oryza sativa` as `rice`, but you can also use other names as you like.
+`undefined symbol: Perl_xs_apiversion_bootcheck`
+
+This error is caused by the incompatibility between the local perl of the system and the perl installed by conda. The solution is:
+
+`export PERL5LIB=/`
+
+## <a name="inputs"></a>Inputs
+HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using `-g`.
+
 
 For other optional parameters, please refer to [Commands and options](#cmd).
 
