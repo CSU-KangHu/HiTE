@@ -68,7 +68,7 @@ if __name__ == '__main__':
     default_chrom_seg_length = 500000
     default_classified = 1
 
-    version_num = '2.0.1'
+    version_num = '2.0.3'
 
     # 1.parse args
     parser = argparse.ArgumentParser(description='########################## HiTE, version ' + str(version_num) + ' ##########################')
