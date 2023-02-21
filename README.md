@@ -23,7 +23,7 @@ novel TEs with low copy numbers that are not included in known libraries. -->
 - [Input](#inputs)
 - [Output](#outputs)
 - [Replace the Dfam library in RepeatMasker](#classified)
-- [Contact](#contact)
+- [Question and Answer](#QA)
 
 <!-- ### <a name="pipeline"></a>The workflow of HiTE
 ![输入图片说明](pic/Framework.png) 
@@ -266,7 +266,15 @@ optional arguments:
                         default = [ 1 ]
 ```
 
+<!--
 ## <a name="contact"></a>Contact
 Kang Hu kanghu@csu.edu.cn
 
-Jianxin Wang jxwang@mail.csu.edu.cn
+Jianxin Wang jxwang@mail.csu.edu.cn 
+-->
+
+## <a name="QA"></a>Question and Answer
+You may want to check out this [Q&A](https://github.com/CSU-KangHu/HiTE/wiki) page for best practices and get answered.
+* Issues with installation and usage
+* Nextflow of HiTE
+* Case study
