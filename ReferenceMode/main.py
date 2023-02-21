@@ -8,6 +8,7 @@ import datetime
 import json
 import multiprocessing
 import os
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
@@ -75,8 +76,8 @@ if __name__ == '__main__':
                         help='input genome assembly path')
     parser.add_argument('-t', metavar='thread num',
                         help='input thread num, default = [ '+str(default_threads)+' ]')
-    parser.add_argument('-a', metavar='alias name',
-                        help='input alias name')
+    # parser.add_argument('-a', metavar='alias name',
+    #                     help='input alias name')
     parser.add_argument('--chunk_size', metavar='chunk_size',
                         help='the chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
     parser.add_argument('--plant', metavar='is_plant',
@@ -115,7 +116,7 @@ if __name__ == '__main__':
 
     reference = args.g
     threads = args.t
-    alias = args.a
+    # alias = args.a
     output_dir = args.o
     fixed_extend_base_threshold = args.fixed_extend_base_threshold
     chunk_size = args.chunk_size
@@ -268,6 +269,16 @@ if __name__ == '__main__':
         (status, RepeatClassifier_path) = subprocess.getstatusoutput('which RepeatClassifier')
         RepeatModeler_Home = os.path.dirname(RepeatClassifier_path)
 
+    if blast_program_dir == '' or Genome_Tools_Home == '' or LTR_retriever_Home == '':
+        print('Error configuration: please check the "ParamConfig.json" file. '
+              'You should not meet this error if you install HiTE with Conda; '
+              'if you do, please check whether you have installed all the packages required in "environment.yml" file.')
+        sys.exit(-1)
+
+    if RepeatModeler_Home == '' and classified == 1:
+        print('Error configuration: You have not configured RepeatModeler2, so please run HiTE with "--classified 0"')
+        sys.exit(-1)
+
 
     log.logger.info('\n-------------------------------------------------------------------------------------------\n'
                     'HiTE, version ' + str(version_num) + '\n'
@@ -279,7 +290,7 @@ if __name__ == '__main__':
     log.logger.info('\nParameters configuration\n'
                     '====================================System settings========================================\n'
                     '  [Setting] Reference sequences / assemblies path = [ ' + str(reference) + ' ]\n'
-                    '  [Setting] Alias = [ ' + str(alias) + ' ]\n'
+                    # '  [Setting] Alias = [ ' + str(alias) + ' ]\n'
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
@@ -671,10 +682,14 @@ if __name__ == '__main__':
 
     starttime = time.time()
     log.logger.info('Start step3: generate non-redundant library')
+    alias = 'test'
     generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir \
-                           + ' --RepeatModeler_Home ' + RepeatModeler_Home + ' --classified ' + str(classified)
+                           + ' --classified ' + str(classified)
+    if RepeatModeler_Home != '':
+        generate_lib_command += ' --RepeatModeler_Home ' + RepeatModeler_Home
+
     log.logger.debug(generate_lib_command)
     os.system(generate_lib_command)
     endtime = time.time()

@@ -83,6 +83,7 @@ if __name__ == '__main__':
     load_f.close()
 
     found_error = False
+    found_warn = False
 
     # 1. get RepeatClassifier path
     genome_tools_home = param['Genome_Tools_Home']
@@ -105,20 +106,22 @@ if __name__ == '__main__':
 
     repeatmasker_home = param['RepeatMasker_Home']
     if not os.path.exists(repeatmasker_home + '/RepeatMasker'):
-        print('error:')
+        print('warning:')
         print('----can not find RepeatMasker in %s directory.' % repeatmasker_home)
-        found_error = True
+        found_warn = True
 
     repeatModeler_Home = param['RepeatModeler_Home']
     if not os.path.exists(repeatModeler_Home + '/RepeatClassifier'):
-        print('error:')
+        print('warning:')
         print('----can not find RepeatClassifier in %s directory.' % repeatModeler_Home)
-        found_error = True
+        found_warn = True
 
 
     if found_error:
-        print('Configuration error. please input the correct paths of tools in ParamConfig.json.' % repeatModeler_Home)
+        print('Configuration error. Please enter the correct tool paths in ParamConfig.json.')
         sys.exit(-1)
+    elif found_warn:
+        print('Configuration warning. RepeatModeler or RepeatMasker is not configured correctly, please run HiTE with the \'--classified 0\' option.')
 
     # # 2. modify RepModelConfig.pm in RepeatClassifier directory
     # RepModelConfig_path = os.getcwd() + "/classification/third-party/RepeatClassifier-2.0.1/RepModelConfig.pm"
