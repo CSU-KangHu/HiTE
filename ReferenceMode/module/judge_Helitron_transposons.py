@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     tools_dir = os.getcwd() + '/../tools'
     candidate_helitron_rename_consensus = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.rename.cons.fa'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_helitron_rename_path + ' -o ' + candidate_helitron_rename_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 

@@ -529,8 +529,7 @@ if __name__ == '__main__':
     rename_fasta(confident_tir_path, confident_tir_rename_path)
 
     confident_tir_rename_consensus = tmp_output_dir + '/confident_tir.rename.cons.fa'
-    tools_dir = os.getcwd() + '/tools'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename_path + ' -o ' + confident_tir_rename_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
@@ -561,8 +560,7 @@ if __name__ == '__main__':
     rename_fasta(confident_other_path, confident_other_rename_path)
 
     confident_other_rename_consensus = tmp_output_dir + '/confident_other.rename.cons.fa'
-    tools_dir = os.getcwd() + '/tools'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_other_rename_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
@@ -614,8 +612,7 @@ if __name__ == '__main__':
     os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
     confident_ltr_cut_consensus = tmp_output_dir + '/confident_ltr_cut.cons.fa'
-    tools_dir = os.getcwd() + '/tools'
-    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_ltr_cut_path + ' -o ' + confident_ltr_cut_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
