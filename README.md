@@ -1,20 +1,8 @@
-# HiTE, an Ensemble Method for High-Precision Transposable Element Annotation
+# HiTE, a progressive Method for High-Precision Transposable Element Annotation
 [![GitHub](https://img.shields.io/badge/python-3-blue)](https://www.python.org/)
 [![GitHub](https://img.shields.io/badge/license-GPL--3.0-green)](https://github.com/CSU-KangHu/HiTE/blob/master/LICENSE)
 
-<!-- ## <a name="introduction"></a>Introduction
-We have developed an ensemble method for high-precision TE annotation, known as **HiTE**, 
-which has undergone extensive benchmarking and has proven to be the best TE annotation tool available. 
-HiTE achieved the highest precision and discovered the most gold standard TE models based on four model species: 
-Oryza sativa, Caenorhabditis briggsae, Drosophila melanogaster, and Danio rerio. Furthermore, HiTE can discover 
-novel TEs with low copy numbers that are not included in known libraries. -->
-
 ## Table of Contents
-
-<!-- - [Introduction](#introduction)
-  - [The workflow of HiTE](#pipeline)
-  - [Performance](#performance)
--->
 - [Installation](#install)
   - [One-step installation](#one-step)
   - [Step-by-step installation](#step-step)
@@ -24,14 +12,6 @@ novel TEs with low copy numbers that are not included in known libraries. -->
 - [Output](#outputs)
 - [Replace the Dfam library in RepeatMasker](#classified)
 - [Question and Answer](#QA)
-
-<!-- ### <a name="pipeline"></a>The workflow of HiTE
-![输入图片说明](pic/Framework.png) 
-
-### <a name="performance"></a>Performance comparison of general-purpose TE annotators based on benckmarking method of RepeatModeler2 and EDTA 
-![输入图片说明](pic/RM2_results.png)
-
-![输入图片说明](pic/EDTA_results.png) -->
 
 ## <a name="install"></a>Installation
 ### <a name="one-step"></a>Option 1. One-step installation (recommended)
@@ -53,8 +33,6 @@ Use `--classified 0` if you do not need classified TE models.
 [The simplest way to replace the Dfam library](#classified)
 
 ### <a name="step-step"></a>Option 2. Step-by-step installation
-<details>
-<summary>Show more details</summary>
 
 #### 1. Download project 
 ```
@@ -69,13 +47,6 @@ Please install  [RMBlast](https://www.repeatmasker.org/rmblast/).
 
 #### <a name="genome_tools"></a>4. Installing genome tools
 Download [Genome Tools](http://genometools.org/pub/binary_distributions/).
-
-<!-- For example:
-```
-wget http://genometools.org/pub/binary_distributions/gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
-tar zxvf gt-1.6.2-Linux_x86_64-64bit-complete.tar.gz
-```
--->
 
 #### <a name="ltrretriever"></a>5. Installing LTR_retriever
 Install the latest release of LTR_retriever
@@ -109,25 +80,27 @@ cd /your_path_to/HiTE/ReferenceMode
 python configure.py
 ```
 to validate all configurations.
-</details>
 
 
 ## <a name="start"></a>Quick start
 ```
 cd /your_path_to/HiTE/ReferenceMode
-python main.py -g ../demo/genome.fa -t 48 -o ../demo/test --plant 0
+python main.py --genome ../demo/genome.fa --thread 48 --outdir ../demo/test --plant 0
 ```
 
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
-* confident_helitron_0.fa (9.1 KB)
-* confident_other_0.fa (0 KB)
-* confident_TE.cons.fa (117 KB)
-* confident_tir_0.fa (159 KB)
-* genome_all.fa.harvest.scn (11 KB)
-* genome.rename.fa.finder.combine.scn (1.3 KB)
-* Genome.rename.fa.LTRlib.fa (48 KB)
-* longest_repeats_0.fa (1.2 MB)
-* longest_repeats_0.flanked.fa (1.5 MB)
+```text
+demo/test/
+├── confident_helitron_0.fa (9.1 KB)
+├── confident_other_0.fa (0 KB)
+├── confident_TE.cons.fa (117 KB)
+├── confident_tir_0.fa (159 KB)
+├── genome_all.fa.harvest.scn (11 KB)
+├── genome.rename.fa.finder.combine.scn (1.3 KB)
+├── Genome.rename.fa.LTRlib.fa (48 KB)
+├── longest_repeats_0.fa (1.2 MB)
+└── longest_repeats_0.flanked.fa (1.5 MB)
+```
 
 Note:
 1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE/ReferenceMode** directory.
@@ -151,17 +124,19 @@ For other optional parameters, please refer to [Commands and options](#cmd).
 ## <a name="outputs"></a>Outputs
 HiTE outputs many temporary files, which allow you to quickly restore the previous 
 running state in case of any interruption during the running process. If
-the pipeline completes successfully, the following files are generated:
-
-* longest_repeats_*.fa.
-* confident_tir_*.fa
-* confident_helitron_*.fa
-* confident_other_*.fa
-* genome_all.fa.harvest.scn
-* ${ref_name}.finder.combine.scn
-* ${ref_name}.LTRlib.fa
-* confident_TE.cons.fa
-* confident_TE.cons.fa.classified
+the pipeline completes successfully, the output directory should look like the following:
+```text
+output_dir/
+├── longest_repeats_*.fa
+├── confident_tir_*.fa
+├── confident_helitron_*.fa
+├── confident_other_*.fa
+├── genome_all.fa.harvest.scn
+├── ${ref_name}.finder.combine.scn
+├── ${ref_name}.LTRlib.fa
+├── confident_TE.cons.fa
+└── confident_TE.cons.fa.classified
+```
 
 Note that "*" represents the number of blocks that the genome is divided into.
 For example, if the genome input is 400 MB and the chunk size input is set to 100,
@@ -191,28 +166,15 @@ https://drive.google.com/file/d/1vQLamfINdJ5iDwggYigWKe7Gor4t6JMK/view?usp=shari
 
 4. `unzip RepeatMasker_Lib.zip && mv RepeatMasker_Lib/* ./`
 
-<!--
-```
-1. cd RepeatMasker/Libraries/
-2. wget https://www.dfam.org/releases/Dfam_3.6/families/Dfam.h5.gz
-3. gunzip Dfam.h5.gz
-```
-
-Run Configure Script
-```
-1. cd RepeatMasker 
-2. perl ./configure
-``` -->
-
 
 ## <a name="cmd"></a>Usage
 Type `python main.py -h` for help.
 ```
 The simplest command:
-python main.py -g $genome_assembly -o $output_dir
+python main.py --genome $genome_assembly --outdir $output_dir
 
 Most frequently used commands:
-python main.py -g $genome_assembly -o $output_dir -t 40 --chunk_size 400 --plant 0 --recover 1
+python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --chunk_size 400 --plant 0 --recover 1
 
 uusage: main.py [-h] [-g Genome assembly] [-t thread num]
                [--chunk_size chunk_size] [--plant is_plant]
@@ -265,13 +227,6 @@ optional arguments:
                         genome. 1: true (require more memory), 0: false.
                         default = [ 1 ]
 ```
-
-<!--
-## <a name="contact"></a>Contact
-Kang Hu kanghu@csu.edu.cn
-
-Jianxin Wang jxwang@mail.csu.edu.cn 
--->
 
 ## <a name="QA"></a>Question and Answer
 You may want to check out this [Q&A](https://github.com/CSU-KangHu/HiTE/wiki) page for best practices and get answered.

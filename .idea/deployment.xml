@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="hukang@122.207.108.56:5000 password" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false" showNewOnSourceInSync="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="bio1" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false" showNewOnSourceInSync="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
       <paths name="bio1">
@@ -27,7 +27,7 @@
       <paths name="super">
         <serverdata>
           <mappings>
-            <mapping deploy="/public/home/hpc194701009/HiTE_github/HiTE-2.0.2" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/public/home/hpc194701009/nextflow/HiTE" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

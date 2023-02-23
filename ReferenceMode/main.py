@@ -72,52 +72,29 @@ if __name__ == '__main__':
 
     # 1.parse args
     parser = argparse.ArgumentParser(description='########################## HiTE, version ' + str(version_num) + ' ##########################')
-    parser.add_argument('-g', metavar='Genome assembly',
-                        help='input genome assembly path')
-    parser.add_argument('-t', metavar='thread num',
-                        help='input thread num, default = [ '+str(default_threads)+' ]')
-    # parser.add_argument('-a', metavar='alias name',
-    #                     help='input alias name')
-    parser.add_argument('--chunk_size', metavar='chunk_size',
-                        help='the chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
-    parser.add_argument('--plant', metavar='is_plant',
-                        help='is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
-    parser.add_argument('--remove_nested', metavar='remove_nested',
-                        help='Whether to clear the nested TE, 1: true, 0: false. default = [ ' + str(
-                            default_nested) + ' ]')
-    parser.add_argument('--classified', metavar='classified',
-                        help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(
-                            default_classified) + ' ]')
-    parser.add_argument('--recover', metavar='recover',
-                        help='Whether to enable recovery mode to avoid repeated calculations, 1: true, 0: false. default = [ ' + str(
-                            default_recover) + ' ]')
-    parser.add_argument('--debug', metavar='is_debug',
-                        help='Open debug mode, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
-    parser.add_argument('-o', metavar='output dir',
-                        help='output dir')
+    parser.add_argument('--genome', metavar='genome', help='Input genome assembly path')
+    parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
+    parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
+    parser.add_argument('--plant', metavar='is_plant', help='Is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
+    parser.add_argument('--remove_nested', metavar='is_remove_nested', help='Whether to unwrap the nested TE, 1: true, 0: false. default = [ ' + str(default_nested) + ' ]')
+    parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
+    parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
+    parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
+    parser.add_argument('--outdir', metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
 
-    parser.add_argument('--flanking_len', metavar='flanking_len',
-                        help='the flanking length of repeat to find the true boundary, default = [ ' + str(
-                            default_flanking_len) + ' ]')
-    parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold',
-                        help='the base number of extend base, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
-    parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff',
-                        help='Cutoff of the raw masked repeat regarded as tandem region, default = [ '+str(default_tandem_region_cutoff)+' ]')
-    parser.add_argument('--max_repeat_len', metavar='max_repeat_len',
-                        help='the maximum length of repeat, default = [ ' + str(default_max_single_repeat_len) + ' ]')
-    parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length',
-                        help='the length of genome segments, default = [ ' + str(default_chrom_seg_length) + ' ]')
-    parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter',
-                        help='Whether to filter false positives by global flanking alignment, significantly reduce false positives '
-                             'but require more memory, especially when inputting a large genome. 1: true (require more memory), 0: false. default = [ ' + str(
-                            default_global_flanking_filter) + ' ]')
+    parser.add_argument('--flanking_len', metavar='flanking_len', help='The flanking length of candidates to find the true boundaries, default = [ ' + str(default_flanking_len) + ' ]')
+    parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold', help='The length of variation can be tolerated during pairwise alignment, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
+    parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff', help='Cutoff of the candidates regarded as tandem region, default = [ '+str(default_tandem_region_cutoff)+' ]')
+    parser.add_argument('--max_repeat_len', metavar='max_repeat_len', help='The maximum length of a single repeat, default = [ ' + str(default_max_single_repeat_len) + ' ]')
+    parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length', help='The length of genome segments, default = [ ' + str(default_chrom_seg_length) + ' ]')
+    parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter', help='Whether to filter false positives by global flanking alignment, significantly reduce false positives but require more memory, especially when inputting a large genome. 1: true (require more memory), 0: false. default = [ ' + str(default_global_flanking_filter) + ' ]')
 
     args = parser.parse_args()
 
-    reference = args.g
-    threads = args.t
+    reference = args.genome
+    threads = args.thread
     # alias = args.a
-    output_dir = args.o
+    output_dir = args.outdir
     fixed_extend_base_threshold = args.fixed_extend_base_threshold
     chunk_size = args.chunk_size
     tandem_region_cutoff = args.tandem_region_cutoff
@@ -354,44 +331,6 @@ if __name__ == '__main__':
             cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
-
-    # #我们取消将reference切成更小块以提升性能，测试发现并没有用。
-    # ref_names, ref_contigs = read_fasta(reference_pre)
-    # cut_references = []
-    # cur_ref_contigs = {}
-    # ref_index = 0
-    # single_batch_size = chunk_size * 1024 * 1024
-    # start = 0
-    # cur_seq = ''
-    # for ref_name in ref_names:
-    #     seq = ref_contigs[ref_name]
-    #     cur_ref_name = ref_name + '$' + str(start)
-    #     while len(seq) > 0:
-    #         if len(cur_seq) + len(seq) <= single_batch_size:
-    #             cur_seq += seq
-    #             cur_ref_contigs[cur_ref_name] = cur_seq
-    #             cur_seq = ''
-    #             seq = ''
-    #             start = 0
-    #         else:
-    #             remain_size = single_batch_size-len(cur_seq)
-    #             remain_seq = seq[0: remain_size]
-    #             cur_ref_contigs[cur_ref_name] = remain_seq
-    #             start += remain_size
-    #             cur_seq = ''
-    #             # store references
-    #             cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
-    #             store_fasta(cur_ref_contigs, cur_ref_path)
-    #             cut_references.append(cur_ref_path)
-    #             cur_ref_contigs = {}
-    #             ref_index += 1
-    #
-    #             cur_ref_name = ref_name + '$' + str(start)
-    #             seq = seq[remain_size:]
-    # if len(cur_ref_contigs) > 0:
-    #     cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
-    #     store_fasta(cur_ref_contigs, cur_ref_path)
-    #     cut_references.append(cur_ref_path)
 
     for ref_index, cut_reference in enumerate(cut_references):
         (cut_ref_dir, cut_ref_filename) = os.path.split(cut_reference)
