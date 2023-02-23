@@ -7,13 +7,10 @@ LABEL description="HiTE: A progressive method for accurate detection of intact T
 
 ARG DNAME="HiTE"
 
-COPY ../HiTE /
-
 # Command 'RUN' during docker build
 # Download HiTE and create the environment
-RUN cd /
-RUN git clone https://github.com/CSU-KangHu/HiTE
-RUN cd /HiTE
+COPY environment.yml /
+RUN git clone https://github.com/CSU-KangHu/HiTE.git
 RUN conda env create --name ${DNAME} --file=environment.yml && conda clean -a
 
 # Make RUN commands use the new environment
