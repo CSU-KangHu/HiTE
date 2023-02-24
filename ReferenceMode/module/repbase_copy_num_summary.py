@@ -56,6 +56,7 @@ if __name__ == '__main__':
         for line in f_r:
             line = line.replace('\n', '').strip()
             present_names.add(line)
+    f_r.close()
 
     repbase_names = set(repbase_contigs.keys())
     diff_set = repbase_names.difference(present_names)

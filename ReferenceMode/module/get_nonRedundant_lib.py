@@ -19,6 +19,8 @@ def remove_self_alignment(blastnResults_path, new_blastnResults_path):
                 continue
             else:
                 records.append(line)
+    f_r.close()
+
     with open(new_blastnResults_path, 'w') as f_save:
         for line in records:
             f_save.write(line)
@@ -65,6 +67,7 @@ def remove_nest(blastnResults_path, query_path, output, coverage = 0.95, identit
                     old_sbj = new_query_contigs[subject_name]
                     if sbj_len_new < len(old_sbj):
                         new_query_contigs[subject_name] = sbj_seq_new
+    f_r.close()
 
     for query_name in query_contigs.keys():
         if new_query_contigs.__contains__(query_name):
@@ -139,4 +142,5 @@ if __name__ == '__main__':
         with open(classified_TE_path, 'w') as f_save:
             for name in names:
                 f_save.write('>'+name+'\n'+contigs[name]+'\n')
+        f_save.close()
 

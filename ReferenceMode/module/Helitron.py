@@ -46,6 +46,7 @@ if __name__ == '__main__':
             # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
             for index, copy in enumerate(copy_list):
                 f_save.write('\t' + copy[0] + ':' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(copy[3]) + '\n' + copy[4] + '\n')
+    f_save.close()
 
     #多线程运行EAHelitro
     candidate_helitron_path = tmp_output_dir + '/repbase_EAHelitron.fa'
@@ -60,6 +61,7 @@ if __name__ == '__main__':
             new_name = 'Helitron_' + str(node_index)
             f_save.write('>' + new_name + '\n' + seq + '\n')
             node_index += 1
+    f_save.close()
     candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_rename)
 
     # 2.flanking candidate helitron 50bp,看flanking region是否有高同源性

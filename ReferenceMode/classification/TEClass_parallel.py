@@ -97,10 +97,12 @@ def modify_REPCLASS_conf(repclass_conf_path, repclass_conf):
                     value = repclass_conf[key]
                     line = '$'+key+'		=	\"'+value+'\";'
             new_str += line + '\n'
+    f_r.close()
 
     with open(repclass_conf_path, 'w') as f_save:
         f_save.write(new_str)
         f_save.flush()
+    f_save.close()
 
 def set_REPCLASS_conf(cur_user_config_dir, cur_sample_name, genome, cur_consensus, cur_output, partition_index):
     create_dirs = []
@@ -173,7 +175,7 @@ def store2file(data_partition, cur_consensus_path):
         with open(cur_consensus_path, 'w') as f_save:
             for item in data_partition:
                 f_save.write('>'+item[0]+'\n'+item[1]+'\n')
-
+        f_save.close()
 
 def getREPCLASS_classified(REPCLASS_result_path):
     marked_header = []
@@ -213,6 +215,7 @@ def getREPCLASS_classified(REPCLASS_result_path):
                                 class_name += '/' + family
                 # mark each sequence
                 marked_header.append(node_name + '#' + class_name)
+        f_r.close()
     return marked_header
 
 
@@ -226,6 +229,7 @@ def merge_classified(marked_header, homology_classified_path, homology_unknown_p
             header = name.split('#')[0]
             if unknown_contigs.__contains__(header):
                 f_save.write('>' + name + '\n' + unknown_contigs[header] + '\n')
+    f_save.close()
 
 
 def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp_dir, partition_index, open_REPCLASS, RepeatModeler_Home):
@@ -273,9 +277,12 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
             with open(homology_classified_consensus_path, 'w') as f_save:
                 for item in known_consensus:
                     f_save.write('>' + item[0] + '\n' + item[1] + '\n')
+            f_save.close()
+
             with open(unknown_consensus_path, 'w') as f_save:
                 for item in unknown_consensus:
                     f_save.write('>' + item[0] + '\n' + item[1] + '\n')
+            f_save.close()
 
             # Step3: Running WebTE Structure and TSD module
             print("Thread idx:%d, Start Running WebTE Structure and TSD module." %partition_index)
@@ -314,6 +321,7 @@ def merge_fasta(fasta_path, merged_file):
             for name in contignames:
                 seq = contigs[name]
                 f_save.write('>'+name+'\n'+seq+'\n')
+        f_save.close()
 
 
 # if __name__ == '__main__':

@@ -55,9 +55,10 @@ def modify_RepModel(RepModelConfig_path, repeatmasker_home, rmblast_home, trf_pr
                         line = new_line
 
             RepModelConfig_lines.append(line)
-
+    f_r.close()
     with open(RepModelConfig_path, 'w') as f_w:
         f_w.writelines(RepModelConfig_lines)
+    f_w.close()
 
 
 def modify_REPCLASS_conf(repclass_conf_path, repclass_conf):
@@ -71,9 +72,11 @@ def modify_REPCLASS_conf(repclass_conf_path, repclass_conf):
                     value = repclass_conf[key]
                     line = '$'+key+'		=	\"'+value+'\";'
             new_str += line + '\n'
+    f_r.close()
 
     with open(repclass_conf_path, 'w') as f_save:
         f_save.write(new_str)
+    f_save.close()
 
 if __name__ == '__main__':
     param_config_path = os.getcwd() + "/ParamConfig.json"

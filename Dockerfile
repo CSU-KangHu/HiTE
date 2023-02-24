@@ -7,11 +7,22 @@ LABEL description="HiTE: A progressive method for accurate detection of intact T
 
 ARG DNAME="HiTE"
 
+RUN apt-get -q update && apt-get install unzip --yes && apt-get install gnutls-bin --yes
+RUN git config --global http.sslVerify false && git config --global http.postBuffer 1048576000
+
 # Command 'RUN' during docker build
+#download RepeatMasker libraries
+RUN git clone https://github.com/CSU-KangHu/TE_annotation.git && \
+    cd TE_annotation && unzip RepeatMasker_Lib.zip
+
 # Download HiTE and create the environment
-COPY environment.yml /
+#COPY environment.yml /
 RUN git clone https://github.com/CSU-KangHu/HiTE.git
-RUN conda env create --name ${DNAME} --file=environment.yml && conda clean -a
+RUN cd /HiTE && conda env create --name ${DNAME} --file=environment.yml && conda clean -a
+
+#update RepeatMasker libraries
+RUN mv /TE_annotation/RepeatMasker_Lib/* /opt/conda/envs/HiTE/share/RepeatMasker/Libraries/
+
 
 # Make RUN commands use the new environment
 # name need to be the same with the above ${DNAME}

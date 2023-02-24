@@ -11,6 +11,7 @@ def get_perfect_name(perfect_path):
         for line in f_r:
             name = line.replace('\n', '')
             perfect_names.add(name)
+    f_r.close()
     return perfect_names
 
 if __name__ == '__main__':

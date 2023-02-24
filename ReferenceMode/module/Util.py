@@ -423,6 +423,8 @@ def store_LTR_seq(ltrharvest_output, longest_repeats_path, confident_ltr_path, c
             LTR_seqs[internal_query_name] = LTR_internal
             LTR_intact_seqs[LTR_query_name] = query_seq[lLTR_start-1: rLTR_end]
             node_index += 1
+    f_r.close()
+
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
@@ -461,6 +463,8 @@ def store_LTR_seq_v2(ltrharvest_output, longest_repeats_path, confident_ltr_path
             LTR_seqs[internal_query_name] = LTR_internal
             LTR_intact_seqs[LTR_query_name] = query_seq[lLTR_start-1: rLTR_end]
             node_index += 1
+    f_r.close()
+
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
@@ -498,6 +502,8 @@ def store_LTR_seq_v1(ltrharvest_output, longest_repeats_path, confident_ltr_path
             LTR_seqs[internal_query_name] = LTR_internal
             LTR_intact_seqs[LTR_query_name] = query_seq[lLTR_start-1: rLTR_end]
             node_index += 1
+    f_r.close()
+
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
@@ -590,6 +596,7 @@ def get_longest_protein(LTR_out):
                 subject_dict[subject_name] = []
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
 
     fixed_extend_base_threshold = 200
     keep_longest_query = {}
@@ -1032,6 +1039,7 @@ def compare_seq(self_info, other_info, identity_cutoff, length_similarity_cutoff
                     float(match_base) / query_len >= length_similarity_cutoff and\
                     float(match_base) / target_len >= length_similarity_cutoff:
                 return float(identity) / 100
+    f_r.close()
 
 
 def multi_line(fasta_path, line_len, k_num):
@@ -1340,10 +1348,12 @@ def split_repeats(repeats_path, long_repeat_threshold, repeats_minimap2, repeats
     with open(repeats_minimap2, 'w') as f_save:
         for r_name in long_seqs.keys():
             f_save.write('>' + r_name + '\n' + long_seqs[r_name] + '\n')
+    f_save.close()
 
     with open(repeats_bwa, 'w') as f_save:
         for r_name in short_seqs.keys():
             f_save.write('>' + r_name + '\n' + short_seqs[r_name] + '\n')
+    f_save.close()
 
 
 
@@ -1378,6 +1388,7 @@ def store2file(data_partition, cur_consensus_path):
         with open(cur_consensus_path, 'w') as f_save:
             for item in data_partition:
                 f_save.write('>'+item[0]+'\n'+item[1]+'\n')
+        f_save.close()
 
 def PET(seq_item, partitions):
     # sort contigs by length
@@ -2118,6 +2129,7 @@ def get_alignment_info_v2(blastn_output):
             records = query_records[query_name]
             records.append((query_name, target_name, identity, match_base, query_length))
             query_records[query_name] = records
+    f_r.close()
 
     for query_name in query_records.keys():
         complete_alignment_num = 0
@@ -2153,6 +2165,7 @@ def get_ltr_suppl_from_ltrfinder(merged_ltr, cluster_file, suppl_ltr_file):
                 cluster_records = cluster_info[cluster_id]
                 cluster_records.append(line)
                 cluster_info[cluster_id] = cluster_records
+    f_r.close()
 
     keep_contigname = []
     for cluster_id in cluster_info.keys():
@@ -2174,6 +2187,7 @@ def get_ltr_suppl_from_ltrfinder(merged_ltr, cluster_file, suppl_ltr_file):
             for contigname in contignames:
                 if contigname.__contains__(name):
                     f_save.write('>'+contigname+'\n'+contigs[contigname]+'\n')
+    f_save.close()
 
 
 def store_fasta(contigs, file_path):
@@ -2226,6 +2240,7 @@ def parse_ref_blast_output(blastnResults_path, target_path, candidate_repeats_pa
             same_target_records.append((identity, match_base, query_length, q_start, q_end, t_start, t_end))
             records[target_name] = same_target_records
             query_records[query_name] = records
+    f_r.close()
     #print(query_records)
 
     # strcuture: {'Node_1': {'Node_1': [(),(),], 'Node_2':[(),(),], ...}}
@@ -2265,6 +2280,7 @@ def parse_ref_blast_output(blastnResults_path, target_path, candidate_repeats_pa
         for sequence in candidate_family_repeat:
             f_save.write('>Node_'+str(node_index)+'-len_'+str(len(sequence))+'\n'+sequence+'\n')
             node_index += 1
+    f_save.close()
 
 
 def filter_LTR_high_similarity(blastnResults_path, target_path, query_path, filter_ltr_repeats_path):
@@ -2294,7 +2310,7 @@ def filter_LTR_high_similarity(blastnResults_path, target_path, query_path, filt
             same_target_records.append((identity, match_base, q_start, q_end, t_start, t_end))
             records[target_name] = same_target_records
             query_records[query_name] = records
-    #print(query_records)
+    f_r.close()
 
     removed_names = set()
     for query_name in query_records.keys():
@@ -2310,6 +2326,7 @@ def filter_LTR_high_similarity(blastnResults_path, target_path, query_path, filt
         for name in contignames:
             if name not in removed_names:
                 f_save.write('>'+name+'\n'+contigs[name]+'\n')
+    f_save.close()
 
 
 def extract_tandem_from_trf(trf_data_path):
@@ -2319,6 +2336,7 @@ def extract_tandem_from_trf(trf_data_path):
             parts = line.split(' ')
             if len(parts) == 15:
                 tandem_elements.append(parts[13])
+    f_r.close()
     return tandem_elements
 
 
@@ -2855,6 +2873,7 @@ def file_exist(resut_file):
                     line_count += 1
                     if line_count > 0:
                         return True
+            f_r.close()
             return False
     else:
         return False
@@ -2893,6 +2912,7 @@ def run_TRF(input, input_dir, TRF_Path, tandem_region_cutoff, TE_type):
                     continue
             if float(seq.count('N')) / len(seq) < tandem_region_cutoff and len(seq) >= 100:
                 f_save.write('>' + name + '\n' + repeats_contigs[name] + '\n')
+    f_save.close()
 
     return repeats_path
 
@@ -2992,6 +3012,7 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
                 subject_dict[subject_name] = []
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
 
     keep_longest_query = {}
     longest_repeats = {}
@@ -3288,6 +3309,7 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
                 subject_dict[subject_name] = []
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
 
     keep_longest_query = {}
     longest_repeats = {}
@@ -3586,6 +3608,7 @@ def get_longest_repeats_v3(repeats_path, blast_program_dir, fixed_extend_base_th
                 subject_dict[subject_name] = []
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
 
     keep_longest_query = {}
     longest_repeats = {}
@@ -3974,7 +3997,7 @@ def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_progr
                     # f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
                     #              '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
-
+    f_save.close()
     return longest_repeats_path
 
 def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
@@ -4113,6 +4136,7 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
                     f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
                                  '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
+    f_save.close()
     return longest_repeats_path
 
 def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
@@ -4193,6 +4217,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_progr
                     f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
                                  '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
+    f_save.close()
     return longest_repeats_path
 
 
@@ -4245,6 +4270,7 @@ def store_copies(tsd_info, copy_info_path):
             total_copy_num = info['total_copy_num']
             tsd_copy_num = info['tsd_copy_num']
             f_save.write('\ttotal_copy_num: ' + str(total_copy_num) + ', tsd_copy_num: ' + str(tsd_copy_num) + '\n')
+    f_save.close()
 
 def store_copies_v1(copies, copy_info_path):
     # new_copies.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq))
@@ -4255,6 +4281,7 @@ def store_copies_v1(copies, copy_info_path):
             for copy in copy_list:
                 f_save.write('\t'+str(copy[0])+':'+str(copy[1])+'-'+str(copy[2])+'-'+str(copy[2]-copy[1]+1)+'\n')
                 f_save.write(copy[4] + '\n')
+    f_save.close()
 
 def store_copies_seq(copies, copy_info_path):
     # new_copies.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq))
@@ -4264,6 +4291,7 @@ def store_copies_seq(copies, copy_info_path):
             for i, copy in enumerate(copy_list):
                 new_query_name = query_name + '-C_' + str(i)
                 f_save.write('>'+new_query_name + '\n' + copy[4] + '\n')
+    f_save.close()
 
 def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference, blast_program_dir):
     os.system('rm -rf '+tir_tsd_dir)
@@ -4878,6 +4906,7 @@ def get_copies_v1(blastnResults_path, query_path, subject_path, query_coverage=0
                 subject_dict[subject_name] = []
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end, identity))
+    f_r.close()
 
     query_names, query_contigs = read_fasta(query_path)
     cur_segments = list(query_records.items())
@@ -4910,6 +4939,7 @@ def get_copies(blastnResults_path, query_path, subject_path, query_coverage=0.99
                 subject_dict[subject_name] = []
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end, identity))
+    f_r.close()
 
     query_names, query_contigs = read_fasta(query_path)
     segments_cluster = divided_array(list(query_records.items()), threads)
@@ -5221,6 +5251,7 @@ def get_fake_tirs(itrsearch_log):
                         alignments[query_name] = []
                     details = alignments[query_name]
                     details.append(line)
+    f_r.close()
 
     for query_name in alignments.keys():
         details = alignments[query_name]
@@ -5277,6 +5308,7 @@ def rename_fasta(input, output):
             seq = contigs[name]
             f_save.write('>N_'+str(node_index)+'\n'+seq+'\n')
             node_index += 1
+    f_save.close()
 
 def rename_reference(input, output):
     names, contigs = read_fasta(input)
@@ -5286,6 +5318,7 @@ def rename_reference(input, output):
             seq = contigs[name]
             f_save.write('>chr_'+str(ref_index)+'\n'+seq+'\n')
             ref_index += 1
+    f_save.close()
 
 def search_candidate_ltr(copies_out_contigs):
     #对all_copies_out_contigs进行rename
@@ -5632,6 +5665,7 @@ def store_flank_align_groups(query_groups, flank_align_dir):
                     query_name = item[9]
                     subject_name = item[10]
                     f_save.write(query_name+'\t'+subject_name+'\t'+str(q_start)+'\t'+str(q_end)+'\t'+str(s_start)+'\t'+str(s_end)+'\t'+str(direct)+'\n')
+        f_save.close()
 
 def judge_flank_align(flanking_region_distance, output, flanking_len, flank_align_dir):
     # 按照 orig_query_name 进行分组，每个 orig_query_name 为一个单独的单元
@@ -5841,6 +5875,7 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
                 f_save.write('\tfrom:' + str(copy[0]) + '_' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(
                     copy[2] - copy[1] + 1) + '\n')
                 f_save.write(copy[4] + '\n')
+    f_save.close()
 
     endtime = time.time()
     dtime = endtime - starttime
@@ -6149,3 +6184,4 @@ if __name__ == '__main__':
     with open(tandem_path, 'w') as f_save:
         for index, elem in enumerate(tandem_elements):
             f_save.write('>Node_'+str(index)+'\n'+elem+'\n')
+    f_save.close()

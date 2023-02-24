@@ -30,6 +30,7 @@ def getPolyASeq(output, longest_repeats_path):
                 polyAseq = seq[0: end_pos]
             new_query_name = 'N_'+str(i)
             res[new_query_name] = polyAseq
+    f_r.close()
     return res
 
 def extract_sequence_from_db(db_path, features, store_path):

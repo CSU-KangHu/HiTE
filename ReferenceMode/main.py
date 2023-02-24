@@ -108,7 +108,13 @@ if __name__ == '__main__':
     recover = args.recover
     debug = args.debug
 
-    log = Logger('HiTE.log', level='debug')
+    i = datetime.datetime.now()
+    # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
+    tmp_output_dir = output_dir + '/'
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
+
+    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
     if reference is None:
         log.logger.error('\nreference path can not be empty')
@@ -196,12 +202,6 @@ if __name__ == '__main__':
     with open(param_config_path, 'r') as load_f:
         param = json.load(load_f)
     load_f.close()
-
-    i = datetime.datetime.now()
-    # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    tmp_output_dir = output_dir + '/'
-    if not os.path.exists(tmp_output_dir):
-        os.makedirs(tmp_output_dir)
 
     total_starttime = time.time()
     tools_dir = os.getcwd() + '/tools'
@@ -331,6 +331,7 @@ if __name__ == '__main__':
             cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
+    f_r.close()
 
     for ref_index, cut_reference in enumerate(cut_references):
         (cut_ref_dir, cut_ref_filename) = os.path.split(cut_reference)
