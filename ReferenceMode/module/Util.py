@@ -3570,18 +3570,20 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
     # print(longest_repeats)
     return longest_repeats, keep_longest_query
 
-def get_longest_repeats_v3(repeats_path, blast_program_dir, fixed_extend_base_threshold, max_single_repeat_len, threads):
+def get_longest_repeats_v3(repeats_path, blast_program_dir, fixed_extend_base_threshold, max_single_repeat_len, threads, log):
     split_repeats_path = repeats_path[0]
     original_repeats_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
     tmp_blast_dir = repeats_path[3]
 
+
     align_command = blast_program_dir + '/bin/blastn -db ' + original_repeats_path + ' -num_threads ' \
                     + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
     os.system(align_command)
 
-    query_names, query_contigs = read_fasta(split_repeats_path)
+    log.logger.debug('coarse alignment -- alignment finished:' + str(split_repeats_path))
 
+    query_names, query_contigs = read_fasta(split_repeats_path)
 
     # parse blastn output, determine the repeat boundary
     # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
@@ -3609,6 +3611,7 @@ def get_longest_repeats_v3(repeats_path, blast_program_dir, fixed_extend_base_th
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end))
     f_r.close()
+    log.logger.debug('coarse alignment -- file open finished:' + str(split_repeats_path))
 
     keep_longest_query = {}
     longest_repeats = {}
@@ -3863,6 +3866,7 @@ def get_longest_repeats_v3(repeats_path, blast_program_dir, fixed_extend_base_th
                 intact_copies.append((ori_start_pos, ori_end_pos, chr_name, seq_ref_start, seq_ref_end, copy_seq))
         longest_repeats[query_name] = intact_copies
 
+    log.logger.debug('coarse alignment -- analyze finished:' + str(split_repeats_path))
     # print(longest_repeats)
     return longest_repeats, keep_longest_query
 
@@ -4140,7 +4144,7 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
     return longest_repeats_path
 
 def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
-                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads):
+                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, log):
     repeatNames, repeatContigs = read_fasta(repeats_path)
     # parallel
     tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
@@ -4172,13 +4176,14 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_progr
         output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
         repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
 
+    log.logger.debug('coarse alignment -- total file size:'+str(len(repeat_files)))
     ex = ProcessPoolExecutor(threads)
     longest_repeats = {}
     keep_longest_query = {}
     jobs = []
     for file in repeat_files:
         job = ex.submit(get_longest_repeats_v3, file, blast_program_dir, fixed_extend_base_threshold,
-                        max_single_repeat_len, threads)
+                        max_single_repeat_len, threads, log)
         jobs.append(job)
     ex.shutdown(wait=True)
 

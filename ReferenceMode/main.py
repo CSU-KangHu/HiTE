@@ -348,7 +348,7 @@ if __name__ == '__main__':
             repeats_path = cut_reference
             # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
             determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
-                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads)
+                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads, log)
 
             endtime = time.time()
             dtime = endtime - starttime
