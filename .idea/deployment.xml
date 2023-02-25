@@ -6,7 +6,7 @@
       <paths name="bio1">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/hukang/HiTE-2.0.1" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/hukang/HiTE" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

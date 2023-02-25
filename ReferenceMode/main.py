@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
     i = datetime.datetime.now()
     # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    tmp_output_dir = output_dir + '/'
+    tmp_output_dir = os.path.abspath(output_dir + '/')
     if not os.path.exists(tmp_output_dir):
         os.makedirs(tmp_output_dir)
 
