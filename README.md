@@ -35,7 +35,7 @@ singularity run -B /home/user:/home/user --pwd /HiTE/ReferenceMode HiTE.sif pyth
 docker pull docker://kanghu/hite:2.0.3
 
 # run HiTE
-docker run -v /home/user:/home/user python main.py \
+docker run -v /home/user:/home/user kanghu/hite:2.0.3 python main.py \
  --genome genome.fa \
  --thread 40 \
  --outdir output_dir \

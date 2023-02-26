@@ -483,6 +483,7 @@ if __name__ == '__main__':
         # 2.运行LTR_finder_parallel
         LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home +'/LTR_FINDER_parallel -harvest_out -seq ' + ref_rename_path + ' -threads ' + str(
             threads)
+        log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
         os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
 
         endtime = time.time()
