@@ -7,8 +7,34 @@ LABEL description="HiTE: A progressive method for accurate detection of intact T
 
 ARG DNAME="HiTE"
 
-RUN apt-get -q update && apt-get install unzip --yes && apt-get install gnutls-bin --yes
-RUN git config --global http.sslVerify false && git config --global http.postBuffer 1048576000
+RUN apt-get update && apt-get install unzip --yes
+
+## update aliyun source
+#RUN echo 'deb https://mirrors.aliyun.com/debian/ bullseye main non-free contrib' > /etc/apt/sources.list && \
+#    echo 'deb-src https://mirrors.aliyun.com/debian/ bullseye main non-free contrib' >> /etc/apt/sources.list && \
+#    echo 'deb https://mirrors.aliyun.com/debian-security/ bullseye-security main' >> /etc/apt/sources.list && \
+#    echo 'deb-src https://mirrors.aliyun.com/debian-security/ bullseye-security main' >> /etc/apt/sources.list && \
+#    echo 'deb https://mirrors.aliyun.com/debian/ bullseye-updates main non-free contrib' >> /etc/apt/sources.list && \
+#    echo 'deb-src https://mirrors.aliyun.com/debian/ bullseye-updates main non-free contrib' >> /etc/apt/sources.list && \
+#    echo 'deb https://mirrors.aliyun.com/debian/ bullseye-backports main non-free contrib' >> /etc/apt/sources.list && \
+#    echo 'deb-src https://mirrors.aliyun.com/debian/ bullseye-backports main non-free contrib' >> /etc/apt/sources.list && \
+#    apt-get update
+#
+##solve git clone SSL error
+#RUN apt-get install build-essential fakeroot dpkg-dev -y && \
+#    apt-get build-dep git -y && \
+#    apt-get install libcurl4-openssl-dev -y && \
+#    cd ~ && \
+#    mkdir source-git && \
+#    cd source-git/ && \
+#    apt-get source git && \
+#    cd git-2.*.*/ && \
+#    sed -i -- 's/libcurl4-gnutls-dev/libcurl4-openssl-dev/' ./debian/control && \
+#    sed -i -- '/TEST\s*=\s*test/d' ./debian/rules && \
+#    dpkg-buildpackage -rfakeroot -b -uc -us && \
+#    dpkg -i ../git_*ubuntu*.deb
+
+
 
 # Command 'RUN' during docker build
 #download RepeatMasker libraries
@@ -28,6 +54,7 @@ RUN mv /TE_annotation/RepeatMasker_Lib/* /opt/conda/envs/HiTE/share/RepeatMasker
 # name need to be the same with the above ${DNAME}
 SHELL ["conda", "run", "-n", "HiTE", "/bin/bash", "-c"]
 
+ENV PERL5LIB /
 ENV PATH /opt/conda/envs/${DNAME}/bin:$PATH
 USER root
 
