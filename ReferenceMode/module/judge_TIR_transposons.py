@@ -193,7 +193,7 @@ if __name__ == '__main__':
     tandem_region_cutoff = float(args.tandem_region_cutoff)
     ref_index = args.ref_index
 
-    log = Logger('HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
     # confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
     # if os.path.exists(confident_tir_path):

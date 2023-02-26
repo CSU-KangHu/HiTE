@@ -100,7 +100,7 @@ if __name__ == '__main__':
     RepeatModeler_Home = args.RepeatModeler_Home
     classified = args.classified
 
-    log = Logger('HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
     tools_dir = os.getcwd() + '/../tools'
 

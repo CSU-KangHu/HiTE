@@ -110,7 +110,7 @@ if __name__ == '__main__':
     else:
         max_iter_num = int(max_iter_num)
 
-    log = Logger('HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
     tools_dir = os.getcwd() + '/../tools'
 
