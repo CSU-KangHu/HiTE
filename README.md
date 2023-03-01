@@ -22,11 +22,16 @@
 singularity pull HiTE.sif docker://kanghu/hite:2.0.3
 
 # run HiTE
-singularity run -B /home/user:/home/user --pwd /HiTE/ReferenceMode HiTE.sif python main.py \
- --genome genome.fa \
- --thread 40 \
- --outdir output_dir \
- --plant 1 [other parameters]
+singularity run -B ${host_path}:${container_path} --pwd /HiTE/ReferenceMode HiTE.sif python main.py \
+ --genome ${genome} \
+ --thread ${thread} \
+ --outdir ${output_dir} \
+ [other parameters]
+ 
+ #e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE/ReferenceMode HiTE.sif python main.py 
+ # --genome /home/hukang/HiTE/demo/genome.fa 
+ # --thread 40 
+ # --outdir /home/hukang/HiTE/demo/test/
 ```
 
 ### <a name="install_docker"></a>Option 2. Run with Docker
@@ -35,11 +40,11 @@ singularity run -B /home/user:/home/user --pwd /HiTE/ReferenceMode HiTE.sif pyth
 docker pull docker://kanghu/hite:2.0.3
 
 # run HiTE
-docker run -v /home/user:/home/user kanghu/hite:2.0.3 python main.py \
- --genome genome.fa \
- --thread 40 \
- --outdir output_dir \
- --plant 1 [other parameters]
+docker run -v ${host_path}:${container_path} kanghu/hite:2.0.3 python main.py \
+ --genome ${genome} \
+ --thread ${thread} \
+ --outdir ${output_dir} \
+ [other parameters]
 ```
 
 ### <a name="install_conda"></a>Option 3. Run with conda
@@ -55,10 +60,10 @@ conda activate HiTE
 # run HiTE
 cd HiTE/ReferenceMode
 python main.py \
- --genome genome.fa \
- --thread 40 \
- --outdir output_dir \
- --plant 1 [other parameters]
+ --genome ${genome} \
+ --thread ${thread} \
+ --outdir ${output_dir} \
+ [other parameters]
 ```
 
 #### Updating the Dfam library in RepeatMasker (optional)
