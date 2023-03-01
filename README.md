@@ -7,7 +7,7 @@
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
   - [Run with Conda](#install_conda)
-  - [Step-by-step installation](#step-step)
+  <!-- - [Step-by-step installation](#step-step) -->
 - [Quick start](#start)
 - [Usage](#cmd)
 - [Input](#inputs)
