@@ -85,8 +85,6 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/longest_repeats_0.flanked.fa')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
-    parser.add_argument('--blast_program_dir', metavar='blast_program_dir',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/dmel')
     parser.add_argument('--query_coverage', metavar='query_coverage',
@@ -101,7 +99,6 @@ if __name__ == '__main__':
     longest_repeats_flanked_path = args.seqs
     reference = args.g
     threads = int(args.t)
-    blast_program_dir = args.blast_program_dir
     tmp_output_dir = args.tmp_output_dir
     query_coverage = float(args.query_coverage)
     subject_coverage = float(args.subject_coverage)
@@ -127,7 +124,7 @@ if __name__ == '__main__':
     #                         query_coverage=0.9, subject_coverage=0.9, threads=threads)
 
 
-    all_copies = multi_process_align_and_get_copies(non_LTR_lib, longest_repeats_flanked_path, blast_program_dir, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
+    all_copies = multi_process_align_and_get_copies(non_LTR_lib, longest_repeats_flanked_path, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
 
     flanking_len = 0
     all_copies = flanking_copies_v2(all_copies, non_LTR_lib, longest_repeats_flanked_path, flanking_len, copy_num=1)

@@ -20,14 +20,14 @@
       <paths name="hukang@122.207.108.56:5000 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/hukang/HiTE-2.0.1" local="$PROJECT_DIR$" />
+            <mapping deploy="/home/hukang/HiTE" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="super">
         <serverdata>
           <mappings>
-            <mapping deploy="/public/home/hpc194701009/nextflow/HiTE" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="HiTE" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

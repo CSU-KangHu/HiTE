@@ -46,8 +46,6 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/repeat_detect_tools/EAHelitron-master')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
-    parser.add_argument('--blast_program_dir', metavar='blast_program_dir',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
     parser.add_argument('--flanking_len', metavar='flanking_len',
                         help='e.g., 50')
     parser.add_argument('--ref_index', metavar='ref_index',
@@ -62,7 +60,6 @@ if __name__ == '__main__':
     # HSJAR = args.HSJAR
     tmp_output_dir = args.tmp_output_dir
     EAHelitron = args.EAHelitron
-    blast_program_dir = args.blast_program_dir
     ref_index = args.ref_index
     flanking_len = int(args.flanking_len)
 
@@ -99,7 +96,7 @@ if __name__ == '__main__':
         similar_ratio = 0.1
         TE_type = 'helitron'
         confident_copies = flank_region_align_v1(candidate_helitron_path, flanking_len, similar_ratio, reference,
-                                                 TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
+                                                 TE_type, tmp_output_dir, threads, ref_index, log)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of flanking Helitron copy and see if the flanking regions are repeated: %.8s s" % (dtime))

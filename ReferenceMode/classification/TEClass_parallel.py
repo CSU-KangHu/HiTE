@@ -232,15 +232,15 @@ def merge_classified(marked_header, homology_classified_path, homology_unknown_p
     f_save.close()
 
 
-def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp_dir, partition_index, open_REPCLASS, RepeatModeler_Home):
+def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp_dir, partition_index, open_REPCLASS):
     if os.path.exists(cur_consensus_path):
         # Step1: Running WebTE HOMOLOGY module
         file_removed = []
         #print("Thread idx:%d, Start Running WebTE HOMOLOGY module." %partition_index)
         starttime = time.time()
         #program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
-        homology_command = 'cd '+ cur_tmp_dir + ' && ' + RepeatModeler_Home + '/RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
-        #print('homology_command:%s' % homology_command)
+        homology_command = 'cd '+ cur_tmp_dir + ' && RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
+        print('homology_command:%s' % homology_command)
         #os.system(homology_command)
         os.system(homology_command + ' > /dev/null 2>&1')
         endtime = time.time()
@@ -348,8 +348,6 @@ if __name__ == '__main__':
                         help='input split number')
     parser.add_argument('-o', metavar='Output Dir',
                         help='input output dir')
-    parser.add_argument('--RepeatModeler_Home', metavar='RepeatModeler_Home',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/RepeatModeler-2.0.1')
     args = parser.parse_args()
 
     sample_name = args.sample_name
@@ -358,7 +356,6 @@ if __name__ == '__main__':
     thread_num = args.thread_num
     split_num = args.split_num
     output_dir = args.o
-    RepeatModeler_Home = args.RepeatModeler_Home
 
     if not os.path.isabs(consensus_path):
         consensus_path = os.path.abspath(consensus_path)
@@ -394,7 +391,7 @@ if __name__ == '__main__':
         store2file(data_partition, cur_consensus_path)
         cur_sample_name = sample_name
         # print('current run %d-th species run minimap2, reference path:%s' % (species_index + 1, reference))
-        pool.apply_async(run_classification, (cur_consensus_path, genome_path, cur_sample_name, cur_tmp_dir, partition_index, open_REPCLASS, RepeatModeler_Home, ))
+        pool.apply_async(run_classification, (cur_consensus_path, genome_path, cur_sample_name, cur_tmp_dir, partition_index, open_REPCLASS, ))
     pool.close()
     pool.join()
 

@@ -2,6 +2,7 @@
 import argparse
 
 import codecs
+import re
 import subprocess
 
 import datetime
@@ -23,35 +24,6 @@ from module.Util import read_fasta, Logger, store_fasta, \
 
 
 #from module.judge_TIR_transposons import is_transposons
-
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, ref_index, log):
-    log.logger.info('determine true TIR')
-
-    log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
-    starttime = time.time()
-    # 我们将copies扩展50bp，一个orig_query_name对应一个文件，然后做自比对。
-    # 解析每个自比对文件，判断C0与C1,C2...等拷贝的比对情况，如果有flanking区域包含在比对区域内，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
-    flanking_len = 50
-    similar_ratio = 0.1
-    TE_type = 'tir'
-    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
-
-    log.logger.info('------store confident TIR sequences')
-    filter_dup_names, filter_dup_contigs = read_fasta(filter_dup_path)
-    if ref_index == -1:
-        confident_tir_path = tmp_output_dir + '/confident_tir.rename.cons.fa'
-    else:
-        confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
-    confident_tir = {}
-    for name in confident_copies.keys():
-        copy_list = confident_copies[name]
-        if len(copy_list) >= 2:
-            confident_tir[name] = filter_dup_contigs[name]
-    store_fasta(confident_tir, confident_tir_path)
-
 
 if __name__ == '__main__':
     default_threads = int(cpu_count())
@@ -231,7 +203,6 @@ if __name__ == '__main__':
 
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
     EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
-    TRF_Path = os.getcwd() + '/tools/trf409.linux64'
 
     if blast_program_dir == '':
         (status, blast_program_path) = subprocess.getstatusoutput('which makeblastdb')
@@ -295,43 +266,24 @@ if __name__ == '__main__':
 
     pipeline_starttime = time.time()
     # 我们将大的基因组划分成多个小的基因组，每个小基因组500M，分割来处理
-    starttime = time.time()
 
     # --------------------------------------------------------------------------------------
-    # Step1. dsk get unique kmers, whose frequency >= 2
-    log.logger.info('Start Splitting Reference into chunks')
-    # using multiple threads to gain speed
-    reference_pre = convertToUpperCase_v1(reference)
+    starttime = time.time()
+    log.logger.info('Start step0: Splitting genome assembly into chunks')
+    # 识别TIR转座子
+    split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
+                                 + reference + ' --tmp_output_dir ' + tmp_output_dir \
+                                 + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    os.system(split_genome_command)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of step0: %.8s s" % (dtime))
 
-    #将基因组切成更小的块，以提升后续的比对性能
-    reference_tmp = multi_line(reference_pre, chrom_seg_length)
+    reg_str = ref_filename + '.cut(\d).fa$'
     cut_references = []
-    cur_ref_contigs = {}
-    cur_base_num = 0
-    ref_index = 0
-    with open(reference_tmp, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            parts = line.split('\t')
-            ref_name = parts[0].replace('>', '')
-            start = parts[1]
-            seq = parts[2]
-            new_ref_name = ref_name + '$' + start
-            cur_ref_contigs[new_ref_name] = seq
-            cur_base_num += len(line)
-            if cur_base_num >= chunk_size * 1024 * 1024:
-                # store references
-                cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
-                store_fasta(cur_ref_contigs, cur_ref_path)
-                cut_references.append(cur_ref_path)
-                cur_ref_contigs = {}
-                cur_base_num = 0
-                ref_index += 1
-        if len(cur_ref_contigs) > 0:
-            cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
-            store_fasta(cur_ref_contigs, cur_ref_path)
-            cut_references.append(cur_ref_path)
-    f_r.close()
+    for filename in os.listdir(tmp_output_dir):
+        if re.match(reg_str, filename) is not None:
+            cut_references.append(tmp_output_dir + '/' + filename)
 
     for ref_index, cut_reference in enumerate(cut_references):
         (cut_ref_dir, cut_ref_filename) = os.path.split(cut_reference)
@@ -344,31 +296,19 @@ if __name__ == '__main__':
         if not is_recover or not file_exist(resut_file) or not file_exist(longest_repeats_flanked_path):
             starttime = time.time()
             log.logger.info('Start 1.1: Coarse-grained boundary mapping')
-            log.logger.info('------generate longest_repeats.fa')
-            repeats_path = cut_reference
-            # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
-            determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
-                                         fixed_extend_base_threshold, max_repeat_len, tmp_output_dir, threads, log)
-
+            coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
+                                   + '-g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
+                                   + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
+                                   + ' --max_repeat_len ' + str(max_repeat_len) \
+                                   + ' --thread ' + str(threads) \
+                                   + ' --flanking_len ' + str(flanking_len) \
+                                   + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
+                                   + ' --ref_index ' + str(ref_index) \
+                                   + ' -r ' + reference
+            os.system(coarse_boundary_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of generating longest_repeats.fa: %.8s s" % (dtime))
-
-            starttime = time.time()
-            trf_dir = tmp_output_dir + '/trf_temp'
-            (repeat_dir, repeat_filename) = os.path.split(longest_repeats_path)
-            (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-            repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
-            multi_process_TRF(longest_repeats_path, repeats_path, TRF_Path, trf_dir, tandem_region_cutoff,
-                              threads=threads)
-
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of filtering tandem repeat in longest_repeats.fa: %.8s s" % (dtime))
-
-            longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
-            longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-            flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
+            log.logger.info("Running time of step1.1: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -381,14 +321,14 @@ if __name__ == '__main__':
             tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
                                          + cut_reference + ' --seqs ' + longest_repeats_flanked_path\
                                          + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
-                                         + ' --tmp_output_dir ' + tmp_output_dir + ' --blast_program_dir ' \
-                                         + blast_program_dir + ' --TRF_Path ' + TRF_Path + ' --tandem_region_cutoff ' \
-                                         + str(tandem_region_cutoff) + ' --ref_index ' + str(ref_index) \
+                                         + ' --tmp_output_dir ' + tmp_output_dir \
+                                         + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
+                                         + ' --ref_index ' + str(ref_index) \
                                          + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len)
             os.system(tir_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.3: %.8s s" % (dtime))
+            log.logger.info("Running time of step1.2: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -400,7 +340,6 @@ if __name__ == '__main__':
             helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
                                               + ' --tmp_output_dir ' + tmp_output_dir + ' --EAHelitron ' + EAHelitron \
-                                              + ' --blast_program_dir ' + blast_program_dir \
                                               + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len)
 
             # HSDIR = '/public/home/hpc194701009/repeat_detect_tools/TrainingSet'
@@ -413,7 +352,7 @@ if __name__ == '__main__':
             os.system(helitron_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.4: %.8s s" % (dtime))
+            log.logger.info("Running time of step1.3: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -424,253 +363,96 @@ if __name__ == '__main__':
             #同源搜索其他转座子
             other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
                                            + ' --seqs ' + longest_repeats_flanked_path\
-                                           + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
+                                           + ' -t ' + str(threads) \
                                            + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
                                            + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index)
             os.system(other_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.5: %.8s s" % (dtime))
+            log.logger.info("Running time of step1.4: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
-        #合并Helitron、TIR、other转座子
-        cur_confident_TE_path = tmp_output_dir + '/confident_TE_'+str(ref_index)+'.fa'
-        cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.fa'
-        cur_confident_other_path = tmp_output_dir + '/confident_other_'+str(ref_index)+'.fa'
-        os.system('cat ' + cur_confident_helitron_path + ' > ' + cur_confident_TE_path)
-        os.system('cat ' + cur_confident_other_path + ' >> ' + cur_confident_TE_path)
 
     # 过滤TIR候选序列中的LTR转座子（intact LTR or LTR terminals or LTR internals）
     # 1.1 合并所有parts的TIR序列
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
+    confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
     confident_other_path = tmp_output_dir + '/confident_other.fa'
     os.system('rm -f ' + confident_tir_path)
+    os.system('rm -f ' + confident_helitron_path)
     os.system('rm -f ' + confident_other_path)
     for ref_index, ref_rename_path in enumerate(cut_references):
         cur_confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
+        cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
         cur_confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
+        os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
         os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
 
     log.logger.info('Start step2: Structural Based LTR Searching')
-    # 1.重命名reference文件
-    (ref_dir, ref_filename) = os.path.split(reference)
-    (ref_name, ref_extension) = os.path.splitext(ref_filename)
-
-    ref_rename_path = tmp_output_dir + '/' + ref_name + '.rename.fa'
-    rename_reference(reference, ref_rename_path)
-
-    backjob = None
-    resut_file = tmp_output_dir + '/genome_all.fa.harvest.scn'
-    if not is_recover or not file_exist(resut_file):
-        log.logger.info('Start step2.1: Running LTR_harvest')
-        # -------------------------------Stage01: this stage is used to generate kmer coverage repeats-------------------------------
-        # --------------------------------------------------------------------------------------
-        # run LTRharvest background job
-        backjob = multiprocessing.Process(target=run_LTR_harvest,
-                                          args=(Genome_Tools_Home, ref_rename_path, tmp_output_dir, log,))
-        backjob.start()
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
-
-    resut_file = ref_rename_path + '.finder.combine.scn'
-    if not is_recover or not file_exist(resut_file):
-        starttime = time.time()
-        log.logger.info('Start step2.2: Running LTR finder parallel to obtain candidate LTRs')
-
-        # 运行LTR_finder_parallel来获取候选的LTR序列
-        # 2.运行LTR_finder_parallel
-        LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home +'/LTR_FINDER_parallel -harvest_out -seq ' + ref_rename_path + ' -threads ' + str(
-            threads)
-        log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
-        os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
-
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of LTR finder parallel: %.8s s" % (dtime))
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
-
-    # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever
-    if backjob is not None:
-        backjob.join()
-    ltrharvest_output = tmp_output_dir + '/genome_all.fa.harvest.scn'
-    ltrfinder_output = ref_rename_path + '.finder.combine.scn'
-    ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
-    os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)
-
-    resut_file = ref_rename_path + '.LTRlib.fa'
-    if not is_recover or not file_exist(resut_file):
-        starttime = time.time()
-        log.logger.info('Start step2.3: run LTR_retriever to get confident LTR')
-        run_LTR_retriever(LTR_retriever_Home, ref_rename_path, tmp_output_dir, threads, log)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step2.3: %.8s s" % (dtime))
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    starttime = time.time()
+    # 同源搜索其他转座子
+    LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
+                                   + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
+                                   + ' -t ' + str(threads) \
+                                   + ' --tmp_output_dir ' + tmp_output_dir \
+                                   + ' --recover ' + str(recover)
+    os.system(LTR_identification_command)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of step2: %.8s s" % (dtime))
 
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
-    os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
 
-
-    # 1.2 confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
-    temp_dir = tmp_output_dir + '/tir_blast_ltr'
-    all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, blast_program_dir, temp_dir, 'tir', threads, query_coverage=0.8)
-    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
-
-    # # 1.3 比对到confident_ltr上，并且过滤掉出现在LTR库中的TIR序列
-    # temp_dir = tmp_output_dir + '/tir_blast_ltr'
-    # all_copies = multi_process_align_and_get_copies(confident_ltr_path, confident_tir_path, blast_program_dir,
-    #                                                 temp_dir, 'tir', threads, query_coverage=0.8)
-    # remove_ltr_from_tir(confident_ltr_path, confident_tir_path, all_copies)
-
-    # 1.4 生成一致性tir序列
-    confident_tir_rename_path = tmp_output_dir + '/confident_tir.rename.fa'
-    rename_fasta(confident_tir_path, confident_tir_rename_path)
-
-    confident_tir_rename_consensus = tmp_output_dir + '/confident_tir.rename.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename_path + ' -o ' + confident_tir_rename_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command)
-
-    # 如果切分成了多个块，TIR需要重新flank_region_align_v1到整个基因组，以过滤掉那些在分块中未能过滤掉的假阳性。
-    if len(cut_references) > 1 and global_flanking_filter == 1:
-        ref_index = -1
-        is_transposons(confident_tir_rename_consensus, reference, threads, tmp_output_dir, flanking_len, blast_program_dir,
-                       ref_index, log)
-
-    # 1.5 解开TIR中包含的nested TE
-    clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
-    remove_nested_command = 'cd ' + test_home + ' && python3 remove_nested_lib.py ' \
-                            + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
-                            + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-                            + ' --input1 ' + confident_tir_rename_consensus \
-                            + ' --input2 ' + confident_tir_rename_consensus \
-                            + ' --output ' + clean_tir_path
-    os.system(remove_nested_command)
-
-    # # cd-hit -aS 0.95 -c 0.8合并一些冗余序列
-    # clean_tir_consensus = tmp_output_dir + '/confident_tir.clean.cons.fa'
-    # cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.95) + ' -c ' + str(0.8) \
-    #                  + ' -G 0 -g 1 -A 80 -i ' + clean_tir_path + ' -o ' + clean_tir_consensus + ' -T 0 -M 0'
-    # os.system(cd_hit_command)
-
-    # 1.6 生成一致性other序列
-    confident_other_rename_path = tmp_output_dir + '/confident_other.rename.fa'
-    rename_fasta(confident_other_path, confident_other_rename_path)
-
-    confident_other_rename_consensus = tmp_output_dir + '/confident_other.rename.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_other_rename_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command)
-
-    # 合并所有parts的TE、TIR转座子
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    os.system('rm -f ' + confident_TE_path)
-    for ref_index, cut_reference in enumerate(cut_references):
-        cur_confident_TE_path = tmp_output_dir + '/confident_TE_' + str(ref_index) + '.fa'
-        os.system('cat ' + cur_confident_TE_path + ' >> ' + confident_TE_path)
-    os.system('cat ' + clean_tir_path + ' >> ' + confident_TE_path)
-
-    # 解开LTR内部包含的nested TE，然后把解开后的LTR合并到TE库中
-    # 获取LTR的内部序列
-    confident_ltr_terminal_path = tmp_output_dir + '/confident_ltr_cut.terminal.fa'
-    confident_ltr_internal_path = tmp_output_dir + '/confident_ltr_cut.internal.fa'
-    ltr_names, ltr_contigs = read_fasta(confident_ltr_cut_path)
-    ltr_internal_contigs = {}
-    ltr_terminal_contigs = {}
-    for name in ltr_names:
-        if name.__contains__('_INT#'):
-            ltr_internal_contigs[name] = ltr_contigs[name]
-        else:
-            ltr_terminal_contigs[name] = ltr_contigs[name]
-    store_fasta(ltr_internal_contigs, confident_ltr_internal_path)
-    store_fasta(ltr_terminal_contigs, confident_ltr_terminal_path)
-
-    clean_ltr_internal_path = tmp_output_dir + '/confident_ltr_cut.internal.clean.fa'
-    if remove_nested == 1:
-        starttime = time.time()
-        log.logger.info('Start step2.4: remove nested TE in LTR internal')
-        # 将所有的LTR序列暂时加入到TE序列中，用来解开nested TE
-        temp_confident_TE_path = tmp_output_dir + '/confident_TE.temp.fa'
-        os.system('cat ' + confident_ltr_cut_path + ' > ' + temp_confident_TE_path)
-        os.system('cat ' + confident_TE_path + ' >> ' + temp_confident_TE_path)
-        if os.path.getsize(temp_confident_TE_path) > 0 and os.path.getsize(confident_ltr_internal_path) > 0:
-            remove_nested_command = 'cd ' + test_home + ' && python3 remove_nested_lib.py ' \
-                                    + ' -t ' + str(threads) + ' --blast_program_dir ' + blast_program_dir \
-                                    + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-                                    + ' --input1 ' + temp_confident_TE_path \
-                                    + ' --input2 ' + confident_ltr_internal_path \
-                                    + ' --output ' + clean_ltr_internal_path
-            os.system(remove_nested_command)
-
-            os.system('cat ' + confident_ltr_terminal_path + ' > ' + confident_ltr_cut_path)
-            os.system('cat ' + clean_ltr_internal_path + ' >> ' + confident_ltr_cut_path)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step2.4: %.8s s" % (dtime))
-    os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
-
-    confident_ltr_cut_consensus = tmp_output_dir + '/confident_ltr_cut.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_ltr_cut_path + ' -o ' + confident_ltr_cut_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command)
-
+    log.logger.info('Start step3: Remove nested TE')
     starttime = time.time()
-    log.logger.info('Start step3: generate non-redundant library')
-    alias = 'test'
-    generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
-                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --sample_name ' + alias + ' --blast_program_dir ' + blast_program_dir \
-                           + ' --classified ' + str(classified)
-    if RepeatModeler_Home != '':
-        generate_lib_command += ' --RepeatModeler_Home ' + RepeatModeler_Home
+    # 同源搜索其他转座子
+    remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested.py ' \
+                                 + ' -g ' + reference + ' --confident_ltr_cut ' + confident_ltr_cut_path \
+                                 + ' --confident_tir ' + confident_tir_path \
+                                 + ' -t ' + str(threads) \
+                                 + ' --tmp_output_dir ' + tmp_output_dir \
+                                 + ' --global_flanking_filter ' + str(global_flanking_filter) \
+                                 + ' --remove_nested ' + str(remove_nested) + ' --test_home ' +str(test_home)
 
-    log.logger.debug(generate_lib_command)
-    os.system(generate_lib_command)
+    os.system(remove_nested_command)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of step3: %.8s s" % (dtime))
 
-    # remove temp files and directories
-    if debug == 0:
-        keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
-                      'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
-        keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.classified']
+    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
 
-        for ref_index, cut_reference in enumerate(cut_references):
-            for filename in keep_files_temp:
-                keep_files.append(filename.replace('*', str(ref_index)))
+    starttime = time.time()
+    log.logger.info('Start step4: generate non-redundant library')
+    TEClass_home = os.getcwd() + '/classification'
+    generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
+                           + ' --confident_TE ' + confident_TE_path \
+                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --classified ' + str(classified) + ' --TEClass_home ' + str(TEClass_home) \
+                           + ' --debug ' + str(debug) \
+                           + ' --ref_name ' + str(ref_name)
 
-        all_files = os.listdir(tmp_output_dir)
-        for filename in all_files:
-            if filename not in keep_files:
-                os.system('rm -rf ' + tmp_output_dir+'/'+filename)
+    os.system(generate_lib_command)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of step4: %.8s s" % (dtime))
 
-        # trf_dir = tmp_output_dir + '/trf_temp'
-        # os.system('rm -rf ' + trf_dir)
-        # tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
-        # os.system('rm -rf ' + tmp_blast_dir)
-        # trf_dir = tmp_output_dir + '/tir_trf_temp'
-        # os.system('rm -rf ' + trf_dir)
-        # tir_tsd_temp_dir = tmp_output_dir + '/tir_blast'
-        # os.system('rm -rf ' + tir_tsd_temp_dir)
-        # flank_align_dir = tmp_output_dir + '/flank_tir_align'
-        # os.system('rm -rf ' + flank_align_dir)
-        # temp_dir = tmp_output_dir + '/helitron_tmp'
-        # os.system('rm -rf ' + temp_dir)
-        # tir_tsd_temp_dir = tmp_output_dir + '/helitron_blast'
-        # os.system('rm -rf ' + tir_tsd_temp_dir)
-        # flank_align_dir = tmp_output_dir + '/flank_helitron_align'
-        # os.system('rm -rf ' + flank_align_dir)
-        #
-        # confident_copies_file = tmp_output_dir + '/tir_copies.info'
-        # os.system('rm -rf ' + confident_copies_file)
-
-
+    # # remove temp files and directories
+    # if debug == 0:
+    #     keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
+    #                   'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
+    #     keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
+    #                   ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.classified']
+    #
+    #     for ref_index, cut_reference in enumerate(cut_references):
+    #         for filename in keep_files_temp:
+    #             keep_files.append(filename.replace('*', str(ref_index)))
+    #
+    #     all_files = os.listdir(tmp_output_dir)
+    #     for filename in all_files:
+    #         if filename not in keep_files:
+    #             os.system('rm -rf ' + tmp_output_dir+'/'+filename)
 
     pipeline_endtime = time.time()
     dtime = pipeline_endtime - pipeline_starttime

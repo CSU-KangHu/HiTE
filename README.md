@@ -51,16 +51,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 cd HiTE
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
-```
 
-#### Updating the Dfam library in RepeatMasker (optional)
-* HiTE is ready to go!
-* use `--classified 0` if you do not need classified TE models.
-* If you require the TE library to be **comprehensively classified**, you need to configure RepeatMasker with the complete Dfam library.
-[The simplest way to update the Dfam library](#classified)
-* If you installed HiTE with Singularity or Docker, you can skip this step.
-
-```sh
 # run HiTE
 cd HiTE/ReferenceMode
 python main.py \
@@ -70,8 +61,15 @@ python main.py \
  --plant 1 [other parameters]
 ```
 
+#### Updating the Dfam library in RepeatMasker (optional)
+* HiTE is ready to go!
+* use `--classified 0` if you do not need classified TE models.
+* If you require the TE library to be **comprehensively classified**, you need to configure RepeatMasker with the complete Dfam library.
+[The simplest way to update the Dfam library](#classified)
+* If you installed HiTE with Singularity or Docker, you can skip this step.
 
 
+<!--
 ### <a name="step-step"></a>Option 4. Step-by-step installation
 #### 1. Download project 
 ```
@@ -119,7 +117,7 @@ cd /your_path_to/HiTE/ReferenceMode
 python configure.py
 ```
 to validate all configurations.
-
+-->
 
 ## <a name="start"></a>Quick start
 ```

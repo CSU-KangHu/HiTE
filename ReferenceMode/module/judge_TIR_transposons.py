@@ -15,7 +15,7 @@ from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     multi_process_align_and_get_copies
 
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, ref_index, log):
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, ref_index, log):
     log.logger.info('determine true TIR')
 
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
@@ -26,7 +26,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
     similar_ratio = 0.1
     TE_type = 'tir'
     #print(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index)
-    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log)
+    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
@@ -47,7 +47,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
     log.logger.info("Realign to genome to filter single copy TIR elements")
     #重新比对到基因组，去除单比对TIR elements
     temp_dir = tmp_output_dir + '/tir_temp'
-    all_copies = multi_process_align_and_get_copies(confident_tir_path, reference, blast_program_dir,
+    all_copies = multi_process_align_and_get_copies(confident_tir_path, reference,
                                                     temp_dir, 'tir', threads)
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
@@ -167,10 +167,6 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/repeat_detect_tools/REPET_linux-x64-3.0/bin')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
-    parser.add_argument('--blast_program_dir', metavar='blast_program_dir',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
-    parser.add_argument('--TRF_Path', metavar='TRF_Path',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/trf409.linux64')
     parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff',
                         help='e.g., 0.5')
     parser.add_argument('--flanking_len', metavar='flanking_len',
@@ -186,10 +182,8 @@ if __name__ == '__main__':
     threads = int(args.t)
     TRsearch_dir = args.TRsearch_dir
     tmp_output_dir = args.tmp_output_dir
-    blast_program_dir = args.blast_program_dir
     flanking_len = int(args.flanking_len)
     plant = int(args.plant)
-    TRF_Path = args.TRF_Path
     tandem_region_cutoff = float(args.tandem_region_cutoff)
     ref_index = args.ref_index
 
@@ -212,7 +206,7 @@ if __name__ == '__main__':
     tir_tsd_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.fa'
     tir_tsd_filter_dup_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.filterdup.fa'
     tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp'
-    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference, blast_program_dir)
+    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
@@ -221,7 +215,7 @@ if __name__ == '__main__':
     repeats_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.filter_tandem.fa'
     trf_dir = tmp_output_dir + '/tir_trf_temp'
     # 去掉那些在终端20 bp、LTR、Internal中存在50%以上串联重复的序列
-    multi_process_TRF(tir_tsd_filter_dup_path, repeats_path, TRF_Path, trf_dir, tandem_region_cutoff, threads=threads,
+    multi_process_TRF(tir_tsd_filter_dup_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
                       TE_type='tir')
 
 
@@ -231,4 +225,4 @@ if __name__ == '__main__':
     # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
     # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
     # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
-    is_transposons(repeats_path, reference, threads, tmp_output_dir, flanking_len, blast_program_dir, ref_index, log)
+    is_transposons(repeats_path, reference, threads, tmp_output_dir, flanking_len, ref_index, log)

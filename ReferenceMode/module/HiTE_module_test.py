@@ -1,6 +1,7 @@
 #-- coding: UTF-8 --
 import argparse
 import os
+import re
 import sys
 
 import codecs
@@ -8,10 +9,10 @@ import codecs
 import json
 import time
 
-# import numpy as np
-from matplotlib import pyplot as plt
-import seaborn as sns
-import pandas as pd
+#import numpy as np
+#from matplotlib import pyplot as plt
+#import seaborn as sns
+#import pandas as pd
 import subprocess
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1341,7 +1342,7 @@ if __name__ == '__main__':
     # labels = ['HiTE-Helitron', 'HiTE-Helitron-NoFiltering']
     # my_pal = {"HiTE-Helitron": "#4497B1", "HiTE-Helitron-NoFiltering": "#F7B92E"}
     # output_path = tmp_output_dir + '/helitron_length_dist.txt'
-    get_length_dist(paths, labels, my_pal, output_path)
+    #get_length_dist(paths, labels, my_pal, output_path)
 
     # ref_dir = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays'
     # reference = ref_dir + '/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.fna'
@@ -1474,4 +1475,27 @@ if __name__ == '__main__':
     # itrsearch_log = tmp_output_dir + '/curated_lib/repbase/rice/tir.repbase.ref.log'
     # get_fake_tirs(itrsearch_log)
 
+    # tmp_output_dir = '/home/hukang/HiTE/demo/test'
+    # ref_name = 'genome.fa'
+    # keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
+    #               ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa',
+    #               'confident_TE.cons.fa.classified', 'longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
+    #               'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
+    #
+    # all_files = os.listdir(tmp_output_dir)
+    # for filename in all_files:
+    #     for keep_file in keep_files:
+    #         if re.search('r'+keep_file, filename) is None:
+    #             #os.system('rm -rf ' + tmp_output_dir + '/' + filename)
+    #             #print('rm -rf ' + filename)
+    #             l = 1
+    #         else:
+    #             print(keep_file)
+    #             print(filename)
+    #             print('here')
+
+    keep_file = 'longest_repeats_(\d+).fa'
+    keep_file1 = 'longest_repeats_01.fa'
+    filename = 'longest_repeats_01.fa'
+    print(re.match(keep_file, filename))
 

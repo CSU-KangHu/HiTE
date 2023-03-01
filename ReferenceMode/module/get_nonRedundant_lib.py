@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import sys
 
 
@@ -80,31 +81,32 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run HiTE...')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
+    parser.add_argument('--confident_TE', metavar='confident_TE',
+                        help='e.g., ')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
-    parser.add_argument('--sample_name', metavar='sample_name',
-                        help='e.g., rice')
-    parser.add_argument('--blast_program_dir', metavar='blast_program_dir',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
-    parser.add_argument('--RepeatModeler_Home', metavar='RepeatModeler_Home',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/RepeatModeler-2.0.1')
     parser.add_argument('--classified', metavar='classified',
                         help='e.g., 1')
+    parser.add_argument('--TEClass_home', metavar='TEClass_home',
+                        help='e.g., ')
+    parser.add_argument('--debug', metavar='debug',
+                        help='e.g., 1')
+    parser.add_argument('--ref_name', metavar='ref_name',
+                        help='e.g., ')
 
     args = parser.parse_args()
 
     threads = int(args.t)
+    confident_TE_path = args.confident_TE
     tmp_output_dir = args.tmp_output_dir
-    sample_name = args.sample_name
-    blast_program_dir = args.blast_program_dir
-    RepeatModeler_Home = args.RepeatModeler_Home
     classified = args.classified
+    TEClass_home = args.TEClass_home
+    debug = int(args.debug)
+    ref_name = args.ref_name
 
     log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
-    tools_dir = os.getcwd() + '/../tools'
-
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+    sample_name = 'test'
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
 
     rename_fasta(confident_TE_path, confident_TE_path)
@@ -127,11 +129,9 @@ if __name__ == '__main__':
         # log.logger.debug(command)
         # os.system(command + ' > /dev/null 2>&1')
 
-        TEClass_home = os.getcwd() + '/../classification'
         TEClass_command = 'cd ' + TEClass_home + ' && python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                           + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
-                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(48) + ' -o ' + tmp_output_dir \
-                          + ' --RepeatModeler_Home ' + RepeatModeler_Home
+                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
         log.logger.debug(TEClass_command)
         os.system(TEClass_command)
 
@@ -143,4 +143,23 @@ if __name__ == '__main__':
             for name in names:
                 f_save.write('>'+name+'\n'+contigs[name]+'\n')
         f_save.close()
+
+    # remove temp files and directories
+    if debug == 0:
+        keep_files_temp = []
+        keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
+                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa',
+                      'confident_TE.cons.fa.classified', 'longest_repeats_(\d+).flanked.fa', 'longest_repeats_(\d+).fa',
+                           'confident_tir_(\d+).fa', 'confident_helitron_(\d+).fa', 'confident_other_(\d+).fa']
+
+        all_files = os.listdir(tmp_output_dir)
+        for filename in all_files:
+            is_del = True
+            for keep_file in keep_files:
+                if re.match(keep_file, filename) is not None:
+                    is_del = False
+                    break
+            if is_del:
+                os.system('rm -rf ' + tmp_output_dir + '/' + filename)
+
 

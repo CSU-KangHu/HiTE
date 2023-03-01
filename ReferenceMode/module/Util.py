@@ -507,12 +507,12 @@ def store_LTR_seq_v1(ltrharvest_output, longest_repeats_path, confident_ltr_path
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
-def run_LTR_harvest(Genome_Tools_Home, reference, tmp_output_dir, log):
+def run_LTR_harvest(reference, tmp_output_dir, log):
     starttime = time.time()
     log.logger.debug('start LTR_harvest detection...')
-    ltrharvest_command1 = Genome_Tools_Home + '/bin/gt suffixerator -db ' + reference + ' -indexname ' \
+    ltrharvest_command1 = 'gt suffixerator -db ' + reference + ' -indexname ' \
                           + reference + ' -tis -suf -lcp -des -ssp -sds -dna'
-    ltrharvest_command2 = Genome_Tools_Home + '/bin/gt ltrharvest -index ' + reference \
+    ltrharvest_command2 = 'gt ltrharvest -index ' + reference \
                           + ' -seed 20 -minlenltr 100 -maxlenltr 7000 -similar 85 -motif TGCA -motifmis 1 -mintsd 4 -maxtsd 6 ' \
                             '-vic 10 -seqids yes > ' + tmp_output_dir + '/genome_all.fa.harvest.scn'
 
@@ -522,10 +522,10 @@ def run_LTR_harvest(Genome_Tools_Home, reference, tmp_output_dir, log):
     dtime = endtime - starttime
     log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
 
-def run_LTR_retriever(LTR_retriever_Home, reference, tmp_output_dir, threads, log):
+def run_LTR_retriever(reference, tmp_output_dir, threads, log):
     starttime = time.time()
     log.logger.debug('start LTR_retriever detection...')
-    LTR_retriever_command = 'cd ' + tmp_output_dir + ' && ' + LTR_retriever_Home + '/LTR_retriever -genome ' + reference \
+    LTR_retriever_command = 'cd ' + tmp_output_dir + ' && LTR_retriever -genome ' + reference \
                             + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads)
     os.system(LTR_retriever_command)
     endtime = time.time()
@@ -1106,15 +1106,15 @@ def convertToUpperCase_v1(reference):
         contigNames.append(contigName)
     f_r.close()
 
-    (dir, filename) = os.path.split(reference)
-    (name, extension) = os.path.splitext(filename)
-    reference_pre = dir + '/' + name + '_preprocess' + extension
-    with open(reference_pre, "w") as f_save:
+    # (dir, filename) = os.path.split(reference)
+    # (name, extension) = os.path.splitext(filename)
+    # reference_pre = dir + '/' + name + '_preprocess' + extension
+    with open(reference, "w") as f_save:
         for contigName in contigNames:
             contigseq = contigs[contigName]
             f_save.write(">" + contigName + '\n' + contigseq + '\n')
     f_save.close()
-    return reference_pre
+    return reference
 
 def generate_candidate_repeats_v2(contigs, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases):
 
@@ -2879,12 +2879,12 @@ def file_exist(resut_file):
         return False
 
 
-def run_TRF(input, input_dir, TRF_Path, tandem_region_cutoff, TE_type):
+def run_TRF(input, input_dir, tandem_region_cutoff, TE_type):
     trf_dir = input_dir + '/trf'
     if not os.path.exists(trf_dir):
         os.makedirs(trf_dir)
 
-    trf_command = 'cd ' + trf_dir + ' && ' + TRF_Path + ' ' + input + ' 2 7 7 80 10 50 500 -f -d -m'
+    trf_command = 'cd ' + trf_dir + ' && trf ' + input + ' 2 7 7 80 10 50 500 -f -d -m'
     os.system(trf_command + ' > /dev/null 2>&1')
 
     (repeat_dir, repeat_filename) = os.path.split(input)
@@ -2916,7 +2916,7 @@ def run_TRF(input, input_dir, TRF_Path, tandem_region_cutoff, TE_type):
 
     return repeats_path
 
-def multi_process_TRF(input, output, TRF_Path, temp_dir, tandem_region_cutoff, threads = 48, TE_type = ''):
+def multi_process_TRF(input, output, temp_dir, tandem_region_cutoff, threads = 48, TE_type = ''):
     contigNames, contigs = read_fasta(input)
 
     os.system('rm -rf '+temp_dir)
@@ -2942,7 +2942,7 @@ def multi_process_TRF(input, output, TRF_Path, temp_dir, tandem_region_cutoff, t
     for file in longest_repeat_files:
         input = file[0]
         input_dir = file[1]
-        job = ex.submit(run_TRF, input, input_dir, TRF_Path, tandem_region_cutoff, TE_type)
+        job = ex.submit(run_TRF, input, input_dir, tandem_region_cutoff, TE_type)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -3570,14 +3570,14 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
     # print(longest_repeats)
     return longest_repeats, keep_longest_query
 
-def get_longest_repeats_v3(repeats_path, blast_program_dir, fixed_extend_base_threshold, max_single_repeat_len, threads):
+def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, threads):
     split_repeats_path = repeats_path[0]
     original_repeats_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
     tmp_blast_dir = repeats_path[3]
 
 
-    align_command = blast_program_dir + '/bin/blastn -db ' + original_repeats_path + ' -num_threads ' \
+    align_command = 'blastn -db ' + original_repeats_path + ' -num_threads ' \
                     + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
     os.system(align_command)
 
@@ -4143,16 +4143,15 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
     f_save.close()
     return longest_repeats_path
 
-def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_program_dir,
-                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, log):
+def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, log):
     repeatNames, repeatContigs = read_fasta(repeats_path)
     # parallel
-    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
+    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_'+str(ref_index)
     os.system('rm -rf ' + tmp_blast_dir)
     if not os.path.exists(tmp_blast_dir):
         os.makedirs(tmp_blast_dir)
 
-    makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
+    makedb_command = 'makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
     os.system(makedb_command)
 
     repeat_files = []
@@ -4182,7 +4181,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, blast_progr
     keep_longest_query = {}
     jobs = []
     for file in repeat_files:
-        job = ex.submit(get_longest_repeats_v3, file, blast_program_dir, fixed_extend_base_threshold,
+        job = ex.submit(get_longest_repeats_v3, file, fixed_extend_base_threshold,
                         max_single_repeat_len, threads)
         jobs.append(job)
     ex.shutdown(wait=True)
@@ -4298,7 +4297,7 @@ def store_copies_seq(copies, copy_info_path):
                 f_save.write('>'+new_query_name + '\n' + copy[4] + '\n')
     f_save.close()
 
-def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference, blast_program_dir):
+def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
     os.system('rm -rf '+tir_tsd_dir)
     if not os.path.exists(tir_tsd_dir):
         os.makedirs(tir_tsd_dir)
@@ -4325,7 +4324,7 @@ def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter
     # 重新比对到基因组，获取候选TIR拷贝数
     seq_copynum = {}
     temp_dir = tir_tsd_dir + '/tir_temp'
-    all_copies = multi_process_align_and_get_copies(tir_tsd_path, reference, blast_program_dir,
+    all_copies = multi_process_align_and_get_copies(tir_tsd_path, reference,
                                                     temp_dir, 'tir', threads)
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
@@ -5025,18 +5024,18 @@ def generate_candidate_ltrs(all_copies, reference, flanking_len):
             last_candidate_ltr = candidate_ltr
     return flanked_ltr_candidates
 
-def multiple_alignment_blast(repeats_path, blast_program_dir, tools_dir):
+def multiple_alignment_blast(repeats_path, tools_dir):
     split_repeats_path = repeats_path[0]
     ref_db_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
 
-    align_command = blast_program_dir + '/bin/blastn -db ' + ref_db_path + ' -num_threads ' \
+    align_command = 'blastn -db ' + ref_db_path + ' -num_threads ' \
                     + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
     os.system(align_command)
 
     return blastn2Results_path
 
-def multiple_alignment_blast_and_get_copies(repeats_path, blast_program_dir, tools_dir, query_coverage, TE_type, subject_coverage=0):
+def multiple_alignment_blast_and_get_copies(repeats_path, tools_dir, query_coverage, TE_type, subject_coverage=0):
     split_repeats_path = repeats_path[0]
     ref_db_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
@@ -5044,7 +5043,7 @@ def multiple_alignment_blast_and_get_copies(repeats_path, blast_program_dir, too
     repeat_names, repeat_contigs = read_fasta(split_repeats_path)
     if len(repeat_contigs) > 0:
 
-        align_command = blast_program_dir + '/bin/blastn -db ' + ref_db_path + ' -num_threads ' \
+        align_command = 'blastn -db ' + ref_db_path + ' -num_threads ' \
                         + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
         os.system(align_command)
 
@@ -5058,10 +5057,10 @@ def multiple_alignment_blast_and_get_copies(repeats_path, blast_program_dir, too
 
     return all_copies
 
-def run_blast_align(query_path, subject_path, output, blast_program_dir, flanking_len, flanking_region_distance, flank_align_dir):
+def run_blast_align(query_path, subject_path, output, flanking_len, flanking_region_distance, flank_align_dir):
     if file_exist(query_path) and file_exist(subject_path):
-        blast_db_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
-        align_command = blast_program_dir + '/bin/blastn -db ' + subject_path + ' -num_threads ' \
+        blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
+        align_command = 'blastn -db ' + subject_path + ' -num_threads ' \
                         + str(1) + ' -query ' + query_path + ' -outfmt 6 > ' + output
         os.system(blast_db_command)
         os.system(align_command)
@@ -5829,11 +5828,11 @@ def judge_flank_align(flanking_region_distance, output, flanking_len, flank_alig
     # else:
     #     return ''
 
-def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index, log):
+def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log):
     log.logger.info('------generating candidate ' + TE_type + ' copies')
     starttime = time.time()
     tir_tsd_temp_dir = tmp_output_dir + '/' + TE_type + '_blast'
-    all_copies = multi_process_align_and_get_copies(candidate_sequence_path, reference, blast_program_dir, tir_tsd_temp_dir, TE_type, threads)
+    all_copies = multi_process_align_and_get_copies(candidate_sequence_path, reference, tir_tsd_temp_dir, TE_type, threads)
 
     # multi_process_align(candidate_sequence_path, reference, blastnResults_path, blast_program_dir, tir_tsd_temp_dir, threads)
     # if not os.path.exists(blastnResults_path):
@@ -5915,7 +5914,7 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
             cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
             store_fasta(cur_subject_copies, cur_subject_copy_path)
             output_path = flank_align_dir + '/' + str(batch_num) + '.out'
-            job = ex.submit(run_blast_align, cur_query_copy_path, cur_subject_copy_path, output_path, blast_program_dir,
+            job = ex.submit(run_blast_align, cur_query_copy_path, cur_subject_copy_path, output_path,
                             flanking_len, flanking_region_distance, flank_align_dir)
             jobs.append(job)
             batch_num += 1
@@ -5947,7 +5946,7 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
         cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
         store_fasta(cur_subject_copies, cur_subject_copy_path)
         output_path = flank_align_dir + '/' + str(batch_num) + '.out'
-        job = ex.submit(run_blast_align, cur_query_copy_path, cur_subject_copy_path, output_path, blast_program_dir,
+        job = ex.submit(run_blast_align, cur_query_copy_path, cur_subject_copy_path, output_path,
                         flanking_len, flanking_region_distance, flank_align_dir)
         jobs.append(job)
     ex.shutdown(wait=True)
@@ -6054,7 +6053,7 @@ def multi_process_LINE(query_path, subject_path, candidate_LINE_path, blast_prog
         cur_candidate_LINE_path = job.result()
         os.system('cat ' + cur_candidate_LINE_path + ' >> ' + candidate_LINE_path)
 
-def multi_process_align_and_get_copies(query_path, subject_path, blast_program_dir, tmp_blast_dir, TE_type, threads, is_removed_dir=True, query_coverage=0.99, subject_coverage=0):
+def multi_process_align_and_get_copies(query_path, subject_path, tmp_blast_dir, TE_type, threads, is_removed_dir=True, query_coverage=0.99, subject_coverage=0):
     tools_dir = ''
     if is_removed_dir:
         os.system('rm -rf ' + tmp_blast_dir)
@@ -6063,7 +6062,7 @@ def multi_process_align_and_get_copies(query_path, subject_path, blast_program_d
 
     orig_names, orig_contigs = read_fasta(query_path)
 
-    blast_db_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
+    blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
     os.system(blast_db_command)
 
     #这里是不是可以考虑把序列划分的更细，以此来减少任务的不均衡
@@ -6107,7 +6106,7 @@ def multi_process_align_and_get_copies(query_path, subject_path, blast_program_d
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for file in longest_repeat_files:
-        job = ex.submit(multiple_alignment_blast_and_get_copies, file, blast_program_dir, tools_dir, query_coverage, TE_type, subject_coverage=subject_coverage)
+        job = ex.submit(multiple_alignment_blast_and_get_copies, file, tools_dir, query_coverage, TE_type, subject_coverage=subject_coverage)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -6119,7 +6118,7 @@ def multi_process_align_and_get_copies(query_path, subject_path, blast_program_d
     return all_copies
 
 
-def multi_process_align(query_path, subject_path, blastnResults_path, blast_program_dir, tmp_blast_dir, threads, is_removed_dir=True):
+def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True):
     tools_dir = ''
     if is_removed_dir:
         os.system('rm -rf ' + tmp_blast_dir)
@@ -6131,7 +6130,7 @@ def multi_process_align(query_path, subject_path, blastnResults_path, blast_prog
 
     orig_names, orig_contigs = read_fasta(query_path)
 
-    blast_db_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
+    blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
     os.system(blast_db_command)
 
     longest_repeat_files = []
@@ -6154,7 +6153,7 @@ def multi_process_align(query_path, subject_path, blastnResults_path, blast_prog
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for file in longest_repeat_files:
-        job = ex.submit(multiple_alignment_blast, file, blast_program_dir, tools_dir)
+        job = ex.submit(multiple_alignment_blast, file, tools_dir)
         jobs.append(job)
     ex.shutdown(wait=True)
 

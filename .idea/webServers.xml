@@ -3,14 +3,14 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="387563d7-eaac-4171-823e-ee02649d4c08" name="super">
-        <fileTransfer accessType="SFTP" host="hpclogin1.csu.edu.cn" port="8220" sshConfigId="ebe826fd-acce-4118-901f-49d555f57967" sshConfig="hpc194701009@hpclogin1.csu.edu.cn:8220 password">
+        <fileTransfer rootFolder="/public/home/hpc194701009" accessType="SFTP" host="hpclogin1.csu.edu.cn" port="8220" sshConfigId="ebe826fd-acce-4118-901f-49d555f57967" sshConfig="hpc194701009@hpclogin1.csu.edu.cn:8220 password">
           <advancedOptions>
-            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>
       <webServer id="56966ab4-a410-477d-bbec-1582915c923a" name="bio1">
-        <fileTransfer accessType="SFTP" host="122.207.108.56" port="5000" sshConfigId="082b9081-d029-46ab-97f7-abf2428ebd3d" sshConfig="hukang@122.207.108.56:5000 password">
+        <fileTransfer accessType="SFTP" host="122.207.108.56" port="5000" sshConfigId="9cbcd8eb-0b00-46ea-b1da-fbb8c416168f" sshConfig="hukang@122.207.108.56:5000 password">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

@@ -83,8 +83,6 @@ if __name__ == '__main__':
                         help='input threads number')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
-    parser.add_argument('--blast_program_dir', metavar='blast_program_dir',
-                        help='e.g., /public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2')
     parser.add_argument('--max_iter_num', metavar='max_iter_num',
                         help='e.g., 3')
     parser.add_argument('--input1', metavar='input1',
@@ -98,7 +96,6 @@ if __name__ == '__main__':
 
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
-    blast_program_dir = args.blast_program_dir
     max_iter_num = args.max_iter_num
     input1 = args.input1
     input2 = args.input2
@@ -112,14 +109,12 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
-    tools_dir = os.getcwd() + '/../tools'
-
     iter_num = 0
     while iter_num < max_iter_num:
         # remove nested TE
         blastnResults_path = tmp_output_dir + '/rm_nested.self.out'
         confident_TE_blast_dir = tmp_output_dir + '/rm_nested_blast'
-        multi_process_align(input1, input2, blastnResults_path, blast_program_dir, confident_TE_blast_dir, threads)
+        multi_process_align(input1, input2, blastnResults_path, confident_TE_blast_dir, threads)
         clean_output = output
         remove_nest(blastnResults_path, input1, input2, clean_output, coverage=0.95, identity_threshold=95)
         # input_contignames, inputput_contigs = read_fasta(input)
