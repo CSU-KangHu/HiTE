@@ -46,7 +46,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.3 python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- #e.g., my command: docker run -v /home/hukang:/home/hukang HiTE.sif python main.py 
+ #e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:2.0.3 python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -68,6 +68,11 @@ python main.py \
  --thread ${thread} \
  --outdir ${output_dir} \
  [other parameters]
+ 
+  #e.g., my command: python main.py 
+ # --genome /home/hukang/HiTE/demo/genome.fa 
+ # --thread 40 
+ # --outdir /home/hukang/HiTE/demo/test/
 ```
 
 #### Updating the Dfam library in RepeatMasker (optional)
