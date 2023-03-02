@@ -32,8 +32,8 @@ ENV PERL5LIB /
 ENV PATH /opt/conda/envs/${DNAME}/bin:$PATH
 USER root
 
-WORKDIR /HiTE/ReferenceMode
+WORKDIR /HiTE
 
-RUN cd /HiTE/ReferenceMode
+RUN cd /HiTE
 
 CMD ["bash"]

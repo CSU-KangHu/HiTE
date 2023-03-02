@@ -22,13 +22,13 @@
 singularity pull HiTE.sif docker://kanghu/hite:2.0.3
 
 # run HiTE
-singularity run -B ${host_path}:${container_path} --pwd /HiTE/ReferenceMode HiTE.sif python main.py \
+singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python main.py \
  --genome ${genome} \
  --thread ${thread} \
  --outdir ${output_dir} \
  [other parameters]
  
- #e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE/ReferenceMode HiTE.sif python main.py 
+ #e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -45,6 +45,11 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.3 python main.py \
  --thread ${thread} \
  --outdir ${output_dir} \
  [other parameters]
+ 
+ #e.g., my command: docker run -v /home/hukang:/home/hukang HiTE.sif python main.py 
+ # --genome /home/hukang/HiTE/demo/genome.fa 
+ # --thread 40 
+ # --outdir /home/hukang/HiTE/demo/test/
 ```
 
 ### <a name="install_conda"></a>Option 3. Run with conda
@@ -58,7 +63,6 @@ conda env create --name HiTE -f environment.yml
 conda activate HiTE
 
 # run HiTE
-cd ReferenceMode
 python main.py \
  --genome ${genome} \
  --thread ${thread} \
@@ -104,7 +108,7 @@ If you do not need classified TE models, you can skip this step and run HiTE wit
 
 #### <a name="configure"></a>7. Configuring dependencies
 ```
-cd /your_path_to/HiTE/ReferenceMode
+cd /your_path_to/HiTE
 vim ParamConfig.json
 ```
 Change
@@ -118,7 +122,7 @@ to the actual installation directories of RepeatMasker, Genome_Tools, LTR_retrie
 Then, run
 
 ```
-cd /your_path_to/HiTE/ReferenceMode
+cd /your_path_to/HiTE
 python configure.py
 ```
 to validate all configurations.
@@ -126,7 +130,7 @@ to validate all configurations.
 
 ## <a name="start"></a>Quick start
 ```
-cd /your_path_to/HiTE/ReferenceMode
+cd /your_path_to/HiTE
 python main.py --genome ../demo/genome.fa --thread 48 --outdir ../demo/test --plant 0
 ```
 
@@ -145,7 +149,7 @@ demo/test/
 ```
 
 Note:
-1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE/ReferenceMode** directory.
+1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE** directory.
 2. To avoid automatic deletion of files, set the output path parameter ```--outdir``` to a new directory.
 
 ## <a name="inputs"></a>Inputs
