@@ -58,7 +58,7 @@ conda env create --name HiTE -f environment.yml
 conda activate HiTE
 
 # run HiTE
-cd HiTE/ReferenceMode
+cd ReferenceMode
 python main.py \
  --genome ${genome} \
  --thread ${thread} \

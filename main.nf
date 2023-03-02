@@ -342,6 +342,8 @@ process BuildLib {
     val tmp_output_dir
     val classified
     val TEClass_home
+    val debug
+    val reference
 
     output:
     path "confident_TE.cons.fa*"
@@ -349,11 +351,13 @@ process BuildLib {
 
     script:
     cores = task.cpus
+    ref_name = file(reference).getName()
     """
     python3 ${ch_module}/get_nonRedundant_lib.py \
      --confident_TE ${confident_TE} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --classified ${classified} --TEClass_home ${TEClass_home}
+     --classified ${classified} --TEClass_home ${TEClass_home} \
+     --debug ${debug} --ref_name {ref_name}
 
     cp ${tmp_output_dir}/confident_TE.cons.fa* ./
     """
@@ -429,8 +433,8 @@ workflow {
     //test(ch_TE) | view { "$it" }
 
     //Build TE library
-    ch_lib = BuildLib(ch_TE, params.outdir, params.classified, ch_classification)
-    test(ch_lib) | view { "$it" }
+    ch_lib = BuildLib(ch_TE, params.outdir, params.classified, ch_classification, params.debug, out_genome)
+    //test(ch_lib) | view { "$it" }
 }
 
 

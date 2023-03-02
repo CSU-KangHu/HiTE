@@ -7,4 +7,5 @@ channels:
 dependencies:
   - python=3.6
   - repeatmodeler=2.0.3
+  - bedtools
 prefix: /public/home/hpc194701009/anaconda3/envs/HiTE
