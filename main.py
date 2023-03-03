@@ -411,6 +411,8 @@ if __name__ == '__main__':
     remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested.py ' \
                                  + ' -g ' + reference + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                  + ' --confident_tir ' + confident_tir_path \
+                                 + ' --confident_helitron ' + confident_helitron_path \
+                                 + ' --confident_other ' + confident_other_path \
                                  + ' -t ' + str(threads) \
                                  + ' --tmp_output_dir ' + tmp_output_dir \
                                  + ' --global_flanking_filter ' + str(global_flanking_filter) \

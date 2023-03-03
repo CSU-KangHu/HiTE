@@ -308,6 +308,8 @@ process UnwrapNested {
     path reference
     path confident_ltr_cut
     path confident_tir
+    path confident_helitron
+    path confident_other
     val tmp_output_dir
     val global_flanking_filter
     val remove_nested
@@ -324,6 +326,8 @@ process UnwrapNested {
     python3 ${ch_module}/remove_nested.py \
      -g ${reference} --confident_ltr_cut ${confident_ltr_cut} \
      --confident_tir ${confident_tir} \
+     --confident_helitron ${confident_helitron} \
+     --confident_other ${confident_other} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --global_flanking_filter ${global_flanking_filter} \
      --remove_nested ${remove_nested} --test_home ${test_home}
@@ -429,7 +433,7 @@ workflow {
     //test(ch_ltrs) | view { "$it" }
 
     //Unwrap nested TE
-    ch_TE = UnwrapNested(ch_genome, ch_ltrs, ch_tirs, params.outdir, params.global_flanking_filter, params.remove_nested, ch_module)
+    ch_TE = UnwrapNested(ch_genome, ch_ltrs, ch_tirs, ch_helitrons, ch_others, params.outdir, params.global_flanking_filter, params.remove_nested, ch_module)
     //test(ch_TE) | view { "$it" }
 
     //Build TE library

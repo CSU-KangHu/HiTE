@@ -52,6 +52,10 @@ if __name__ == '__main__':
                         help='e.g., ')
     parser.add_argument('--confident_tir', metavar='confident_tir',
                         help='e.g., ')
+    parser.add_argument('--confident_helitron', metavar='confident_helitron',
+                        help='e.g., ')
+    parser.add_argument('--confident_other', metavar='confident_other',
+                        help='e.g., ')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
@@ -70,6 +74,8 @@ if __name__ == '__main__':
     reference = args.g
     confident_ltr_cut_path = args.confident_ltr_cut
     confident_tir_path = args.confident_tir
+    confident_helitron_path = args.confident_helitron
+    confident_other_path = args.confident_other
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
     global_flanking_filter = int(args.global_flanking_filter)
@@ -125,8 +131,6 @@ if __name__ == '__main__':
 
     # 合并所有的TE（TIR+Helitron+Other）
     confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
-    confident_other_path = tmp_output_dir + '/confident_other.fa'
     os.system('cat ' + clean_tir_path + ' > ' + confident_TE_path)
     os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
