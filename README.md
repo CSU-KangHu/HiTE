@@ -85,9 +85,9 @@ python main.py \
 
 ### <a name="install_nextflow"></a>Option 4. Run with nextflow
 Nextflow is built on top of the popular programming language, Groovy, and supports the execution of workflows 
-on a wide range of computing environments, including local machines, clusters, cloud platforms, and HPC systems.
-It also provides advanced features such as data provenance tracking, automatic parallelization, error handling, 
-and support for containerization technologies like Docker and Singularity.
+on a wide range of computing environments, including **local machines, clusters, cloud platforms, and HPC** systems.
+It also provides advanced features such as **data provenance tracking, automatic parallelization, error handling**, 
+and support for containerization technologies like **Docker** and **Singularity**.
 
 We provide a [tutorial](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow) on how to run HiTE with nextflow.
 
