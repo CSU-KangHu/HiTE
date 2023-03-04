@@ -31,7 +31,6 @@ def helpMessage() {
       --genome      Genome assembly path (format: fasta, fa, and fna)
       --outdir      Output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
     General options:
-      --thread                          Thread number, default = [the maximum number of cores supported on your machine]
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
       --remove_nested                   Whether to unwrap the nested TE, 1: true, 0: false. default = [ 1 ]
@@ -51,7 +50,6 @@ def printSetting() {
     log.info"""
     ====================================Parameter settings========================================
       [Setting] Reference sequences / assemblies path = [ $params.genome ]
-      [Setting] Threads = [ $params.thread ]
       [Setting] The chunk size of large genome = [ $params.chunk_size ] MB
       [Setting] Is plant genome = [ $params.plant ]
       [Setting] Remove nested = [ $params.remove_nested ]
