@@ -7,6 +7,7 @@
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
   - [Run with Conda](#install_conda)
+  - [Run with nextflow](#install_nextflow)
   <!-- - [Step-by-step installation](#step-step) -->
 - [Quick start](#start)
 - [Usage](#cmd)
@@ -82,6 +83,13 @@ python main.py \
 [The simplest way to update the Dfam library](#classified)
 * If you installed HiTE with Singularity or Docker, you can skip this step.
 
+### <a name="install_nextflow"></a>Option 4. Run with nextflow
+Nextflow is built on top of the popular programming language, Groovy, and supports the execution of workflows 
+on a wide range of computing environments, including local machines, clusters, cloud platforms, and HPC systems.
+It also provides advanced features such as data provenance tracking, automatic parallelization, error handling, 
+and support for containerization technologies like Docker and Singularity.
+
+We provide a [tutorial](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow) on how to run HiTE with nextflow.
 
 <!--
 ### <a name="step-step"></a>Option 4. Step-by-step installation
