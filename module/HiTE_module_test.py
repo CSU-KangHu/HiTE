@@ -1493,9 +1493,32 @@ if __name__ == '__main__':
     #             print(keep_file)
     #             print(filename)
     #             print('here')
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test/rice/tir_tsd_temp/tir_temp'
+    for filename in os.listdir(tmp_dir):
+        if filename.endswith('.out'):
+            blastnResults_path = tmp_dir + '/' + filename
+            query_records = {}
+            with open(blastnResults_path, 'r') as f_r:
+                print(filename)
+                for idx, line in enumerate(f_r):
+                    parts = line.split('\t')
+                    query_name = parts[0]
+                    subject_name = parts[1]
+                    identity = float(parts[2])
+                    alignment_len = int(parts[3])
+                    q_start = int(parts[6])
+                    q_end = int(parts[7])
+                    s_start = int(parts[8])
+                    s_end = int(parts[9])
+                    if query_name == subject_name:
+                        continue
+                    if not query_records.__contains__(query_name):
+                        query_records[query_name] = {}
+                    subject_dict = query_records[query_name]
 
-    keep_file = 'longest_repeats_(\d+).fa'
-    keep_file1 = 'longest_repeats_01.fa'
-    filename = 'longest_repeats_01.fa'
-    print(re.match(keep_file, filename))
+                    if not subject_dict.__contains__(subject_name):
+                        subject_dict[subject_name] = []
+                    subject_pos = subject_dict[subject_name]
+                    subject_pos.append((q_start, q_end, s_start, s_end, identity))
+            f_r.close()
 

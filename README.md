@@ -13,7 +13,7 @@
 - [Input](#inputs)
 - [Output](#outputs)
 - [Replace the Dfam library in RepeatMasker](#classified)
-- [Question and Answer](#QA)
+- [More tutorials](#QA)
 
 ## <a name="install"></a>Installation
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
@@ -161,7 +161,7 @@ Note:
 HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using `--genome`.
 
 
-For other optional parameters, please refer to [Commands and options](#cmd).
+For other optional parameters, please refer to [Usage](#cmd).
 
 ## <a name="outputs"></a>Outputs
 HiTE outputs many temporary files, which allow you to quickly restore the previous 
@@ -270,8 +270,9 @@ optional arguments:
                         default = [ 1 ]
 ```
 
-## <a name="QA"></a>Question and Answer
-You may want to check out this [Q&A](https://github.com/CSU-KangHu/HiTE/wiki) page for best practices and get answered.
+## <a name="QA"></a>More tutorials
+You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) page for more tutorials.
 * [Issues with installation and usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
-* [Nextflow of HiTE](https://github.com/CSU-KangHu/HiTE/wiki/Nextflow-of-HiTE)
-* [Case study](https://github.com/CSU-KangHu/HiTE/wiki/Case-study)
+* [How to make HiTE into a Docker image](https://github.com/CSU-KangHu/HiTE/wiki/How-to-make-HiTE-into-a-Docker-image)
+* [Run HiTE with Nextflow](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow)
+* [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction)
