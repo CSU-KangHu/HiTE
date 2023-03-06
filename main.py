@@ -263,6 +263,7 @@ if __name__ == '__main__':
 
     TRsearch_dir = tools_dir
     test_home = os.getcwd() + '/module'
+    library_dir = os.getcwd() + '/library'
 
     pipeline_starttime = time.time()
     # 我们将大的基因组划分成多个小的基因组，每个小基因组500M，分割来处理
@@ -325,6 +326,7 @@ if __name__ == '__main__':
                                          + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                          + ' --ref_index ' + str(ref_index) \
                                          + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len)
+            log.logger.debug(tir_identification_command)
             os.system(tir_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -356,6 +358,7 @@ if __name__ == '__main__':
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
+
         resut_file = tmp_output_dir + '/confident_other_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
@@ -365,7 +368,8 @@ if __name__ == '__main__':
                                            + ' --seqs ' + longest_repeats_flanked_path\
                                            + ' -t ' + str(threads) \
                                            + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
-                                           + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index)
+                                           + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index) \
+                                           + ' --library_dir ' + str(library_dir)
             os.system(other_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -391,19 +395,23 @@ if __name__ == '__main__':
         os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
 
     log.logger.info('Start step2: Structural Based LTR Searching')
-    starttime = time.time()
-    # 同源搜索其他转座子
-    LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
-                                   + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
-                                   + ' -t ' + str(threads) \
-                                   + ' --tmp_output_dir ' + tmp_output_dir \
-                                   + ' --recover ' + str(recover)
-    os.system(LTR_identification_command)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of step2: %.8s s" % (dtime))
-
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    resut_file = confident_ltr_cut_path
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        # 同源搜索其他转座子
+        LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
+                                       + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
+                                       + ' -t ' + str(threads) \
+                                       + ' --tmp_output_dir ' + tmp_output_dir \
+                                       + ' --recover ' + str(recover)
+        os.system(LTR_identification_command)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step2: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
 
     log.logger.info('Start step3: Remove nested TE')
     starttime = time.time()
@@ -440,21 +448,6 @@ if __name__ == '__main__':
     dtime = endtime - starttime
     log.logger.info("Running time of step4: %.8s s" % (dtime))
 
-    # # remove temp files and directories
-    # if debug == 0:
-    #     keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
-    #                   'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
-    #     keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-    #                   ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.classified']
-    #
-    #     for ref_index, cut_reference in enumerate(cut_references):
-    #         for filename in keep_files_temp:
-    #             keep_files.append(filename.replace('*', str(ref_index)))
-    #
-    #     all_files = os.listdir(tmp_output_dir)
-    #     for filename in all_files:
-    #         if filename not in keep_files:
-    #             os.system('rm -rf ' + tmp_output_dir+'/'+filename)
 
     pipeline_endtime = time.time()
     dtime = pipeline_endtime - pipeline_starttime

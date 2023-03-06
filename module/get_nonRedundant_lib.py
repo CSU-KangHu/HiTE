@@ -148,7 +148,7 @@ if __name__ == '__main__':
     if debug == 0:
         keep_files_temp = []
         keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa',
+                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_ltr_cut.fa',
                       'confident_TE.cons.fa.classified', 'longest_repeats_(\d+).flanked.fa', 'longest_repeats_(\d+).fa',
                            'confident_tir_(\d+).fa', 'confident_helitron_(\d+).fa', 'confident_other_(\d+).fa']
 

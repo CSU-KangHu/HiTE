@@ -154,6 +154,7 @@ demo/test/
 ├── confident_other_0.fa (0 KB)
 ├── confident_TE.cons.fa (117 KB)
 ├── confident_tir_0.fa (159 KB)
+├── confident_ltr_cut.fa ()
 ├── genome_all.fa.harvest.scn (11 KB)
 ├── genome.rename.fa.finder.combine.scn (1.3 KB)
 ├── Genome.rename.fa.LTRlib.fa (48 KB)
@@ -181,6 +182,7 @@ output_dir/
 ├── confident_tir_*.fa
 ├── confident_helitron_*.fa
 ├── confident_other_*.fa
+├── confident_ltr_cut.fa
 ├── genome_all.fa.harvest.scn
 ├── ${ref_name}.finder.combine.scn
 ├── ${ref_name}.LTRlib.fa

@@ -11,7 +11,6 @@ from logging import handlers
 
 import subprocess
 
-
 class Logger(object):
     level_relations = {
         'debug':logging.DEBUG,
