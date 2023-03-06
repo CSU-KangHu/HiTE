@@ -41,7 +41,7 @@ if __name__ == '__main__':
     default_classified = 1
 
     version_num = '2.0.3'
-
+ 
     # 1.parse args
     parser = argparse.ArgumentParser(description='########################## HiTE, version ' + str(version_num) + ' ##########################')
     parser.add_argument('--genome', metavar='genome', help='Input genome assembly path')
