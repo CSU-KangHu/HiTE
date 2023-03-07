@@ -239,6 +239,10 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
         #print("Thread idx:%d, Start Running WebTE HOMOLOGY module." %partition_index)
         starttime = time.time()
         #program_path = os.getcwd() + '/third-party/RepeatClassifier-2.0.1/RepeatClassifier'
+        # 分类之前先在文件的最后加一条测试序列，分类后再删掉
+        with open(cur_consensus_path, 'a') as f_save:
+            f_save.write('>test\nTTTTTTTTTTTTTTTTTTTTTT\n')
+        f_save.close()
         homology_command = 'cd '+ cur_tmp_dir + ' && RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
         #print('homology_command:%s' % homology_command)
         #os.system(homology_command)
@@ -254,7 +258,16 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
 
         if not open_REPCLASS:
             final_classified_path = cur_tmp_dir + '/consensus.fasta.final.classified'
-            os.system('mv ' + classified_consensus_path + ' ' + final_classified_path)
+            # os.system('mv ' + classified_consensus_path + ' ' + final_classified_path)
+            # 去掉最后一行test
+            names, contigs = read_fasta(classified_consensus_path)
+            with open(final_classified_path, 'w') as f_save:
+                for name in names:
+                    if name.startswith('test'):
+                        continue
+                    else:
+                        f_save.write('>'+name+'\n'+contigs[name]+'\n')
+            f_save.close()
         else:
             classified_consensus_contignames, classified_consensus_contigs = read_fasta(classified_consensus_path)
 

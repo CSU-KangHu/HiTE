@@ -32,10 +32,8 @@ if __name__ == '__main__':
     default_tandem_region_cutoff = 0.5
     default_max_single_repeat_len = 30000
     default_plant = 1
-    default_nested = 1
     default_recover = 0
     default_flanking_len = 50
-    default_global_flanking_filter = 1
     default_debug = 0
     default_chrom_seg_length = 500000
     default_classified = 1
@@ -48,7 +46,6 @@ if __name__ == '__main__':
     parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
     parser.add_argument('--plant', metavar='is_plant', help='Is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
-    parser.add_argument('--remove_nested', metavar='is_remove_nested', help='Whether to unwrap the nested TE, 1: true, 0: false. default = [ ' + str(default_nested) + ' ]')
     parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
     parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
@@ -59,7 +56,6 @@ if __name__ == '__main__':
     parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff', help='Cutoff of the candidates regarded as tandem region, default = [ '+str(default_tandem_region_cutoff)+' ]')
     parser.add_argument('--max_repeat_len', metavar='max_repeat_len', help='The maximum length of a single repeat, default = [ ' + str(default_max_single_repeat_len) + ' ]')
     parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length', help='The length of genome segments, default = [ ' + str(default_chrom_seg_length) + ' ]')
-    parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter', help='Whether to filter false positives by global flanking alignment, significantly reduce false positives but require more memory, especially when inputting a large genome. 1: true (require more memory), 0: false. default = [ ' + str(default_global_flanking_filter) + ' ]')
 
     args = parser.parse_args()
 
@@ -74,8 +70,6 @@ if __name__ == '__main__':
     chrom_seg_length = args.chrom_seg_length
     flanking_len = args.flanking_len
     plant = args.plant
-    remove_nested = args.remove_nested
-    global_flanking_filter = args.global_flanking_filter
     classified = args.classified
     recover = args.recover
     debug = args.debug
@@ -130,16 +124,6 @@ if __name__ == '__main__':
         plant = default_plant
     else:
         plant = int(plant)
-
-    if remove_nested is None:
-        remove_nested = default_nested
-    else:
-        remove_nested = int(remove_nested)
-
-    if global_flanking_filter is None:
-        global_flanking_filter = default_global_flanking_filter
-    else:
-        global_flanking_filter = int(global_flanking_filter)
 
     if classified is None:
         classified = default_classified
@@ -242,8 +226,6 @@ if __name__ == '__main__':
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
-                    '  [Setting] Remove nested = [ ' + str(remove_nested) + ' ]  Default( ' + str(default_nested) + ' )\n'
-                    '  [Setting] Global flanking filter = [ ' + str(global_flanking_filter) + ' ]  Default( ' + str(default_global_flanking_filter) + ' )\n'
                     '  [Setting] recover = [ ' + str(recover) + ' ]  Default( ' + str(default_recover) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
                     '  [Setting] Output Directory = [' + str(output_dir) + ']'
@@ -263,6 +245,7 @@ if __name__ == '__main__':
 
     TRsearch_dir = tools_dir
     test_home = os.getcwd() + '/module'
+    library_dir = os.getcwd() + '/library'
 
     pipeline_starttime = time.time()
     # 我们将大的基因组划分成多个小的基因组，每个小基因组500M，分割来处理
@@ -325,6 +308,7 @@ if __name__ == '__main__':
                                          + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                          + ' --ref_index ' + str(ref_index) \
                                          + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len)
+            log.logger.debug(tir_identification_command)
             os.system(tir_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -356,6 +340,7 @@ if __name__ == '__main__':
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
+
         resut_file = tmp_output_dir + '/confident_other_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
@@ -365,7 +350,8 @@ if __name__ == '__main__':
                                            + ' --seqs ' + longest_repeats_flanked_path\
                                            + ' -t ' + str(threads) \
                                            + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
-                                           + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index)
+                                           + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index) \
+                                           + ' --library_dir ' + str(library_dir)
             os.system(other_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -391,45 +377,50 @@ if __name__ == '__main__':
         os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
 
     log.logger.info('Start step2: Structural Based LTR Searching')
-    starttime = time.time()
-    # 同源搜索其他转座子
-    LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
-                                   + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
-                                   + ' -t ' + str(threads) \
-                                   + ' --tmp_output_dir ' + tmp_output_dir \
-                                   + ' --recover ' + str(recover)
-    os.system(LTR_identification_command)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of step2: %.8s s" % (dtime))
-
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    resut_file = confident_ltr_cut_path
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
+                                       + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
+                                       + ' -t ' + str(threads) \
+                                       + ' --tmp_output_dir ' + tmp_output_dir \
+                                       + ' --recover ' + str(recover)
+        os.system(LTR_identification_command)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step2: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
-    log.logger.info('Start step3: Remove nested TE')
+
+    # log.logger.info('Start step3: Remove nested TE')
+    # starttime = time.time()
+    # remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested.py ' \
+    #                              + ' -g ' + reference + ' --confident_ltr_cut ' + confident_ltr_cut_path \
+    #                              + ' --confident_tir ' + confident_tir_path \
+    #                              + ' --confident_helitron ' + confident_helitron_path \
+    #                              + ' --confident_other ' + confident_other_path \
+    #                              + ' -t ' + str(threads) \
+    #                              + ' --tmp_output_dir ' + tmp_output_dir \
+    #                              + ' --global_flanking_filter ' + str(global_flanking_filter) \
+    #                              + ' --remove_nested ' + str(remove_nested) + ' --test_home ' +str(test_home)
+
+    # os.system(remove_nested_command)
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.info("Running time of step3: %.8s s" % (dtime))
+
+    # confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+
     starttime = time.time()
-    # 同源搜索其他转座子
-    remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested.py ' \
-                                 + ' -g ' + reference + ' --confident_ltr_cut ' + confident_ltr_cut_path \
-                                 + ' --confident_tir ' + confident_tir_path \
-                                 + ' --confident_helitron ' + confident_helitron_path \
-                                 + ' --confident_other ' + confident_other_path \
-                                 + ' -t ' + str(threads) \
-                                 + ' --tmp_output_dir ' + tmp_output_dir \
-                                 + ' --global_flanking_filter ' + str(global_flanking_filter) \
-                                 + ' --remove_nested ' + str(remove_nested) + ' --test_home ' +str(test_home)
-
-    os.system(remove_nested_command)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of step3: %.8s s" % (dtime))
-
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-
-    starttime = time.time()
-    log.logger.info('Start step4: generate non-redundant library')
+    log.logger.info('Start step3: generate non-redundant library')
     TEClass_home = os.getcwd() + '/classification'
     generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
-                           + ' --confident_TE ' + confident_TE_path \
+                           + ' --confident_ltr_cut ' + confident_ltr_cut_path \
+                           + ' --confident_tir ' + confident_tir_path \
+                           + ' --confident_helitron ' + confident_helitron_path \
+                           + ' --confident_other ' + confident_other_path \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --classified ' + str(classified) + ' --TEClass_home ' + str(TEClass_home) \
                            + ' --debug ' + str(debug) \
@@ -438,23 +429,8 @@ if __name__ == '__main__':
     os.system(generate_lib_command)
     endtime = time.time()
     dtime = endtime - starttime
-    log.logger.info("Running time of step4: %.8s s" % (dtime))
+    log.logger.info("Running time of step3: %.8s s" % (dtime))
 
-    # # remove temp files and directories
-    # if debug == 0:
-    #     keep_files_temp = ['longest_repeats_*.flanked.fa', 'longest_repeats_*.fa',
-    #                   'confident_tir_*.fa', 'confident_helitron_*.fa', 'confident_other_*.fa']
-    #     keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-    #                   ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa', 'confident_TE.cons.fa.classified']
-    #
-    #     for ref_index, cut_reference in enumerate(cut_references):
-    #         for filename in keep_files_temp:
-    #             keep_files.append(filename.replace('*', str(ref_index)))
-    #
-    #     all_files = os.listdir(tmp_output_dir)
-    #     for filename in all_files:
-    #         if filename not in keep_files:
-    #             os.system('rm -rf ' + tmp_output_dir+'/'+filename)
 
     pipeline_endtime = time.time()
     dtime = pipeline_endtime - pipeline_starttime

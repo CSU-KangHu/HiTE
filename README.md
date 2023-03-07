@@ -7,13 +7,14 @@
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
   - [Run with Conda](#install_conda)
+  - [Run with nextflow](#install_nextflow)
   <!-- - [Step-by-step installation](#step-step) -->
 - [Quick start](#start)
 - [Usage](#cmd)
 - [Input](#inputs)
 - [Output](#outputs)
 - [Replace the Dfam library in RepeatMasker](#classified)
-- [Question and Answer](#QA)
+- [More tutorials](#QA)
 
 ## <a name="install"></a>Installation
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
@@ -82,6 +83,13 @@ python main.py \
 [The simplest way to update the Dfam library](#classified)
 * If you installed HiTE with Singularity or Docker, you can skip this step.
 
+### <a name="install_nextflow"></a>Option 4. Run with nextflow
+Nextflow is built on top of the popular programming language, Groovy, and supports the execution of workflows 
+on a wide range of computing environments, including **local machines, clusters, cloud platforms, and HPC** systems.
+It also provides advanced features such as **data provenance tracking, automatic parallelization, error handling**, 
+and support for containerization technologies like **Docker** and **Singularity**.
+
+We provide a [tutorial](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow) on how to run HiTE with nextflow.
 
 <!--
 ### <a name="step-step"></a>Option 4. Step-by-step installation
@@ -146,9 +154,11 @@ demo/test/
 ├── confident_other_0.fa (0 KB)
 ├── confident_TE.cons.fa (117 KB)
 ├── confident_tir_0.fa (159 KB)
+├── confident_ltr_cut.fa (48 KB)
 ├── genome_all.fa.harvest.scn (11 KB)
 ├── genome.rename.fa.finder.combine.scn (1.3 KB)
-├── Genome.rename.fa.LTRlib.fa (48 KB)
+├── genome.rename.fa.LTRlib.fa (48 KB)
+├── genome.rename.fa (16 MB)
 ├── longest_repeats_0.fa (1.2 MB)
 └── longest_repeats_0.flanked.fa (1.5 MB)
 ```
@@ -161,7 +171,7 @@ Note:
 HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using `--genome`.
 
 
-For other optional parameters, please refer to [Commands and options](#cmd).
+For other optional parameters, please refer to [Usage](#cmd).
 
 ## <a name="outputs"></a>Outputs
 HiTE outputs many temporary files, which allow you to quickly restore the previous 
@@ -173,9 +183,11 @@ output_dir/
 ├── confident_tir_*.fa
 ├── confident_helitron_*.fa
 ├── confident_other_*.fa
+├── confident_ltr_cut.fa
 ├── genome_all.fa.harvest.scn
 ├── ${ref_name}.finder.combine.scn
 ├── ${ref_name}.LTRlib.fa
+├── ${ref_name}.rename.fa
 ├── confident_TE.cons.fa
 └── confident_TE.cons.fa.classified
 ```
@@ -270,8 +282,9 @@ optional arguments:
                         default = [ 1 ]
 ```
 
-## <a name="QA"></a>Question and Answer
-You may want to check out this [Q&A](https://github.com/CSU-KangHu/HiTE/wiki) page for best practices and get answered.
+## <a name="QA"></a>More tutorials
+You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) page for more tutorials.
 * [Issues with installation and usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
-* [Nextflow of HiTE](https://github.com/CSU-KangHu/HiTE/wiki/Nextflow-of-HiTE)
-* [Case study](https://github.com/CSU-KangHu/HiTE/wiki/Case-study)
+* [How to make HiTE into a Docker image](https://github.com/CSU-KangHu/HiTE/wiki/How-to-make-HiTE-into-a-Docker-image)
+* [Run HiTE with Nextflow](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow)
+* [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction)

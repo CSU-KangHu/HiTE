@@ -6,7 +6,7 @@ import sys
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, rename_fasta
+from Util import read_fasta, store_fasta, Logger, rename_fasta, multi_process_align_and_get_copies, remove_ltr_from_tir
 
 
 def remove_self_alignment(blastnResults_path, new_blastnResults_path):
@@ -81,7 +81,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run HiTE...')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
-    parser.add_argument('--confident_TE', metavar='confident_TE',
+    parser.add_argument('--confident_ltr_cut', metavar='confident_ltr_cut',
+                        help='e.g., ')
+    parser.add_argument('--confident_tir', metavar='confident_tir',
+                        help='e.g., ')
+    parser.add_argument('--confident_helitron', metavar='confident_helitron',
+                        help='e.g., ')
+    parser.add_argument('--confident_other', metavar='confident_other',
                         help='e.g., ')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
@@ -97,7 +103,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     threads = int(args.t)
-    confident_TE_path = args.confident_TE
+    confident_ltr_cut_path = args.confident_ltr_cut
+    confident_tir_path = args.confident_tir
+    confident_helitron_path = args.confident_helitron
+    confident_other_path = args.confident_other
     tmp_output_dir = args.tmp_output_dir
     classified = args.classified
     TEClass_home = args.TEClass_home
@@ -106,6 +115,29 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
+    # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
+    temp_dir = tmp_output_dir + '/tir_blast_ltr'
+    all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, temp_dir, 'tir',
+                                                    threads, query_coverage=0.8)
+    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
+
+    # 2. 生成一致性tir序列
+    confident_tir_rename_path = tmp_output_dir + '/confident_tir.rename.fa'
+    rename_fasta(confident_tir_path, confident_tir_rename_path)
+
+    confident_tir_rename_consensus = tmp_output_dir + '/confident_tir.rename.cons.fa'
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename_path + ' -o ' + confident_tir_rename_consensus + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+
+    # 合并所有的TE（TIR+Helitron+Other）
+    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+    os.system('cat ' + confident_tir_rename_consensus + ' > ' + confident_TE_path)
+    os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
+    os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
+    os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+
+    # 3.generate consensus
     sample_name = 'test'
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
 
@@ -123,6 +155,7 @@ if __name__ == '__main__':
                      + ' -G 0 -g 1 -A 80 -i ' + confident_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
+    # 4.classify
     if classified is not None and int(classified) == 1:
         # # use RepeatClassifier to classify TE models
         # command = 'cd ' + tmp_output_dir + ' && ' + RepeatModeler_Home + '/RepeatClassifier -pa ' + str(threads) + ' -consensi ' + confident_TE_consensus
@@ -147,8 +180,8 @@ if __name__ == '__main__':
     # remove temp files and directories
     if debug == 0:
         keep_files_temp = []
-        keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa' + '.finder.combine.scn',
-                      ref_name + '.rename.fa' + '.LTRlib.fa', 'confident_TE.cons.fa',
+        keep_files = ['genome_all.fa.harvest.scn', ref_name + '.rename.fa', ref_name + '.rename.fa.finder.combine.scn',
+                      ref_name + '.rename.fa.LTRlib.fa', 'confident_TE.cons.fa', 'confident_ltr_cut.fa',
                       'confident_TE.cons.fa.classified', 'longest_repeats_(\d+).flanked.fa', 'longest_repeats_(\d+).fa',
                            'confident_tir_(\d+).fa', 'confident_helitron_(\d+).fa', 'confident_other_(\d+).fa']
 
@@ -156,7 +189,7 @@ if __name__ == '__main__':
         for filename in all_files:
             is_del = True
             for keep_file in keep_files:
-                if re.match(keep_file, filename) is not None:
+                if re.match(keep_file+'$', filename) is not None:
                     is_del = False
                     break
             if is_del:

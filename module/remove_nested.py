@@ -99,20 +99,20 @@ if __name__ == '__main__':
                      + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename_path + ' -o ' + confident_tir_rename_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
-    # 如果切分成了多个块，TIR需要重新flank_region_align_v1到整个基因组，以过滤掉那些在分块中未能过滤掉的假阳性。
-    if global_flanking_filter == 1:
-        ref_index = -1
-        is_transposons(confident_tir_rename_consensus, reference, threads, tmp_output_dir, ref_index, log)
+    # # 如果切分成了多个块，TIR需要重新flank_region_align_v1到整个基因组，以过滤掉那些在分块中未能过滤掉的假阳性。
+    # if global_flanking_filter == 1:
+    #     ref_index = -1
+    #     is_transposons(confident_tir_rename_consensus, reference, threads, tmp_output_dir, ref_index, log)
 
-    # 1.5 解开TIR中包含的nested TE
-    clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
-    remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested_lib.py ' \
-                            + ' -t ' + str(threads) \
-                            + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-                            + ' --input1 ' + confident_tir_rename_consensus \
-                            + ' --input2 ' + confident_tir_rename_consensus \
-                            + ' --output ' + clean_tir_path
-    os.system(remove_nested_command)
+    # # 1.5 解开TIR中包含的nested TE
+    # clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
+    # remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested_lib.py ' \
+    #                         + ' -t ' + str(threads) \
+    #                         + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
+    #                         + ' --input1 ' + confident_tir_rename_consensus \
+    #                         + ' --input2 ' + confident_tir_rename_consensus \
+    #                         + ' --output ' + clean_tir_path
+    # os.system(remove_nested_command)
 
     # # cd-hit -aS 0.95 -c 0.8合并一些冗余序列
     # clean_tir_consensus = tmp_output_dir + '/confident_tir.clean.cons.fa'
@@ -131,47 +131,9 @@ if __name__ == '__main__':
 
     # 合并所有的TE（TIR+Helitron+Other）
     confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    os.system('cat ' + clean_tir_path + ' > ' + confident_TE_path)
+    os.system('cat ' + confident_tir_rename_consensus + ' > ' + confident_TE_path)
     os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
-
-    # 解开LTR内部包含的nested TE，然后把解开后的LTR合并到TE库中
-    # 获取LTR的内部序列
-    confident_ltr_terminal_path = tmp_output_dir + '/confident_ltr_cut.terminal.fa'
-    confident_ltr_internal_path = tmp_output_dir + '/confident_ltr_cut.internal.fa'
-    ltr_names, ltr_contigs = read_fasta(confident_ltr_cut_path)
-    ltr_internal_contigs = {}
-    ltr_terminal_contigs = {}
-    for name in ltr_names:
-        if name.__contains__('_INT#'):
-            ltr_internal_contigs[name] = ltr_contigs[name]
-        else:
-            ltr_terminal_contigs[name] = ltr_contigs[name]
-    store_fasta(ltr_internal_contigs, confident_ltr_internal_path)
-    store_fasta(ltr_terminal_contigs, confident_ltr_terminal_path)
-
-    clean_ltr_internal_path = tmp_output_dir + '/confident_ltr_cut.internal.clean.fa'
-    if remove_nested == 1:
-        starttime = time.time()
-        log.logger.info('Start step2.4: remove nested TE in LTR internal')
-        # 将所有的LTR序列暂时加入到TE序列中，用来解开nested TE
-        temp_confident_TE_path = tmp_output_dir + '/confident_TE.temp.fa'
-        os.system('cat ' + confident_ltr_cut_path + ' > ' + temp_confident_TE_path)
-        os.system('cat ' + confident_TE_path + ' >> ' + temp_confident_TE_path)
-        if os.path.getsize(temp_confident_TE_path) > 0 and os.path.getsize(confident_ltr_internal_path) > 0:
-            remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested_lib.py ' \
-                                    + ' -t ' + str(threads) \
-                                    + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-                                    + ' --input1 ' + temp_confident_TE_path \
-                                    + ' --input2 ' + confident_ltr_internal_path \
-                                    + ' --output ' + clean_ltr_internal_path
-            os.system(remove_nested_command)
-
-            os.system('cat ' + confident_ltr_terminal_path + ' > ' + confident_ltr_cut_path)
-            os.system('cat ' + clean_ltr_internal_path + ' >> ' + confident_ltr_cut_path)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step2.4: %.8s s" % (dtime))
     os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
     # confident_ltr_cut_consensus = tmp_output_dir + '/confident_ltr_cut.cons.fa'

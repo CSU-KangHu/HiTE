@@ -10,9 +10,10 @@ import json
 import time
 
 #import numpy as np
-#from matplotlib import pyplot as plt
-#import seaborn as sns
-#import pandas as pd
+from matplotlib import pyplot as plt
+import seaborn as sns
+import pandas as pd
+
 import subprocess
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1268,6 +1269,25 @@ def draw_violin(dist_path, my_pal):
     medians = df.groupby(['Type'])['identity'].median().values
     print(medians)
 
+def draw_stripplot():
+    fig, ax = plt.subplots()
+    #设置风格
+    #sns.set_style('whitegrid')
+    sns.set(context="notebook", style='whitegrid', font_scale=1)
+    plt.rcParams['font.sans-serif'] = ['SimHei']
+    # 构建数据
+    tips=pd.read_csv('/home/hukang/nextflow_runtime.csv')
+    print(tips)
+    """
+    案例2：
+    根据x的类别进行分组统计
+    """
+    sns.stripplot(x="process",y="Execution time (minutes)", data=tips, ax=ax)
+    ax.grid(True)
+    plt.xticks(rotation=60)
+    plt.tight_layout()
+    plt.savefig('/home/hukang/nextflow_runtime.png', format='png')
+
 
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -1275,6 +1295,9 @@ if __name__ == '__main__':
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
+
+    draw_stripplot()
+
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
 
@@ -1494,8 +1517,12 @@ if __name__ == '__main__':
     #             print(filename)
     #             print('here')
 
-    keep_file = 'longest_repeats_(\d+).fa'
-    keep_file1 = 'longest_repeats_01.fa'
-    filename = 'longest_repeats_01.fa'
-    print(re.match(keep_file, filename))
-
+    # max_ram_usage = 0
+    # memlog = '/home/hukang/memlog.txt'
+    # with open(memlog, 'r') as f_r:
+    #     for line in f_r:
+    #         ram_usage = float(line.split(':')[1].split('GB')[0].strip())
+    #         #print(ram_usage)
+    #         if ram_usage > max_ram_usage:
+    #             max_ram_usage = ram_usage
+    # print(max_ram_usage)

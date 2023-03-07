@@ -1,0 +1,30 @@
+
+Genome:			genome.rename.fa.rand666985
+Standard annotation:	repbase.out.rand666985
+Testing annotation:	HiTE.out.rand666985
+
+sens=TP/(TP+FN)
+spec=TN/(FP+TN)
+accu=(TP+TN)/(TP+TN+FP+FN)
+prec=TP/(TP+FP)
+FDR=1-prec=FP/(TP+FP)
+F1=2TP/(2TP+FP+FN)
+
+TP: 1970646
+
+FN: 10863
+
+TN: 14068802
+
+FP: 1616
+
+Sensitivity: 0.99451781445353
+Specificity: 0.99988514911213
+Accuracy: 0.999222585550009
+Precision: 0.999180636244069
+FDR: 0.000819363755931057
+F1 measure: 0.996843772691944
+
+
+#Metrics	sens	spec	accu	prec	FDR	F1	TP	TN	FP	FN
+HiTE.out.rand666985.total.lib.report	0.99451781445353	0.99988514911213	0.999222585550009	0.999180636244069	0.000819363755931057	0.996843772691944	1970646	14068802	1616	10863

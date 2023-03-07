@@ -93,6 +93,8 @@ if __name__ == '__main__':
                         help='e.g., 0.95')
     parser.add_argument('--ref_index', metavar='ref_index',
                         help='e.g., 0')
+    parser.add_argument('--library_dir', metavar='library_dir',
+                        help='e.g., ')
 
 
     args = parser.parse_args()
@@ -103,14 +105,12 @@ if __name__ == '__main__':
     query_coverage = float(args.query_coverage)
     subject_coverage = float(args.subject_coverage)
     ref_index = args.ref_index
-
-    tools_dir = os.getcwd() + '/../tools'
+    library_dir = args.library_dir
 
     # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。
     # 想要根据结构特征去识别有困难，我们根据同源性搜索的方法去识别。
 
     # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
-    library_dir = os.getcwd() + '/../library'
     non_LTR_lib = library_dir + '/non_LTR.lib'
 
     other_TE_dir = tmp_output_dir + '/other_TE'
@@ -143,7 +143,6 @@ if __name__ == '__main__':
     rename_fasta(confident_other_path, confident_other_rename_path)
 
     confident_other_rename_consensus = tmp_output_dir + '/confident_other_' + str(ref_index) + '.rename.cons.fa'
-    tools_dir = os.getcwd() + '/../tools'
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_other_rename_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)

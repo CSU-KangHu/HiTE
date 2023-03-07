@@ -11,7 +11,6 @@ from logging import handlers
 
 import subprocess
 
-
 class Logger(object):
     level_relations = {
         'debug':logging.DEBUG,
@@ -4154,6 +4153,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
     makedb_command = 'makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
     os.system(makedb_command)
 
+    seq_num = 1
     repeat_files = []
     file_index = 0
     cur_seq_index = 0
@@ -4161,7 +4161,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
     for name in repeatNames:
         cur_contigs[name] = repeatContigs[name]
         cur_seq_index += 1
-        if cur_seq_index >= 10:
+        if cur_seq_index >= seq_num:
             split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
             store_fasta(cur_contigs, split_repeat_file)
             output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
@@ -5320,7 +5320,9 @@ def rename_reference(input, output):
     with open(output, 'w') as f_save:
         for name in names:
             seq = contigs[name]
-            f_save.write('>chr_'+str(ref_index)+'\n'+seq+'\n')
+            new_name = 'chr_'+str(ref_index)
+            print(new_name)
+            f_save.write('>'+new_name+'\n'+seq+'\n')
             ref_index += 1
     f_save.close()
 

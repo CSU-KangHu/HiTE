@@ -31,10 +31,8 @@ def helpMessage() {
       --genome      Genome assembly path (format: fasta, fa, and fna)
       --outdir      Output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
     General options:
-      --thread                          Thread number, default = [the maximum number of cores supported on your machine]
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
-      --remove_nested                   Whether to unwrap the nested TE, 1: true, 0: false. default = [ 1 ]
       --classified                      Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ 1 ]
       --recover                         Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
@@ -43,7 +41,6 @@ def helpMessage() {
       --tandem_region_cutoff            Cutoff of the candidates regarded as tandem region, default = [ 0.5 ]
       --max_repeat_len                  The maximum length of a single repeat, default = [ 30000 ]
       --chrom_seg_length                The length of genome segments, default = [ 500000 ]
-      --global_flanking_filter          Whether to filter false positives by global flanking alignment, significantly reduce false positives but require more memory, especially when inputting a large genome. 1: true (require more memory), 0: false. default = [ 1 ]
     """.stripIndent()
 }
 
@@ -51,11 +48,8 @@ def printSetting() {
     log.info"""
     ====================================Parameter settings========================================
       [Setting] Reference sequences / assemblies path = [ $params.genome ]
-      [Setting] Threads = [ $params.thread ]
       [Setting] The chunk size of large genome = [ $params.chunk_size ] MB
       [Setting] Is plant genome = [ $params.plant ]
-      [Setting] Remove nested = [ $params.remove_nested ]
-      [Setting] Global flanking filter = [ $params.global_flanking_filter ]
       [Setting] recover = [ $params.recover ]
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.outdir ]
@@ -90,10 +84,29 @@ projectDir = workflow.projectDir
 ch_module = "${projectDir}/module"
 ch_classification = "${projectDir}/classification"
 tools_module = "${projectDir}/tools"
+lib_module = "${projectDir}/library"
 ch_EAHelitron = "${projectDir}/bin/EAHelitron-master"
 ch_ltrfinder = "${projectDir}/bin/LTR_FINDER_parallel-master"
 genome_name = file(params.genome).getName()
 out_genome = "${params.outdir}/${genome_name}"
+
+filePrefix = genome_name.substring(0, genome_name.lastIndexOf('.'))
+out_genome_rename = "${params.outdir}/${filePrefix}.rename.fa"
+
+//parameters of HiTE
+tmp_output_dir = "${params.outdir}"
+chrom_seg_length = "${params.chrom_seg_length}"
+chunk_size = "${params.chunk_size}"
+fixed_extend_base_threshold = "${params.fixed_extend_base_threshold}"
+max_repeat_len = "${params.max_repeat_len}"
+flanking_len = "${params.flanking_len}"
+tandem_region_cutoff = "${params.tandem_region_cutoff}"
+plant = "${params.plant}"
+classified = "${params.classified}"
+debug = "${params.debug}"
+
+//parameters of Evaluation
+
 
 // Check all tools work well
 process EnvCheck {
@@ -117,60 +130,53 @@ process EnvCheck {
 
 // Check all tools work well
 process splitGenome {
-    tag "${reference}"
+    tag "${ref}"
 
     label 'process_low'
 
     input:
-    path reference
-    val ch_module
-    val tmp_output_dir
-    val chrom_seg_length
-    val chunk_size
+    path ref
 
     output:
-    path "${reference}.cut*.fa"
+    path "${ref}.cut*.fa"
+    
 
     script:
     cores = task.cpus
+    ref_name = ref.getName()
     """
-    cp ${reference} ${tmp_output_dir}
+    cp ${ref} ${tmp_output_dir}
 
     python3 ${ch_module}/split_genome_chunks.py \
-     -g ${reference} --tmp_output_dir ${tmp_output_dir} --chrom_seg_length ${chrom_seg_length} \
+     -g ${tmp_output_dir}/${ref_name} --tmp_output_dir ${tmp_output_dir} --chrom_seg_length ${chrom_seg_length} \
      --chunk_size ${chunk_size}
+
+    cp ${tmp_output_dir}/${ref_name}.cut*.fa ./
     """
 }
 
 process coarseBoundary {
-    tag "${cut_reference}"
+    tag "${cut_ref}"
 
     label 'process_high'
 
     input:
-    path cut_reference
-    val tmp_output_dir
-    val fixed_extend_base_threshold
-    val max_repeat_len
-    val flanking_len
-    val tandem_region_cutoff
-    val reference
-
+    path cut_ref
 
     output:
     path "longest_repeats_*.flanked.fa"
 
     script:
     cores = task.cpus
-    ref_name = file(reference).getName()
-    (full, ref_index) = (cut_reference =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    ref_name = file(out_genome).getName()
+    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/coarse_boundary.py \
-     -g ${cut_reference} --tmp_output_dir ${tmp_output_dir} \
+     -g ${cut_ref} --tmp_output_dir ${tmp_output_dir} \
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} -r ${reference}
+     --ref_index ${ref_index} -r ${out_genome}
 
     ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
     cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
@@ -178,18 +184,13 @@ process coarseBoundary {
 }
 
 process TIR {
-    tag "${cut_reference}"
+    tag "${cut_ref}"
 
     label 'process_high'
 
     input:
-    path cut_reference
-    path longest_repeats_flanked
-    val tmp_output_dir
-    val plant
-    val flanking_len
-    val tandem_region_cutoff
-    val reference
+    path cut_ref
+    path lrf
 
 
     output:
@@ -197,11 +198,11 @@ process TIR {
 
     script:
     cores = task.cpus
-    ref_name = file(reference).getName()
-    (full, ref_index) = (cut_reference =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    ref_name = file(out_genome).getName()
+    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/judge_TIR_transposons.py \
-     -g ${cut_reference} --seqs ${longest_repeats_flanked} \
+     -g ${cut_ref} --seqs ${lrf} \
      -t ${cores} --TRsearch_dir ${tools_module}  \
      --tmp_output_dir ${tmp_output_dir} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
@@ -212,17 +213,13 @@ process TIR {
 }
 
 process Helitron {
-    tag "${cut_reference}"
+    tag "${cut_ref}"
 
     label 'process_high'
 
     input:
-    path cut_reference
-    path longest_repeats_flanked
-    val tmp_output_dir
-    val flanking_len
-    val EAHelitron
-    val reference
+    path cut_ref
+    path lrf
 
 
     output:
@@ -230,13 +227,13 @@ process Helitron {
 
     script:
     cores = task.cpus
-    ref_name = file(reference).getName()
-    (full, ref_index) = (cut_reference =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    ref_name = file(out_genome).getName()
+    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/judge_Helitron_transposons.py \
-     -g ${cut_reference} --seqs ${longest_repeats_flanked} \
+     -g ${cut_ref} --seqs ${lrf} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --flanking_len ${flanking_len} --EAHelitron ${EAHelitron} \
+     --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
      --ref_index ${ref_index}
 
     cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
@@ -244,15 +241,13 @@ process Helitron {
 }
 
 process OtherTE {
-    tag "${cut_reference}"
+    tag "${cut_ref}"
 
     label 'process_high'
 
     input:
-    path cut_reference
-    path longest_repeats_flanked
-    val tmp_output_dir
-    val reference
+    path cut_ref
+    path lrf
 
 
     output:
@@ -260,29 +255,26 @@ process OtherTE {
 
     script:
     cores = task.cpus
-    ref_name = file(reference).getName()
-    (full, ref_index) = (cut_reference =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    ref_name = file(out_genome).getName()
+    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/judge_Other_transposons.py \
-     --seqs ${longest_repeats_flanked} \
+     --seqs ${lrf} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --query_coverage 0.8 --subject_coverage 0 \
-     --ref_index ${ref_index}
+     --ref_index ${ref_index} --library_dir ${lib_module}
 
     cp ${tmp_output_dir}/confident_other_${ref_index}.fa ./
     """
 }
 
 process LTR {
-    tag "${reference}"
+    tag "${ref}"
 
     label 'process_high'
 
     input:
-    path reference
-    val ltrfinder_home
-    val tmp_output_dir
-
+    path ref
 
     output:
     path "confident_ltr_cut.fa"
@@ -291,7 +283,7 @@ process LTR {
     cores = task.cpus
     """
     python3 ${ch_module}/judge_LTR_transposons.py \
-     -g ${reference} --ltrfinder_home ${ltrfinder_home} \
+     -g ${ref} --ltrfinder_home ${ch_ltrfinder} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --recover 0
 
@@ -300,20 +292,16 @@ process LTR {
 }
 
 process UnwrapNested {
-    tag "${reference}"
+    tag "${ref}"
 
     label 'process_high'
 
     input:
-    path reference
-    path confident_ltr_cut
-    path confident_tir
-    path confident_helitron
-    path confident_other
-    val tmp_output_dir
-    val global_flanking_filter
-    val remove_nested
-    val test_home
+    path ref
+    path ltr
+    path tir
+    path helitron
+    path other
 
 
     output:
@@ -324,49 +312,108 @@ process UnwrapNested {
     cores = task.cpus
     """
     python3 ${ch_module}/remove_nested.py \
-     -g ${reference} --confident_ltr_cut ${confident_ltr_cut} \
-     --confident_tir ${confident_tir} \
-     --confident_helitron ${confident_helitron} \
-     --confident_other ${confident_other} \
+     -g ${ref} --confident_ltr_cut ${ltr} \
+     --confident_tir ${tir} \
+     --confident_helitron ${helitron} \
+     --confident_other ${other} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --global_flanking_filter ${global_flanking_filter} \
-     --remove_nested ${remove_nested} --test_home ${test_home}
+     --remove_nested ${remove_nested} --test_home ${ch_module}
 
     cp ${tmp_output_dir}/confident_TE.fa ./
     """
 }
 
 process BuildLib {
-    tag "${confident_TE}"
-
     label 'process_high'
 
     input:
-    path confident_TE
-    val tmp_output_dir
-    val classified
-    val TEClass_home
-    val debug
-    val reference
+    path ltr
+    path tir
+    path helitron
+    path other
 
     output:
-    path "confident_TE.cons.fa*"
+    path "confident_TE.cons.fa.classified"
 
 
     script:
     cores = task.cpus
-    ref_name = file(reference).getName()
+    ref_name = file(out_genome).getName()
+    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
     """
     python3 ${ch_module}/get_nonRedundant_lib.py \
-     --confident_TE ${confident_TE} \
+     --confident_ltr_cut ${ltr} \
+     --confident_tir ${tir} \
+     --confident_helitron ${helitron} \
+     --confident_other ${other} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --classified ${classified} --TEClass_home ${TEClass_home} \
-     --debug ${debug} --ref_name {ref_name}
+     --classified ${classified} --TEClass_home ${ch_classification} \
+     --debug ${debug} --ref_name ${filePrefix}
 
     cp ${tmp_output_dir}/confident_TE.cons.fa* ./
     """
 }
 
+process BM_RM2 {
+    tag "${TE}"
+
+    label 'process_high'
+
+    input:
+    path TE
+    path curatedLib
+    path rm2_script
+
+    output:
+    path "confident_TE.cons.fa.classified.out"
+    path "res.log"
+
+
+    script:
+    cores = task.cpus
+    """
+    RepeatMasker -lib ${curatedLib} -nolow -pa ${cores} ${TE}
+    mkdir rm2_test
+    cd rm2_test && rm -rf * && sh ../${rm2_script} ../${TE}.out >> ${tmp_output_dir}/res.log
+    cd ..
+    cp ${tmp_output_dir}/res.log ./
+    """
+}
+
+process BM_EDTA {
+    tag "${TE}"
+
+    label 'process_high'
+
+    input:
+    path TE
+    path curatedLib
+    val reference
+    val EDTA_home
+
+    output:
+    path "repbase.out"
+    path "HiTE.out"
+    path "HiTE.out.*"
+
+
+    script:
+    cores = task.cpus
+    """
+    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${curatedLib} -cutoff 225 ${reference}
+    mv ${reference}.out ${tmp_output_dir}/repbase.out
+
+    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${TE} -cutoff 225 ${reference}
+    mv ${reference}.out ${tmp_output_dir}/HiTE.out
+
+    perl ${EDTA_home}/lib-test.pl -genome ${reference} -std ${tmp_output_dir}/repbase.out -tst ${tmp_output_dir}/HiTE.out -cat Total
+
+    cp ${tmp_output_dir}/repbase.out ./
+    cp ${tmp_output_dir}/HiTE.out ./
+    cp HiTE.out.* ${tmp_output_dir}/
+    """
+}
 
 // allow multi-thread
 process test {
@@ -399,46 +446,98 @@ process test {
 */
 
 workflow {
+    if (!params.skip_HiTE) {
+        if ( !file(params.genome).exists() )
+                exit 1, "genome reference path does not exist, check params: --genome ${params.genome}"
 
-    if ( !file(params.genome).exists() )
-        exit 1, "genome reference path does not exist, check params: --genome ${params.genome}"
 
+            // dependency check
+            dependencies = Channel.from(params.dependencies)
+            EnvCheck(dependencies) | view { "$it" }
 
-    // dependency check
-    dependencies = Channel.from(params.dependencies)
-    EnvCheck(dependencies) | view { "$it" }
+            // split genome into chunks
+            Channel.fromPath(params.genome, type: 'any', checkIfExists: true).set{ ch_g }
+            cut_genomes = splitGenome(ch_g)
+            ch_cut_g = cut_genomes.flatten()
 
-    // split genome into chunks
-    Channel.fromPath(params.genome, type: 'any', checkIfExists: true).set{ ch_genome }
-    cut_genomes = splitGenome(ch_genome, ch_module, params.outdir, params.chrom_seg_length, params.chunk_size)
-    ch_cut_genomes = cut_genomes.flatten()
+            //coarse-grained Boundary identification
+            longest_repeats = coarseBoundary(ch_cut_g)
 
-    //coarse-grained Boundary identification
-    longest_repeats = coarseBoundary(ch_cut_genomes, params.outdir,
-        params.fixed_extend_base_threshold, params.max_repeat_len,
-        params.flanking_len, params.tandem_region_cutoff, out_genome)
+            //TIR identification
+            ch_tirs = TIR(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_tir.fa")
 
-    //TIR identification
-    ch_tirs = TIR(ch_cut_genomes, longest_repeats, params.outdir, params.plant, params.flanking_len, params.tandem_region_cutoff, out_genome).collectFile(name: "${params.outdir}/confident_tir.fa")
+            //Helitron identification
+            ch_h = Helitron(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_helitron.fa")
 
-    //Helitron identification
-    ch_helitrons = Helitron(ch_cut_genomes, longest_repeats, params.outdir, params.flanking_len, ch_EAHelitron, out_genome).collectFile(name: "${params.outdir}/confident_helitron.fa")
+            //Other identification
+            ch_o = OtherTE(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_other.fa")
+            //test(ch_o) | view { "$it" }
+            
+            //LTR identification
+            ch_ltrs = LTR(ch_g)
+            //test(ch_ltrs) | view { "$it" }
 
-    //Other identification
-    ch_others = OtherTE(ch_cut_genomes, longest_repeats, params.outdir, out_genome).collectFile(name: "${params.outdir}/confident_other.fa")
-    //test(ch_others) | view { "$it" }
+            //Unwrap nested TE
+            //ch_TE = UnwrapNested(params.genome, ch_ltrs, ch_tirs, ch_h, ch_o)
+            //test(ch_TE) | view { "$it" }
 
-    //LTR identification
-    ch_ltrs = LTR(ch_genome, ch_ltrfinder, params.outdir)
-    //test(ch_ltrs) | view { "$it" }
+            //Build TE library
+            ch_lib = BuildLib(ch_ltrs, ch_tirs, ch_h, ch_o)
+            //test(ch_lib) | view { "$it" }
+    }
+        
+    
+    if (params.BM_RM2){
+        if (!params.species)
+            exit 1, "--BM_RM2 is set as true, but there is no --species specified! Choose from dmel, rice, cb, and zebrafish."
+        
+        if (params.skip_HiTE)
+            Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_lib }
 
-    //Unwrap nested TE
-    ch_TE = UnwrapNested(ch_genome, ch_ltrs, ch_tirs, ch_helitrons, ch_others, params.outdir, params.global_flanking_filter, params.remove_nested, ch_module)
-    //test(ch_TE) | view { "$it" }
+        if (params.species == "dmel"){
+            lib_path = "${lib_module}/drorep.ref"
+        } else if (params.species == "rice"){
+            lib_path = "${lib_module}/oryrep.ref"
+        } else if (params.species == "cb"){
+            lib_path = "${lib_module}/cbrrep.ref"
+        } else if (params.species == "zebrafish"){
+            lib_path = "${lib_module}/zebrep.ref"
+        } else{
+            lib_path = "${lib_module}/test.ref"
+        }
 
-    //Build TE library
-    ch_lib = BuildLib(ch_TE, params.outdir, params.classified, ch_classification, params.debug, out_genome)
-    //test(ch_lib) | view { "$it" }
+        Channel.fromPath("${lib_path}", type: 'any', checkIfExists: true).set{ curatedLib }
+        Channel.fromPath("${projectDir}/bin/get_family_summary_paper.sh", type: 'any', checkIfExists: true).set{ rm2_script }
+        BM_RM2(ch_lib, curatedLib, rm2_script)
+    }
+
+    if (params.BM_EDTA){
+        if (!params.species)
+            exit 1, "--BM_EDTA is set as true, but there is no --species specified! Choose from dmel, rice, cb, and zebrafish."
+        
+        if (!params.EDTA_home)
+            exit 1, "--BM_EDTA is set as true, but there is no --EDTA_home specified!"
+
+        if (params.skip_HiTE)
+            Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_lib }
+
+        if (params.species == "dmel"){
+            lib_path = "${lib_module}/drorep.ref"
+        } else if (params.species == "rice"){
+            lib_path = "${lib_module}/oryrep.ref"
+        } else if (params.species == "cb"){
+            lib_path = "${lib_module}/cbrrep.ref"
+        } else if (params.species == "zebrafish"){
+            lib_path = "${lib_module}/zebrep.ref"
+        } else if (params.species == "test"){
+            lib_path = "${lib_module}/test.ref"
+        }
+
+        Channel.fromPath("${lib_path}", type: 'any', checkIfExists: true).set{ curatedLib }
+        BM_EDTA(ch_lib, curatedLib, out_genome_rename, params.EDTA_home)
+    }
+       
+
 }
 
 
