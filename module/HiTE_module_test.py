@@ -1288,6 +1288,53 @@ def draw_stripplot():
     plt.tight_layout()
     plt.savefig('/home/hukang/nextflow_runtime.png', format='png')
 
+def darw_barplot(input):
+    #sns.set(context="notebook", style='whitegrid', font_scale=1)
+    sns.set_style('whitegrid')
+    result=pd.read_csv(input)
+    #print(result)
+    bar_plot = sns.barplot(y = result['time'].unique(), x = -result['number'], color = "DarkSalmon", 
+                       data = result, order = result['time'].unique()[::-1],)
+    bar_plot = sns.barplot(y = result['time'].unique(), x = result['number'], color = "CadetBlue",
+                        data = result, order = result['time'].unique()[::-1],)
+    #plt.xticks([-650,-400,-200,0,200,400,650],[650,200,100,0,100,200,250])
+    # plt.rcParams['font.sans-serif'] = ['SimHei']
+    #plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
+    plt.rcParams['axes.unicode_minus'] = True
+    bar_plot.set(xlabel="Number of LTR", ylabel="Mya", title = "")
+    plt.savefig('/home/hukang/LTR_insert_time.png', format='png')
+
+def generate_insert_time(ltr_file):
+    #将LTR_retriever的插入时间统计到文件
+    times = []
+    with open(ltr_file, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            else:
+                time = int(line.split('\t')[11])
+                times.append(time)
+    f_r.close()
+    #print(max(times))
+
+    #按照10W年分组
+    u = 1
+    bin = u*100000
+
+    #1.先确定最大年龄
+    max_time = int(max(times)/bin) + 1
+    #print(max_time)
+    #2.遍历分组
+    time_group = {}
+    for t in times:
+        g_num = float(int(t/bin)*u/10)
+        if not time_group.__contains__(g_num):
+            time_group[g_num] = 0
+        cur_num = time_group[g_num]
+        time_group[g_num] = cur_num + 1
+    return time_group
+
+    
 
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -1296,7 +1343,42 @@ if __name__ == '__main__':
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
 
-    draw_stripplot()
+    #分组散点图
+    #draw_stripplot()
+    
+    output = '/home/hukang/insert_time.csv'
+    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE/all.chrs.rename.fa.pass.list'
+    speices1 = 'Rice'
+    time_group1 = generate_insert_time(ltr_file)
+    #print(time_group1)
+
+    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE/all.chrs.rename.fa.pass.list'
+    speices2 = 'Pabies'
+    time_group2 = generate_insert_time(ltr_file)
+    #print(time_group2)
+
+    with open(output, 'w') as f_save:
+        f_save.write('time,species,number\n')
+        keys = sorted(time_group1.keys(), reverse=False)
+        for i, g_num in enumerate(keys):
+            if i < len(keys)-1:
+                next_g_num = str(keys[i+1])
+            else:
+                next_g_num = ''
+            num = time_group1[g_num]
+            f_save.write(str(g_num)+'-'+str(next_g_num)+','+speices1+','+str(num)+'\n')
+        keys = sorted(time_group2.keys(), reverse=False)
+        for i, g_num in enumerate(keys):
+            if i < len(keys)-1:
+                next_g_num = str(keys[i+1])
+            else:
+                next_g_num = ''
+            num = time_group2[g_num]
+            f_save.write(str(g_num)+'-'+str(next_g_num)+','+speices2+','+str(num)+'\n')
+            
+
+    #金字塔图
+    #darw_barplot(input)
 
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()

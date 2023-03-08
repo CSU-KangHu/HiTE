@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     #步骤： 1.多线程运行EAHelitron，获得候选Helitron序列
     candidate_helitron_path = tmp_output_dir + '/candidate_helitron_'+str(ref_index)+'.fa'
-    temp_dir = tmp_output_dir + '/helitron_tmp'
+    temp_dir = tmp_output_dir + '/helitron_tmp_'+str(ref_index)
     multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_helitron_path, temp_dir, EAHelitron, threads)
     candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
 
@@ -113,7 +113,6 @@ if __name__ == '__main__':
     confident_helitron_rename_path = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.rename.fa'
     rename_fasta(confident_helitron_path, confident_helitron_rename_path)
 
-    tools_dir = os.getcwd() + '/../tools'
     candidate_helitron_rename_consensus = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.rename.cons.fa'
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_helitron_rename_path + ' -o ' + candidate_helitron_rename_consensus + ' -T 0 -M 0'

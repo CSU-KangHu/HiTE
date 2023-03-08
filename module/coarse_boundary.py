@@ -55,7 +55,7 @@ if __name__ == '__main__':
                                  tmp_output_dir, thread, ref_index, log)
 
 
-    trf_dir = tmp_output_dir + '/trf_temp'
+    trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
     (repeat_dir, repeat_filename) = os.path.split(longest_repeats_path)
     (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
     repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'

@@ -46,7 +46,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
 
     log.logger.info("Realign to genome to filter single copy TIR elements")
     #重新比对到基因组，去除单比对TIR elements
-    temp_dir = tmp_output_dir + '/tir_temp'
+    temp_dir = tmp_output_dir + '/tir_temp_' + str(ref_index)
     all_copies = multi_process_align_and_get_copies(confident_tir_path, reference,
                                                     temp_dir, 'tir', threads)
     for query_name in all_copies.keys():
@@ -205,7 +205,7 @@ if __name__ == '__main__':
     starttime = time.time()
     tir_tsd_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.fa'
     tir_tsd_filter_dup_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.filterdup.fa'
-    tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp'
+    tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
     multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
     endtime = time.time()
     dtime = endtime - starttime
@@ -213,7 +213,7 @@ if __name__ == '__main__':
 
     # 过滤掉串联重复
     repeats_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.filter_tandem.fa'
-    trf_dir = tmp_output_dir + '/tir_trf_temp'
+    trf_dir = tmp_output_dir + '/tir_trf_temp_' + str(ref_index)
     # 去掉那些在终端20 bp、LTR、Internal中存在50%以上串联重复的序列
     multi_process_TRF(tir_tsd_filter_dup_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
                       TE_type='tir')

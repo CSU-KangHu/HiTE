@@ -113,7 +113,7 @@ if __name__ == '__main__':
     # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
     non_LTR_lib = library_dir + '/non_LTR.lib'
 
-    other_TE_dir = tmp_output_dir + '/other_TE'
+    other_TE_dir = tmp_output_dir + '/other_TE_' + str(ref_index)
     os.system('rm -rf ' + other_TE_dir)
     if not os.path.exists(other_TE_dir):
         os.makedirs(other_TE_dir)
