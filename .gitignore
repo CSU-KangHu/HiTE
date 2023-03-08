@@ -143,4 +143,4 @@ cython_debug/
 /.idea/
 
 # demo
-demo/
+demo/*
