@@ -37,6 +37,7 @@ if __name__ == '__main__':
     default_debug = 0
     default_chrom_seg_length = 500000
     default_classified = 1
+    default_miu = str(1.3e-8)
 
     version_num = '2.0.3'
  
@@ -45,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--genome', metavar='genome', help='Input genome assembly path')
     parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
+    parser.add_argument('--miu', metavar='miu', help='The neutral mutation rate (per bp per ya), default = [ ' + str(default_miu) + ' MB ]')
     parser.add_argument('--plant', metavar='is_plant', help='Is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
     parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
     parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
@@ -71,6 +73,7 @@ if __name__ == '__main__':
     flanking_len = args.flanking_len
     plant = args.plant
     classified = args.classified
+    miu = args.miu
     recover = args.recover
     debug = args.debug
 
@@ -129,6 +132,11 @@ if __name__ == '__main__':
         classified = default_classified
     else:
         classified = int(classified)
+    
+    if miu is None:
+        miu = default_miu
+    else:
+        miu = str(miu)
 
     if recover is None:
         recover = default_recover
@@ -222,7 +230,8 @@ if __name__ == '__main__':
     log.logger.info('\nParameters configuration\n'
                     '====================================System settings========================================\n'
                     '  [Setting] Reference sequences / assemblies path = [ ' + str(reference) + ' ]\n'
-                    # '  [Setting] Alias = [ ' + str(alias) + ' ]\n'
+                    '  [Setting] Is classified = [ ' + str(classified) + ' ] Default( ' + str(default_classified) + ' )\n'
+                    '  [Setting] The neutral mutation rate (per bp per ya) = [ ' + str(miu) + ' ] Default( ' + str(default_miu) + ' )\n'
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
@@ -385,7 +394,7 @@ if __name__ == '__main__':
                                        + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
                                        + ' -t ' + str(threads) \
                                        + ' --tmp_output_dir ' + tmp_output_dir \
-                                       + ' --recover ' + str(recover)
+                                       + ' --recover ' + str(recover) + ' --miu ' + str(miu)
         os.system(LTR_identification_command)
         endtime = time.time()
         dtime = endtime - starttime

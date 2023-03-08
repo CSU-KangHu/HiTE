@@ -521,11 +521,11 @@ def run_LTR_harvest(reference, tmp_output_dir, log):
     dtime = endtime - starttime
     log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
 
-def run_LTR_retriever(reference, tmp_output_dir, threads, log):
+def run_LTR_retriever(reference, tmp_output_dir, threads, miu, log):
     starttime = time.time()
     log.logger.debug('start LTR_retriever detection...')
     LTR_retriever_command = 'cd ' + tmp_output_dir + ' && LTR_retriever -genome ' + reference \
-                            + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads)
+                            + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads) + '-u ' + str(miu)
     os.system(LTR_retriever_command)
     endtime = time.time()
     dtime = endtime - starttime
@@ -5321,7 +5321,6 @@ def rename_reference(input, output):
         for name in names:
             seq = contigs[name]
             new_name = 'chr_'+str(ref_index)
-            print(new_name)
             f_save.write('>'+new_name+'\n'+seq+'\n')
             ref_index += 1
     f_save.close()

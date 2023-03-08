@@ -26,6 +26,8 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/dmel')
     parser.add_argument('--recover', metavar='recover',
                         help='e.g., 0')
+    parser.add_argument('--miu', metavar='miu',
+                        help='e.g., ')
 
 
     args = parser.parse_args()
@@ -34,6 +36,7 @@ if __name__ == '__main__':
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
+    miu = args.miu
 
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
@@ -91,7 +94,7 @@ if __name__ == '__main__':
     if not is_recover or not file_exist(resut_file):
         starttime = time.time()
         log.logger.info('Start step2.3: run LTR_retriever to get confident LTR')
-        run_LTR_retriever(ref_rename_path, tmp_output_dir, threads, log)
+        run_LTR_retriever(ref_rename_path, tmp_output_dir, threads, miu, log)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of step2.3: %.8s s" % (dtime))
