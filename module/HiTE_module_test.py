@@ -1282,7 +1282,7 @@ def draw_stripplot():
     案例2：
     根据x的类别进行分组统计
     """
-    sns.stripplot(x="process",y="Execution time (minutes)", data=tips, ax=ax)
+    sns.stripplot(x="process",y="Execution time (minutes)", data=tips, ax=ax, s=10)
     ax.grid(True)
     plt.xticks(rotation=60)
     plt.tight_layout()
@@ -1334,18 +1334,7 @@ def generate_insert_time(ltr_file):
         time_group[g_num] = cur_num + 1
     return time_group
 
-    
-
-if __name__ == '__main__':
-    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
-    tmp_out_dir = repbase_dir + '/rice'
-    ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
-    tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
-
-    #分组散点图
-    #draw_stripplot()
-    
+def generate_insertion_time():
     output = '/home/hukang/insert_time.csv'
     ltr_file = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE/all.chrs.rename.fa.pass.list'
     speices1 = 'Rice'
@@ -1353,7 +1342,7 @@ if __name__ == '__main__':
     #print(time_group1)
 
     ltr_file = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE/all.chrs.rename.fa.pass.list'
-    speices2 = 'Pabies'
+    speices2 = 'P.abies'
     time_group2 = generate_insert_time(ltr_file)
     #print(time_group2)
 
@@ -1375,6 +1364,18 @@ if __name__ == '__main__':
                 next_g_num = ''
             num = time_group2[g_num]
             f_save.write(str(g_num)+'-'+str(next_g_num)+','+speices2+','+str(num)+'\n')
+
+if __name__ == '__main__':
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
+    tmp_out_dir = repbase_dir + '/rice'
+    ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
+    tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
+
+    #分组散点图
+    draw_stripplot()
+    
+    #generate_insertion_time()
             
 
     #金字塔图

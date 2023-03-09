@@ -206,9 +206,8 @@ if __name__ == '__main__':
     log.logger.info('------get TIR+TSD in copies of candidate TIR')
     starttime = time.time()
     tir_tsd_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.fa'
-    tir_tsd_filter_dup_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.filterdup.fa'
     tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
-    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
+    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
@@ -217,7 +216,7 @@ if __name__ == '__main__':
     repeats_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.filter_tandem.fa'
     trf_dir = tmp_output_dir + '/tir_trf_temp_' + str(ref_index)
     # 去掉那些在终端20 bp、LTR、Internal中存在50%以上串联重复的序列
-    multi_process_TRF(tir_tsd_filter_dup_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
+    multi_process_TRF(tir_tsd_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
                       TE_type='tir')
 
 

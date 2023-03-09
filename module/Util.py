@@ -2728,6 +2728,37 @@ def get_score_v1(confident_TIR):
             max_info = info
     return max_info
 
+def get_score_v2(confident_TIR):
+    # (copy_num, tsd_len)
+    tir_len_list = []
+    tsd_len_list = []
+    for info in confident_TIR:
+        tir_len_list.append(info[0])
+        tsd_len_list.append(info[1])
+
+    max_tir_len = max(tir_len_list)
+    min_tir_len = min(tir_len_list)
+
+    max_tsd_len = max(tsd_len_list)
+    min_tsd_len = min(tsd_len_list)
+
+    max_info = None
+    max_score = -1
+    for info in confident_TIR:
+        if max_tir_len == min_tir_len:
+            TE_tir_len = 0
+        else:
+            TE_tir_len = calculate_max_min(info[0], max_tir_len, min_tir_len)
+        if max_tsd_len == min_tsd_len:
+            tsd_len_normal = 0
+        else:
+            tsd_len_normal = calculate_max_min(info[1], max_tsd_len, min_tsd_len)
+        score = 0.4*TE_tir_len+0.6*tsd_len_normal
+        if score > max_score:
+            max_score = score
+            max_info = info
+    return max_info
+
 def get_score_ltr(confident_LTR):
     # (tir_len, tsd, te_len, contigs[name])
     TE_len_list = []
@@ -2852,6 +2883,35 @@ def filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum):
     for name in filtered_contigs.keys():
         confident_TIR = filtered_contigs[name]
         highest_confident_TIR = get_score_v1(confident_TIR)
+        res_contigs[name] = highest_confident_TIR[2]
+    return res_contigs
+
+def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
+    # 综合考虑TSD TIR len等多个因素,占比(6/4)
+    res_contigs = {}
+    filtered_contigs = {}
+    for name in cur_copies_out_contigs.keys():
+        
+        parts = name.split('-C_')
+        orig_query_name = parts[0]
+        tsd = parts[1].split('-tsd_')[1].split('-')[0]
+
+        if TIR_len_dict.__contains__(name):
+            tir_len = TIR_len_dict[name]
+            if not filtered_contigs.__contains__(orig_query_name):
+                filtered_contigs[orig_query_name] = set()
+            confident_TIR = filtered_contigs[orig_query_name]
+            confident_TIR.add((tir_len, len(tsd), cur_copies_out_contigs[name]))
+        else:
+            #当前是我们定义的可靠short tir序列
+            res_contigs[orig_query_name] = cur_copies_out_contigs[name]
+            if filtered_contigs.__contains__(orig_query_name):
+                del filtered_contigs[orig_query_name]
+            break
+        
+    for name in filtered_contigs.keys():
+        confident_TIR = filtered_contigs[name]
+        highest_confident_TIR = get_score_v2(confident_TIR)
         res_contigs[name] = highest_confident_TIR[2]
     return res_contigs
 
@@ -4297,7 +4357,7 @@ def store_copies_seq(copies, copy_info_path):
                 f_save.write('>'+new_query_name + '\n' + copy[4] + '\n')
     f_save.close()
 
-def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter_dup_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
+def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
     os.system('rm -rf '+tir_tsd_dir)
     if not os.path.exists(tir_tsd_dir):
         os.makedirs(tir_tsd_dir)
@@ -4321,34 +4381,34 @@ def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_filter
         candidate_TIRs.update(cur_candidate_TIRs)
     store_fasta(candidate_TIRs, tir_tsd_path)
 
-    # 重新比对到基因组，获取候选TIR拷贝数
-    seq_copynum = {}
-    temp_dir = tir_tsd_dir + '/tir_temp'
-    all_copies = multi_process_align_and_get_copies(tir_tsd_path, reference,
-                                                    temp_dir, 'tir', threads)
-    for query_name in all_copies.keys():
-        copies = all_copies[query_name]
-        seq_copynum[query_name] = len(copies)
+    # # 重新比对到基因组，获取候选TIR拷贝数
+    # seq_copynum = {}
+    # temp_dir = tir_tsd_dir + '/tir_temp'
+    # all_copies = multi_process_align_and_get_copies(tir_tsd_path, reference,
+    #                                                 temp_dir, 'tir', threads)
+    # for query_name in all_copies.keys():
+    #     copies = all_copies[query_name]
+    #     seq_copynum[query_name] = len(copies)
 
-    # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
-    # 对all_copies_out_contigs按照query_name进行分组
-    # group_copies_contigs -> {query_name: {name: seq}}
-    group_copies_contigs = {}
-    for cur_name in candidate_TIRs.keys():
-        query_name = cur_name.split('-C_')[0]
-        if not group_copies_contigs.__contains__(query_name):
-            group_copies_contigs[query_name] = {}
-        cur_copies_out_contigs = group_copies_contigs[query_name]
-        cur_copies_out_contigs[cur_name] = candidate_TIRs[cur_name]
+    # # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
+    # # 对all_copies_out_contigs按照query_name进行分组
+    # # group_copies_contigs -> {query_name: {name: seq}}
+    # group_copies_contigs = {}
+    # for cur_name in candidate_TIRs.keys():
+    #     query_name = cur_name.split('-C_')[0]
+    #     if not group_copies_contigs.__contains__(query_name):
+    #         group_copies_contigs[query_name] = {}
+    #     cur_copies_out_contigs = group_copies_contigs[query_name]
+    #     cur_copies_out_contigs[cur_name] = candidate_TIRs[cur_name]
 
-    filter_dup_itr_contigs = {}
-    for query_name in group_copies_contigs.keys():
-        cur_copies_out_contigs = group_copies_contigs[query_name]
-        # 选择拷贝数和TSD综合最优的那一条
-        cur_contigs = filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum)
-        filter_dup_itr_contigs.update(cur_contigs)
+    # filter_dup_itr_contigs = {}
+    # for query_name in group_copies_contigs.keys():
+    #     cur_copies_out_contigs = group_copies_contigs[query_name]
+    #     # 选择拷贝数和TSD综合最优的那一条
+    #     cur_contigs = filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum)
+    #     filter_dup_itr_contigs.update(cur_contigs)
 
-    store_fasta(filter_dup_itr_contigs, tir_tsd_filter_dup_path)
+    # store_fasta(filter_dup_itr_contigs, tir_tsd_filter_dup_path)
 
 def multi_process_ltr_tsd(raw_candidate_ltrs, ltr_tsd_path, cut_ltr_tsd_path, ltr_tsd_dir, flanking_len, threads, TRsearch_dir, plant):
     os.system('rm -rf '+ltr_tsd_dir)
@@ -5224,16 +5284,44 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
     all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, all_candidate_TIRs_path, tir_tsd_dir)
     # 过滤掉终端TIR长度差距过大的序列
     # filter_large_gap_tirs(all_copies_out, all_copies_out)
+
+    #记录下每个query对应的TIR长度
+    TIR_len_dict = {}
+    raw_all_copies_out_name, raw_all_copies_out_contigs = read_fasta_v1(all_copies_out)
     all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    for name in raw_all_copies_out_name:
+        query_name = name.split(' ')[0]
+        tir_len = int(name.split('Length itr=')[1])
+        TIR_len_dict[query_name] = tir_len
+
     # 解析itrsearch log文件，提取比对偏移的序列名称
     fake_tirs = get_fake_tirs(all_copies_log)
     #过滤掉可能是fake tir的序列
     for name in all_copies_out_name:
         if name in fake_tirs:
             del all_copies_out_contigs[name]
-
     all_copies_out_contigs.update(short_itr_contigs)
-    return all_copies_out_contigs
+
+    #为了减少后续计算量，我们在这里就进行分组，每一组选择TIR和TSD最长的序列
+    # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
+    # 对all_copies_out_contigs按照query_name进行分组
+    # group_copies_contigs -> {query_name: {name: seq}}
+    group_copies_contigs = {}
+    for cur_name in all_copies_out_contigs.keys():
+        query_name = cur_name.split('-C_')[0]
+        if not group_copies_contigs.__contains__(query_name):
+            group_copies_contigs[query_name] = {}
+        cur_copies_out_contigs = group_copies_contigs[query_name]
+        cur_copies_out_contigs[cur_name] = all_copies_out_contigs[cur_name]
+
+    filter_dup_itr_contigs = {}
+    for query_name in group_copies_contigs.keys():
+        cur_copies_out_contigs = group_copies_contigs[query_name]
+        # 选择TIR长度(权重40%)和TSD(权重60%)综合最优的那一条
+        cur_contigs = filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict)
+        filter_dup_itr_contigs.update(cur_contigs)
+
+    return filter_dup_itr_contigs
 
 def get_fake_tirs(itrsearch_log):
     fake_tirs = set()
