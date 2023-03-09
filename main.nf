@@ -108,7 +108,6 @@ plant = "${params.plant}"
 classified = "${params.classified}"
 debug = "${params.debug}"
 miu = "${params.miu}"
-
 //parameters of Evaluation
 
 
@@ -152,10 +151,8 @@ process splitGenome {
     cp ${ref} ${tmp_output_dir}
 
     python3 ${ch_module}/split_genome_chunks.py \
-     -g ${tmp_output_dir}/${ref_name} --tmp_output_dir ${tmp_output_dir} --chrom_seg_length ${chrom_seg_length} \
+     -g ${tmp_output_dir}/${ref_name} --tmp_output_dir ./ --chrom_seg_length ${chrom_seg_length} \
      --chunk_size ${chunk_size}
-
-    cp ${tmp_output_dir}/${ref_name}.cut*.fa ./
     """
 }
 
@@ -168,7 +165,7 @@ process coarseBoundary {
     path cut_ref
 
     output:
-    path "longest_repeats_*.flanked.fa"
+    path "longest_repeats_${ref_index}.flanked.fa"
 
     script:
     cores = task.cpus
@@ -176,14 +173,11 @@ process coarseBoundary {
     (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/coarse_boundary.py \
-     -g ${cut_ref} --tmp_output_dir ${tmp_output_dir} \
+     -g ${cut_ref} --tmp_output_dir ./ \
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
      --ref_index ${ref_index} -r ${out_genome}
-
-    ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
-    cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
     """
 }
 
@@ -198,7 +192,7 @@ process TIR {
 
 
     output:
-    path "confident_tir_*.fa"
+    path "confident_tir_${ref_index}.fa"
 
     script:
     cores = task.cpus
@@ -208,11 +202,9 @@ process TIR {
     python3 ${ch_module}/judge_TIR_transposons.py \
      -g ${cut_ref} --seqs ${lrf} \
      -t ${cores} --TRsearch_dir ${tools_module}  \
-     --tmp_output_dir ${tmp_output_dir} \
+     --tmp_output_dir ./ \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
      --ref_index ${ref_index} --plant ${plant}
-
-    cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
     """
 }
 
@@ -227,7 +219,7 @@ process Helitron {
 
 
     output:
-    path "confident_helitron_*.fa"
+    path "confident_helitron_${ref_index}.fa"
 
     script:
     cores = task.cpus
@@ -236,11 +228,9 @@ process Helitron {
     """
     python3 ${ch_module}/judge_Helitron_transposons.py \
      -g ${cut_ref} --seqs ${lrf} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+     -t ${cores} --tmp_output_dir ./ \
      --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
      --ref_index ${ref_index}
-
-    cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
     """
 }
 
@@ -255,7 +245,7 @@ process OtherTE {
 
 
     output:
-    path "confident_other_*.fa"
+    path "confident_other_${ref_index}.fa"
 
     script:
     cores = task.cpus
@@ -264,11 +254,9 @@ process OtherTE {
     """
     python3 ${ch_module}/judge_Other_transposons.py \
      --seqs ${lrf} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+     -t ${cores} --tmp_output_dir ./ \
      --query_coverage 0.8 --subject_coverage 0 \
      --ref_index ${ref_index} --library_dir ${lib_module}
-
-    cp ${tmp_output_dir}/confident_other_${ref_index}.fa ./
     """
 }
 
@@ -288,10 +276,8 @@ process LTR {
     """
     python3 ${ch_module}/judge_LTR_transposons.py \
      -g ${ref} --ltrfinder_home ${ch_ltrfinder} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+     -t ${cores} --tmp_output_dir ./ \
      --recover 0 --miu ${miu}
-
-    cp ${tmp_output_dir}/confident_ltr_cut.fa ./
     """
 }
 
@@ -320,11 +306,9 @@ process UnwrapNested {
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_other ${other} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+     -t ${cores} --tmp_output_dir ./ \
      --global_flanking_filter ${global_flanking_filter} \
      --remove_nested ${remove_nested} --test_home ${ch_module}
-
-    cp ${tmp_output_dir}/confident_TE.fa ./
     """
 }
 
@@ -338,7 +322,7 @@ process BuildLib {
     path other
 
     output:
-    path "confident_TE.cons.fa.classified"
+    path "confident_TE.cons.fa"
 
 
     script:
@@ -351,11 +335,50 @@ process BuildLib {
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_other ${other} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+     -t ${cores} --tmp_output_dir ./
+    """
+}
+
+process ClassifyLib {
+    label 'process_high'
+
+    input:
+    path lib
+
+    output:
+    path "${lib}.classified"
+
+
+    script:
+    cores = task.cpus
+    ref_name = file(out_genome).getName()
+    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
+    """
+    python3 ${ch_module}/get_classified_lib.py \
+     --confident_TE_consensus ${lib} \
+     -t ${cores} --tmp_output_dir ./ \
      --classified ${classified} --TEClass_home ${ch_classification} \
      --debug ${debug} --ref_name ${filePrefix}
+    """
+}
 
-    cp ${tmp_output_dir}/confident_TE.cons.fa* ./
+process CleanLib {
+    label 'process_low'
+
+    input:
+    path lib
+
+    output:
+    stdout
+
+
+    script:
+    ref_name = file(out_genome).getName()
+    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
+    """
+    python3 ${ch_module}/clean_lib.py \
+     --tmp_output_dir ${tmp_output_dir} \
+     --debug ${debug} --ref_name ${filePrefix}
     """
 }
 
@@ -370,7 +393,7 @@ process BM_RM2 {
     path rm2_script
 
     output:
-    path "confident_TE.cons.fa.classified.out"
+    path "${TE}.out"
     path "res.log"
 
 
@@ -379,9 +402,7 @@ process BM_RM2 {
     """
     RepeatMasker -lib ${curatedLib} -nolow -pa ${cores} ${TE}
     mkdir rm2_test
-    cd rm2_test && rm -rf * && sh ../${rm2_script} ../${TE}.out >> ${tmp_output_dir}/res.log
-    cd ..
-    cp ${tmp_output_dir}/res.log ./
+    cd rm2_test && rm -rf * && sh ../${rm2_script} ../${TE}.out > ../res.log
     """
 }
 
@@ -406,16 +427,12 @@ process BM_EDTA {
     cores = task.cpus
     """
     RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${curatedLib} -cutoff 225 ${reference}
-    mv ${reference}.out ${tmp_output_dir}/repbase.out
+    mv ${reference}.out repbase.out
 
     RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${TE} -cutoff 225 ${reference}
-    mv ${reference}.out ${tmp_output_dir}/HiTE.out
+    mv ${reference}.out HiTE.out
 
-    perl ${EDTA_home}/lib-test.pl -genome ${reference} -std ${tmp_output_dir}/repbase.out -tst ${tmp_output_dir}/HiTE.out -cat Total
-
-    cp ${tmp_output_dir}/repbase.out ./
-    cp ${tmp_output_dir}/HiTE.out ./
-    cp HiTE.out.* ${tmp_output_dir}/
+    perl ${EDTA_home}/lib-test.pl -genome ${reference} -std repbase.out -tst HiTE.out -cat Total
     """
 }
 
@@ -488,6 +505,15 @@ workflow {
             //Build TE library
             ch_lib = BuildLib(ch_ltrs, ch_tirs, ch_h, ch_o)
             //test(ch_lib) | view { "$it" }
+
+            //Classify TE library
+            ch_lib.splitFasta(by: params.classify_chunk_size, file:true).set { ch_fasta }
+            ch_classified_lib = ClassifyLib(ch_fasta)
+            ch_final = ch_classified_lib.collectFile(name: "${params.outdir}/confident_TE.cons.fa.classified")
+            //test(ch_lib) | view { "$it" }
+
+            //Clean TE library
+            CleanLib(ch_final)
     }
         
     
@@ -496,7 +522,7 @@ workflow {
             exit 1, "--BM_RM2 is set as true, but there is no --species specified! Choose from dmel, rice, cb, and zebrafish."
         
         if (params.skip_HiTE)
-            Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_lib }
+            Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_final }
 
         if (params.species == "dmel"){
             lib_path = "${lib_module}/drorep.ref"
@@ -512,7 +538,8 @@ workflow {
 
         Channel.fromPath("${lib_path}", type: 'any', checkIfExists: true).set{ curatedLib }
         Channel.fromPath("${projectDir}/bin/get_family_summary_paper.sh", type: 'any', checkIfExists: true).set{ rm2_script }
-        BM_RM2(ch_lib, curatedLib, rm2_script)
+        (ch_out, ch_log) = BM_RM2(ch_final, curatedLib, rm2_script)
+        ch_log.collectFile(name: "${params.outdir}/BM_RM2.log")
     }
 
     if (params.BM_EDTA){
@@ -523,7 +550,7 @@ workflow {
             exit 1, "--BM_EDTA is set as true, but there is no --EDTA_home specified!"
 
         if (params.skip_HiTE)
-            Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_lib }
+            Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_final }
 
         if (params.species == "dmel"){
             lib_path = "${lib_module}/drorep.ref"
@@ -538,7 +565,8 @@ workflow {
         }
 
         Channel.fromPath("${lib_path}", type: 'any', checkIfExists: true).set{ curatedLib }
-        BM_EDTA(ch_lib, curatedLib, out_genome_rename, params.EDTA_home)
+        (ch_rep_out,ch_hi_out,ch_report) = BM_EDTA(ch_final, curatedLib, out_genome_rename, params.EDTA_home)
+        ch_report.collectFile(name: "${params.outdir}/BM_EDTA.log")
     }
        
 

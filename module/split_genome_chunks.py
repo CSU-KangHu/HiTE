@@ -29,6 +29,11 @@ if __name__ == '__main__':
     chrom_seg_length = int(args.chrom_seg_length)
     chunk_size = float(args.chunk_size)
 
+    tmp_output_dir = os.path.abspath(tmp_output_dir) 
+
+    (ref_dir, ref_filename) = os.path.split(reference)
+    (ref_name, ref_extension) = os.path.splitext(ref_filename)
+
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
     log.logger.info('Start Splitting Reference into chunks')
@@ -53,17 +58,18 @@ if __name__ == '__main__':
             cur_base_num += len(line)
             if cur_base_num >= chunk_size * 1024 * 1024:
                 # store references
-                cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
+                cur_ref_path = tmp_output_dir + '/' +  ref_filename + '.cut' + str(ref_index) + '.fa'
                 store_fasta(cur_ref_contigs, cur_ref_path)
                 cut_references.append(cur_ref_path)
                 cur_ref_contigs = {}
                 cur_base_num = 0
                 ref_index += 1
         if len(cur_ref_contigs) > 0:
-            cur_ref_path = reference + '.cut' + str(ref_index) + '.fa'
+            cur_ref_path = cur_ref_path = tmp_output_dir + '/' +  ref_filename + '.cut' + str(ref_index) + '.fa'
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
     f_r.close()
+    print(cut_references)
 
 
 

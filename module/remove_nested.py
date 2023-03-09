@@ -82,6 +82,8 @@ if __name__ == '__main__':
     remove_nested = int(args.remove_nested)
     test_home = args.test_home
 
+    tmp_output_dir = os.path.abspath(tmp_output_dir) 
+
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
     # 1.2 confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列

@@ -1,3 +1,4 @@
+#-- coding: UTF-8 --
 import argparse
 import codecs
 import datetime
@@ -244,7 +245,7 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
             f_save.write('>test\nTTTTTTTTTTTTTTTTTTTTTT\n')
         f_save.close()
         homology_command = 'cd '+ cur_tmp_dir + ' && RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
-        #print('homology_command:%s' % homology_command)
+        print('homology_command:%s' % homology_command)
         #os.system(homology_command)
         os.system(homology_command + ' > /dev/null 2>&1')
         endtime = time.time()
@@ -386,10 +387,10 @@ if __name__ == '__main__':
     consensus_contignames, consensus_contigs = read_fasta(consensus_path)
     data_partitions = PET(consensus_contigs.items(), partitions_num)
 
-    # Step 2: use thread pool to execute task parallelization
-    # delete ab-blast db file
-    db_path = os.getcwd() + '/third-party/REPCLASS-master/dependency/ab-blast/ab-blast-20200317-linux-x64/db'
-    os.system('rm -f ' + db_path + '/*')
+    # # Step 2: use thread pool to execute task parallelization
+    # # delete ab-blast db file
+    # db_path = os.getcwd() + '/third-party/REPCLASS-master/dependency/ab-blast/ab-blast-20200317-linux-x64/db'
+    # os.system('rm -f ' + db_path + '/*')
 
     # create temp directory
     i = datetime.datetime.now()

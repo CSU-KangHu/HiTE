@@ -43,7 +43,8 @@ if __name__ == '__main__':
     tandem_region_cutoff = float(args.tandem_region_cutoff)
     reference = args.r
     tmp_output_dir = args.tmp_output_dir
-
+    
+    tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 

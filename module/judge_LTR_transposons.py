@@ -38,6 +38,8 @@ if __name__ == '__main__':
     recover = args.recover
     miu = args.miu
 
+    tmp_output_dir = os.path.abspath(tmp_output_dir) 
+
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
     is_recover = False

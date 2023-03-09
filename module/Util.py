@@ -525,7 +525,7 @@ def run_LTR_retriever(reference, tmp_output_dir, threads, miu, log):
     starttime = time.time()
     log.logger.debug('start LTR_retriever detection...')
     LTR_retriever_command = 'cd ' + tmp_output_dir + ' && LTR_retriever -genome ' + reference \
-                            + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads) + '-u ' + str(miu)
+                            + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads) + ' -u ' + str(miu)
     os.system(LTR_retriever_command)
     endtime = time.time()
     dtime = endtime - starttime
@@ -5832,7 +5832,7 @@ def judge_flank_align(flanking_region_distance, output, flanking_len, flank_alig
 def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log):
     log.logger.info('------generating candidate ' + TE_type + ' copies')
     starttime = time.time()
-    tir_tsd_temp_dir = tmp_output_dir + '/' + TE_type + '_blast'
+    tir_tsd_temp_dir = tmp_output_dir + '/' + TE_type + '_blast_'+str(ref_index)
     all_copies = multi_process_align_and_get_copies(candidate_sequence_path, reference, tir_tsd_temp_dir, TE_type, threads)
 
     # multi_process_align(candidate_sequence_path, reference, blastnResults_path, blast_program_dir, tir_tsd_temp_dir, threads)
@@ -5870,17 +5870,17 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
             copy_list = new_all_copies[query_name]
             copy_list.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd))
 
-    # store confident_copies for testing
-    confident_copies_file = tmp_output_dir + '/'+TE_type+'_copies.info'
-    with open(confident_copies_file, 'w') as f_save:
-        f_save.write('# all copies have been flanked ' + str(flanking_len) +' bp at both ends\n')
-        for orig_query_name in new_all_copies.keys():
-            f_save.write(orig_query_name + '\n')
-            for copy in new_all_copies[orig_query_name]:
-                f_save.write('\tfrom:' + str(copy[0]) + '_' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(
-                    copy[2] - copy[1] + 1) + '\n')
-                f_save.write(copy[4] + '\n')
-    f_save.close()
+    # # store confident_copies for testing
+    # confident_copies_file = tmp_output_dir + '/'+TE_type+'_copies.info'
+    # with open(confident_copies_file, 'w') as f_save:
+    #     f_save.write('# all copies have been flanked ' + str(flanking_len) +' bp at both ends\n')
+    #     for orig_query_name in new_all_copies.keys():
+    #         f_save.write(orig_query_name + '\n')
+    #         for copy in new_all_copies[orig_query_name]:
+    #             f_save.write('\tfrom:' + str(copy[0]) + '_' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(
+    #                 copy[2] - copy[1] + 1) + '\n')
+    #             f_save.write(copy[4] + '\n')
+    # f_save.close()
 
     endtime = time.time()
     dtime = endtime - starttime

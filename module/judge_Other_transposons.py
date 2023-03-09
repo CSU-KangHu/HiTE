@@ -107,6 +107,8 @@ if __name__ == '__main__':
     ref_index = args.ref_index
     library_dir = args.library_dir
 
+    tmp_output_dir = os.path.abspath(tmp_output_dir) 
+
     # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。
     # 想要根据结构特征去识别有困难，我们根据同源性搜索的方法去识别。
 

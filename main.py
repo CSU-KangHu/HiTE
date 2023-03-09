@@ -424,21 +424,45 @@ if __name__ == '__main__':
 
     starttime = time.time()
     log.logger.info('Start step3: generate non-redundant library')
-    TEClass_home = os.getcwd() + '/classification'
     generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                            + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                            + ' --confident_tir ' + confident_tir_path \
                            + ' --confident_helitron ' + confident_helitron_path \
                            + ' --confident_other ' + confident_other_path \
-                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --classified ' + str(classified) + ' --TEClass_home ' + str(TEClass_home) \
-                           + ' --debug ' + str(debug) \
-                           + ' --ref_name ' + str(ref_name)
+                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir
 
     os.system(generate_lib_command)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of step3: %.8s s" % (dtime))
+
+    confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
+    starttime = time.time()
+    log.logger.info('Start step4: generate classified library')
+    TEClass_home = os.getcwd() + '/classification'
+    classify_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_classified_lib.py' \
+                           + ' --confident_TE_consensus ' + confident_TE_consensus \
+                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --classified ' + str(classified) + ' --TEClass_home ' + str(TEClass_home) \
+                           + ' --debug ' + str(debug) \
+                           + ' --ref_name ' + str(ref_name)
+
+    os.system(classify_lib_command)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of step4: %.8s s" % (dtime))
+
+    starttime = time.time()
+    log.logger.info('Start step5: clean library')
+    clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
+                           + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --debug ' + str(debug) \
+                           + ' --ref_name ' + str(ref_name)
+
+    os.system(clean_lib_command)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of step5: %.8s s" % (dtime))
 
 
     pipeline_endtime = time.time()
