@@ -273,11 +273,15 @@ process LTR {
 
     script:
     cores = task.cpus
+    ref_name = ref.getName()
+    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
     """
     python3 ${ch_module}/judge_LTR_transposons.py \
      -g ${ref} --ltrfinder_home ${ch_ltrfinder} \
      -t ${cores} --tmp_output_dir ./ \
      --recover 0 --miu ${miu}
+
+    cp ${filePrefix}.rename.fa ${tmp_output_dir}/
     """
 }
 
