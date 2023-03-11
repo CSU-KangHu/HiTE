@@ -1372,8 +1372,10 @@ if __name__ == '__main__':
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
 
+    #分析
+
     #分组散点图
-    draw_stripplot()
+    #draw_stripplot()
     
     #generate_insertion_time()
             

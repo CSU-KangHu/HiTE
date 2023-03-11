@@ -149,10 +149,10 @@ process splitGenome {
     ref_name = ref.getName()
     """
     cp ${ref} ${tmp_output_dir}
-
     python3 ${ch_module}/split_genome_chunks.py \
-     -g ${tmp_output_dir}/${ref_name} --tmp_output_dir ./ --chrom_seg_length ${chrom_seg_length} \
+     -g ${tmp_output_dir}/${ref_name} --tmp_output_dir ${tmp_output_dir} --chrom_seg_length ${chrom_seg_length} \
      --chunk_size ${chunk_size}
+    cp ${tmp_output_dir}/${ref_name}.cut*.fa ./
     """
 }
 
@@ -165,7 +165,7 @@ process coarseBoundary {
     path cut_ref
 
     output:
-    path "longest_repeats_${ref_index}.flanked.fa"
+    path "longest_repeats_*.flanked.fa"
 
     script:
     cores = task.cpus
@@ -173,11 +173,14 @@ process coarseBoundary {
     (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/coarse_boundary.py \
-     -g ${cut_ref} --tmp_output_dir ./ \
+     -g ${cut_ref} --tmp_output_dir ${tmp_output_dir} \
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
      --ref_index ${ref_index} -r ${out_genome}
+
+    ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
+    cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
     """
 }
 
@@ -192,7 +195,7 @@ process TIR {
 
 
     output:
-    path "confident_tir_${ref_index}.fa"
+    path "confident_tir_*.fa"
 
     script:
     cores = task.cpus
@@ -202,9 +205,11 @@ process TIR {
     python3 ${ch_module}/judge_TIR_transposons.py \
      -g ${cut_ref} --seqs ${lrf} \
      -t ${cores} --TRsearch_dir ${tools_module}  \
-     --tmp_output_dir ./ \
+     --tmp_output_dir ${tmp_output_dir} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
      --ref_index ${ref_index} --plant ${plant}
+
+    cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
     """
 }
 
@@ -219,7 +224,7 @@ process Helitron {
 
 
     output:
-    path "confident_helitron_${ref_index}.fa"
+    path "confident_helitron_*.fa"
 
     script:
     cores = task.cpus
@@ -228,9 +233,11 @@ process Helitron {
     """
     python3 ${ch_module}/judge_Helitron_transposons.py \
      -g ${cut_ref} --seqs ${lrf} \
-     -t ${cores} --tmp_output_dir ./ \
+     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
      --ref_index ${ref_index}
+
+    cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
     """
 }
 
@@ -245,7 +252,7 @@ process OtherTE {
 
 
     output:
-    path "confident_other_${ref_index}.fa"
+    path "confident_other_*.fa"
 
     script:
     cores = task.cpus
@@ -254,9 +261,11 @@ process OtherTE {
     """
     python3 ${ch_module}/judge_Other_transposons.py \
      --seqs ${lrf} \
-     -t ${cores} --tmp_output_dir ./ \
+     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --query_coverage 0.8 --subject_coverage 0 \
      --ref_index ${ref_index} --library_dir ${lib_module}
+
+    cp ${tmp_output_dir}/confident_other_${ref_index}.fa ./
     """
 }
 
@@ -273,15 +282,13 @@ process LTR {
 
     script:
     cores = task.cpus
-    ref_name = ref.getName()
-    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
     """
     python3 ${ch_module}/judge_LTR_transposons.py \
      -g ${ref} --ltrfinder_home ${ch_ltrfinder} \
-     -t ${cores} --tmp_output_dir ./ \
+     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --recover 0 --miu ${miu}
 
-    cp ${filePrefix}.rename.fa ${tmp_output_dir}/
+    cp ${tmp_output_dir}/confident_ltr_cut.fa ./
     """
 }
 
@@ -310,9 +317,11 @@ process UnwrapNested {
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_other ${other} \
-     -t ${cores} --tmp_output_dir ./ \
+     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --global_flanking_filter ${global_flanking_filter} \
      --remove_nested ${remove_nested} --test_home ${ch_module}
+
+    cp ${tmp_output_dir}/confident_TE.fa ./
     """
 }
 
@@ -339,7 +348,9 @@ process BuildLib {
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_other ${other} \
-     -t ${cores} --tmp_output_dir ./
+     -t ${cores} --tmp_output_dir ${tmp_output_dir}
+
+    cp ${tmp_output_dir}/confident_TE.cons.fa ./
     """
 }
 
@@ -355,14 +366,14 @@ process ClassifyLib {
 
     script:
     cores = task.cpus
-    ref_name = file(out_genome).getName()
-    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
     """
     python3 ${ch_module}/get_classified_lib.py \
      --confident_TE_consensus ${lib} \
-     -t ${cores} --tmp_output_dir ./ \
+     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --classified ${classified} --TEClass_home ${ch_classification} \
-     --debug ${debug} --ref_name ${filePrefix}
+     --debug ${debug}
+
+    cp ${tmp_output_dir}/confident_TE.cons.fa.classified ./
     """
 }
 

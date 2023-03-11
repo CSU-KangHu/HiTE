@@ -25,18 +25,14 @@ if __name__ == '__main__':
                         help='e.g., ')
     parser.add_argument('--debug', metavar='debug',
                         help='e.g., 1')
-    parser.add_argument('--ref_name', metavar='ref_name',
-                        help='e.g., ')
 
     args = parser.parse_args()
-
     threads = int(args.t)
     confident_TE_consensus = args.confident_TE_consensus
     tmp_output_dir = args.tmp_output_dir
     classified = args.classified
     TEClass_home = args.TEClass_home
     debug = int(args.debug)
-    ref_name = args.ref_name
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 

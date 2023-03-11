@@ -2753,7 +2753,7 @@ def get_score_v2(confident_TIR):
             tsd_len_normal = 0
         else:
             tsd_len_normal = calculate_max_min(info[1], max_tsd_len, min_tsd_len)
-        score = 0.4*TE_tir_len+0.6*tsd_len_normal
+        score = 0.3*TE_tir_len+0.7*tsd_len_normal
         if score > max_score:
             max_score = score
             max_info = info
@@ -2887,7 +2887,7 @@ def filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum):
     return res_contigs
 
 def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
-    # 综合考虑TSD TIR len等多个因素,占比(6/4)
+    # 综合考虑TSD TIR len等多个因素,占比(7/3)
     res_contigs = {}
     filtered_contigs = {}
     for name in cur_copies_out_contigs.keys():
@@ -5317,7 +5317,7 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
     filter_dup_itr_contigs = {}
     for query_name in group_copies_contigs.keys():
         cur_copies_out_contigs = group_copies_contigs[query_name]
-        # 选择TIR长度(权重40%)和TSD(权重60%)综合最优的那一条
+        # 选择TIR长度(权重30%)和TSD(权重70%)综合最优的那一条
         cur_contigs = filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict)
         filter_dup_itr_contigs.update(cur_contigs)
 

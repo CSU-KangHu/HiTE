@@ -444,8 +444,7 @@ if __name__ == '__main__':
                            + ' --confident_TE_consensus ' + confident_TE_consensus \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --classified ' + str(classified) + ' --TEClass_home ' + str(TEClass_home) \
-                           + ' --debug ' + str(debug) \
-                           + ' --ref_name ' + str(ref_name)
+                           + ' --debug ' + str(debug)
 
     os.system(classify_lib_command)
     endtime = time.time()
