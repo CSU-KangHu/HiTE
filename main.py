@@ -271,15 +271,13 @@ if __name__ == '__main__':
     dtime = endtime - starttime
     log.logger.info("Running time of step0: %.8s s" % (dtime))
 
-    reg_str = ref_filename + '.cut(\d).fa$'
+    reg_str = 'genome.cut(\d).fa$'
     cut_references = []
     for filename in os.listdir(tmp_output_dir):
         if re.match(reg_str, filename) is not None:
             cut_references.append(tmp_output_dir + '/' + filename)
 
     for ref_index, cut_reference in enumerate(cut_references):
-        (cut_ref_dir, cut_ref_filename) = os.path.split(cut_reference)
-        (cut_ref_name, cut_ref_extension) = os.path.splitext(cut_ref_filename)
         log.logger.info('Round of chunk: ' + str(ref_index))
 
         longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
