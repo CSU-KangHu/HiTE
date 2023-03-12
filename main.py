@@ -453,8 +453,7 @@ if __name__ == '__main__':
     log.logger.info('Start step5: clean library')
     clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --debug ' + str(debug) \
-                           + ' --ref_name ' + str(ref_name)
+                           + ' --debug ' + str(debug)
 
     os.system(clean_lib_command)
     endtime = time.time()

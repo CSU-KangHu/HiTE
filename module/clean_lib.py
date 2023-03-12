@@ -17,14 +17,11 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
     parser.add_argument('--debug', metavar='debug',
                         help='e.g., 1')
-    parser.add_argument('--ref_name', metavar='ref_name',
-                        help='e.g., ')
 
     args = parser.parse_args()
 
     tmp_output_dir = args.tmp_output_dir
     debug = int(args.debug)
-    ref_name = args.ref_name
 
     log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
@@ -32,10 +29,10 @@ if __name__ == '__main__':
     # remove temp files and directories
     if debug == 0:
         keep_files_temp = []
-        keep_files = [ref_name + '\.rename\.fa', 
-                    ref_name + '\.rename\.fa\.pass\.list', 
+        keep_files = ['genome\.rename\.fa', 
+                    'genome\.rename\.fa\.pass\.list', 
                     '.*\.scn',
-                    ref_name + '\.rename\.fa\.LTRlib\.fa', 
+                    'genome\.rename\.fa\.LTRlib\.fa', 
                     'confident_TE\.cons\.fa', 
                     'confident_ltr_cut\.fa',
                     'confident_TE\.cons\.fa\.classified', 

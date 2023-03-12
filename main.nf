@@ -141,7 +141,7 @@ process splitGenome {
     path ref
 
     output:
-    path "${ref}.cut*.fa"
+    path "genome.cut*.fa"
     
 
     script:
@@ -152,7 +152,7 @@ process splitGenome {
     python3 ${ch_module}/split_genome_chunks.py \
      -g ${tmp_output_dir}/${ref_name} --tmp_output_dir ${tmp_output_dir} --chrom_seg_length ${chrom_seg_length} \
      --chunk_size ${chunk_size}
-    cp ${tmp_output_dir}/${ref_name}.cut*.fa ./
+    cp ${tmp_output_dir}/genome.cut*.fa ./
     """
 }
 
@@ -169,8 +169,7 @@ process coarseBoundary {
 
     script:
     cores = task.cpus
-    ref_name = file(out_genome).getName()
-    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    (full, ref_index) = (cut_ref =~ /genome.cut(\d+)\.fa/)[0]
     """
     python3 ${ch_module}/coarse_boundary.py \
      -g ${cut_ref} --tmp_output_dir ${tmp_output_dir} \
@@ -202,8 +201,7 @@ process TIR {
 
     script:
     cores = task.cpus
-    ref_name = file(out_genome).getName()
-    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    (full, ref_index) = (cut_ref =~ /genome.cut(\d+)\.fa/)[0]
 
     script:
     """
@@ -233,8 +231,7 @@ process Helitron {
 
     script:
     cores = task.cpus
-    ref_name = file(out_genome).getName()
-    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    (full, ref_index) = (cut_ref =~ /genome.cut(\d+)\.fa/)[0]
 
     script:
     """
@@ -260,7 +257,6 @@ process OtherTE {
 
     script:
     cores = task.cpus
-    ref_name = file(out_genome).getName()
     (full, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
     """
     python3 ${ch_module}/judge_Other_transposons.py \
@@ -344,8 +340,6 @@ process BuildLib {
 
     script:
     cores = task.cpus
-    ref_name = file(out_genome).getName()
-    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
     """
     python3 ${ch_module}/get_nonRedundant_lib.py \
      --confident_ltr_cut ${ltr} \
@@ -390,12 +384,10 @@ process CleanLib {
 
 
     script:
-    ref_name = file(out_genome).getName()
-    filePrefix = ref_name.substring(0, ref_name.lastIndexOf('.'))
     """
     python3 ${ch_module}/clean_lib.py \
      --tmp_output_dir ${tmp_output_dir} \
-     --debug ${debug} --ref_name ${filePrefix}
+     --debug ${debug}
     """
 }
 

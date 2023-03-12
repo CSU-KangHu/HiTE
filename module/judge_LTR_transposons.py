@@ -48,10 +48,8 @@ if __name__ == '__main__':
         is_recover = True
 
     # 1.重命名reference文件
-    (ref_dir, ref_filename) = os.path.split(reference)
-    (ref_name, ref_extension) = os.path.splitext(ref_filename)
 
-    ref_rename_path = tmp_output_dir + '/' + ref_name + '.rename.fa'
+    ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     rename_reference(reference, ref_rename_path)
 
     resut_file = tmp_output_dir + '/genome_all.fa.harvest.scn'
