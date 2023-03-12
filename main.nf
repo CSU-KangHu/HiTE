@@ -193,7 +193,6 @@ process TIR {
     path cut_ref
     path lrf
 
-
     output:
     path "confident_tir_*.fa"
 
@@ -202,19 +201,22 @@ process TIR {
     ref_name = file(out_genome).getName()
     (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
-    if (ref_index == lrf_index){
-        script:
-        """
-        python3 ${ch_module}/judge_TIR_transposons.py \
-        -g ${cut_ref} --seqs ${lrf} \
-        -t ${cores} --TRsearch_dir ${tools_module}  \
-        --tmp_output_dir ${tmp_output_dir} \
-        --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-        --ref_index ${ref_index} --plant ${plant}
 
-        cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
-        """
-    }
+    when:
+    ref_index == lrf_index
+
+    script:
+    """
+    python3 ${ch_module}/judge_TIR_transposons.py \
+    -g ${cut_ref} --seqs ${lrf} \
+    -t ${cores} --TRsearch_dir ${tools_module}  \
+    --tmp_output_dir ${tmp_output_dir} \
+    --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
+    --ref_index ${ref_index} --plant ${plant}
+
+    cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
+    """
+    
 }
 
 process Helitron {
@@ -235,18 +237,20 @@ process Helitron {
     ref_name = file(out_genome).getName()
     (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
     (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
-    if (ref_index == lrf_index){
-        script:
-        """
-        python3 ${ch_module}/judge_Helitron_transposons.py \
-        -g ${cut_ref} --seqs ${lrf} \
-        -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-        --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
-        --ref_index ${ref_index}
 
-        cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
-        """
-    }
+    when:
+    ref_index == lrf_index
+
+    script:
+    """
+    python3 ${ch_module}/judge_Helitron_transposons.py \
+    -g ${cut_ref} --seqs ${lrf} \
+    -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+    --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
+    --ref_index ${ref_index}
+
+    cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
+    """
 }
 
 process OtherTE {
