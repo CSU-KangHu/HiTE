@@ -200,17 +200,21 @@ process TIR {
     script:
     cores = task.cpus
     ref_name = file(out_genome).getName()
-    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
-    """
-    python3 ${ch_module}/judge_TIR_transposons.py \
-     -g ${cut_ref} --seqs ${lrf} \
-     -t ${cores} --TRsearch_dir ${tools_module}  \
-     --tmp_output_dir ${tmp_output_dir} \
-     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} --plant ${plant}
+    (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
+    if (ref_index == lrf_index){
+        script:
+        """
+        python3 ${ch_module}/judge_TIR_transposons.py \
+        -g ${cut_ref} --seqs ${lrf} \
+        -t ${cores} --TRsearch_dir ${tools_module}  \
+        --tmp_output_dir ${tmp_output_dir} \
+        --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
+        --ref_index ${ref_index} --plant ${plant}
 
-    cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
-    """
+        cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
+        """
+    }
 }
 
 process Helitron {
@@ -229,25 +233,26 @@ process Helitron {
     script:
     cores = task.cpus
     ref_name = file(out_genome).getName()
-    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
-    """
-    python3 ${ch_module}/judge_Helitron_transposons.py \
-     -g ${cut_ref} --seqs ${lrf} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
-     --ref_index ${ref_index}
+    (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
+    if (ref_index == lrf_index){
+        script:
+        """
+        python3 ${ch_module}/judge_Helitron_transposons.py \
+        -g ${cut_ref} --seqs ${lrf} \
+        -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+        --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
+        --ref_index ${ref_index}
 
-    cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
-    """
+        cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
+        """
+    }
 }
 
 process OtherTE {
-    tag "${cut_ref}"
-
     label 'process_high'
 
     input:
-    path cut_ref
     path lrf
 
 
@@ -257,15 +262,15 @@ process OtherTE {
     script:
     cores = task.cpus
     ref_name = file(out_genome).getName()
-    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
+    (full, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
     """
     python3 ${ch_module}/judge_Other_transposons.py \
      --seqs ${lrf} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --query_coverage 0.8 --subject_coverage 0 \
-     --ref_index ${ref_index} --library_dir ${lib_module}
+     --ref_index ${lrf_index} --library_dir ${lib_module}
 
-    cp ${tmp_output_dir}/confident_other_${ref_index}.fa ./
+    cp ${tmp_output_dir}/confident_other_${lrf_index}.fa ./
     """
 }
 
@@ -372,8 +377,6 @@ process ClassifyLib {
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --classified ${classified} --TEClass_home ${ch_classification} \
      --debug ${debug}
-
-    cp ${tmp_output_dir}/confident_TE.cons.fa.classified ./
     """
 }
 
@@ -506,7 +509,7 @@ workflow {
             ch_h = Helitron(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_helitron.fa")
 
             //Other identification
-            ch_o = OtherTE(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_other.fa")
+            ch_o = OtherTE(longest_repeats).collectFile(name: "${params.outdir}/confident_other.fa")
             //test(ch_o) | view { "$it" }
             
             //LTR identification

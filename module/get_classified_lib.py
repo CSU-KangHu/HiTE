@@ -49,7 +49,7 @@ if __name__ == '__main__':
         TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                           + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
                           + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
-        log.logger.debug(TEClass_command)
+        #log.logger.debug(TEClass_command)
         os.system(TEClass_command)
 
         # 把unknown的序列放在最后

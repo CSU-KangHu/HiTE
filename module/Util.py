@@ -506,20 +506,102 @@ def store_LTR_seq_v1(ltrharvest_output, longest_repeats_path, confident_ltr_path
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
-def run_LTR_harvest(reference, tmp_output_dir, log):
+def run_LTR_harvest(reference, tmp_output_dir, threads, log):
     starttime = time.time()
     log.logger.debug('start LTR_harvest detection...')
+    cut_references = []
+
+    # 如果基因组超过了4G，将基因组分别切成1G
+    # 获取文件大小（以字节为单位）
+    file_size = os.path.getsize(reference)
+    # 将文件大小转换为GB
+    one_g = 1024 ** 3
+    file_size_gb = file_size / one_g
+    if file_size_gb > 4:
+        cur_ref_contigs = {}
+        cur_base_num = 0
+        ref_index = 0
+        (ref_dir, ref_filename) = os.path.split(reference)
+        (ref_name, ref_extension) = os.path.splitext(ref_filename)
+
+        ref_names, ref_contigs = read_fasta(reference)
+        for name in ref_names:
+            seq = ref_contigs[name]
+            cur_ref_contigs[name] = seq
+            cur_base_num += len(seq)
+            if cur_base_num >= one_g:
+                # store references
+                    cur_ref_path = tmp_output_dir + '/' +  ref_filename + '.ltr_cut' + str(ref_index) + '.fa'
+                    store_fasta(cur_ref_contigs, cur_ref_path)
+                    cut_references.append(cur_ref_path)
+                    cur_ref_contigs = {}
+                    cur_base_num = 0
+                    ref_index += 1
+        if len(cur_ref_contigs) > 0:
+                cur_ref_path = cur_ref_path = tmp_output_dir + '/' +  ref_filename + '.ltr_cut' + str(ref_index) + '.fa'
+                store_fasta(cur_ref_contigs, cur_ref_path)
+                cut_references.append(cur_ref_path)
+    else:
+        cut_references.append(reference)
+
+    if len(cut_references) < threads:
+        thread_size = len(cut_references)
+    else:
+        thread_size = threads
+    ex = ProcessPoolExecutor(thread_size)
+    jobs = []
+    for ref_index, cut_reference in enumerate(cut_references):
+        job = ex.submit(run_LTR_harvest_single, cut_reference, tmp_output_dir, ref_index)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    output = tmp_output_dir + '/genome_all.fa.harvest.scn'
+    if os.path.isfile(output):
+        os.remove(output) 
+    for job in as_completed(jobs):
+        cur_output = job.result()
+        os.system('cat ' + cur_output + ' >> ' + output)
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
+
+def run_LTR_harvest_single(reference, tmp_output_dir, ref_index):
+    output = tmp_output_dir + '/genome_'+str(ref_index)+'.fa.harvest.scn'
     ltrharvest_command1 = 'gt suffixerator -db ' + reference + ' -indexname ' \
                           + reference + ' -tis -suf -lcp -des -ssp -sds -dna'
     ltrharvest_command2 = 'gt ltrharvest -index ' + reference \
                           + ' -seed 20 -minlenltr 100 -maxlenltr 7000 -similar 85 -motif TGCA -motifmis 1 -mintsd 4 -maxtsd 6 ' \
-                            '-vic 10 -seqids yes > ' + tmp_output_dir + '/genome_all.fa.harvest.scn'
+                            '-vic 10  > ' + output
 
     os.system(ltrharvest_command1)
     os.system(ltrharvest_command2)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
+
+    #修改最后一列为染色体名称
+    ref_names, ref_contigs = read_fasta(reference)
+    new_lines = []
+    with open(output, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            else:
+                line = line.replace('\n', '')
+                parts = line.split('  ')
+                new_line = ''
+                for i, p in enumerate(parts):
+                    if i == len(parts)-1:
+                        ref_index = int(p)
+                        p = ref_names[ref_index]
+                    else:
+                        p += '  '
+                    new_line += p
+                new_lines.append(new_line)
+    f_r.close()
+    with open(output, 'w') as f_save:
+        for line in new_lines:
+            f_save.write(line+'\n')
+    f_save.close
+    return output
 
 def run_LTR_retriever(reference, tmp_output_dir, threads, miu, log):
     starttime = time.time()

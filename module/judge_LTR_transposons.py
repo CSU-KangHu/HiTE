@@ -54,16 +54,10 @@ if __name__ == '__main__':
     ref_rename_path = tmp_output_dir + '/' + ref_name + '.rename.fa'
     rename_reference(reference, ref_rename_path)
 
-    backjob = None
     resut_file = tmp_output_dir + '/genome_all.fa.harvest.scn'
     if not is_recover or not file_exist(resut_file):
         log.logger.info('Start step2.1: Running LTR_harvest')
-        # -------------------------------Stage01: this stage is used to generate kmer coverage repeats-------------------------------
-        # --------------------------------------------------------------------------------------
-        # run LTRharvest background job
-        backjob = multiprocessing.Process(target=run_LTR_harvest,
-                                          args=(ref_rename_path, tmp_output_dir, log,))
-        backjob.start()
+        run_LTR_harvest(ref_rename_path, tmp_output_dir, threads, log)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
@@ -85,8 +79,6 @@ if __name__ == '__main__':
         log.logger.info(resut_file + ' exists, skip...')
 
     # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever
-    if backjob is not None:
-        backjob.join()
     ltrharvest_output = tmp_output_dir + '/genome_all.fa.harvest.scn'
     ltrfinder_output = ref_rename_path + '.finder.combine.scn'
     ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'

@@ -245,7 +245,7 @@ def run_classification(cur_consensus_path, genome_path, cur_sample_name, cur_tmp
             f_save.write('>test\nTTTTTTTTTTTTTTTTTTTTTT\n')
         f_save.close()
         homology_command = 'cd '+ cur_tmp_dir + ' && RepeatClassifier -pa 1 -consensi ' + cur_consensus_path
-        print('homology_command:%s' % homology_command)
+        #print('homology_command:%s' % homology_command)
         #os.system(homology_command)
         os.system(homology_command + ' > /dev/null 2>&1')
         endtime = time.time()
