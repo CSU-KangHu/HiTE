@@ -195,9 +195,6 @@ process TIR {
 
     input:
     tuple path(cut_ref), path(lrf)
-    //tuple path(cut_ref), path(lrf)
-    //path cut_ref
-    //path lrf
 
     output:
     path "confident_tir_*.fa"
@@ -206,9 +203,7 @@ process TIR {
     script:
     cores = task.cpus
     ref_name = file(out_genome).getName()
-    println ref_name, cut_ref
-    (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
-    // (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
+    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
 
     script:
     """
@@ -230,8 +225,7 @@ process Helitron {
     label 'process_high'
 
     input:
-    path cut_ref
-    path lrf
+    tuple path(cut_ref), path(lrf)
 
 
     output:
@@ -240,11 +234,7 @@ process Helitron {
     script:
     cores = task.cpus
     ref_name = file(out_genome).getName()
-    (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
-    (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
-
-    when:
-    ref_index == lrf_index
+    (full, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
 
     script:
     """
@@ -521,7 +511,7 @@ workflow {
             ch_tirs = TIR(merged_channel).collectFile(name: "${params.outdir}/confident_tir.fa")
 
             //Helitron identification
-            ch_h = Helitron(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_helitron.fa")
+            ch_h = Helitron(merged_channel).collectFile(name: "${params.outdir}/confident_helitron.fa")
 
             //Other identification
             ch_o = OtherTE(longest_repeats).collectFile(name: "${params.outdir}/confident_other.fa")
