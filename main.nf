@@ -184,26 +184,31 @@ process coarseBoundary {
     """
 }
 
+def groupTuple = {
+    input_ch.collectFileGroups { file -> file.baseName.replaceAll("[^\\d]", "") }
+}
+
 process TIR {
     tag "${cut_ref}"
 
     label 'process_high'
 
     input:
-    path cut_ref
-    path lrf
+    tuple path(cut_ref), path(lrf)
+    //tuple path(cut_ref), path(lrf)
+    //path cut_ref
+    //path lrf
 
     output:
     path "confident_tir_*.fa"
 
+
     script:
     cores = task.cpus
     ref_name = file(out_genome).getName()
+    println ref_name, cut_ref
     (full1, ref_index) = (cut_ref =~ /${ref_name}.cut(\d+)\.fa/)[0]
-    (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
-
-    when:
-    ref_index == lrf_index
+    // (full2, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
 
     script:
     """
@@ -503,11 +508,17 @@ workflow {
             cut_genomes = splitGenome(ch_g)
             ch_cut_g = cut_genomes.flatten()
 
-            //coarse-grained Boundary identification
+            // coarse-grained Boundary identification
             longest_repeats = coarseBoundary(ch_cut_g)
 
+            // merge files with the same index 
+            ch_cut_g_map = ch_cut_g.map {file -> tuple(file.baseName.replaceAll("[^\\d]", ""), file)}
+            longest_repeats_map = longest_repeats.map {file -> tuple(file.baseName.replaceAll("[^\\d]", ""), file)}
+            merged_channel = ch_cut_g_map.combine(longest_repeats_map, by: 0).map {file -> tuple(file[1], file[2])}
+            //test(merged_channel) | view { "$it" }
+
             //TIR identification
-            ch_tirs = TIR(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_tir.fa")
+            ch_tirs = TIR(merged_channel).collectFile(name: "${params.outdir}/confident_tir.fa")
 
             //Helitron identification
             ch_h = Helitron(ch_cut_g, longest_repeats).collectFile(name: "${params.outdir}/confident_helitron.fa")
