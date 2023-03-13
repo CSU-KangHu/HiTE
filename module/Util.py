@@ -2994,7 +2994,8 @@ def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
     for name in filtered_contigs.keys():
         confident_TIR = filtered_contigs[name]
         highest_confident_TIR = get_score_v2(confident_TIR)
-        res_contigs[name] = highest_confident_TIR[2]
+        new_name = name + '-tir_' + str(highest_confident_TIR[0]) + '-tsd_' + str(highest_confident_TIR[1])
+        res_contigs[new_name] = highest_confident_TIR[2]
     return res_contigs
 
 def file_exist(resut_file):

@@ -1373,33 +1373,21 @@ if __name__ == '__main__':
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
 
     #分析
-    tmp_dir = '/home/hukang/HiTE/demo/test'
-    reference = tmp_dir + '/genome.rename.fa.ltr_cut0.fa'
-    output = tmp_dir + '/genome_0.fa.harvest.scn'
-     #修改最后一列为染色体名称
-    ref_names, ref_contigs = read_fasta(reference)
-    new_lines = []
-    with open(output, 'r') as f_r:
-        for line in f_r:
-            if line.startswith('#'):
-                continue
-            else:
-                line = line.replace('\n', '')
-                parts = line.split('  ')
-                new_line = ''
-                for i, p in enumerate(parts):
-                    if i == len(parts)-1:
-                        ref_index = int(p)
-                        p = ref_names[ref_index]
-                    else:
-                        p += '  '
-                    new_line += p
-                new_lines.append(new_line)
-    f_r.close()
-    with open(output, 'w') as f_save:
-        for line in new_lines:
-            f_save.write(line+'\n')
-    f_save.close
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
+    names, contigs = read_fasta(tmp_dir+'/confident_tir_0.fa')
+    new_contigs = {}
+    node_index = 0
+    for name in names:
+        if name.__contains__('-tir_'):
+            parts = name.split('-tir_')[1].split('-tsd_')
+            tir_len = parts[0]
+            tsd_len = parts[1]
+            new_name = 'N_'+str(node_index) + '-tir_'+tir_len+'-tsd_'+tsd_len
+        else:
+            new_name = 'N_'+str(node_index)
+        node_index += 1
+        new_contigs[new_name] = contigs[name]
+    store_fasta(new_contigs, tmp_dir+'/confident_tir_0.fa')
 
     #分组散点图
     #draw_stripplot()
