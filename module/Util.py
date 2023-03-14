@@ -506,7 +506,7 @@ def store_LTR_seq_v1(ltrharvest_output, longest_repeats_path, confident_ltr_path
     store_fasta(LTR_seqs, confident_ltr_cut_path)
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
-def run_LTR_harvest(reference, tmp_output_dir, threads, log):
+def run_LTR_harvest(reference, tmp_output_dir, threads, LTR_finder_parallel_Home, log):
     starttime = time.time()
     log.logger.debug('start LTR_harvest detection...')
     cut_references = []
@@ -561,6 +561,18 @@ def run_LTR_harvest(reference, tmp_output_dir, threads, log):
     for job in as_completed(jobs):
         cur_output = job.result()
         os.system('cat ' + cur_output + ' >> ' + output)
+
+    # 运行LTR_finder_parallel来获取候选的LTR序列
+    # 1.运行LTR_finder_parallel
+    ltrfinder_output = reference + '.finder.combine.scn'
+    if os.path.isfile(ltrfinder_output):
+        os.remove(ltrfinder_output) 
+    for cut_reference in cut_references:
+        LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home + '/LTR_FINDER_parallel -harvest_out -seq ' + cut_reference + ' -threads ' + str(threads)
+        log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
+        os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
+        cur_ltrfinder_output = cut_reference + '.finder.combine.scn'
+        os.system('cat ' + cur_ltrfinder_output + ' >> ' + ltrfinder_output)
 
     endtime = time.time()
     dtime = endtime - starttime
@@ -2973,23 +2985,17 @@ def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
     res_contigs = {}
     filtered_contigs = {}
     for name in cur_copies_out_contigs.keys():
-        
+        if not TIR_len_dict.__contains__(name):
+            continue
         parts = name.split('-C_')
         orig_query_name = parts[0]
         tsd = parts[1].split('-tsd_')[1].split('-')[0]
 
-        if TIR_len_dict.__contains__(name):
-            tir_len = TIR_len_dict[name]
-            if not filtered_contigs.__contains__(orig_query_name):
-                filtered_contigs[orig_query_name] = set()
-            confident_TIR = filtered_contigs[orig_query_name]
-            confident_TIR.add((tir_len, len(tsd), cur_copies_out_contigs[name]))
-        else:
-            #当前是我们定义的可靠short tir序列
-            res_contigs[orig_query_name] = cur_copies_out_contigs[name]
-            if filtered_contigs.__contains__(orig_query_name):
-                del filtered_contigs[orig_query_name]
-            break
+        tir_len = TIR_len_dict[name]
+        if not filtered_contigs.__contains__(orig_query_name):
+            filtered_contigs[orig_query_name] = set()
+        confident_TIR = filtered_contigs[orig_query_name]
+        confident_TIR.add((tir_len, len(tsd), cur_copies_out_contigs[name]))
         
     for name in filtered_contigs.keys():
         confident_TIR = filtered_contigs[name]
@@ -5303,18 +5309,18 @@ def get_short_tir_contigs(cur_itr_contigs, plant):
         if first_5bp == last_5bp:
             # hAT
             if tsd_len == 8 and len(tir_seq) < 4000:
-                # name += ' Length itr=5'
+                # name += '-tsd_' + str(tsd_len)
                 short_itr_contigs[name] = tir_seq
             # Mutator
             elif tsd_len >= 9 and tsd_len <= 11:
-                # name += ' Length itr=5'
+                # name += '-tsd_' + str(tsd_len)
                 short_itr_contigs[name] = tir_seq
             # CACTA (plant -> CACT[A/G], animal/fungi -> CCC)
             elif plant == 1 and tsd_len == 3 and (first_5bp == 'CACTA' or first_5bp == 'CACTG'):
-                # name += ' Length itr=5'
+                # name += '-tsd_' + str(tsd_len)
                 short_itr_contigs[name] = tir_seq
         elif first_3bp == last_3bp and plant == 0 and tsd_len == 2 and (first_3bp == 'CCC'):
-            # name += ' Length itr=3'
+            # name += '-tsd_' + str(tsd_len)
             short_itr_contigs[name] = tir_seq
     return short_itr_contigs
 
@@ -5342,6 +5348,7 @@ def filter_large_gap_tirs(input, output):
 def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant):
     all_copies_itr_contigs = {}
     all_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '.fa'
+    short_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '_s.fa'
     for item in cur_segments:
         query_name = item[0]
         seq = item[1]
@@ -5357,8 +5364,11 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
         cur_itr_contigs = search_confident_tir_v3(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
         all_copies_itr_contigs.update(cur_itr_contigs)
 
-    #保存短tir的序列
+    #保存短tir的序列，交由itrsearch确定TIR长度
     short_itr_contigs = get_short_tir_contigs(all_copies_itr_contigs, plant)
+    store_fasta(short_itr_contigs, short_candidate_TIRs_path)
+    short_copies_out, short_copies_log = run_itrsearch(TRsearch_dir, short_candidate_TIRs_path, tir_tsd_dir)
+    raw_short_copies_out_name, raw_short_copies_out_contigs = read_fasta_v1(short_copies_out)
 
     #剩下的序列交由itrsearch去搜索TIR结构
     for name in short_itr_contigs.keys():
@@ -5373,6 +5383,10 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
     raw_all_copies_out_name, raw_all_copies_out_contigs = read_fasta_v1(all_copies_out)
     all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
     for name in raw_all_copies_out_name:
+        query_name = name.split(' ')[0]
+        tir_len = int(name.split('Length itr=')[1])
+        TIR_len_dict[query_name] = tir_len
+    for name in raw_short_copies_out_name:
         query_name = name.split(' ')[0]
         tir_len = int(name.split('Length itr=')[1])
         TIR_len_dict[query_name] = tir_len

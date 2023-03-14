@@ -1378,13 +1378,12 @@ if __name__ == '__main__':
     new_contigs = {}
     node_index = 0
     for name in names:
-        if name.__contains__('-tir_'):
-            parts = name.split('-tir_')[1].split('-tsd_')
-            tir_len = parts[0]
-            tsd_len = parts[1]
-            new_name = 'N_'+str(node_index) + '-tir_'+tir_len+'-tsd_'+tsd_len
-        else:
-            new_name = 'N_'+str(node_index)
+        
+        parts = name.split('-tir_')[1].split('-tsd_')
+        tir_len = parts[0]
+        tsd_len = parts[1]
+        new_name = 'N_'+str(node_index) + '-tir_'+tir_len+'-tsd_'+tsd_len
+        
         node_index += 1
         new_contigs[new_name] = contigs[name]
     store_fasta(new_contigs, tmp_dir+'/confident_tir_0.fa')
