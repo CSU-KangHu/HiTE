@@ -9,8 +9,8 @@ import codecs
 import json
 import time
 
-import regex
-from fuzzysearch import find_near_matches
+#import regex
+#from fuzzysearch import find_near_matches
 
 #import numpy as np
 # from matplotlib import pyplot as plt

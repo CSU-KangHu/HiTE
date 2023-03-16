@@ -1038,7 +1038,7 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
 
             for cluster_index in clusters.keys():
                 cur_cluster = clusters[cluster_index]
-                cur_cluster.sort(key=lambda x: (x[0], x[1]))
+                cur_cluster.sort(key=lambda x: (x[2], x[3]))
 
                 cluster_longest_query_start = -1
                 cluster_longest_query_end = -1
@@ -1058,7 +1058,7 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
                     origin_frag = cur_cluster[i]
                     if visited_frag.__contains__(origin_frag):
                         continue
-                    cur_frag_len = origin_frag[1] - origin_frag[0]
+                    cur_frag_len = abs(origin_frag[1] - origin_frag[0])
                     cur_longest_query_len = cur_frag_len
                     longest_query_start = origin_frag[0]
                     longest_query_end = origin_frag[1]
@@ -1078,7 +1078,7 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
                         # extend right
                         if ext_frag[3] > longest_subject_end:
                             # judge query direction
-                            if longest_query_start < longest_query_end and ext_frag[1] < ext_frag[2]:
+                            if longest_query_start < longest_query_end and ext_frag[0] < ext_frag[1]:
                                 # +
                                 if ext_frag[1] > longest_query_end:
                                     # forward extend
