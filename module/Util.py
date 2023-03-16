@@ -571,8 +571,9 @@ def run_LTR_harvest(reference, tmp_output_dir, threads, LTR_finder_parallel_Home
         LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home + '/LTR_FINDER_parallel -harvest_out -seq ' + cut_reference + ' -threads ' + str(threads)
         log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
         os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
-        cur_ltrfinder_output = cut_reference + '.finder.combine.scn'
-        os.system('cat ' + cur_ltrfinder_output + ' >> ' + ltrfinder_output)
+        if len(cut_references) > 1:
+            cur_ltrfinder_output = cut_reference + '.finder.combine.scn'
+            os.system('cat ' + cur_ltrfinder_output + ' | grep -Ev \'^$|#\' >> ' + ltrfinder_output)
 
     endtime = time.time()
     dtime = endtime - starttime
@@ -925,12 +926,228 @@ def get_LINE_candidate(LINE_out, protein_path, orig_contigs):
             node_index += 1
     return candidate_LINE
 
-def multiple_alignment_blastx(repeats_path, blast_program_dir, tools_dir):
+def multiple_alignment_blastx_v1(repeats_path, merge_distance):
+    split_repeats_path = repeats_path[0]
+    protein_db_path = repeats_path[1]
+    blastx2Results_path = repeats_path[2]
+    align_command = 'blastx -db ' + protein_db_path + ' -num_threads ' \
+                    + str(1) + ' -evalue 1e-20 -query ' + split_repeats_path + ' -outfmt 6 > ' + blastx2Results_path
+    #os.system(align_command)
+    
+    fixed_extend_base_threshold = merge_distance
+    #将分段的blastx比对合并起来
+    query_names, query_contigs = read_fasta(split_repeats_path)
+
+    # parse blastn output, determine the repeat boundary
+    # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
+    query_records = {}
+    with open(blastx2Results_path, 'r') as f_r:
+        for idx, line in enumerate(f_r):
+            #print('current line idx: %d' % (idx))
+            parts = line.split('\t')
+            query_name = parts[0]
+            subject_name = parts[1]
+            identity = float(parts[2])
+            alignment_len = int(parts[3])
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
+
+    keep_longest_query = {}
+    longest_repeats = {}
+    for idx, query_name in enumerate(query_records.keys()):
+        query_len = len(query_contigs[query_name])
+        #print('total query size: %d, current query name: %s, idx: %d' % (len(query_records), query_name, idx))
+
+        subject_dict = query_records[query_name]
+
+        # if there are more than one longest query overlap with the final longest query over 90%,
+        # then it probably the true TE
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            subject_pos = subject_dict[subject_name]
+            # subject_pos.sort(key=lambda x: (x[2], x[3]))
+
+            # cluster all closed fragments, split forward and reverse records
+            forward_pos = []
+            reverse_pos = []
+            for pos_item in subject_pos:
+                if pos_item[0] > pos_item[1]:
+                    reverse_pos.append(pos_item)
+                else:
+                    forward_pos.append(pos_item)
+            forward_pos.sort(key=lambda x: (x[2], x[3]))
+            reverse_pos.sort(key=lambda x: (-x[0], -x[1]))
+
+            clusters = {}
+            cluster_index = 0
+            for k, frag in enumerate(forward_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        if (frag[0] - exist_frag[1] < fixed_extend_base_threshold):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            cluster_index += 1
+            for k, frag in enumerate(reverse_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        if (exist_frag[1] - frag[0] < fixed_extend_base_threshold):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            #print(clusters)
+
+            for cluster_index in clusters.keys():
+                cur_cluster = clusters[cluster_index]
+                cur_cluster.sort(key=lambda x: (x[0], x[1]))
+
+                cluster_longest_query_start = -1
+                cluster_longest_query_end = -1
+                cluster_longest_query_len = -1
+
+                cluster_longest_subject_start = -1
+                cluster_longest_subject_end = -1
+                cluster_longest_subject_len = -1
+
+                cluster_extend_num = 0
+
+                # print('subject pos size: %d' %(len(cur_cluster)))
+                # record visited fragments
+                visited_frag = {}
+                for i in range(len(cur_cluster)):
+                    # keep a longest query start from each fragment
+                    origin_frag = cur_cluster[i]
+                    if visited_frag.__contains__(origin_frag):
+                        continue
+                    cur_frag_len = origin_frag[1] - origin_frag[0]
+                    cur_longest_query_len = cur_frag_len
+                    longest_query_start = origin_frag[0]
+                    longest_query_end = origin_frag[1]
+                    longest_subject_start = origin_frag[2]
+                    longest_subject_end = origin_frag[3]
+
+                    cur_extend_num = 0
+
+                    visited_frag[origin_frag] = 1
+                    # try to extend query
+                    for j in range(i + 1, len(cur_cluster)):
+                        ext_frag = cur_cluster[j]
+                        if visited_frag.__contains__(ext_frag):
+                            continue
+
+                        # could extend
+                        # extend right
+                        if ext_frag[3] > longest_subject_end:
+                            # judge query direction
+                            if longest_query_start < longest_query_end and ext_frag[1] < ext_frag[2]:
+                                # +
+                                if ext_frag[1] > longest_query_end:
+                                    # forward extend
+                                    if ext_frag[0] - longest_query_end < fixed_extend_base_threshold and ext_frag[
+                                        2] - longest_subject_end < fixed_extend_base_threshold/3:
+                                        # update the longest path
+                                        longest_query_start = longest_query_start
+                                        longest_query_end = ext_frag[1]
+                                        longest_subject_start = longest_subject_start if longest_subject_start < \
+                                                                                         ext_frag[
+                                                                                             2] else ext_frag[2]
+                                        longest_subject_end = ext_frag[3]
+                                        cur_longest_query_len = longest_query_end - longest_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[ext_frag] = 1
+                                    elif ext_frag[0] - longest_query_end >= fixed_extend_base_threshold:
+                                        break
+                            elif longest_query_start > longest_query_end and ext_frag[0] > ext_frag[1]:
+                                # reverse
+                                if ext_frag[1] < longest_query_end:
+                                    # reverse extend
+                                    if  longest_query_end - ext_frag[0] < fixed_extend_base_threshold and ext_frag[
+                                        2] - longest_subject_end < fixed_extend_base_threshold/3:
+                                        # update the longest path
+                                        longest_query_start = longest_query_start
+                                        longest_query_end = ext_frag[1]
+                                        longest_subject_start = longest_subject_start if longest_subject_start < \
+                                                                                         ext_frag[
+                                                                                             2] else ext_frag[2]
+                                        longest_subject_end = ext_frag[3]
+                                        cur_longest_query_len = longest_query_start - longest_query_end
+                                        cur_extend_num += 1
+                                        visited_frag[ext_frag] = 1
+                                    elif longest_query_end -  ext_frag[0] >= fixed_extend_base_threshold:
+                                        break
+                    if cur_longest_query_len > cluster_longest_query_len:
+                        cluster_longest_query_start = longest_query_start
+                        cluster_longest_query_end = longest_query_end
+                        cluster_longest_query_len = cur_longest_query_len
+
+                        cluster_longest_subject_start = longest_subject_start
+                        cluster_longest_subject_end = longest_subject_end
+                        cluster_longest_subject_len = longest_subject_end - longest_subject_start
+
+                        cluster_extend_num = cur_extend_num
+                # keep this longest query
+                if cluster_longest_query_len != -1:
+                    longest_queries.append((cluster_longest_query_start, cluster_longest_query_end,
+                                            cluster_longest_query_len, cluster_longest_subject_start,
+                                            cluster_longest_subject_end, cluster_longest_subject_len, subject_name, cluster_extend_num))
+
+
+        # we now consider, we should take some sequences from longest_queries to represent this query sequence.
+        # we take the longest sequence by length, if the latter sequence overlap with the former sequence largely (50%),
+        # continue find next sequence until the ratio of query sequence over 90% or no more sequences.
+        longest_queries.sort(key=lambda x: -x[2])
+        keep_longest_query[query_name] = longest_queries
+        # parts = query_name.split('$')
+        # chr_name = parts[0]
+        # chr_start = int(parts[1])
+    print(keep_longest_query)
+    return blastx2Results_path
+
+def multiple_alignment_blastx(repeats_path, tools_dir):
     split_repeats_path = repeats_path[0]
     protein_db_path = repeats_path[1]
     temp_dir = repeats_path[2]
     blastx2Results_path = temp_dir + '/temp.out'
-    align_command = blast_program_dir + '/bin/blastx -db ' + protein_db_path + ' -num_threads ' \
+    align_command = 'blastx -db ' + protein_db_path + ' -num_threads ' \
                     + str(1) + ' -query ' + split_repeats_path + ' -word_size 7 -outfmt 6 > ' + blastx2Results_path
     os.system(align_command)
 

@@ -398,6 +398,8 @@ if __name__ == '__main__':
     #tmp_output_dir = output_dir + '/TEClassTmpOutput.2022-07-13.19-19-9'
     pool = multiprocessing.Pool(processes=int(thread_num))
     for partition_index, data_partition in enumerate(data_partitions):
+        if len(data_partition) <= 0:
+            continue
         cur_tmp_dir = tmp_output_dir + '/' + str(partition_index)
         if not os.path.exists(cur_tmp_dir):
             os.makedirs(cur_tmp_dir)

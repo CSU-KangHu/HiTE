@@ -9,12 +9,17 @@ import codecs
 import json
 import time
 
+import regex
+from fuzzysearch import find_near_matches
+
 #import numpy as np
-from matplotlib import pyplot as plt
-import seaborn as sns
-import pandas as pd
+# from matplotlib import pyplot as plt
+# import seaborn as sns
+# import pandas as pd
 
 import subprocess
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -23,7 +28,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
     run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
     get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
-    determine_repeat_boundary_v3, search_confident_tir, store_copies_seq
+    determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file
 
 
 def generate_repbases():
@@ -1365,29 +1370,539 @@ def generate_insertion_time():
             num = time_group2[g_num]
             f_save.write(str(g_num)+'-'+str(next_g_num)+','+speices2+','+str(num)+'\n')
 
+def get_cd_hit_cluster(cluster_file):
+    cluster_idx = -1
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                seq_len = int(line.split(',')[0].split('\t')[1].replace('nt', ''))
+                cur_cluster.append((seq_len, name))
+                if line.endswith('*'):
+                    clusters['rep_' + str(cluster_idx)] = name
+    f_r.close()
+    return clusters
+
+def clean_nested_rep(raw_input, temp_dir, threads, test_home, TRsearch_dir, cur_round):
+    #去除嵌合步骤：
+        # 1. 找到簇中长度最短的序列x，遍历类簇中的每一条序列,如果序列长度超过2x, 则归为潜在嵌合TE，否则为普通TE
+        # 2. 如果簇中存在嵌合TE，则将嵌合TE收集到nested数组中；如果簇中不存在嵌合，则保存Rep序列为代表性序列，其余的序列收集到delete数组中
+        # 3. 对原始输入fasta文件去除nested+delete元素。
+        # 4. 我们得到nested序列，Rep序列以及剩余序列remain.fa（指的是可能插入到其他TE中的TE）。将nested和Rep序列合并到final nested和final Rep中。
+        # 5. 剩余序列做为输入，重新聚类-aS 0.8，进行步骤1-4,直到剩余文件remain.fa为空或者达到最大迭代次数5。
+        # 6. 我们最后得到final nested和final Rep文件。将两个文件输入到remove nested中进行去除嵌合。
+        # 7. 观察去除嵌合后的序列是否仍包含TIR结构，如果不包含，过滤掉去除嵌合序列；如果包含则加入到Rep中。
+        # 8. 对新的Rep序列进行聚类, 迭代1-7
+    if cur_round == 0:
+        os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+    short_coverage = 0.95
+    similarity = 0.95
+    cons_input = temp_dir + '/raw.cons.fa'
+    cd_hit_command = 'cd-hit-est -aS ' + str(short_coverage) + ' -c ' + str(similarity) \
+                     + ' -d 0 -G 0 -g 1 -A 80 -i ' + raw_input + ' -o ' + cons_input + ' -T 0 -M 0 ' + ' > /dev/null 2>&1'
+    os.system(cd_hit_command)
+
+    max_round = 5
+    cur_round = 0
+    names, contigs = read_fasta(raw_input)
+    final_Rep_seqs = []
+    final_nested_seqs = []
+    remain_contigs = contigs
+    while cur_round < max_round and len(remain_contigs) > 0:
+        cluster_file = cons_input + '.clstr'
+        clusters = get_cd_hit_cluster(cluster_file)
+
+        Rep_seqs = []
+        nested_seqs = []
+        delete_seqs = []
+        # step: 1-2
+        for key in clusters.keys():
+            if not key.startswith('rep_'):
+                cluster = clusters[key]
+                #取cluster中长度最短的序列
+                cluster.sort(key=lambda x: x[0])
+                min_len = cluster[0][0]
+                c_putative_nested = []
+                c_normal = []
+                for seq_item in cluster:
+                    if seq_item[0] >= 2*min_len:
+                        c_putative_nested.append(seq_item[1])
+                    else:
+                        c_normal.append(seq_item[1])
+                if len(c_putative_nested) == 0:
+                    rep_seq = clusters['rep_'+key]
+                    Rep_seqs.append(rep_seq)
+                    delete_seqs.extend(c_normal)
+                else:
+                    nested_seqs.extend(c_putative_nested)
+        # step: 3
+        #print(len(contigs))
+        remove_seqs = nested_seqs + delete_seqs
+        cur_contigs = remain_contigs
+        for seq_name in remove_seqs:
+            del cur_contigs[seq_name]
+        #print(Rep_seqs[0:1])
+        #print(nested_seqs[0:1])
+        #print(len(contigs))
+        final_Rep_seqs.extend(Rep_seqs)
+        final_nested_seqs.extend(nested_seqs)
+        # step: 4-5
+        remain_file = temp_dir + '/remain_' + str(cur_round) + '.fa'
+        remain_cons = temp_dir + '/remain_' + str(cur_round) + '.cons.fa'
+        store_fasta(cur_contigs, remain_file)
+        remain_contigs = cur_contigs
+        cd_hit_command = 'cd-hit-est -aS ' + str(short_coverage) + ' -c ' + str(similarity) \
+                     + ' -d 0 -G 0 -g 1 -A 80 -i ' + remain_file + ' -o ' + remain_cons + ' -T 0 -M 0 ' + ' > /dev/null 2>&1'
+        os.system(cd_hit_command)
+        cons_input = remain_cons
+        cur_round += 1
+    # print(len(final_Rep_seqs))
+    # print(len(final_nested_seqs))
+    names, contigs = read_fasta(raw_input)
+    pure_rep = temp_dir + '/pure_tir_rep.fa'
+    with open(pure_rep, 'w') as f_save:
+        for rep_name in final_Rep_seqs:
+            rep_seq = contigs[rep_name]
+            f_save.write('>'+rep_name+'\n'+rep_seq+'\n')
+    f_save.close()
+    nested_file = temp_dir + '/nested_tir.fa'
+    with open(nested_file, 'w') as f_save:
+        for nested_name in final_nested_seqs:
+            nested_seq = contigs[nested_name]
+            f_save.write('>'+nested_name+'\n'+nested_seq+'\n')
+    f_save.close()
+
+    # step: 6
+    clean_nested_path = temp_dir + '/tir_nested.clean.fa'
+    remove_nested_command = 'python3 ' + test_home + '/remove_nested_lib.py ' \
+                            + ' -t ' + str(threads) \
+                            + ' --tmp_output_dir ' + temp_dir + ' --max_iter_num ' + str(5) \
+                            + ' --input1 ' + pure_rep \
+                            + ' --input2 ' + nested_file \
+                            + ' --output ' + clean_nested_path
+    print(remove_nested_command)
+    os.system(remove_nested_command)
+    # names, contigs = read_fasta(clean_nested_path)
+    # print(len(contigs))
+
+    # step: 7
+    clean_nested_out, clean_nested_log = run_itrsearch(TRsearch_dir, clean_nested_path, temp_dir)      
+    # names, contigs = read_fasta(clean_nested_out)
+    # print(len(contigs))
+
+    pure_with_clean_file = temp_dir + '/pure_with_clean_tir.fa'
+    os.system('cat ' + clean_nested_out + ' > ' + pure_with_clean_file)
+    os.system('cat ' + pure_rep + ' >> ' + pure_with_clean_file)
+
+    return pure_with_clean_file
+
+def run_BM_RM2(TE_path, res_out, tmp_dir):
+    threads = 30
+    rm2_script = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_paper.sh'
+    lib_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
+    rm2_command = 'RepeatMasker -lib '+lib_path+' -nolow -pa '+str(threads)+' '+TE_path
+    rm2_res_command = 'cd '+tmp_dir+'/rm2_test && rm -rf * && sh '+rm2_script+ ' ' + TE_path + '.out > ' + res_out
+    os.system(rm2_command)
+    print(rm2_res_command)
+    os.system(rm2_res_command)
+
+
+def run_find_members(cur_file, reference, temp_dir, script_path):
+    copy_command = 'cd ' + temp_dir + ' && sh ' + script_path + ' ' + reference + ' ' + cur_file + ' 0 0 ' + ' > /dev/null 2>&1'
+    os.system(copy_command)
+    output_file = cur_file + '.blast.bed.fa'
+    names, contigs = read_fasta(cur_file)
+    names1, contigs1 = read_fasta(output_file)
+    if len(names1) > 1:
+        return (names[0], output_file)
+    else:
+        return (None, None)
+
+def is_only_chars(s, target_char):
+    return all(c == target_char for c in s)
+
+def run_find_members_v1(cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir):
+    # step1: 搜索是否具有清晰边界
+    # 1.找members，扩展members 10bp,进行多序列比对
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 10 ' + ' > /dev/null 2>&1'
+    os.system(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    extend_member_file = cur_file + '.ext.blast.bed.fa'
+    os.system('mv ' + member_file + ' ' + extend_member_file)
+    member_names, member_contigs = read_fasta(extend_member_file)
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + extend_member_file + ' 100 50 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        extend_member_file +=  '.rdmSubset.fa'
+    elif len(member_names) <= 1:
+        return None, None
+    align_file = cur_file + '.ext.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
+    os.system(align_command)
+    cons_file = cur_file + '.ext.cons.fa'
+    # 2.使用默认参数的一致性序列命令生成一致性序列
+    cons_command = 'cons -sequence ' + align_file + ' -outseq ' + cons_file + ' > /dev/null 2>&1'
+    os.system(cons_command)
+    # 3.小写转大写
+    cons_names, cons_contigs = read_fasta(cons_file)
+    p_cons_contigs = {}
+    for name in cons_names:
+        seq = cons_contigs[name]
+        seq = seq.upper()
+        p_cons_contigs[name] = seq
+    store_fasta(p_cons_contigs, cons_file)
+    cons_seq = p_cons_contigs[cons_names[0]]
+    # 4.取原始序列的首尾10bp，分别在一致性序列上搜索，获取在一致性序列上的边界。（迭代搜索）
+    cur_names, cur_contigs = read_fasta(cur_file)
+    cur_seq = cur_contigs[cur_names[0]]
+    first_10bp = cur_seq[0:10]
+    last_10bp = cur_seq[-10:]
+    #对应序列从0开始的索引
+    start_pos = -1
+    end_pos = -1
+    start_dist = 3
+    last_dist = 3
+    first_matches = find_near_matches(first_10bp, cons_seq, max_l_dist=start_dist)
+    while len(first_matches) == 0:
+        start_dist += 1
+        first_matches = find_near_matches(first_10bp, cons_seq, max_l_dist=start_dist)
+    for f_m in first_matches:
+        if f_m.start >= 10:
+            start_pos = f_m.start
+            break
+    last_matches = find_near_matches(last_10bp, cons_seq, max_l_dist=last_dist)
+    while len(last_matches) == 0:
+        last_dist += 1
+        last_matches = find_near_matches(last_10bp, cons_seq, max_l_dist=last_dist)
+    for l_m in reversed(last_matches):
+        if l_m.end <= len(cons_seq)-10:
+            end_pos = l_m.end-1
+            break
+    # 5.如果边界前的序列为N、2bp TA、4bp TTAA，则序列为真实TIR边界，再经由下面的流程判断未扩展的一致性序列是否具有TIR结构
+    # 取一致性序列的前后2bp, 4bp
+    cons_first_2bp = cons_seq[start_pos-2: start_pos] 
+    cons_last_2bp = cons_seq[end_pos+1: end_pos+3]
+    cons_first_4bp = cons_seq[start_pos-4: start_pos] 
+    cons_last_4bp = cons_seq[end_pos+1: end_pos+5]
+    cons_before_boundary = cons_seq[0: start_pos]
+    cons_after_boundary = cons_seq[end_pos+1: ]
+    cons_before_2bp_boundary = cons_seq[0: start_pos-2]
+    cons_after_2bp_boundary = cons_seq[end_pos+3: ]
+    cons_before_4bp_boundary = cons_seq[0: start_pos-4]
+    cons_after_4bp_boundary = cons_seq[end_pos+5: ]
+    if (is_only_chars(cons_before_boundary, 'N') and is_only_chars(cons_after_boundary, 'N')) or \
+        (cons_first_2bp == 'TA' and cons_last_2bp == 'TA' and is_only_chars(cons_before_2bp_boundary, 'N') and is_only_chars(cons_after_2bp_boundary, 'N')) or \
+        (cons_first_4bp == 'TTAA' and cons_last_4bp == 'TTAA' and is_only_chars(cons_before_4bp_boundary, 'N') and is_only_chars(cons_after_4bp_boundary, 'N')):
+        #具有真实TIR边界
+        # step2: 搜索一致性序列是否具有TIR结构
+        # 1.找members，对members进行多比对
+        copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 0 ' + ' > /dev/null 2>&1'
+        os.system(copy_command)
+        member_file = cur_file + '.blast.bed.fa'
+        member_names, member_contigs = read_fasta(member_file)
+        if len(member_names) > 100:
+            sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 50 ' + ' > /dev/null 2>&1'
+            os.system(sub_command)
+            member_file +=  '.rdmSubset.fa'
+        align_file = cur_file + '.maf.fa'
+        align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + member_file + ' > ' + align_file
+        os.system(align_command)
+        cons_file = cur_file + '.cons.fa'
+        # 2.生成一致性序列，每个位点保留出现2次以上的碱基
+        cons_command = 'cons -sequence ' + align_file + ' -outseq ' + cons_file + ' -plurality 2 ' + ' > /dev/null 2>&1'
+        os.system(cons_command)
+        # 3.小写转大写，并去掉一致性序列中的N
+        final_cons_file = cur_file + '.final.cons.fa'
+        cons_names, cons_contigs = read_fasta(cons_file)
+        p_cons_contigs = {}
+        for name in cons_names:
+            seq = cons_contigs[name]
+            seq = seq.upper().replace("N", "")
+            p_cons_contigs[name] = seq
+        store_fasta(p_cons_contigs, final_cons_file)
+        # 4.判断生成的一致性序列是否有TIR结构
+        names, contigs = read_fasta(cur_file)
+        final_cons_out, final_cons_log = run_itrsearch(TRsearch_dir, final_cons_file, temp_dir)
+        final_cons_names, final_cons_contigs = read_fasta(final_cons_out)
+        # 返回序列名称和一致性序列
+        if len(final_cons_names) >= 1:
+            query_name = names[0]
+            return query_name, final_cons_contigs[final_cons_names[0]]
+        else:
+            return None, None
+    else:
+        return None, None
+    
+
+def keep_multi_copy(raw_input, output, reference, temp_dir, script_path, threads):
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    names, contigs = read_fasta(raw_input)
+    split_files = []
+    for i, name in enumerate(names):
+        cur_file = temp_dir + '/' + str(i) + '.fa'
+        cur_contigs = {}
+        cur_contigs[name] = contigs[name]
+        store_fasta(cur_contigs, cur_file)
+        split_files.append(cur_file)
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for ref_index, cur_file in enumerate(split_files):
+        job = ex.submit(run_find_members, cur_file, reference, temp_dir, script_path)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    multi_contigs = {}
+    for job in as_completed(jobs):
+        cur_name, output_file = job.result()
+        if cur_name is not None:
+            multi_contigs[cur_name] = contigs[cur_name]
+    store_fasta(multi_contigs, output)
+
+def build_lib(raw_input, reference, threads, temp_copies_dir, temp_nested_dir, test_home, TRsearch_dir, script_path, log):
+    # 1. 过滤掉单拷贝的TIR序列
+    multi = temp_copies_dir + '/multi.fa'
+    log.logger.debug('Start filtering single copy TE instances')
+    keep_multi_copy(raw_input, multi, reference, temp_copies_dir, script_path, threads)
+    log.logger.debug('Finish filtering single copy TE instances')
+
+    log.logger.debug('Start unwrapping nested TE')
+    # 2. 使用cd-hit按照80-80-80 rule 聚类，并迭代解开嵌合序列
+    max_round = 5
+    cur_round = 0
+    stable = False
+    cur_input = multi
+    cur_output = None
+    while cur_round < max_round and not stable:
+        log.logger.debug('current round: ' + str(cur_round))
+        cur_output = clean_nested_rep(cur_input, temp_nested_dir, threads, test_home, TRsearch_dir, cur_round)
+        names1, contigs1 = read_fasta(cur_input)
+        names2, contigs2 = read_fasta(cur_output)
+        if len(names1) == len(names2):
+            stable= True
+        cur_input = cur_output
+        cur_round += 1
+    log.logger.debug('Finish unwrapping nested TE')
+    return cur_output
+
+
+def get_domain_info(cons, lib, output_table, threads, temp_dir):
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    # 1. 将cons进行划分，每一块利用blastx -num_threads 1 -evalue 1e-20 进行cons与domain进行比对
+    partitions_num = int(threads)
+    consensus_contignames, consensus_contigs = read_fasta(cons)
+    data_partitions = PET(consensus_contigs.items(), partitions_num)
+    merge_distance = 100
+    file_list = []
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for partition_index, data_partition in enumerate(data_partitions):
+        if len(data_partition) <= 0:
+            continue
+        cur_consensus_path = temp_dir + '/'+str(partition_index)+'.fa'
+        store2file(data_partition, cur_consensus_path)
+        cur_output = temp_dir + '/'+str(partition_index)+'.out'
+        cur_file = (cur_consensus_path, lib, cur_output)
+        job = ex.submit(multiple_alignment_blastx_v1, cur_file, merge_distance)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    # 2. 生成一个query与domain的最佳比对表
+    if os.path.exists(output_table):
+        os.remove(output_table)
+    for job in as_completed(jobs):
+        cur_output = job.result()
+        os.system('cat ' + cur_output + ' >> ' + output_table)
+
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
-
-    #分析
+    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    # #分析
     tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
-    names, contigs = read_fasta(tmp_dir+'/confident_tir_0.fa')
-    new_contigs = {}
-    node_index = 0
-    for name in names:
-        
-        parts = name.split('-tir_')[1].split('-tsd_')
-        tir_len = parts[0]
-        tsd_len = parts[1]
-        new_name = 'N_'+str(node_index) + '-tir_'+tir_len+'-tsd_'+tsd_len
-        
-        node_index += 1
-        new_contigs[new_name] = contigs[name]
-    store_fasta(new_contigs, tmp_dir+'/confident_tir_0.fa')
+    # names, contigs = read_fasta(tmp_dir+'/confident_tir_0.fa')
+    # new_contigs = {}
+    # node_index = 0
+    # for name in names:
+    #     parts = name.split('-tir_')[1].split('-tsd_')
+    #     tir_len = parts[0]
+    #     tsd_len = parts[1]
+    #     new_name = 'N_'+str(node_index) + '-tir_'+tir_len+'-tsd_'+tsd_len
+    #     node_index += 1
+    #     new_contigs[new_name] = contigs[name]
+    # store_fasta(new_contigs, tmp_dir+'/confident_tir_0.fa')
 
+    # 分析cd-hit聚类，去除嵌合
+    #clean_nested_rep()
+    # TE_path = tmp_dir + '/confident_tir_0.multi.cons.fa'
+    # res_out = tmp_dir + '/multi_res.log'
+    # TE_path = tmp_dir + '/pure_tir_rep.fa'
+    # res_out = tmp_dir + '/pure_res.log'
+    # TE_path = tmp_dir + '/pure_with_clean_tir.fa'
+    # res_out = tmp_dir + '/pure_with_clean_res.log'
+    # run_BM_RM2(TE_path, res_out, tmp_dir)
+
+    # 将我们的结果使用make_fasta_from_blast.sh，过滤掉单拷贝的序列
+    #keep_multi_copy()
+
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
+    raw_input = tmp_dir + '/real_tirs.fa'
+    temp_copies_dir = tmp_dir + '/copies'
+    member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    reference = tmp_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
+    threads = 40
+    temp_nested_dir = tmp_dir+'/nested'
+    test_home = '/home/hukang/HiTE/module'
+    TRsearch_dir = '/home/hukang/HiTE/tools'
+    #cur_output = build_lib(raw_input, reference, threads, temp_copies_dir, temp_nested_dir, test_home, TRsearch_dir, script_path, log)
+    #print(cur_output)
+
+    TE_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/nested/pure_with_clean_tir.fa'
+    res_out = tmp_dir + '/pure_with_clean_res.log'
+    #run_BM_RM2(TE_path, res_out, tmp_dir)
+
+    # # 1.将具有TIR+TSD结构的序列比对到reference上，取序列成员
+    # # 2.遍历成员序列，如果有超过3条成员序列具有TIR结构则认定为真实TIR
+    # #raw_input = tmp_dir + '/test.fa'
+    # raw_input = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    # real_tirs = tmp_dir + '/real_tirs.fa'
+    # temp_dir = tmp_dir + '/copies'
+    # os.system('rm -rf ' + temp_dir)
+    # if not os.path.exists(temp_dir):
+    #     os.makedirs(temp_dir)
+    # names, contigs = read_fasta(raw_input)
+    # split_files = []
+    # for i, name in enumerate(names):
+    #     cur_file = temp_dir + '/' + str(name) + '.fa'
+    #     cur_contigs = {}
+    #     cur_contigs[name] = contigs[name]
+    #     store_fasta(cur_contigs, cur_file)
+    #     split_files.append(cur_file)
+
+    # ex = ProcessPoolExecutor(threads)
+    # jobs = []
+    # for ref_index, cur_file in enumerate(split_files):
+    #     job = ex.submit(run_find_members_v1, cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir)
+    #     jobs.append(job)
+    # ex.shutdown(wait=True)
+
+    # true_tirs = {}
+    # for job in as_completed(jobs):
+    #     cur_name, cur_seq = job.result()
+    #     if cur_name is not None:
+    #         true_tirs[cur_name] = cur_seq
+    # store_fasta(true_tirs, real_tirs)
+
+    # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
+    # rename_fasta(real_tirs, real_tirs_rename)
+
+    # res_out = tmp_dir + '/real_tirs_res.log'
+    # run_BM_RM2(real_tirs_rename, res_out, tmp_dir)
+
+    cons = tmp_dir + '/test.fa'
+    # names,contigs = read_fasta(cons)
+    # seq = contigs[names[0]]
+    # r_seq = getReverseSequence(seq)
+    # contigs['N_2'] = r_seq
+    # store_fasta(contigs, cons)
+
+    lib = '/home/hukang/anaconda2/envs/HiTE1/share/RepeatMasker/Libraries/RepeatPeps.lib'
+    output_table = tmp_dir + '/test.domain.info'
+    thread = 10
+    temp_dir = tmp_dir + '/domain'
+    get_domain_info(cons, lib, output_table, threads, temp_dir)
+
+
+    # 定义要搜索的字符串
+    # string_to_search = ''
+    # STR = "nnTCCACAATAGTCCCnGGATGCAATAAAAACCGGGGCnnnnnnnnnTAnnnnnAnnnnnAGATnnnnnnnnnnnnnnnnnGATCTTTnAGTCCCGGTTnCAAAAGGGTAAnCGGGCATATTTGATCnTTTAGnnnnnnnnTCCCGGTTTGTGTnnnnnnnnnnnnnnnnnnnnnnnnnnnnnTACCAACCGGGnnnnnnnnnnnACTAAAGnnnATCnnnnnnnnnnnnnnnnnnAnTnnCTTTAGTCnnnnnnnnnnCCGGTTCGAnATGCTGTCAnnnGGGCCTGTCAGGnnnnnnnCCCCnCnCCnnnnnnnnnGGnnnnnnnnnnnnnnnnnGATnnnnnnnnnnCTTnnnnnnnnTAGTCCCGGnTTGGnnnnnTAnnCACCnAACCGnGGACTAAAGATCnnnnnnnnnnnnnn"
+    # # 定义要查找的模式
+    # pattern = "CCAACCGGGAC"
+    # a = find_near_matches(pattern, STR, max_l_dist=2)
+    # for b in reversed(a):
+    #     print(b)
+    # 使用 fuzzysearch 函数进行模糊匹配
+    # match = regex.fuzzysearch(pattern, string_to_search)
+    
+    # # 输出匹配结果
+    # if match:
+    #     print(f"找到匹配项：{match.group()}")
+    # else:
+    #     print("未找到匹配项")
+
+
+
+    # #恢复real_tirs.fa
+    # real_tirs = tmp_dir + '/real_tirs.fa'
+    # cur_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/copies'
+    # #regex = re.compile(r"-tsd_\d+\.fa$")
+    # regex = re.compile(r".final.cons.fa$")
+    # if os.path.exists(real_tirs):
+    #     os.remove(real_tirs)
+    # # 遍历目录中的所有文件名
+    # new_contigs = {}
+    # for filename in os.listdir(cur_dir):
+    #     # 如果文件名符合正则表达式，则输出
+    #     if regex.search(filename):
+    #         names, contigs = read_fasta(cur_dir+'/'+filename)
+    #         if len(names) == 0:
+    #             continue
+    #         new_contigs[filename] = contigs[names[0]]
+    #         print(filename+'\n'+contigs[names[0]]+'\n')
+    # store_fasta(new_contigs, real_tirs)
+    #         #print(filename)
+
+
+
+
+    # #分析我们丢失了哪些perfect，是不是sub_families
+    # dir1 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/rm2_test'
+    # dir2 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/rm2_test1'
+    # perfect1 = set()
+    # perfect2 = set()
+    # with open(dir1+'/perfect.families', 'r') as f_r:
+    #     for line in f_r:
+    #         perfect1.add(line.replace('\n', ''))
+    
+    # with open(dir2+'/perfect.families', 'r') as f_r:
+    #     for line in f_r:
+    #         perfect2.add(line.replace('\n', ''))
+    
+    # s = perfect1.difference(perfect2)
+    # print(s)
+    # print(len(s))
+    # sub_count = 0
+    # sub_names = []
+    # for name in s:
+    #     parts = name.split('-')
+    #     if len(parts) > 1:
+    #         sub_name = parts[1]
+    #         if sub_name.startswith('N'):
+    #             sub_count += 1
+    #             sub_names.append(name)
+    # print(sub_count)
+    # print(sub_names)
+
+
+   
     #分组散点图
     #draw_stripplot()
     
