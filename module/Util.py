@@ -930,9 +930,10 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
     split_repeats_path = repeats_path[0]
     protein_db_path = repeats_path[1]
     blastx2Results_path = repeats_path[2]
+    cur_table = repeats_path[3]
     align_command = 'blastx -db ' + protein_db_path + ' -num_threads ' \
                     + str(1) + ' -evalue 1e-20 -query ' + split_repeats_path + ' -outfmt 6 > ' + blastx2Results_path
-    #os.system(align_command)
+    os.system(align_command)
     
     fixed_extend_base_threshold = merge_distance
     #将分段的blastx比对合并起来
@@ -1034,8 +1035,6 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
                         cur_cluster = clusters[cluster_index]
                         cur_cluster.append(frag)
 
-            #print(clusters)
-
             for cluster_index in clusters.keys():
                 cur_cluster = clusters[cluster_index]
                 cur_cluster.sort(key=lambda x: (x[2], x[3]))
@@ -1136,11 +1135,58 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
         # continue find next sequence until the ratio of query sequence over 90% or no more sequences.
         longest_queries.sort(key=lambda x: -x[2])
         keep_longest_query[query_name] = longest_queries
-        # parts = query_name.split('$')
-        # chr_name = parts[0]
-        # chr_start = int(parts[1])
-    print(keep_longest_query)
-    return blastx2Results_path
+    #print(keep_longest_query)
+    #记录存成table,去掉冗余记录（后一条序列的50%以上的区域在前一条内）
+    with open(cur_table, 'w') as f_save:
+        for query_name in keep_longest_query.keys():
+            domain_array = keep_longest_query[query_name]
+            # for domain_info in domain_array:
+            #     f_save.write(query_name+'\t'+str(domain_info[6])+'\t'+str(domain_info[0])+'\t'+str(domain_info[1])+'\t'+str(domain_info[3])+'\t'+str(domain_info[4])+'\n')
+            merge_domains = []
+            #对domain_array进行合并
+            domain_array.sort(key=lambda x: -x[2])
+            for domain_info in domain_array:
+                if len(merge_domains) == 0:
+                    merge_domains.append(domain_info)
+                else:
+                    is_new_domain = True
+                    for pre_domain in merge_domains:
+                        pre_start = pre_domain[0]
+                        pre_end = pre_domain[1]
+                        #计算overlap
+                        if pre_start > pre_end:
+                            tmp = pre_start
+                            pre_start = pre_end
+                            pre_end = tmp
+                        cur_start = domain_info[0]
+                        cur_end = domain_info[1]
+                        if cur_start > cur_end:
+                            tmp = cur_start
+                            cur_start = cur_end
+                            cur_end = tmp
+                        if cur_end >= pre_start and cur_end <= pre_end:
+                            if cur_start <= pre_start:
+                                overlap = cur_end - pre_start
+                            else:
+                                overlap = cur_end - cur_start
+                        elif cur_end > pre_end:
+                            if cur_start >= pre_start and cur_start <= pre_end:
+                                overlap = pre_end - cur_start
+                            else:
+                                overlap = 0
+                        else:
+                            overlap = 0
+                        
+                        if float(overlap / domain_info[2]) > 0.5:
+                            is_new_domain = False
+                    if  is_new_domain:   
+                        merge_domains.append(domain_info)
+
+            for domain_info in merge_domains:
+                f_save.write(query_name+'\t'+str(domain_info[6])+'\t'+str(domain_info[0])+'\t'+str(domain_info[1])+'\t'+str(domain_info[3])+'\t'+str(domain_info[4])+'\n')
+
+    f_save.close()
+    return cur_table
 
 def multiple_alignment_blastx(repeats_path, tools_dir):
     split_repeats_path = repeats_path[0]

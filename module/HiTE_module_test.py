@@ -10,7 +10,7 @@ import json
 import time
 
 #import regex
-#from fuzzysearch import find_near_matches
+from fuzzysearch import find_near_matches
 
 #import numpy as np
 # from matplotlib import pyplot as plt
@@ -1507,12 +1507,12 @@ def clean_nested_rep(raw_input, temp_dir, threads, test_home, TRsearch_dir, cur_
 
     return pure_with_clean_file
 
-def run_BM_RM2(TE_path, res_out, tmp_dir):
+def run_BM_RM2(TE_path, res_out, temp_dir):
     threads = 30
     rm2_script = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_paper.sh'
     lib_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
     rm2_command = 'RepeatMasker -lib '+lib_path+' -nolow -pa '+str(threads)+' '+TE_path
-    rm2_res_command = 'cd '+tmp_dir+'/rm2_test && rm -rf * && sh '+rm2_script+ ' ' + TE_path + '.out > ' + res_out
+    rm2_res_command = 'cd '+temp_dir+' && rm -rf * && sh '+rm2_script+ ' ' + TE_path + '.out > ' + res_out
     os.system(rm2_command)
     print(rm2_res_command)
     os.system(rm2_res_command)
@@ -1589,61 +1589,158 @@ def run_find_members_v1(cur_file, reference, temp_dir, member_script_path, subse
         if l_m.end <= len(cons_seq)-10:
             end_pos = l_m.end-1
             break
+    if start_pos == -1 or end_pos == -1:
+        #没有找到边界，异常情况
+        return None, None
     # 5.如果边界前的序列为N、2bp TA、4bp TTAA，则序列为真实TIR边界，再经由下面的流程判断未扩展的一致性序列是否具有TIR结构
     # 取一致性序列的前后2bp, 4bp
-    cons_first_2bp = cons_seq[start_pos-2: start_pos] 
-    cons_last_2bp = cons_seq[end_pos+1: end_pos+3]
-    cons_first_4bp = cons_seq[start_pos-4: start_pos] 
+    # 5. 取边界前后的10bp，将10b划分成前6bp和后4bp；真实的TIR前6bp至多有1个非N，后4bp有几种情况：全N(允许1bp非N)，NNTA-TANN，NTAA-TAAN, NTTA-TTAN, NTNA-TNAN, TTAA
+    cons_first_6bp = cons_seq[start_pos-10: start_pos-4] 
+    cons_first_4bp = cons_seq[start_pos-4: start_pos]
+    cons_last_6bp = cons_seq[end_pos+5: end_pos+11] 
     cons_last_4bp = cons_seq[end_pos+1: end_pos+5]
-    cons_before_boundary = cons_seq[0: start_pos]
-    cons_after_boundary = cons_seq[end_pos+1: ]
-    cons_before_2bp_boundary = cons_seq[0: start_pos-2]
-    cons_after_2bp_boundary = cons_seq[end_pos+3: ]
-    cons_before_4bp_boundary = cons_seq[0: start_pos-4]
-    cons_after_4bp_boundary = cons_seq[end_pos+5: ]
-    if (is_only_chars(cons_before_boundary, 'N') and is_only_chars(cons_after_boundary, 'N')) or \
-        (cons_first_2bp == 'TA' and cons_last_2bp == 'TA' and is_only_chars(cons_before_2bp_boundary, 'N') and is_only_chars(cons_after_2bp_boundary, 'N')) or \
-        (cons_first_4bp == 'TTAA' and cons_last_4bp == 'TTAA' and is_only_chars(cons_before_4bp_boundary, 'N') and is_only_chars(cons_after_4bp_boundary, 'N')):
-        #具有真实TIR边界
-        # step2: 搜索一致性序列是否具有TIR结构
-        # 1.找members，对members进行多比对
-        copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 0 ' + ' > /dev/null 2>&1'
-        os.system(copy_command)
-        member_file = cur_file + '.blast.bed.fa'
-        member_names, member_contigs = read_fasta(member_file)
-        if len(member_names) > 100:
-            sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 50 ' + ' > /dev/null 2>&1'
-            os.system(sub_command)
-            member_file +=  '.rdmSubset.fa'
-        align_file = cur_file + '.maf.fa'
-        align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + member_file + ' > ' + align_file
-        os.system(align_command)
-        cons_file = cur_file + '.cons.fa'
-        # 2.生成一致性序列，每个位点保留出现2次以上的碱基
-        cons_command = 'cons -sequence ' + align_file + ' -outseq ' + cons_file + ' -plurality 2 ' + ' > /dev/null 2>&1'
-        os.system(cons_command)
-        # 3.小写转大写，并去掉一致性序列中的N
-        final_cons_file = cur_file + '.final.cons.fa'
-        cons_names, cons_contigs = read_fasta(cons_file)
-        p_cons_contigs = {}
-        for name in cons_names:
-            seq = cons_contigs[name]
-            seq = seq.upper().replace("N", "")
-            p_cons_contigs[name] = seq
-        store_fasta(p_cons_contigs, final_cons_file)
-        # 4.判断生成的一致性序列是否有TIR结构
-        names, contigs = read_fasta(cur_file)
-        final_cons_out, final_cons_log = run_itrsearch(TRsearch_dir, final_cons_file, temp_dir)
-        final_cons_names, final_cons_contigs = read_fasta(final_cons_out)
-        # 返回序列名称和一致性序列
-        if len(final_cons_names) >= 1:
-            query_name = names[0]
-            return query_name, final_cons_contigs[final_cons_names[0]]
+    if allow_mismatch(cons_first_6bp, 'NNNNNN', 1) and allow_mismatch(cons_last_6bp, 'NNNNNN', 1):
+        if (allow_mismatch(cons_first_4bp, 'NNNN', 1) and allow_mismatch(cons_last_4bp, 'NNNN', 1)) or \
+            (allow_mismatch(cons_first_4bp, 'NNTA', 1) and allow_mismatch(cons_last_4bp, 'TANN', 1)) or \
+            (allow_mismatch(cons_first_4bp, 'NTAA', 1) and allow_mismatch(cons_last_4bp, 'TAAN', 1)) or \
+            (allow_mismatch(cons_first_4bp, 'NTTA', 1) and allow_mismatch(cons_last_4bp, 'TTAN', 1)) or \
+            (allow_mismatch(cons_first_4bp, 'NTNA', 1) and allow_mismatch(cons_last_4bp, 'TNAN', 1)) or \
+            (allow_mismatch(cons_first_4bp, 'TTAA', 1) and allow_mismatch(cons_last_4bp, 'TTAA', 1)):
+
+            #具有真实TIR边界
+            # step2: 搜索一致性序列是否具有TIR结构
+            # 1.找members，对members进行多比对
+            copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 0 ' + ' > /dev/null 2>&1'
+            os.system(copy_command)
+            member_file = cur_file + '.blast.bed.fa'
+            member_names, member_contigs = read_fasta(member_file)
+            if len(member_names) > 100:
+                sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 50 ' + ' > /dev/null 2>&1'
+                os.system(sub_command)
+                member_file +=  '.rdmSubset.fa'
+            align_file = cur_file + '.maf.fa'
+            align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + member_file + ' > ' + align_file
+            os.system(align_command)
+            cons_file = cur_file + '.cons.fa'
+            # 2.生成一致性序列，每个位点保留出现2次以上的碱基
+            cons_command = 'cons -sequence ' + align_file + ' -outseq ' + cons_file + ' -plurality 2 ' + ' > /dev/null 2>&1'
+            os.system(cons_command)
+            # 3.小写转大写，并去掉一致性序列中的N
+            final_cons_file = cur_file + '.final.cons.fa'
+            cons_names, cons_contigs = read_fasta(cons_file)
+            p_cons_contigs = {}
+            for name in cons_names:
+                seq = cons_contigs[name]
+                seq = seq.upper().replace("N", "")
+                p_cons_contigs[name] = seq
+            store_fasta(p_cons_contigs, final_cons_file)
+            # 4.判断生成的一致性序列是否有TIR结构
+            names, contigs = read_fasta(cur_file)
+            final_cons_out, final_cons_log = run_itrsearch(TRsearch_dir, final_cons_file, temp_dir)
+            final_cons_names, final_cons_contigs = read_fasta(final_cons_out)
+            # 返回序列名称和一致性序列
+            if len(final_cons_names) >= 1:
+                query_name = names[0]
+                return query_name, final_cons_contigs[final_cons_names[0]]
+            else:
+                return None, None
         else:
             return None, None
     else:
         return None, None
     
+def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir):
+    # step1: 搜索是否具有清晰边界
+    # 1.找members，扩展members 20bp,进行多序列比对
+    extend_len = 20
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) + ' > /dev/null 2>&1'
+    os.system(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    extend_member_file = cur_file + '.ext.blast.bed.fa'
+    os.system('mv ' + member_file + ' ' + extend_member_file)
+    member_names, member_contigs = read_fasta(extend_member_file)
+    # 对于较大的比对，抽样取100条最长的序列
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + extend_member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        extend_member_file +=  '.rdmSubset.fa'
+    #只取具有TIR末端的全长拷贝，用于生成具有TIR的一致性序列
+    member_names, member_contigs = read_fasta(extend_member_file)
+    # 2.取原始序列的首尾10bp，分别在拷贝上搜索，确定拷贝是否具有TIR终端结构
+    cur_names, cur_contigs = read_fasta(cur_file)
+    cur_seq = cur_contigs[cur_names[0]]
+    first_10bp = cur_seq[0:10]
+    last_10bp = cur_seq[-10:]
+    full_member_contigs = {}
+    for member_name in member_names:
+        member_seq = member_contigs[member_name]
+        start_dist = 3
+        last_dist = 3
+        first_matches = find_near_matches(first_10bp, member_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, member_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            if first_matches[0].end <= last_matches[0].start:
+                #匹配到TIR终端
+                full_member_contigs[member_name] = member_seq
+    if len(full_member_contigs) <= 0:
+        return None, None
+    elif len(full_member_contigs) == 1:
+        return cur_names[0], cur_seq
+    else:
+        #另存全长拷贝
+        extend_member_file = cur_file + '.ext.full.bed.fa'
+        store_fasta(full_member_contigs, extend_member_file)
+
+        align_file = cur_file + '.ext.maf.fa'
+        align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
+        os.system(align_command)
+        cons_file = cur_file + '.ext.cons.fa'
+        # 3.使用默认参数的一致性序列命令生成一致性序列
+        cons_command = 'cons -sequence ' + align_file + ' -outseq ' + cons_file + ' > /dev/null 2>&1'
+        os.system(cons_command)
+        # 4.小写转大写
+        cons_names, cons_contigs = read_fasta(cons_file)
+        p_cons_contigs = {}
+        for name in cons_names:
+            seq = cons_contigs[name]
+            seq = seq.upper()
+            p_cons_contigs[name] = seq
+        store_fasta(p_cons_contigs, cons_file)
+        cons_seq = p_cons_contigs[cons_names[0]]
+        # 5.取原始序列的首尾10bp，分别在一致性序列上搜索，获取在一致性序列上的边界。（迭代搜索）
+        #对应序列从0开始的索引
+        start_pos = -1
+        end_pos = -1
+        start_dist = 3
+        last_dist = 3
+        first_matches = find_near_matches(first_10bp, cons_seq, max_l_dist=start_dist)
+        while len(first_matches) == 0:
+            start_dist += 1
+            first_matches = find_near_matches(first_10bp, cons_seq, max_l_dist=start_dist)
+        for f_m in first_matches:
+            if f_m.start >= extend_len:
+                start_pos = f_m.start
+                break
+        last_matches = find_near_matches(last_10bp, cons_seq, max_l_dist=last_dist)
+        while len(last_matches) == 0:
+            last_dist += 1
+            last_matches = find_near_matches(last_10bp, cons_seq, max_l_dist=last_dist)
+        for l_m in reversed(last_matches):
+            if l_m.end <= len(cons_seq)-extend_len:
+                end_pos = l_m.end-1
+                break
+        if start_pos == -1 or end_pos == -1:
+            #没有找到边界，异常情况
+            return None, None
+        # 6.如果边界前20bp内有超过一半以上的非N序列，说明TIR边界外区域存在大量的同源性，证明是假阳性序列
+        cons_first_20bp = cons_seq[start_pos-extend_len: start_pos] 
+        cons_last_20bp = cons_seq[end_pos+1: end_pos+extend_len+1] 
+
+        if cons_first_20bp.count("N") > 0.5 * extend_len and cons_last_20bp.count("N") > 0.5 * extend_len:
+            return cur_names[0], cons_seq[start_pos: end_pos+1]
+        else:
+            return None, None
 
 def keep_multi_copy(raw_input, output, reference, temp_dir, script_path, threads):
     os.system('rm -rf ' + temp_dir)
@@ -1716,17 +1813,17 @@ def get_domain_info(cons, lib, output_table, threads, temp_dir):
         cur_consensus_path = temp_dir + '/'+str(partition_index)+'.fa'
         store2file(data_partition, cur_consensus_path)
         cur_output = temp_dir + '/'+str(partition_index)+'.out'
-        cur_file = (cur_consensus_path, lib, cur_output)
+        cur_table = temp_dir + '/'+str(partition_index)+'.table'
+        cur_file = (cur_consensus_path, lib, cur_output, cur_table)
         job = ex.submit(multiple_alignment_blastx_v1, cur_file, merge_distance)
         jobs.append(job)
     ex.shutdown(wait=True)
 
     # 2. 生成一个query与domain的最佳比对表
-    if os.path.exists(output_table):
-        os.remove(output_table)
+    os.system("echo '# TE_name\tdomain_name\tTE_start\tTE_end\tdomain_start\tdomain_end' > " + output_table)
     for job in as_completed(jobs):
-        cur_output = job.result()
-        os.system('cat ' + cur_output + ' >> ' + output_table)
+        cur_table = job.result()
+        os.system('cat ' + cur_table + ' >> ' + output_table)
 
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -1777,45 +1874,47 @@ if __name__ == '__main__':
 
     TE_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/nested/pure_with_clean_tir.fa'
     res_out = tmp_dir + '/pure_with_clean_res.log'
-    #run_BM_RM2(TE_path, res_out, tmp_dir)
+    temp_dir = tmp_dir + '/rm2_test'
+    #run_BM_RM2(TE_path, res_out, temp_dir)
 
-    # # 1.将具有TIR+TSD结构的序列比对到reference上，取序列成员
-    # # 2.遍历成员序列，如果有超过3条成员序列具有TIR结构则认定为真实TIR
-    # #raw_input = tmp_dir + '/test.fa'
-    # raw_input = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
-    # real_tirs = tmp_dir + '/real_tirs.fa'
-    # temp_dir = tmp_dir + '/copies'
-    # os.system('rm -rf ' + temp_dir)
-    # if not os.path.exists(temp_dir):
-    #     os.makedirs(temp_dir)
-    # names, contigs = read_fasta(raw_input)
-    # split_files = []
-    # for i, name in enumerate(names):
-    #     cur_file = temp_dir + '/' + str(name) + '.fa'
-    #     cur_contigs = {}
-    #     cur_contigs[name] = contigs[name]
-    #     store_fasta(cur_contigs, cur_file)
-    #     split_files.append(cur_file)
+    # 1.将具有TIR+TSD结构的序列比对到reference上，取序列成员
+    # 2.遍历成员序列，如果有超过3条成员序列具有TIR结构则认定为真实TIR
+    raw_input = tmp_dir + '/test.fa'
+    #raw_input = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    real_tirs = tmp_dir + '/real_tirs.fa'
+    temp_dir = tmp_dir + '/copies'
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    names, contigs = read_fasta(raw_input)
+    split_files = []
+    for i, name in enumerate(names):
+        cur_file = temp_dir + '/' + str(name) + '.fa'
+        cur_contigs = {}
+        cur_contigs[name] = contigs[name]
+        store_fasta(cur_contigs, cur_file)
+        split_files.append(cur_file)
 
-    # ex = ProcessPoolExecutor(threads)
-    # jobs = []
-    # for ref_index, cur_file in enumerate(split_files):
-    #     job = ex.submit(run_find_members_v1, cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir)
-    #     jobs.append(job)
-    # ex.shutdown(wait=True)
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for ref_index, cur_file in enumerate(split_files):
+        job = ex.submit(run_find_members_v2, cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir)
+        jobs.append(job)
+    ex.shutdown(wait=True)
 
-    # true_tirs = {}
-    # for job in as_completed(jobs):
-    #     cur_name, cur_seq = job.result()
-    #     if cur_name is not None:
-    #         true_tirs[cur_name] = cur_seq
-    # store_fasta(true_tirs, real_tirs)
+    true_tirs = {}
+    for job in as_completed(jobs):
+        cur_name, cur_seq = job.result()
+        if cur_name is not None:
+            true_tirs[cur_name] = cur_seq
+    store_fasta(true_tirs, real_tirs)
 
     # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
     # rename_fasta(real_tirs, real_tirs_rename)
 
     # res_out = tmp_dir + '/real_tirs_res.log'
-    # run_BM_RM2(real_tirs_rename, res_out, tmp_dir)
+    # temp_dir = tmp_dir + '/rm2_test'
+    # run_BM_RM2(real_tirs_rename, res_out, temp_dir)
 
     cons = tmp_dir + '/test.fa'
     # names,contigs = read_fasta(cons)
@@ -1824,11 +1923,18 @@ if __name__ == '__main__':
     # contigs['N_2'] = r_seq
     # store_fasta(contigs, cons)
 
-    lib = '/home/hukang/anaconda2/envs/HiTE1/share/RepeatMasker/Libraries/RepeatPeps.lib'
-    output_table = tmp_dir + '/test.domain.info'
-    thread = 10
-    temp_dir = tmp_dir + '/domain'
-    get_domain_info(cons, lib, output_table, threads, temp_dir)
+    # seq = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    # seq_rename = tmp_dir + '/tir_tsd_0.rename.fa'
+    # rename_fasta(seq, seq_rename)
+    # temp_dir = tmp_dir + '/rm2_test1'
+    # res_out = tmp_dir + '/tir_raw_res.log'
+    # run_BM_RM2(seq_rename, res_out, temp_dir)
+
+    # lib = '/home/hukang/anaconda2/envs/HiTE1/share/RepeatMasker/Libraries/RepeatPeps.lib'
+    # output_table = tmp_dir + '/test.domain.info'
+    # thread = 10
+    # temp_dir = tmp_dir + '/domain'
+    # get_domain_info(cons, lib, output_table, threads, temp_dir)
 
 
     # 定义要搜索的字符串
@@ -1874,8 +1980,8 @@ if __name__ == '__main__':
 
 
     # #分析我们丢失了哪些perfect，是不是sub_families
-    # dir1 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/rm2_test'
-    # dir2 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/rm2_test1'
+    # dir1 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/rm2_test1'
+    # dir2 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice/rm2_test'
     # perfect1 = set()
     # perfect2 = set()
     # with open(dir1+'/perfect.families', 'r') as f_r:
