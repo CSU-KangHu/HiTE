@@ -1650,20 +1650,18 @@ def run_find_members_v1(cur_file, reference, temp_dir, member_script_path, subse
         return None, None
     
 def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir):
+    if cur_file.__contains__('N_184702'):
+        print('here')
+
     # step1: 搜索是否具有清晰边界
     # 1.找members，扩展members 20bp,进行多序列比对
     extend_len = 20
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) + ' > /dev/null 2>&1'
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) #+ ' > /dev/null 2>&1'
+    #print(copy_command)
     os.system(copy_command)
     member_file = cur_file + '.blast.bed.fa'
     extend_member_file = cur_file + '.ext.blast.bed.fa'
     os.system('mv ' + member_file + ' ' + extend_member_file)
-    member_names, member_contigs = read_fasta(extend_member_file)
-    # 对于较大的比对，抽样取100条最长的序列
-    if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + extend_member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-        os.system(sub_command)
-        extend_member_file +=  '.rdmSubset.fa'
     #只取具有TIR末端的全长拷贝，用于生成具有TIR的一致性序列
     member_names, member_contigs = read_fasta(extend_member_file)
     # 2.取原始序列的首尾10bp，分别在拷贝上搜索，确定拷贝是否具有TIR终端结构
@@ -1673,14 +1671,27 @@ def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, subse
     last_10bp = cur_seq[-10:]
     full_member_contigs = {}
     for member_name in member_names:
+        #为了减少计算量，只取100条全长拷贝
+        if len(full_member_contigs) > 100:
+            break
         member_seq = member_contigs[member_name]
         start_dist = 3
         last_dist = 3
         first_matches = find_near_matches(first_10bp, member_seq, max_l_dist=start_dist)
         last_matches = find_near_matches(last_10bp, member_seq, max_l_dist=last_dist)
         last_matches = last_matches[::-1]
+        find_start = False
+        find_end = False
         if len(first_matches) > 0 and len(last_matches) > 0:
-            if first_matches[0].end <= last_matches[0].start:
+            for fm in first_matches:
+                if abs(fm.start-extend_len) < extend_len:
+                    find_start = True
+                    break
+            for lm in last_matches:
+                if abs(lm.end-(len(member_seq)-extend_len)) < extend_len:
+                    find_end = True
+                    break
+            if find_start and find_end:
                 #匹配到TIR终端
                 full_member_contigs[member_name] = member_seq
     if len(full_member_contigs) <= 0:
@@ -1695,9 +1706,17 @@ def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, subse
         align_file = cur_file + '.ext.maf.fa'
         align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
         os.system(align_command)
+        # 使用t_coffee去除中间的gaps
+        rm_gap_align_file = cur_file + '.ext.rm_gap.maf.fa'
+        rm_gap_command = 'cd ' + temp_dir + ' && t_coffee -other_pg seq_reformat -in '+align_file+' -action +rm_gap 80 > ' + rm_gap_align_file
+        os.system(rm_gap_command)
+        rm_gap1_align_file = cur_file + '.ext.rm_gap1.maf.fa'
+        rm_gap_command = "sed '/\*\*\*\*\*/, $d' " + rm_gap_align_file + ' > ' + rm_gap1_align_file
+        os.system(rm_gap_command)
+
         cons_file = cur_file + '.ext.cons.fa'
         # 3.使用默认参数的一致性序列命令生成一致性序列
-        cons_command = 'cons -sequence ' + align_file + ' -outseq ' + cons_file + ' > /dev/null 2>&1'
+        cons_command = 'cons -sequence ' + rm_gap1_align_file + ' -outseq ' + cons_file #+ ' > /dev/null 2>&1'
         os.system(cons_command)
         # 4.小写转大写
         cons_names, cons_contigs = read_fasta(cons_file)
