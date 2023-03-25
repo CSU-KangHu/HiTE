@@ -14,5 +14,5 @@ dependencies:
   - bedtools=2.30.0
   - cd-hit=4.8.1
   - emboss
-  - t_coffee
+  - cialign
 

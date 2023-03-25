@@ -1142,48 +1142,48 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
             domain_array = keep_longest_query[query_name]
             # for domain_info in domain_array:
             #     f_save.write(query_name+'\t'+str(domain_info[6])+'\t'+str(domain_info[0])+'\t'+str(domain_info[1])+'\t'+str(domain_info[3])+'\t'+str(domain_info[4])+'\n')
-            merge_domains = []
-            #对domain_array进行合并
-            domain_array.sort(key=lambda x: -x[2])
-            for domain_info in domain_array:
-                if len(merge_domains) == 0:
-                    merge_domains.append(domain_info)
-                else:
-                    is_new_domain = True
-                    for pre_domain in merge_domains:
-                        pre_start = pre_domain[0]
-                        pre_end = pre_domain[1]
-                        #计算overlap
-                        if pre_start > pre_end:
-                            tmp = pre_start
-                            pre_start = pre_end
-                            pre_end = tmp
-                        cur_start = domain_info[0]
-                        cur_end = domain_info[1]
-                        if cur_start > cur_end:
-                            tmp = cur_start
-                            cur_start = cur_end
-                            cur_end = tmp
-                        if cur_end >= pre_start and cur_end <= pre_end:
-                            if cur_start <= pre_start:
-                                overlap = cur_end - pre_start
-                            else:
-                                overlap = cur_end - cur_start
-                        elif cur_end > pre_end:
-                            if cur_start >= pre_start and cur_start <= pre_end:
-                                overlap = pre_end - cur_start
-                            else:
-                                overlap = 0
-                        else:
-                            overlap = 0
+            # merge_domains = []
+            # #对domain_array进行合并
+            # domain_array.sort(key=lambda x: -x[2])
+            # for domain_info in domain_array:
+            #     if len(merge_domains) == 0:
+            #         merge_domains.append(domain_info)
+            #     else:
+            #         is_new_domain = True
+            #         for pre_domain in merge_domains:
+            #             pre_start = pre_domain[0]
+            #             pre_end = pre_domain[1]
+            #             #计算overlap
+            #             if pre_start > pre_end:
+            #                 tmp = pre_start
+            #                 pre_start = pre_end
+            #                 pre_end = tmp
+            #             cur_start = domain_info[0]
+            #             cur_end = domain_info[1]
+            #             if cur_start > cur_end:
+            #                 tmp = cur_start
+            #                 cur_start = cur_end
+            #                 cur_end = tmp
+            #             if cur_end >= pre_start and cur_end <= pre_end:
+            #                 if cur_start <= pre_start:
+            #                     overlap = cur_end - pre_start
+            #                 else:
+            #                     overlap = cur_end - cur_start
+            #             elif cur_end > pre_end:
+            #                 if cur_start >= pre_start and cur_start <= pre_end:
+            #                     overlap = pre_end - cur_start
+            #                 else:
+            #                     overlap = 0
+            #             else:
+            #                 overlap = 0
                         
-                        if float(overlap / domain_info[2]) > 0.5:
-                            is_new_domain = False
-                    if  is_new_domain:   
-                        merge_domains.append(domain_info)
+            #             if float(overlap / domain_info[2]) > 0.5:
+            #                 is_new_domain = False
+            #         if  is_new_domain:   
+            #             merge_domains.append(domain_info)
 
-            for domain_info in merge_domains:
-                f_save.write(query_name+'\t'+str(domain_info[6])+'\t'+str(domain_info[0])+'\t'+str(domain_info[1])+'\t'+str(domain_info[3])+'\t'+str(domain_info[4])+'\n')
+            # for domain_info in merge_domains:
+            #     f_save.write(query_name+'\t'+str(domain_info[6])+'\t'+str(domain_info[0])+'\t'+str(domain_info[1])+'\t'+str(domain_info[3])+'\t'+str(domain_info[4])+'\n')
 
     f_save.close()
     return cur_table

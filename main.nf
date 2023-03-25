@@ -90,6 +90,7 @@ tools_module = "${projectDir}/tools"
 lib_module = "${projectDir}/library"
 ch_EAHelitron = "${projectDir}/bin/EAHelitron-master"
 ch_ltrfinder = "${projectDir}/bin/LTR_FINDER_parallel-master"
+ch_protein = "${projectDir}/library/RepeatPeps.lib"
 genome_name = file(params.genome).getName()
 out_genome = "${params.outdir}/${genome_name}"
 
@@ -106,6 +107,7 @@ flanking_len = "${params.flanking_len}"
 tandem_region_cutoff = "${params.tandem_region_cutoff}"
 plant = "${params.plant}"
 classified = "${params.classified}"
+domain = "${params.domain}"
 debug = "${params.debug}"
 miu = "${params.miu}"
 //parameters of Evaluation
@@ -368,7 +370,8 @@ process ClassifyLib {
     python3 ${ch_module}/get_classified_lib.py \
      --confident_TE_consensus ${lib} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --classified ${classified} --TEClass_home ${ch_classification} \
+     --classified ${classified} --domain ${domain} --TEClass_home ${ch_classification} \
+     --protein_path ${ch_protein} \
      --debug ${debug}
     """
 }

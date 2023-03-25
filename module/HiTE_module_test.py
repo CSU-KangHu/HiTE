@@ -28,7 +28,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
     run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
     get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
-    determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file
+    determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
+    run_blast_align, TSDsearch_v2
 
 
 def generate_repbases():
@@ -1508,6 +1509,8 @@ def clean_nested_rep(raw_input, temp_dir, threads, test_home, TRsearch_dir, cur_
     return pure_with_clean_file
 
 def run_BM_RM2(TE_path, res_out, temp_dir):
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
     threads = 30
     rm2_script = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_paper.sh'
     lib_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
@@ -1648,75 +1651,191 @@ def run_find_members_v1(cur_file, reference, temp_dir, member_script_path, subse
             return None, None
     else:
         return None, None
-    
-def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir):
-    if cur_file.__contains__('N_184702'):
-        print('here')
 
-    # step1: 搜索是否具有清晰边界
+def get_no_gap_seq(seq, pos, direct, sub_len):
+    count = 0
+    res = ''
+    i = pos
+    char = seq[i]
+    while count < sub_len:
+        if direct == 'right' and i < len(seq):
+            if seq[i] != '-':
+                res += seq[i]
+                count += 1
+            i += 1
+        elif direct == 'left' and i >= 0:
+            if seq[i] != '-':
+                res = seq[i] + res
+                count += 1
+            i -= 1
+    return res
+
+
+def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, plant, TE_type):
+    # if cur_file.__contains__('N_89008'):
+    #     print('here')
+
     # 1.找members，扩展members 20bp,进行多序列比对
     extend_len = 20
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) #+ ' > /dev/null 2>&1'
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) + ' > /dev/null 2>&1'
     #print(copy_command)
     os.system(copy_command)
     member_file = cur_file + '.blast.bed.fa'
     extend_member_file = cur_file + '.ext.blast.bed.fa'
     os.system('mv ' + member_file + ' ' + extend_member_file)
-    #只取具有TIR末端的全长拷贝，用于生成具有TIR的一致性序列
-    member_names, member_contigs = read_fasta(extend_member_file)
-    # 2.取原始序列的首尾10bp，分别在拷贝上搜索，确定拷贝是否具有TIR终端结构
+
+    align_file = cur_file + '.ext.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
+    os.system(align_command)
+
+    # 2. 根据比对文件取全长的拷贝。
+    # 2.1 先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索
+    # 因为比对文件存在gap，所以我们先在没有gap的序列上搜索位置，然后映射到有gap序列的位置
     cur_names, cur_contigs = read_fasta(cur_file)
     cur_seq = cur_contigs[cur_names[0]]
-    first_10bp = cur_seq[0:10]
-    last_10bp = cur_seq[-10:]
+    first_10bp = cur_seq[0:20]
+    last_10bp = cur_seq[-20:]
+    align_names, align_contigs = read_fasta(align_file)
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 1
+        last_dist = 1
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            #需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    # 2.2 其余全长序列在锚点位置上下2bp应该有碱基
+    #重新遍历，找到全长拷贝
     full_member_contigs = {}
-    for member_name in member_names:
-        #为了减少计算量，只取100条全长拷贝
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
         if len(full_member_contigs) > 100:
             break
-        member_seq = member_contigs[member_name]
-        start_dist = 3
-        last_dist = 3
-        first_matches = find_near_matches(first_10bp, member_seq, max_l_dist=start_dist)
-        last_matches = find_near_matches(last_10bp, member_seq, max_l_dist=last_dist)
-        last_matches = last_matches[::-1]
-        find_start = False
-        find_end = False
-        if len(first_matches) > 0 and len(last_matches) > 0:
-            for fm in first_matches:
-                if abs(fm.start-extend_len) < extend_len:
-                    find_start = True
-                    break
-            for lm in last_matches:
-                if abs(lm.end-(len(member_seq)-extend_len)) < extend_len:
-                    find_end = True
-                    break
-            if find_start and find_end:
-                #匹配到TIR终端
-                full_member_contigs[member_name] = member_seq
-    if len(full_member_contigs) <= 0:
+        align_seq = align_contigs[name]
+        if align_start-2 >= 0 and align_end + 3 < len(align_seq):
+            anchor_start_seq = align_seq[align_start-2: align_start+3]
+            anchor_end_seq = align_seq[align_end - 2: align_end + 3]
+            if anchor_start_seq != '-----' and anchor_end_seq != '-----':
+                full_member_contigs[name] = align_seq
+    full_align_file = cur_file + '.full.maf.fa'
+    store_fasta(full_member_contigs, full_align_file)
+
+    # 3. 根据全长拷贝来确定序列是否为真实TIR或Helitron
+    if len(full_member_contigs) < 1:
         return None, None
     elif len(full_member_contigs) == 1:
+        # 如果只有一条全长拷贝，但是满足一些固定特征的序列，我认为是真实TIR
+        # 包括TSD>=6 或者
+        # animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3'
+        query_name = cur_names[0]
+        align_seq = full_member_contigs.get(next(iter(full_member_contigs)))
+        tsd_len = int(query_name.split('-tsd_')[1].split('-')[0])
+        left_tsd = get_no_gap_seq(align_seq, align_start-1, 'left', tsd_len)
+        first_3bp = get_no_gap_seq(align_seq, align_start, 'right', 3)
+        last_3bp = get_no_gap_seq(align_seq, align_end, 'left', 3)
+        first_5bp = get_no_gap_seq(align_seq, align_start, 'right', 5)
+        last_5bp = get_no_gap_seq(align_seq, align_end, 'left', 5)
+        if tsd_len >= 6 or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG') \
+                        or (plant == 1 and ((first_5bp == 'CACTA' and last_5bp == 'TAGTG')
+                                            or (first_5bp == 'CACTG' and last_5bp == 'CAGTG')))\
+                        or TE_type == 'Helitron':
+            return cur_names[0], cur_seq
+        else:
+            return None, None
+    elif len(full_member_contigs) < 10:
+        #全长拷贝较少的序列，挨个获取边界外10bp非空区域。循环遍历，任意两条序列，只要在边界外出现了高同源性，则认为是假阳性序列。
+        all_first_10bp_seqs = []
+        all_last_10bp_seqs = []
+        for name in full_member_contigs.keys():
+            seq = full_member_contigs[name]
+            #往前遍历，取10个非空组成的序列
+            count = 0
+            first_10bp_no_gap = ""
+            i = align_start-1
+            while count < 10 and i >= 0:
+                if seq[i] != '-':
+                    first_10bp_no_gap = seq[i] + first_10bp_no_gap
+                    count += 1
+                i -= 1
+            all_first_10bp_seqs.append(first_10bp_no_gap)
+            #往后遍历，取10个非空组成的序列
+            count = 0
+            last_10bp_no_gap = ""
+            i = align_end + 1
+            while count < 10 and i < len(seq):
+                if seq[i] != '-':
+                    last_10bp_no_gap += seq[i]
+                    count += 1
+                i += 1
+            all_last_10bp_seqs.append(last_10bp_no_gap) 
+        #循环遍历all_first_10bp_seqs和all_last_10bp_seqs
+        for i in range(len(all_first_10bp_seqs)):
+            cur_first = all_first_10bp_seqs[i]
+            cur_last = all_last_10bp_seqs[i]
+            for j in range(i + 1, len(all_first_10bp_seqs)):
+                next_first = all_first_10bp_seqs[j]
+                next_last = all_last_10bp_seqs[j]
+                #是否具有高同源性
+                start_dist = 1
+                last_dist = 1
+                if cur_first != '' and next_first != '':
+                    first_matches = find_near_matches(cur_first, next_first, max_l_dist=start_dist)
+                    if len(first_matches) > 0:
+                        return None, None
+                if cur_last != '' and next_last != '':
+                    last_matches = find_near_matches(cur_last, next_last, max_l_dist=last_dist)
+                    if len(last_matches) > 0:
+                        return None, None
+        #所有拷贝都没有同源性，说明TIR边界很清晰
         return cur_names[0], cur_seq
     else:
-        #另存全长拷贝
-        extend_member_file = cur_file + '.ext.full.bed.fa'
-        store_fasta(full_member_contigs, extend_member_file)
+        # 1. 使用cialign去除比对中间的gaps
+        rm_gap_align_file = full_align_file + '_cleaned.fasta'
+        rm_gap_command = 'cd ' + temp_dir + ' && CIAlign --infile ' + full_align_file + ' --outfile_stem ' + full_align_file + ' --remove_insertions ' + ' > /dev/null 2>&1'
+        os.system(rm_gap_command)
 
-        align_file = cur_file + '.ext.maf.fa'
-        align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
-        os.system(align_command)
-        # 使用t_coffee去除中间的gaps
-        rm_gap_align_file = cur_file + '.ext.rm_gap.maf.fa'
-        rm_gap_command = 'cd ' + temp_dir + ' && t_coffee -other_pg seq_reformat -in '+align_file+' -action +rm_gap 80 > ' + rm_gap_align_file
-        os.system(rm_gap_command)
-        rm_gap1_align_file = cur_file + '.ext.rm_gap1.maf.fa'
-        rm_gap_command = "sed '/\*\*\*\*\*/, $d' " + rm_gap_align_file + ' > ' + rm_gap1_align_file
-        os.system(rm_gap_command)
+        # 2. 定位remove gap之后的边界位置
+        align_names, align_contigs = read_fasta(rm_gap_align_file)
+        align_start = -1
+        align_end = -1
+        for name in align_names:
+            align_seq = align_contigs[name]
+            start_dist = 1
+            last_dist = 1
+            first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+            last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+            last_matches = last_matches[::-1]
+            if len(first_matches) > 0 and len(last_matches) > 0:
+                align_start = first_matches[0].start
+                align_end = last_matches[0].end - 1
+                break
+        if align_start == -1 or align_end == -1:
+            # 没有找到边界，异常情况
+            return None, None
 
         cons_file = cur_file + '.ext.cons.fa'
         # 3.使用默认参数的一致性序列命令生成一致性序列
-        cons_command = 'cons -sequence ' + rm_gap1_align_file + ' -outseq ' + cons_file #+ ' > /dev/null 2>&1'
+        cons_command = 'cons -sequence ' + rm_gap_align_file + ' -outseq ' + cons_file + ' > /dev/null 2>&1'
         os.system(cons_command)
         # 4.小写转大写
         cons_names, cons_contigs = read_fasta(cons_file)
@@ -1726,38 +1845,37 @@ def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, subse
             seq = seq.upper()
             p_cons_contigs[name] = seq
         store_fasta(p_cons_contigs, cons_file)
-        cons_seq = p_cons_contigs[cons_names[0]]
-        # 5.取原始序列的首尾10bp，分别在一致性序列上搜索，获取在一致性序列上的边界。（迭代搜索）
-        #对应序列从0开始的索引
-        start_pos = -1
-        end_pos = -1
-        start_dist = 3
-        last_dist = 3
-        first_matches = find_near_matches(first_10bp, cons_seq, max_l_dist=start_dist)
-        while len(first_matches) == 0:
-            start_dist += 1
-            first_matches = find_near_matches(first_10bp, cons_seq, max_l_dist=start_dist)
-        for f_m in first_matches:
-            if f_m.start >= extend_len:
-                start_pos = f_m.start
-                break
-        last_matches = find_near_matches(last_10bp, cons_seq, max_l_dist=last_dist)
-        while len(last_matches) == 0:
-            last_dist += 1
-            last_matches = find_near_matches(last_10bp, cons_seq, max_l_dist=last_dist)
-        for l_m in reversed(last_matches):
-            if l_m.end <= len(cons_seq)-extend_len:
-                end_pos = l_m.end-1
-                break
-        if start_pos == -1 or end_pos == -1:
-            #没有找到边界，异常情况
+        if len(cons_names) <= 0:
+            # 没有生成一致性序列
             return None, None
-        # 6.如果边界前20bp内有超过一半以上的非N序列，说明TIR边界外区域存在大量的同源性，证明是假阳性序列
-        cons_first_20bp = cons_seq[start_pos-extend_len: start_pos] 
-        cons_last_20bp = cons_seq[end_pos+1: end_pos+extend_len+1] 
+        cons_seq = p_cons_contigs[cons_names[0]]
 
-        if cons_first_20bp.count("N") > 0.5 * extend_len and cons_last_20bp.count("N") > 0.5 * extend_len:
-            return cur_names[0], cons_seq[start_pos: end_pos+1]
+        # 5.根据一致性序列过滤掉具有较高数量的全长拷贝的假阳性序列，边界外有高同源性的序列。
+        # 如果边界前20bp内有5个以上的N序列，不存在连续5个非N，边界以内的序列全都是高一致性序列（不存在连续2个N）
+        # 说明序列是真实的TE
+        if align_start-extend_len < 0:
+            cur_start_pos = 0
+        else:
+            cur_start_pos = align_start-extend_len
+        if align_end+extend_len+1 > len(cons_seq):
+            cur_end_pos = len(cons_seq)
+        else:
+            cur_end_pos = align_end+extend_len+1
+        cons_first_20bp = cons_seq[cur_start_pos: align_start]
+        cons_last_20bp = cons_seq[align_end + 1: cur_end_pos]
+        #连续5个非N
+        first_contig_5 = re.search("[^N]{5,}", cons_first_20bp)
+        last_contig_5 = re.search("[^N]{5,}", cons_last_20bp)
+        #边界向内取20bp序列，判断是否有连续2个N
+        cons_first_internal_20bp = cons_seq[align_start: align_start+20]
+        cons_last_internal_20bp = cons_seq[align_end-19: align_end+1]
+        first_contig_2 = re.search("[N]{2,}", cons_first_internal_20bp)
+        last_contig_2 = re.search("[N]{2,}", cons_last_internal_20bp)
+        if cons_first_20bp.count("N") > 5 and cons_last_20bp.count("N") > 5 \
+                and not first_contig_5 and not last_contig_5\
+                and not first_contig_2 and not last_contig_2:
+            #取一致性序列
+            return cur_names[0], cons_seq[align_start: align_end+1]
         else:
             return None, None
 
@@ -1815,35 +1933,6 @@ def build_lib(raw_input, reference, threads, temp_copies_dir, temp_nested_dir, t
     return cur_output
 
 
-def get_domain_info(cons, lib, output_table, threads, temp_dir):
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    # 1. 将cons进行划分，每一块利用blastx -num_threads 1 -evalue 1e-20 进行cons与domain进行比对
-    partitions_num = int(threads)
-    consensus_contignames, consensus_contigs = read_fasta(cons)
-    data_partitions = PET(consensus_contigs.items(), partitions_num)
-    merge_distance = 100
-    file_list = []
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for partition_index, data_partition in enumerate(data_partitions):
-        if len(data_partition) <= 0:
-            continue
-        cur_consensus_path = temp_dir + '/'+str(partition_index)+'.fa'
-        store2file(data_partition, cur_consensus_path)
-        cur_output = temp_dir + '/'+str(partition_index)+'.out'
-        cur_table = temp_dir + '/'+str(partition_index)+'.table'
-        cur_file = (cur_consensus_path, lib, cur_output, cur_table)
-        job = ex.submit(multiple_alignment_blastx_v1, cur_file, merge_distance)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    # 2. 生成一个query与domain的最佳比对表
-    os.system("echo '# TE_name\tdomain_name\tTE_start\tTE_end\tdomain_start\tdomain_end' > " + output_table)
-    for job in as_completed(jobs):
-        cur_table = job.result()
-        os.system('cat ' + cur_table + ' >> ' + output_table)
-
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
@@ -1898,10 +1987,23 @@ if __name__ == '__main__':
 
     # 1.将具有TIR+TSD结构的序列比对到reference上，取序列成员
     # 2.遍历成员序列，如果有超过3条成员序列具有TIR结构则认定为真实TIR
-    raw_input = tmp_dir + '/test.fa'
-    #raw_input = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    plant = 1
+    TE_type = 'TIR'
+    # TIR test
+    #raw_input = tmp_dir + '/test.fa'
+    raw_tir_path = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    raw_tir_cons = tmp_dir + '/tir_tsd_0.cons.fa'
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + raw_tir_path + ' -o ' + raw_tir_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+    raw_input = raw_tir_cons
     real_tirs = tmp_dir + '/real_tirs.fa'
     temp_dir = tmp_dir + '/copies'
+
+    # # Helitron test
+    # raw_input = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    # real_tirs = tmp_dir + '/real_tirs.fa'
+    # temp_dir = tmp_dir + '/copies'
     os.system('rm -rf ' + temp_dir)
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
@@ -1917,7 +2019,7 @@ if __name__ == '__main__':
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for ref_index, cur_file in enumerate(split_files):
-        job = ex.submit(run_find_members_v2, cur_file, reference, temp_dir, member_script_path, subset_script_path, TRsearch_dir)
+        job = ex.submit(run_find_members_v2, cur_file, reference, temp_dir, member_script_path, plant, TE_type)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -1928,12 +2030,27 @@ if __name__ == '__main__':
             true_tirs[cur_name] = cur_seq
     store_fasta(true_tirs, real_tirs)
 
-    # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
-    # rename_fasta(real_tirs, real_tirs_rename)
+    real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
+    rename_fasta(real_tirs, real_tirs_rename)
 
-    # res_out = tmp_dir + '/real_tirs_res.log'
-    # temp_dir = tmp_dir + '/rm2_test'
-    # run_BM_RM2(real_tirs_rename, res_out, temp_dir)
+    res_out = tmp_dir + '/real_tirs_res.log'
+    temp_dir = tmp_dir + '/rm2_test'
+    run_BM_RM2(real_tirs_rename, res_out, temp_dir)
+
+    real_tirs_cons = tmp_dir + '/real_tirs.cons.fa'
+    # #cd-hit去冗余
+    # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + real_tirs_rename + ' -o ' + real_tirs_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    # res_out = tmp_dir + '/real_tirs_cons_res.log'
+    # temp_dir = tmp_dir + '/rm2_cons_test'
+    # run_BM_RM2(real_tirs_cons, res_out, temp_dir)
+
+
+
+
+
+
 
     cons = tmp_dir + '/test.fa'
     # names,contigs = read_fasta(cons)

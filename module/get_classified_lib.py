@@ -6,9 +6,8 @@ import sys
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, rename_fasta, multi_process_align_and_get_copies, remove_ltr_from_tir
-
-
+from Util import read_fasta, store_fasta, Logger, rename_fasta, multi_process_align_and_get_copies, remove_ltr_from_tir, \
+    get_domain_info
 
 if __name__ == '__main__':
     # 1.parse args
@@ -21,7 +20,11 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
     parser.add_argument('--classified', metavar='classified',
                         help='e.g., 1')
+    parser.add_argument('--domain', metavar='domain',
+                        help='e.g., 1')
     parser.add_argument('--TEClass_home', metavar='TEClass_home',
+                        help='e.g., ')
+    parser.add_argument('--protein_path', metavar='protein_path',
                         help='e.g., ')
     parser.add_argument('--debug', metavar='debug',
                         help='e.g., 1')
@@ -31,7 +34,9 @@ if __name__ == '__main__':
     confident_TE_consensus = args.confident_TE_consensus
     tmp_output_dir = args.tmp_output_dir
     classified = args.classified
+    domain = args.domain
     TEClass_home = args.TEClass_home
+    protein_path = args.protein_path
     debug = int(args.debug)
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
@@ -61,4 +66,9 @@ if __name__ == '__main__':
                 f_save.write('>'+name+'\n'+contigs[name]+'\n')
         f_save.close()
 
+    # 2.get domain
+    if domain is not None and int(domain) == 1:
+        output_table = confident_TE_consensus + '.domain'
+        temp_dir = tmp_output_dir + '/domain'
+        get_domain_info(confident_TE_consensus, protein_path, output_table, threads, temp_dir)
 

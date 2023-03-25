@@ -15,14 +15,18 @@ from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     multi_process_align_and_get_copies
 
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log):
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, ref_index, log):
     log.logger.info('determine true TIR')
 
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
     starttime = time.time()
-    #1.我们将
-
-
+    # 我们将copies扩展50bp，一个orig_query_name对应一个文件，然后做自比对。
+    # 解析每个自比对文件，判断C0与C1,C2...等拷贝的比对情况，如果有flanking区域包含在比对区域内，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
+    flanking_len = 50
+    similar_ratio = 0.1
+    TE_type = 'tir'
+    #print(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index)
+    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
