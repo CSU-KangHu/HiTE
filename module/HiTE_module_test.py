@@ -8,6 +8,7 @@ import codecs
 
 import json
 import time
+import math
 
 #import regex
 from fuzzysearch import find_near_matches
@@ -1741,26 +1742,29 @@ def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, plant
     store_fasta(full_member_contigs, full_align_file)
 
     # 3. 根据全长拷贝来确定序列是否为真实TIR或Helitron
+    # 全长拷贝为1的Helitron不敢认为是真实的Helitron，因为数量太多了
     if len(full_member_contigs) < 1:
         return None, None
     elif len(full_member_contigs) == 1:
-        # 如果只有一条全长拷贝，但是满足一些固定特征的序列，我认为是真实TIR
-        # 包括TSD>=6 或者
-        # animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3'
-        query_name = cur_names[0]
-        align_seq = full_member_contigs.get(next(iter(full_member_contigs)))
-        tsd_len = int(query_name.split('-tsd_')[1].split('-')[0])
-        left_tsd = get_no_gap_seq(align_seq, align_start-1, 'left', tsd_len)
-        first_3bp = get_no_gap_seq(align_seq, align_start, 'right', 3)
-        last_3bp = get_no_gap_seq(align_seq, align_end, 'left', 3)
-        first_5bp = get_no_gap_seq(align_seq, align_start, 'right', 5)
-        last_5bp = get_no_gap_seq(align_seq, align_end, 'left', 5)
-        if tsd_len >= 6 or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG') \
-                        or (plant == 1 and ((first_5bp == 'CACTA' and last_5bp == 'TAGTG')
-                                            or (first_5bp == 'CACTG' and last_5bp == 'CAGTG')))\
-                        or TE_type == 'Helitron':
-            return cur_names[0], cur_seq
-        else:
+        if TE_type == 'TIR':
+            # 如果只有一条全长拷贝，但是满足一些固定特征的序列，我认为是真实TIR
+            # 包括TSD>=6 或者
+            # animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3'
+            query_name = cur_names[0]
+            align_seq = full_member_contigs.get(next(iter(full_member_contigs)))
+            tsd_len = int(query_name.split('-tsd_')[1].split('-')[0])
+            left_tsd = get_no_gap_seq(align_seq, align_start - 1, 'left', tsd_len)
+            first_3bp = get_no_gap_seq(align_seq, align_start, 'right', 3)
+            last_3bp = get_no_gap_seq(align_seq, align_end, 'left', 3)
+            first_5bp = get_no_gap_seq(align_seq, align_start, 'right', 5)
+            last_5bp = get_no_gap_seq(align_seq, align_end, 'left', 5)
+            if tsd_len >= 6 or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG') \
+                    or (plant == 1 and ((first_5bp == 'CACTA' and last_5bp == 'TAGTG')
+                                        or (first_5bp == 'CACTG' and last_5bp == 'CAGTG'))):
+                return cur_names[0], cur_seq
+            else:
+                return None, None
+        elif TE_type == 'Helitron':
             return None, None
     elif len(full_member_contigs) < 10:
         #全长拷贝较少的序列，挨个获取边界外10bp非空区域。循环遍历，任意两条序列，只要在边界外出现了高同源性，则认为是假阳性序列。
@@ -1787,7 +1791,7 @@ def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, plant
                     last_10bp_no_gap += seq[i]
                     count += 1
                 i += 1
-            all_last_10bp_seqs.append(last_10bp_no_gap) 
+            all_last_10bp_seqs.append(last_10bp_no_gap)
         #循环遍历all_first_10bp_seqs和all_last_10bp_seqs
         for i in range(len(all_first_10bp_seqs)):
             cur_first = all_first_10bp_seqs[i]
@@ -1878,6 +1882,254 @@ def run_find_members_v2(cur_file, reference, temp_dir, member_script_path, plant
             return cur_names[0], cons_seq[align_start: align_end+1]
         else:
             return None, None
+
+def search_boundary_homo(col_base_map, valid_col_threshold, align_start, align_end, matrix, row_num, col_num):
+    start_align_valid = True
+    end_align_valid = True
+    valid_col_count = 0
+    homo_col_count = 0
+    col_index = align_start
+    while valid_col_count < 20 and col_index < col_num:
+        # 从align_start开始向右搜索20个有效列
+        # 判断当前列是否是有效列
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        for row in range(row_num):
+            cur_base = matrix[row][col_index]
+            if not base_map.__contains__(cur_base):
+                base_map[cur_base] = 0
+            cur_count = base_map[cur_base]
+            cur_count += 1
+            base_map[cur_base] = cur_count
+        # 非空行的数量超过阈值，则是有效行
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+        if row_num - base_map['-'] >= valid_col_threshold:
+            valid_col_count += 1
+            # 判断有效列是否是同源列
+            no_gap_num = row_num - base_map['-']
+            for base in base_map.keys():
+                if base == '-':
+                    continue
+                if base_map[base] * 5 >= no_gap_num * 3:
+                    homo_col_count += 1
+                    break
+        col_index += 1
+    #print(valid_col_count, homo_col_count)
+    if homo_col_count >= 15:
+        start_align_valid &= True
+    else:
+        start_align_valid &= False
+
+    # if start_align_valid == False:
+    #     return start_align_valid, end_align_valid
+
+    col_index = align_start - 1
+    valid_col_count = 0
+    homo_col_count = 0
+    while valid_col_count < 20 and col_index >= 0:
+        # 从align_start开始向左搜索20个有效列
+        # 判断当前列是否是有效列
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        for row in range(row_num):
+            cur_base = matrix[row][col_index]
+            if not base_map.__contains__(cur_base):
+                base_map[cur_base] = 0
+            cur_count = base_map[cur_base]
+            cur_count += 1
+            base_map[cur_base] = cur_count
+        # 非空行的数量超过阈值，则是有效行
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+        if row_num - base_map['-'] >= valid_col_threshold:
+            valid_col_count += 1
+            # 判断有效列是否是同源列
+            no_gap_num = row_num - base_map['-']
+            for base in base_map.keys():
+                if base == '-':
+                    continue
+                if base_map[base] * 5 >= no_gap_num * 3:
+                    homo_col_count += 1
+                    break
+        col_index -= 1
+    #print(valid_col_count, homo_col_count)
+    if homo_col_count >= 15:
+        start_align_valid &= False
+    else:
+        start_align_valid &= True
+
+    # if start_align_valid == False:
+    #     return start_align_valid, end_align_valid
+
+    valid_col_count = 0
+    homo_col_count = 0
+    col_index = align_end+1
+    while valid_col_count < 20 and col_index < col_num:
+        # 从align_end开始向右搜索20个有效列
+        # 判断当前列是否是有效列
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        for row in range(row_num):
+            cur_base = matrix[row][col_index]
+            if not base_map.__contains__(cur_base):
+                base_map[cur_base] = 0
+            cur_count = base_map[cur_base]
+            cur_count += 1
+            base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+        # 非空行的数量超过阈值，则是有效行
+        if row_num - base_map['-'] >= valid_col_threshold:
+            valid_col_count += 1
+            # 判断有效列是否是同源列
+            no_gap_num = row_num - base_map['-']
+            for base in base_map.keys():
+                if base == '-':
+                    continue
+                if base_map[base] * 5 >= no_gap_num * 3:
+                    homo_col_count += 1
+                    break
+        col_index += 1
+    #print(valid_col_count, homo_col_count)
+    if homo_col_count >= 15:
+        end_align_valid &= False
+    else:
+        end_align_valid &= True
+
+    # if end_align_valid == False:
+    #     return start_align_valid, end_align_valid
+
+    col_index = align_end
+    valid_col_count = 0
+    homo_col_count = 0
+    while valid_col_count < 20 and col_index >= 0:
+        # 从align_start开始向左搜索20个有效列
+        # 判断当前列是否是有效列
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        for row in range(row_num):
+            cur_base = matrix[row][col_index]
+            if not base_map.__contains__(cur_base):
+                base_map[cur_base] = 0
+            cur_count = base_map[cur_base]
+            cur_count += 1
+            base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+        # 非空行的数量超过阈值，则是有效行
+        if row_num - base_map['-'] >= valid_col_threshold:
+            valid_col_count += 1
+            # 判断有效列是否是同源列
+            no_gap_num = row_num - base_map['-']
+            for base in base_map.keys():
+                if base == '-':
+                    continue
+                if base_map[base] * 5 >= no_gap_num * 3:
+                    homo_col_count += 1
+                    break
+        col_index -= 1
+    #print(valid_col_count, homo_col_count)
+    if homo_col_count >= 15:
+        end_align_valid &= True
+    else:
+        end_align_valid &= False
+    return start_align_valid, end_align_valid
+
+def judge_boundary(cur_seq, align_file):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    first_10bp = cur_seq[0:20]
+    last_10bp = cur_seq[-20:]
+    align_names, align_contigs = read_fasta(align_file)
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        start_dist = 1
+        last_dist = 1
+        first_matches = find_near_matches(first_10bp, raw_align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, raw_align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_start = first_matches[0].start
+            align_end = last_matches[0].end - 1
+            break
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        return None, None
+
+    # 2.我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
+    # 需要定义的问题：
+    # ①什么是有效列。该列至少有>=5个（或者超过总拷贝数量的一半以上，即取min(5, total/2)）的非空碱基。
+    # ②怎么算同源性。一致的碱基超过序列总数*0.6以上，如果存在则该列具有同源性，否则该列不具备同源性。
+    # 要判断边界外的区域不具备同源性，只要>=5个有效非同源列存在即可。要判断边界内的区域具有高同源性，需要>=10个有效的同源序列存在。因为边界内的同源性的概率要高于边界外非同源性概率。
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        return False
+    # 把序列存成矩阵，方便遍历和索引
+    first_seq = align_contigs[align_names[0]]
+    col_num = len(first_seq)
+    row_num = len(align_names)
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(align_names):
+        seq = align_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+    #从align_start，align_end列开始，向左向右搜索20个有效列
+    #统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+    col_base_map = {}
+    valid_col_threshold = min(5, math.ceil(row_num / 2))
+    start_align_valid, end_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_start, align_end, matrix, row_num, col_num)
+    if start_align_valid and end_align_valid:
+        return True
+    else:
+        return False
+
+
+def run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):
+    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
+    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
+
+    # if cur_file.__contains__('N_89008'):
+    #     print('here')
+
+    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
+    extend_len = 20
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) + ' > /dev/null 2>&1'
+    #print(copy_command)
+    os.system(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    member_names, member_contigs = read_fasta(member_file)
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        #print(sub_command)
+        member_file += '.rdmSubset.fa'
+    align_file = cur_file + '.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --quiet --thread 1 ' + member_file + ' > ' + align_file
+    os.system(align_command)
+    #print(align_command)
+
+    rm_gap_align_file = align_file + '_cleaned.fasta'
+    rm_gap_command = 'cd ' + temp_dir + ' && CIAlign --infile ' + align_file + ' --outfile_stem ' + align_file + ' --remove_insertions ' + ' > /dev/null 2>&1'
+    os.system(rm_gap_command)
+
+    cur_names, cur_contigs = read_fasta(cur_file)
+    cur_seq = cur_contigs[cur_names[0]]
+    # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
+    is_TE = judge_boundary(cur_seq, rm_gap_align_file)
+    if is_TE:
+        return cur_names[0], cur_seq
+    else:
+        return None, None
+
 
 def keep_multi_copy(raw_input, output, reference, temp_dir, script_path, threads):
     os.system('rm -rf ' + temp_dir)
@@ -1991,11 +2243,11 @@ if __name__ == '__main__':
     TE_type = 'TIR'
     # TIR test
     #raw_input = tmp_dir + '/test.fa'
-    raw_tir_path = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
+    #raw_tir_path = tmp_dir + '/tir_tsd_0.filter_tandem.fa'
     raw_tir_cons = tmp_dir + '/tir_tsd_0.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + raw_tir_path + ' -o ' + raw_tir_cons + ' -T 0 -M 0'
-    os.system(cd_hit_command)
+    # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + raw_tir_path + ' -o ' + raw_tir_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
     raw_input = raw_tir_cons
     real_tirs = tmp_dir + '/real_tirs.fa'
     temp_dir = tmp_dir + '/copies'
@@ -2019,7 +2271,7 @@ if __name__ == '__main__':
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for ref_index, cur_file in enumerate(split_files):
-        job = ex.submit(run_find_members_v2, cur_file, reference, temp_dir, member_script_path, plant, TE_type)
+        job = ex.submit(run_find_members_v3, cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -2036,8 +2288,8 @@ if __name__ == '__main__':
     res_out = tmp_dir + '/real_tirs_res.log'
     temp_dir = tmp_dir + '/rm2_test'
     run_BM_RM2(real_tirs_rename, res_out, temp_dir)
-
-    real_tirs_cons = tmp_dir + '/real_tirs.cons.fa'
+    #
+    # real_tirs_cons = tmp_dir + '/real_tirs.cons.fa'
     # #cd-hit去冗余
     # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
     #                  + ' -G 0 -g 1 -A 80 -i ' + real_tirs_rename + ' -o ' + real_tirs_cons + ' -T 0 -M 0'
@@ -2047,6 +2299,9 @@ if __name__ == '__main__':
     # run_BM_RM2(real_tirs_cons, res_out, temp_dir)
 
 
+    # align_file = tmp_dir + '/copies/N_4444-len_350-ref_NC_029259.1-30618434-30618784-tir_158-tsd_9.fa.ext.blast.test.fa.maf.fa_cleaned.fasta'
+    # cur_file = tmp_dir + '/copies/N_4444-len_350-ref_NC_029259.1-30618434-30618784-tir_158-tsd_9.fa'
+    # judge_boundary(cur_file, align_file)
 
 
 
