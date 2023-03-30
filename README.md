@@ -170,6 +170,24 @@ Note:
 
 ### Predicting conserved protein domains in TEs
 To predict conserved protein domains in TEs, you need to add `--domain 1` parameter.
+The output format is as follows:
+```sh
+TE_name domain_name     TE_start        TE_end  domain_start    domain_end
+
+N_167   RETRO1_pol#LTR/Gypsy    8155    4430    1       1242
+N_167   Gypsy-3_BDi_1p#LTR/Gypsy        9922    7079    283     1228
+N_167   RETRO2A_p2#LTR/Gypsy    2191    3789    544     1076
+N_167   RETRO2A_p2#LTR/Gypsy    581     1957    1       462
+N_7     Mariner22_CB_tp#DNA/TcMar-Tc2   1656    219     4       482
+N_168   Gypsy-50_SB_1p#LTR/Gypsy        164     4387    1       1410
+N_166   Copia-12_BD#LTR/Copia   43      3951    2       1316
+N_170   Retrofit2#LTR/Copia     68      2509    10      819
+N_170   Copia-137_SB#LTR/Copia  2659    4507    866     1478
+N_40    Mariner5_CB_tp#DNA/TcMar-Mariner        1029    173     7       307
+N_165   LINE2C_CB_pol#LINE/CR1  4829    5571    750     1005
+N_169   Gypsy-24_AIp_1p#LTR/Gypsy       1310    6157    159     1777
+N_169   RIRE2_p2#LTR/Gypsy      9432    8539    1       298
+```
 
 ## <a name="inputs"></a>Inputs
 HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using `--genome`.
