@@ -150,11 +150,12 @@ python main.py --genome ../demo/genome.fa --thread 48 --outdir ../demo/test --pl
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
 ```text
 demo/test/
-├── confident_helitron_0.fa (9.1 KB)
+├── confident_helitron_0.fa (7.9 KB)
 ├── confident_other_0.fa (0 KB)
-├── confident_TE.cons.fa (117 KB)
-├── confident_tir_0.fa (159 KB)
-├── confident_ltr_cut.fa (48 KB)
+├── confident_TE.cons.fa (110 KB)
+├── confident_TE.cons.fa.classified (112 KB)
+├── confident_tir_0.fa (61 KB)
+├── confident_ltr_cut.fa (47 KB)
 ├── genome_all.fa.harvest.scn (11 KB)
 ├── genome.rename.fa.finder.combine.scn (1.3 KB)
 ├── genome.rename.fa.LTRlib.fa (48 KB)
@@ -166,6 +167,9 @@ demo/test/
 Note:
 1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE** directory.
 2. To avoid automatic deletion of files, set the output path parameter ```--outdir``` to a new directory.
+
+### Predicting conserved protein domains in TEs
+To predict conserved protein domains in TEs, you need to add `--domain 1` parameter.
 
 ## <a name="inputs"></a>Inputs
 HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using `--genome`.
@@ -180,14 +184,13 @@ the pipeline completes successfully, the output directory should look like the f
 ```text
 output_dir/
 ├── longest_repeats_*.fa
+├── longest_repeats_*.flanked.fa
 ├── confident_tir_*.fa
 ├── confident_helitron_*.fa
 ├── confident_other_*.fa
 ├── confident_ltr_cut.fa
 ├── genome_all.fa.harvest.scn
-├── ${ref_name}.finder.combine.scn
-├── ${ref_name}.LTRlib.fa
-├── ${ref_name}.rename.fa
+├── genome.rename.fa.*
 ├── confident_TE.cons.fa
 └── confident_TE.cons.fa.classified
 ```

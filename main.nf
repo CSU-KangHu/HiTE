@@ -35,7 +35,6 @@ def helpMessage() {
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
       --miu                             The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
       --classified                      Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ 1 ]
-      --recover                         Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
       --flanking_len                    The flanking length of candidates to find the true boundaries, default = [ 50 ]
       --fixed_extend_base_threshold     The length of variation can be tolerated during pairwise alignment, default = [ 1000 ]
@@ -53,7 +52,6 @@ def printSetting() {
       [Setting] Is plant genome = [ $params.plant ]
       [Setting] Is classified = [ $params.classified ]
       [Setting] The neutral mutation rate (per bp per ya) = = [ $params.miu ]
-      [Setting] recover = [ $params.recover ]
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.outdir ]
 

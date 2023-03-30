@@ -34,7 +34,7 @@ if __name__ == '__main__':
                     '.*\.scn',
                     'genome\.rename\.fa\.LTRlib\.fa', 
                     'confident_TE\.cons\.fa',
-                    'confident_TE\.cons\.fa.domain',
+                    'confident_TE\.cons\.fa\.domain',
                     'confident_ltr_cut\.fa',
                     'confident_TE\.cons\.fa\.classified', 
                     'longest_repeats(_\d+)?\.flanked\.fa', 

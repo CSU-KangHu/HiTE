@@ -414,7 +414,7 @@ if __name__ == '__main__':
     os.system('rm -f ' + confident_helitron_path)
     os.system('rm -f ' + confident_other_path)
     for ref_index, ref_rename_path in enumerate(cut_references):
-        cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.rename.cons.fa'
+        cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
         cur_confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
