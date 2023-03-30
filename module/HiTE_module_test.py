@@ -30,7 +30,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
     get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
     determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
-    run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir
+    run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
+    filter_boundary_homo_v1, run_find_members_v3
 
 
 def generate_repbases():
@@ -1948,6 +1949,51 @@ if __name__ == '__main__':
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
     log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+
+    # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
+    # # 1.获取longest_repeats
+    # longest_repeats_flanked_path = tmp_dir + '/longest_repeats_0.flanked.fa'
+    # # 2.获取最长的TE的TIR以及其所有的边界
+    # ref_index = 0
+    # flanking_len = 50
+    # threads = 40
+    # TRsearch_dir = '/home/hukang/HiTE/tools'
+    # plant = 1
+    # reference = tmp_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
+    # tir_tsd_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.fa'
+    # all_tir_tsd_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.all.fa'
+    # tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
+    # multi_process_tsd_v3(longest_repeats_flanked_path, tir_tsd_path, all_tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir,
+    #                   plant, reference)
+    # # 生成一致性序列
+    # repeats_cons = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.cons.fa'
+    # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + tir_tsd_path + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    #
+    # # 2.根据同源过滤，再次过滤上述TIR，并得出测试结果
+    # TE_type = 'TIR'
+    # raw_input = repeats_cons
+    # #raw_input = tmp_dir + '/tir_tsd_0.cons.fa'
+    # output = tmp_dir + '/real_tirs.fa'
+    # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # temp_dir = tmp_dir + '/copies'
+    # threads = 40
+    # filter_boundary_homo_v1(raw_input, all_tir_tsd_path, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    #                      TE_type)
+    #
+    # # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
+    # # rename_fasta(output, real_tirs_rename)
+    # # # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
+    # # temp_dir = tmp_dir + '/tir_blast_ltr'
+    # # confident_ltr_cut_path = tmp_dir + '/confident_ltr_cut.fa'
+    # # all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, real_tirs_rename, temp_dir, 'tir',
+    # #                                                 threads, query_coverage=0.8)
+    # # print(len(all_copies))
+    # # remove_ltr_from_tir(confident_ltr_cut_path, real_tirs_rename, all_copies)
+
+
     # #分析
     # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
     # names, contigs = read_fasta(tmp_dir+'/confident_tir_0.fa')
@@ -2033,7 +2079,7 @@ if __name__ == '__main__':
     # confident_tir_rename = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.rename.fa'
     # rename_fasta(confident_tir_path, confident_tir_rename)
     #
-    confident_tir_cons = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.rename.cons.fa'
+    # confident_tir_cons = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.rename.cons.fa'
     # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
     #                  + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename + ' -o ' + confident_tir_cons + ' -T 0 -M 0'
     # os.system(cd_hit_command)
@@ -2050,40 +2096,40 @@ if __name__ == '__main__':
     # run_EDTA(tmp_output_dir, confident_tir_cons, reference, EDTA_home, TE_out, std_TE_out)
     #
     # 2.根据同源过滤，再次过滤上述TIR，并得出测试结果
-    plant = 1
-    TE_type = 'TIR'
-    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
-    raw_input = confident_tir_cons
-    #raw_input = tmp_dir + '/tir_tsd_0.cons.fa'
-    output = tmp_dir + '/real_tirs.fa'
-    member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
-    subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
-    reference = tmp_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
-    temp_dir = tmp_dir + '/copies'
-    threads = 40
-    filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
-                         TE_type)
-
-    # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
-    # rename_fasta(output, real_tirs_rename)
-    # # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
-    # temp_dir = tmp_dir + '/tir_blast_ltr'
-    # confident_ltr_cut_path = tmp_dir + '/confident_ltr_cut.fa'
-    # all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, real_tirs_rename, temp_dir, 'tir',
-    #                                                 threads, query_coverage=0.8)
-    # print(len(all_copies))
-    # remove_ltr_from_tir(confident_ltr_cut_path, real_tirs_rename, all_copies)
-
-    rm2_script = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_paper.sh'
-    lib_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
-    res_out = tmp_dir + '/real_tirs_res.log'
-    temp_dir = tmp_dir + '/rm2_test'
-    run_BM_RM2(output, res_out, temp_dir, rm2_script, lib_path)
-    EDTA_home = '/home/hukang/EDTA'
-    TE_out = tmp_dir + '/HiTE_new_tir.out'
-    std_TE_out = '/home/hukang/EDTA/krf_test/rice/repbase.tir.out'
-    run_EDTA(tmp_dir, output, reference, EDTA_home, TE_out, std_TE_out)
-    #-------------------------------------------------
+    # plant = 1
+    # TE_type = 'TIR'
+    # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
+    # raw_input = confident_tir_cons
+    # #raw_input = tmp_dir + '/tir_tsd_0.cons.fa'
+    # output = tmp_dir + '/real_tirs.fa'
+    # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # reference = tmp_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
+    # temp_dir = tmp_dir + '/copies'
+    # threads = 40
+    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    #                      TE_type)
+    #
+    # # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
+    # # rename_fasta(output, real_tirs_rename)
+    # # # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
+    # # temp_dir = tmp_dir + '/tir_blast_ltr'
+    # # confident_ltr_cut_path = tmp_dir + '/confident_ltr_cut.fa'
+    # # all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, real_tirs_rename, temp_dir, 'tir',
+    # #                                                 threads, query_coverage=0.8)
+    # # print(len(all_copies))
+    # # remove_ltr_from_tir(confident_ltr_cut_path, real_tirs_rename, all_copies)
+    #
+    # rm2_script = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_paper.sh'
+    # lib_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/oryrep.ref'
+    # res_out = tmp_dir + '/real_tirs_res.log'
+    # temp_dir = tmp_dir + '/rm2_test'
+    # run_BM_RM2(output, res_out, temp_dir, rm2_script, lib_path)
+    # EDTA_home = '/home/hukang/EDTA'
+    # TE_out = tmp_dir + '/HiTE_new_tir.out'
+    # std_TE_out = '/home/hukang/EDTA/krf_test/rice/repbase.tir.out'
+    # run_EDTA(tmp_dir, output, reference, EDTA_home, TE_out, std_TE_out)
+    # #-------------------------------------------------
 
     # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
     #                  + ' -G 0 -g 1 -A 80 -i ' + raw_tir_path + ' -o ' + raw_tir_cons + ' -T 0 -M 0'
@@ -2134,12 +2180,16 @@ if __name__ == '__main__':
     # print(s)
     # print(len(s))
 
-    # plant = 1
-    # TE_type = 'TIR'
-    # temp_dir = tmp_dir + '/copies'
-    # cur_file = temp_dir + '/N_184702-len_1014-ref_NC_029267.1-25280333-25281347-tir_9-tsd_8.fa.maf.fa'
-    # cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
-    # print(cur_name)
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7'
+    reference = tmp_dir + '/genome.rename.fa'
+    member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    plant = 1
+    TE_type = 'TIR'
+    temp_dir = tmp_dir + '/copies'
+    cur_file = temp_dir + '/test1.fa'
+    cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
+    print(cur_name)
 
     # true_tirs = {}
     # for job in as_completed(jobs):

@@ -39,7 +39,7 @@ if __name__ == '__main__':
                     'confident_TE\.cons\.fa\.classified', 
                     'longest_repeats(_\d+)?\.flanked\.fa', 
                     'longest_repeats(_\d+)?\.fa',
-                    'confident_tir(_\d+)?\.rename\.cons\.fa',
+                    'confident_tir(_\d+)?\.fa',
                     'confident_helitron(_\d+)?\.fa', 
                     'confident_other(_\d+)?\.fa']
 

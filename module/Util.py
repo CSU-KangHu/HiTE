@@ -4763,34 +4763,35 @@ def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, f
         candidate_TIRs.update(cur_candidate_TIRs)
     store_fasta(candidate_TIRs, tir_tsd_path)
 
-    # # 重新比对到基因组，获取候选TIR拷贝数
-    # seq_copynum = {}
-    # temp_dir = tir_tsd_dir + '/tir_temp'
-    # all_copies = multi_process_align_and_get_copies(tir_tsd_path, reference,
-    #                                                 temp_dir, 'tir', threads)
-    # for query_name in all_copies.keys():
-    #     copies = all_copies[query_name]
-    #     seq_copynum[query_name] = len(copies)
+def multi_process_tsd_v3(longest_repeats_flanked_path, tir_tsd_path, all_tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
+    os.system('rm -rf '+tir_tsd_dir)
+    if not os.path.exists(tir_tsd_dir):
+        os.makedirs(tir_tsd_dir)
 
-    # # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
-    # # 对all_copies_out_contigs按照query_name进行分组
-    # # group_copies_contigs -> {query_name: {name: seq}}
-    # group_copies_contigs = {}
-    # for cur_name in candidate_TIRs.keys():
-    #     query_name = cur_name.split('-C_')[0]
-    #     if not group_copies_contigs.__contains__(query_name):
-    #         group_copies_contigs[query_name] = {}
-    #     cur_copies_out_contigs = group_copies_contigs[query_name]
-    #     cur_copies_out_contigs[cur_name] = candidate_TIRs[cur_name]
+    seq_names, seq_contigs = read_fasta(longest_repeats_flanked_path)
 
-    # filter_dup_itr_contigs = {}
-    # for query_name in group_copies_contigs.keys():
-    #     cur_copies_out_contigs = group_copies_contigs[query_name]
-    #     # 选择拷贝数和TSD综合最优的那一条
-    #     cur_contigs = filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum)
-    #     filter_dup_itr_contigs.update(cur_contigs)
+    # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
+    segments_cluster = divided_array(list(seq_contigs.items()), threads)
 
-    # store_fasta(filter_dup_itr_contigs, tir_tsd_filter_dup_path)
+    job_id = 0
+    ex = ProcessPoolExecutor(threads)
+    objs = []
+    for partition_index, cur_segments in enumerate(segments_cluster):
+        obj = ex.submit(search_confident_tir_batch_v3, cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant)
+        objs.append(obj)
+        job_id += 1
+    ex.shutdown(wait=True)
+    longest_TE_boundary_contigs = {}
+    all_boundary_contigs = {}
+    for obj in as_completed(objs):
+        cur_longest_TE_boundary_contigs, cur_all_boundary_contigs = obj.result()
+        longest_TE_boundary_contigs.update(cur_longest_TE_boundary_contigs)
+        all_boundary_contigs.update(cur_all_boundary_contigs)
+    store_fasta(longest_TE_boundary_contigs, tir_tsd_path)
+
+    with codecs.open(all_tir_tsd_path, 'w', encoding='utf-8') as f:
+        json.dump(all_boundary_contigs, f)
+
 
 def multi_process_ltr_tsd(raw_candidate_ltrs, ltr_tsd_path, cut_ltr_tsd_path, ltr_tsd_dir, flanking_len, threads, TRsearch_dir, plant):
     os.system('rm -rf '+ltr_tsd_dir)
@@ -5712,6 +5713,88 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
         filter_dup_itr_contigs.update(cur_contigs)
 
     return filter_dup_itr_contigs
+
+def search_confident_tir_batch_v3(cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant):
+    all_copies_itr_contigs = {}
+    all_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '.fa'
+    short_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '_s.fa'
+    for item in cur_segments:
+        query_name = item[0]
+        seq = item[1]
+
+        #如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
+        if seq.__contains__('NNNNNNNNNN'):
+            continue
+
+        tir_start = flanking_len + 1
+        tir_end = len(seq) - flanking_len
+        # 寻找所有可能的TSD序列，计算每条序列的边界与原始边界的距离，并存到header里
+        tsd_search_distance = flanking_len
+        cur_itr_contigs = search_confident_tir_v3(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
+        all_copies_itr_contigs.update(cur_itr_contigs)
+
+    #保存短tir的序列，交由itrsearch确定TIR长度
+    short_itr_contigs = get_short_tir_contigs(all_copies_itr_contigs, plant)
+    store_fasta(short_itr_contigs, short_candidate_TIRs_path)
+    short_copies_out, short_copies_log = run_itrsearch(TRsearch_dir, short_candidate_TIRs_path, tir_tsd_dir)
+    raw_short_copies_out_name, raw_short_copies_out_contigs = read_fasta_v1(short_copies_out)
+
+    #剩下的序列交由itrsearch去搜索TIR结构
+    for name in short_itr_contigs.keys():
+        del all_copies_itr_contigs[name]
+    store_fasta(all_copies_itr_contigs, all_candidate_TIRs_path)
+    all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, all_candidate_TIRs_path, tir_tsd_dir)
+    # 过滤掉终端TIR长度差距过大的序列
+    # filter_large_gap_tirs(all_copies_out, all_copies_out)
+
+    #记录下每个query对应的TIR长度
+    TIR_len_dict = {}
+    raw_all_copies_out_name, raw_all_copies_out_contigs = read_fasta_v1(all_copies_out)
+    all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    for name in raw_all_copies_out_name:
+        query_name = name.split(' ')[0]
+        tir_len = int(name.split('Length itr=')[1])
+        TIR_len_dict[query_name] = tir_len
+    for name in raw_short_copies_out_name:
+        query_name = name.split(' ')[0]
+        tir_len = int(name.split('Length itr=')[1])
+        TIR_len_dict[query_name] = tir_len
+
+    # 解析itrsearch log文件，提取比对偏移的序列名称
+    fake_tirs = get_fake_tirs(all_copies_log)
+    #过滤掉可能是fake tir的序列
+    for name in all_copies_out_name:
+        if name in fake_tirs:
+            del all_copies_out_contigs[name]
+    all_copies_out_contigs.update(short_itr_contigs)
+
+    #为了减少后续计算量，我们在这里就进行分组，每一组选择TIR和TSD最长的序列
+    # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
+    # 对all_copies_out_contigs按照query_name进行分组
+    # group_copies_contigs -> {query_name: {name: seq}}
+    group_copies_contigs = {}
+    for cur_name in all_copies_out_contigs.keys():
+        query_name = cur_name.split('-C_')[0]
+        if not group_copies_contigs.__contains__(query_name):
+            group_copies_contigs[query_name] = {}
+        cur_copies_out_contigs = group_copies_contigs[query_name]
+        cur_copies_out_contigs[cur_name] = all_copies_out_contigs[cur_name]
+
+    longest_TE_boundary_contigs = {}
+    all_boundary_contigs = {}
+    for query_name in group_copies_contigs.keys():
+        cur_copies_out_contigs = group_copies_contigs[query_name]
+        sorted_fasta = sorted(cur_copies_out_contigs.items(), key=lambda x: len(x[1]), reverse=True)
+        for i, item in enumerate(sorted_fasta):
+            if i == 0:
+                longest_TE_boundary_contigs[query_name] = item[1]
+            else:
+                if not all_boundary_contigs.__contains__(query_name):
+                    all_boundary_contigs[query_name] = []
+                all_list = all_boundary_contigs[query_name]
+                all_list.append(item[1])
+
+    return longest_TE_boundary_contigs, all_boundary_contigs
 
 def get_fake_tirs(itrsearch_log):
     fake_tirs = set()
@@ -7128,6 +7211,143 @@ def judge_boundary(cur_seq, align_file, debug):
     else:
         return True
 
+def judge_boundary_v1(cur_seq, align_file, debug):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    anchor_len = 20
+    first_10bp = cur_seq[0:anchor_len]
+    last_10bp = cur_seq[-anchor_len:]
+    align_names, align_contigs = read_fasta(align_file)
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 1
+        last_dist = 1
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            # 需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    if debug:
+        print(align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        return False
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        return False
+
+    col_base_map = {}
+    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
+    # 在锚点位置上下2bp应该有碱基
+    start_member_names = []
+    start_member_contigs = {}
+    end_member_names = []
+    end_member_contigs = {}
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(start_member_contigs) > 100:
+            break
+        if len(end_member_contigs) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - 20 >= 0:
+            anchor_start = align_start - 20
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + 20]
+        if not all(c == '-' for c in list(anchor_start_seq)):
+            start_member_names.append(name)
+            start_member_contigs[name] = align_seq
+        if align_end + 20 < len(align_seq):
+            anchor_end = align_end + 20
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - 20: anchor_end]
+        if not all(c == '-' for c in list(anchor_end_seq)):
+            end_member_names.append(name)
+            end_member_contigs[name] = align_seq
+
+    # 判断align start处的拷贝们是否满足定律。
+    if len(start_member_names) <= 0:
+        return False
+    elif len(start_member_names) == 1:
+        start_align_valid = True
+    else:
+        # 把序列存成矩阵，方便遍历和索引
+        first_seq = start_member_contigs[start_member_names[0]]
+        col_num = len(first_seq)
+        row_num = len(start_member_names)
+        matrix = [[''] * col_num for i in range(row_num)]
+        for row, name in enumerate(start_member_names):
+            seq = start_member_contigs[name]
+            for col in range(len(seq)):
+                matrix[row][col] = seq[col]
+        # 从align_start列开始，向左向右搜索20个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        valid_col_threshold = int(row_num/2)
+        out_homo_threshold = 5
+        if row_num <= 2:
+            internal_no_homo_threshold = 5
+        else:
+            internal_no_homo_threshold = 2
+
+        start_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_start, matrix, row_num,
+                                                 col_num, internal_no_homo_threshold, out_homo_threshold, 'start',
+                                                 debug)
+    if not start_align_valid:
+        return False
+    # 判断align end处的拷贝们是否满足定律。
+    if len(end_member_names) <= 0:
+        return False
+    elif len(end_member_names) == 1:
+        end_align_valid = True
+    else:
+        # 把序列存成矩阵，方便遍历和索引
+        first_seq = end_member_contigs[end_member_names[0]]
+        col_num = len(first_seq)
+        row_num = len(end_member_names)
+        matrix = [[''] * col_num for i in range(row_num)]
+        for row, name in enumerate(end_member_names):
+            seq = end_member_contigs[name]
+            for col in range(len(seq)):
+                matrix[row][col] = seq[col]
+        # 从align_end列开始，向左向右搜索20个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        valid_col_threshold = int(row_num/2)
+        out_homo_threshold = 5
+        if row_num <= 2:
+            internal_no_homo_threshold = 5
+        else:
+            internal_no_homo_threshold = 2
+
+        end_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_end, matrix, row_num, col_num,
+                                               internal_no_homo_threshold, out_homo_threshold, 'end', debug)
+        if debug:
+            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
+    if not end_align_valid:
+        return False
+    else:
+        return True
 
 def run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):
     # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
@@ -7197,6 +7417,55 @@ def run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subse
     else:
         return None, None
 
+def run_find_members_v4(file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):
+    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
+    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
+    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
+    debug = 0
+    # if cur_file.__contains__('N_174912'):
+    #     debug = 1
+    cur_file = file[0]
+    cur_all_boundary = file[1]
+
+    cur_names, cur_contigs = read_fasta(cur_file)
+    cur_seq = cur_contigs[cur_names[0]]
+
+    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
+    extend_len = 20
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
+        extend_len) + ' > /dev/null 2>&1'
+    # print(copy_command)
+    os.system(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    member_names, member_contigs = read_fasta(member_file)
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        # print(sub_command)
+        member_file += '.rdmSubset.fa'
+    elif len(member_names) == 1:
+        return None, None
+    align_file = cur_file + '.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+    os.system(align_command)
+
+    is_TE = False
+    boudary_count = 0
+    seq = ''
+    while not is_TE and boudary_count < len(cur_all_boundary) + 1:
+        if boudary_count == 0:
+            seq = cur_seq
+        else:
+            seq = cur_all_boundary[boudary_count-1]
+        # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
+        is_TE = judge_boundary_v1(seq, align_file, debug)
+        break
+
+    if is_TE:
+        return cur_names[0], seq
+    else:
+        return None, None
+
 def filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant, TE_type):
     real_tirs = output
 
@@ -7216,6 +7485,41 @@ def filter_boundary_homo(raw_input, output, reference, member_script_path, subse
     jobs = []
     for ref_index, cur_file in enumerate(split_files):
         job = ex.submit(run_find_members_v3, cur_file, reference, temp_dir, member_script_path, subset_script_path,
+                        plant, TE_type)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    true_tirs = {}
+    for job in as_completed(jobs):
+        cur_name, cur_seq = job.result()
+        if cur_name is not None:
+            true_tirs[cur_name] = cur_seq
+    store_fasta(true_tirs, real_tirs)
+
+def filter_boundary_homo_v1(raw_input, all_tir_tsd_path, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant, TE_type):
+    real_tirs = output
+
+    file = open(all_tir_tsd_path, 'r')
+    js = file.read()
+    all_boundary_contigs = json.loads(js)
+
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    names, contigs = read_fasta(raw_input)
+    split_files = []
+    for i, name in enumerate(names):
+        cur_file = temp_dir + '/' + str(name) + '.fa'
+        cur_all_boundary = all_boundary_contigs[name]
+        cur_contigs = {}
+        cur_contigs[name] = contigs[name]
+        store_fasta(cur_contigs, cur_file)
+        split_files.append((cur_file, cur_all_boundary))
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for ref_index, cur_file in enumerate(split_files):
+        job = ex.submit(run_find_members_v4, cur_file, reference, temp_dir, member_script_path, subset_script_path,
                         plant, TE_type)
         jobs.append(job)
     ex.shutdown(wait=True)

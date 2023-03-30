@@ -448,7 +448,7 @@ process BM_EDTA {
     mv ${tmp_output_dir}/genome.rename.fa.out HiTE.out
     cp HiTE.out ${tmp_output_dir}/
 
-    perl ${EDTA_home}/lib-test.pl -genome ${reference} -std repbase.out -tst HiTE.out -cat Total
+    perl ${EDTA_home}/lib-test.pl -genome ${tmp_output_dir}/genome.rename.fa -std repbase.out -tst HiTE.out -cat Total
     """
 }
 
