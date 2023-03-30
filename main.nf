@@ -196,6 +196,7 @@ process TIR {
 
     input:
     tuple path(cut_ref), path(lrf)
+    path ltrs
 
     output:
     path "confident_tir_*.fa"
@@ -208,7 +209,7 @@ process TIR {
     script:
     """
     python3 ${ch_module}/judge_TIR_transposons.py \
-    -g ${cut_ref} --seqs ${lrf} \
+    -g ${cut_ref} --seqs ${lrf} --confident_ltr_cut_path ${ltrs} \
     -t ${cores} --TRsearch_dir ${tools_module}  \
     --tmp_output_dir ${tmp_output_dir} \
     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
@@ -348,7 +349,8 @@ process BuildLib {
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_other ${other} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir}
+     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
+     --test_home ${ch_module}
 
     cp ${tmp_output_dir}/confident_TE.cons.fa ./
     """
@@ -438,11 +440,13 @@ process BM_EDTA {
     script:
     cores = task.cpus
     """
-    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${curatedLib} -cutoff 225 ${reference}
-    mv ${reference}.out repbase.out
+    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${curatedLib} -cutoff 225 ${tmp_output_dir}/genome.rename.fa
+    mv ${tmp_output_dir}/genome.rename.fa.out repbase.out
+    cp repbase.out ${tmp_output_dir}/
 
-    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${TE} -cutoff 225 ${reference}
-    mv ${reference}.out HiTE.out
+    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${TE} -cutoff 225 ${tmp_output_dir}/genome.rename.fa
+    mv ${tmp_output_dir}/genome.rename.fa.out HiTE.out
+    cp HiTE.out ${tmp_output_dir}/
 
     perl ${EDTA_home}/lib-test.pl -genome ${reference} -std repbase.out -tst HiTE.out -cat Total
     """
@@ -490,6 +494,11 @@ workflow {
 
             // split genome into chunks
             Channel.fromPath(params.genome, type: 'any', checkIfExists: true).set{ ch_g }
+
+            //LTR identification
+            ch_ltrs = LTR(ch_g)
+            //test(ch_ltrs) | view { "$it" }
+
             cut_genomes = splitGenome(ch_g)
             ch_cut_g = cut_genomes.flatten()
 
@@ -503,7 +512,7 @@ workflow {
             //test(merged_channel) | view { "$it" }
 
             //TIR identification
-            ch_tirs = TIR(merged_channel).collectFile(name: "${params.outdir}/confident_tir.fa")
+            ch_tirs = TIR(merged_channel, ch_ltrs).collectFile(name: "${params.outdir}/confident_tir.fa")
 
             //Helitron identification
             ch_h = Helitron(merged_channel).collectFile(name: "${params.outdir}/confident_helitron.fa")
@@ -511,10 +520,6 @@ workflow {
             //Other identification
             ch_o = OtherTE(longest_repeats).collectFile(name: "${params.outdir}/confident_other.fa")
             //test(ch_o) | view { "$it" }
-            
-            //LTR identification
-            ch_ltrs = LTR(ch_g)
-            //test(ch_ltrs) | view { "$it" }
 
             //Unwrap nested TE
             //ch_TE = UnwrapNested(params.genome, ch_ltrs, ch_tirs, ch_h, ch_o)

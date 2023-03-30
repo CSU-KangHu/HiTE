@@ -33,12 +33,13 @@ if __name__ == '__main__':
                     'genome\.rename\.fa\.pass\.list', 
                     '.*\.scn',
                     'genome\.rename\.fa\.LTRlib\.fa', 
-                    'confident_TE\.cons\.fa', 
+                    'confident_TE\.cons\.fa',
+                    'confident_TE\.cons\.fa.domain',
                     'confident_ltr_cut\.fa',
                     'confident_TE\.cons\.fa\.classified', 
                     'longest_repeats(_\d+)?\.flanked\.fa', 
                     'longest_repeats(_\d+)?\.fa',
-                    'confident_tir(_\d+)?\.fa',
+                    'confident_tir(_\d+)?\.rename\.cons\.fa',
                     'confident_helitron(_\d+)?\.fa', 
                     'confident_other(_\d+)?\.fa']
 

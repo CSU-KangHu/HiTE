@@ -12,10 +12,21 @@ sys.path.append(cur_dir)
 from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
     multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
-    multi_process_align_and_get_copies
+    multi_process_align_and_get_copies, rename_fasta, remove_ltr_from_tir
 
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking_len, ref_index, log):
+def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    threads = 30
+    rm2_command = 'RepeatMasker -lib '+lib_path+' -nolow -pa '+str(threads)+' '+TE_path
+    rm2_res_command = 'cd '+temp_dir+' && rm -rf * && sh '+rm2_script+ ' ' + TE_path + '.out > ' + res_out
+    os.system(rm2_command)
+    print(rm2_res_command)
+    os.system(rm2_res_command)
+
+
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log):
     log.logger.info('determine true TIR')
 
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
@@ -54,6 +65,14 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, flanking
         if len(copies) <= 1:
             del confident_tir[query_name]
     store_fasta(confident_tir, confident_tir_path)
+
+    log.logger.info("filter TIR elements with high coverage with LTR")
+    # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
+    temp_dir = tmp_output_dir + '/tir_blast_ltr'
+    all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, temp_dir, 'tir',
+                                                    threads, query_coverage=0.8)
+    new_confident_tir_path = remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
+    rename_fasta(new_confident_tir_path, confident_tir_path, 'TIR')
 
 
 def get_score(confident_TIR):
@@ -161,6 +180,8 @@ if __name__ == '__main__':
                         help='input genome assembly path')
     parser.add_argument('--seqs', metavar='seqs',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/longest_repeats_0.flanked.fa')
+    parser.add_argument('--confident_ltr_cut_path', metavar='confident_ltr_cut_path',
+                        help='e.g., ')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
     parser.add_argument('--TRsearch_dir', metavar='TRsearch_dir',
@@ -179,6 +200,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     reference = args.g
     longest_repeats_flanked_path = args.seqs
+    confident_ltr_cut_path = args.confident_ltr_cut_path
     threads = int(args.t)
     TRsearch_dir = args.TRsearch_dir
     tmp_output_dir = args.tmp_output_dir
@@ -219,6 +241,11 @@ if __name__ == '__main__':
     multi_process_TRF(tir_tsd_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
                       TE_type='tir')
 
+    # 生成一致性序列
+    repeats_cons = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.cons.fa'
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + repeats_path + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command)
 
     # 3.判断我们具有准确边界的TIR是否是真实的。
     # 条件：
@@ -226,4 +253,4 @@ if __name__ == '__main__':
     # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
     # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
     # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
-    is_transposons(repeats_path, reference, threads, tmp_output_dir, ref_index, log)
+    is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log)

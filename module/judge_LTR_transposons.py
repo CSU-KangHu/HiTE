@@ -10,7 +10,8 @@ import time
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, rename_reference, file_exist, Logger, run_LTR_harvest, run_LTR_retriever
+from Util import read_fasta, store_fasta, rename_reference, file_exist, Logger, run_LTR_harvest, run_LTR_retriever, \
+    rename_fasta
 
 if __name__ == '__main__':
     #preprocess()
@@ -94,7 +95,8 @@ if __name__ == '__main__':
         log.logger.info(resut_file + ' exists, skip...')
 
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
-    os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+    rename_fasta(resut_file, confident_ltr_cut_path, 'LTR')
+    #os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
 
 
 

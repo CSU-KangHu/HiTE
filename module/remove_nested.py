@@ -60,8 +60,8 @@ if __name__ == '__main__':
                         help='input threads number')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/dmel')
-    parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter',
-                        help='e.g., 1')
+    # parser.add_argument('--global_flanking_filter', metavar='global_flanking_filter',
+    #                     help='e.g., 1')
     parser.add_argument('--remove_nested', metavar='remove_nested',
                         help='e.g., 1')
     parser.add_argument('--test_home', metavar='test_home',
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     confident_other_path = args.confident_other
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
-    global_flanking_filter = int(args.global_flanking_filter)
+    #global_flanking_filter = int(args.global_flanking_filter)
     remove_nested = int(args.remove_nested)
     test_home = args.test_home
 
@@ -86,35 +86,27 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
-    # 1.2 confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
-    temp_dir = tmp_output_dir + '/tir_blast_ltr'
-    all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, temp_dir, 'tir',
-                                                    threads, query_coverage=0.8)
-    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
-
-    # 1.4 生成一致性tir序列
-    confident_tir_rename_path = tmp_output_dir + '/confident_tir.rename.fa'
-    rename_fasta(confident_tir_path, confident_tir_rename_path)
-
-    confident_tir_rename_consensus = tmp_output_dir + '/confident_tir.rename.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename_path + ' -o ' + confident_tir_rename_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command)
+    # 合并所有的TE（TIR+Helitron+Other）
+    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+    os.system('cat ' + confident_tir_path + ' > ' + confident_TE_path)
+    os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
+    os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
+    os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
     # # 如果切分成了多个块，TIR需要重新flank_region_align_v1到整个基因组，以过滤掉那些在分块中未能过滤掉的假阳性。
     # if global_flanking_filter == 1:
     #     ref_index = -1
     #     is_transposons(confident_tir_rename_consensus, reference, threads, tmp_output_dir, ref_index, log)
 
-    # # 1.5 解开TIR中包含的nested TE
-    # clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
-    # remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested_lib.py ' \
-    #                         + ' -t ' + str(threads) \
-    #                         + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-    #                         + ' --input1 ' + confident_tir_rename_consensus \
-    #                         + ' --input2 ' + confident_tir_rename_consensus \
-    #                         + ' --output ' + clean_tir_path
-    # os.system(remove_nested_command)
+    # 解开TIR中包含的nested TE
+    clean_tir_path = tmp_output_dir + '/confident_tir.clean.fa'
+    remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested_lib.py ' \
+                            + ' -t ' + str(threads) \
+                            + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
+                            + ' --input1 ' + confident_TE_path \
+                            + ' --input2 ' + confident_TE_path \
+                            + ' --output ' + clean_tir_path
+    os.system(remove_nested_command)
 
     # # cd-hit -aS 0.95 -c 0.8合并一些冗余序列
     # clean_tir_consensus = tmp_output_dir + '/confident_tir.clean.cons.fa'
@@ -131,12 +123,7 @@ if __name__ == '__main__':
     #                  + ' -G 0 -g 1 -A 80 -i ' + confident_other_rename_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
     # os.system(cd_hit_command)
 
-    # 合并所有的TE（TIR+Helitron+Other）
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    os.system('cat ' + confident_tir_rename_consensus + ' > ' + confident_TE_path)
-    os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
-    os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
-    os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+
 
     # confident_ltr_cut_consensus = tmp_output_dir + '/confident_ltr_cut.cons.fa'
     # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \

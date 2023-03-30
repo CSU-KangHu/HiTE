@@ -37,8 +37,9 @@ if __name__ == '__main__':
     default_debug = 0
     default_chrom_seg_length = 500000
     default_classified = 1
-    default_domain = 1
+    default_domain = 0
     default_miu = str(1.3e-8)
+    default_remove_nested = 1
 
     version_num = '2.0.3'
  
@@ -50,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--miu', metavar='miu', help='The neutral mutation rate (per bp per ya), default = [ ' + str(default_miu) + ' MB ]')
     parser.add_argument('--plant', metavar='is_plant', help='Is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
     parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
+    parser.add_argument('--remove_nested', metavar='is_remove_nested',help='Whether to remove nested TE, 1: true, 0: false. default = [ ' + str(default_remove_nested) + ' ]')
     parser.add_argument('--domain', metavar='is_domain', help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false. default = [ ' + str(default_domain) + ' ]')
     parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
@@ -75,6 +77,7 @@ if __name__ == '__main__':
     flanking_len = args.flanking_len
     plant = args.plant
     classified = args.classified
+    remove_nested = args.remove_nested
     domain = args.domain
     miu = args.miu
     recover = args.recover
@@ -135,6 +138,11 @@ if __name__ == '__main__':
         classified = default_classified
     else:
         classified = int(classified)
+
+    if remove_nested is None:
+        remove_nested = default_remove_nested
+    else:
+        remove_nested = int(remove_nested)
 
     if domain is None:
         domain = default_domain
@@ -240,6 +248,7 @@ if __name__ == '__main__':
                     '====================================System settings========================================\n'
                     '  [Setting] Reference sequences / assemblies path = [ ' + str(reference) + ' ]\n'
                     '  [Setting] Is classified = [ ' + str(classified) + ' ] Default( ' + str(default_classified) + ' )\n'
+                    '  [Setting] Is remove nested TE = [ ' + str(remove_nested) + ' ] Default( ' + str(default_remove_nested) + ' )\n'
                     '  [Setting] Is getting domain = [ ' + str(domain) + ' ] Default( ' + str(default_domain) + ' )\n'
                     '  [Setting] The neutral mutation rate (per bp per ya) = [ ' + str(miu) + ' ] Default( ' + str(default_miu) + ' )\n'
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
@@ -267,11 +276,29 @@ if __name__ == '__main__':
     library_dir = os.getcwd() + '/library'
 
     pipeline_starttime = time.time()
+
+    log.logger.info('Start step1: Structural Based LTR Searching')
+    confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    resut_file = confident_ltr_cut_path
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
+                                     + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
+                                     + ' -t ' + str(threads) \
+                                     + ' --tmp_output_dir ' + tmp_output_dir \
+                                     + ' --recover ' + str(recover) + ' --miu ' + str(miu)
+        os.system(LTR_identification_command)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step1: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
     # 我们将大的基因组划分成多个小的基因组，每个小基因组500M，分割来处理
 
     # --------------------------------------------------------------------------------------
     starttime = time.time()
-    log.logger.info('Start step0: Splitting genome assembly into chunks')
+    log.logger.info('Start step2.0: Splitting genome assembly into chunks')
     # 识别TIR转座子
     split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
                                  + reference + ' --tmp_output_dir ' + tmp_output_dir \
@@ -279,7 +306,7 @@ if __name__ == '__main__':
     os.system(split_genome_command)
     endtime = time.time()
     dtime = endtime - starttime
-    log.logger.info("Running time of step0: %.8s s" % (dtime))
+    log.logger.info("Running time of step2.0: %.8s s" % (dtime))
 
     reg_str = 'genome.cut(\d).fa$'
     cut_references = []
@@ -295,7 +322,7 @@ if __name__ == '__main__':
         resut_file = longest_repeats_path
         if not is_recover or not file_exist(resut_file) or not file_exist(longest_repeats_flanked_path):
             starttime = time.time()
-            log.logger.info('Start 1.1: Coarse-grained boundary mapping')
+            log.logger.info('Start 2.1: Coarse-grained boundary mapping')
             coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
                                    + '-g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
                                    + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
@@ -308,18 +335,19 @@ if __name__ == '__main__':
             os.system(coarse_boundary_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.1: %.8s s" % (dtime))
+            log.logger.info("Running time of step2.1: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
         longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-        resut_file = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
+        resut_file = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.rename.cons.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
-            log.logger.info('Start step1.2: determine fine-grained TIR')
+            log.logger.info('Start step2.2: determine fine-grained TIR')
             # 识别TIR转座子
             tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
-                                         + cut_reference + ' --seqs ' + longest_repeats_flanked_path\
+                                         + cut_reference + ' --seqs ' + longest_repeats_flanked_path \
+                                         + ' --confident_ltr_cut_path ' + confident_ltr_cut_path\
                                          + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
                                          + ' --tmp_output_dir ' + tmp_output_dir \
                                          + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
@@ -329,14 +357,14 @@ if __name__ == '__main__':
             os.system(tir_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.2: %.8s s" % (dtime))
+            log.logger.info("Running time of step2.2: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
         resut_file = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
-            log.logger.info('Start step1.3: determine fine-grained Helitron')
+            log.logger.info('Start step2.3: determine fine-grained Helitron')
             # 识别Helitron转座子
             helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
@@ -353,7 +381,7 @@ if __name__ == '__main__':
             os.system(helitron_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.3: %.8s s" % (dtime))
+            log.logger.info("Running time of step2.3: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -361,7 +389,7 @@ if __name__ == '__main__':
         resut_file = tmp_output_dir + '/confident_other_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
-            log.logger.info('Start step1.4: homology-based other TE searching')
+            log.logger.info('Start step2.4: homology-based other TE searching')
             #同源搜索其他转座子
             other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
                                            + ' --seqs ' + longest_repeats_flanked_path\
@@ -372,7 +400,7 @@ if __name__ == '__main__':
             os.system(other_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
-            log.logger.info("Running time of step1.4: %.8s s" % (dtime))
+            log.logger.info("Running time of step2.4: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -386,29 +414,14 @@ if __name__ == '__main__':
     os.system('rm -f ' + confident_helitron_path)
     os.system('rm -f ' + confident_other_path)
     for ref_index, ref_rename_path in enumerate(cut_references):
-        cur_confident_tir_path = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
+        cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.rename.cons.fa'
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
         cur_confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
         os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
         os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
 
-    log.logger.info('Start step2: Structural Based LTR Searching')
-    confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
-    resut_file = confident_ltr_cut_path
-    if not is_recover or not file_exist(resut_file):
-        starttime = time.time()
-        LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
-                                       + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
-                                       + ' -t ' + str(threads) \
-                                       + ' --tmp_output_dir ' + tmp_output_dir \
-                                       + ' --recover ' + str(recover) + ' --miu ' + str(miu)
-        os.system(LTR_identification_command)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step2: %.8s s" % (dtime))
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+
 
 
     # log.logger.info('Start step3: Remove nested TE')
@@ -420,9 +433,10 @@ if __name__ == '__main__':
     #                              + ' --confident_other ' + confident_other_path \
     #                              + ' -t ' + str(threads) \
     #                              + ' --tmp_output_dir ' + tmp_output_dir \
-    #                              + ' --global_flanking_filter ' + str(global_flanking_filter) \
-    #                              + ' --remove_nested ' + str(remove_nested) + ' --test_home ' +str(test_home)
-
+    #                              + ' --remove_nested ' + str(remove_nested) + ' --test_home ' + str(test_home)
+    #                              #+ ' --global_flanking_filter ' + str(global_flanking_filter)
+    #
+    #
     # os.system(remove_nested_command)
     # endtime = time.time()
     # dtime = endtime - starttime
@@ -437,7 +451,8 @@ if __name__ == '__main__':
                            + ' --confident_tir ' + confident_tir_path \
                            + ' --confident_helitron ' + confident_helitron_path \
                            + ' --confident_other ' + confident_other_path \
-                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir
+                           + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --test_home ' + str(test_home)
 
     os.system(generate_lib_command)
     endtime = time.time()

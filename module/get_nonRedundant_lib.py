@@ -25,6 +25,8 @@ if __name__ == '__main__':
                         help='e.g., ')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
+    parser.add_argument('--test_home', metavar='test_home',
+                        help='e.g., ')
 
     args = parser.parse_args()
 
@@ -34,49 +36,47 @@ if __name__ == '__main__':
     confident_helitron_path = args.confident_helitron
     confident_other_path = args.confident_other
     tmp_output_dir = args.tmp_output_dir
+    test_home = args.test_home
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
     log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
-    # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
-    temp_dir = tmp_output_dir + '/tir_blast_ltr'
-    all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, temp_dir, 'tir',
-                                                    threads, query_coverage=0.8)
-    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
 
-    # 2. 生成一致性tir序列
-    confident_tir_rename_path = tmp_output_dir + '/confident_tir.rename.fa'
-    rename_fasta(confident_tir_path, confident_tir_rename_path)
-
-    confident_tir_rename_consensus = tmp_output_dir + '/confident_tir.rename.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_tir_rename_path + ' -o ' + confident_tir_rename_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command)
 
     # 合并所有的TE（TIR+Helitron+Other）
     confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    os.system('cat ' + confident_tir_rename_consensus + ' > ' + confident_TE_path)
+    os.system('cat ' + confident_tir_path + ' > ' + confident_TE_path)
     os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+
+    # 解开TIR中包含的nested TE
+    clean_TE_path = tmp_output_dir + '/confident_TE.clean.fa'
+    remove_nested_command = 'python3 ' + test_home + '/remove_nested_lib.py ' \
+                            + ' -t ' + str(threads) \
+                            + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
+                            + ' --input1 ' + confident_TE_path \
+                            + ' --input2 ' + confident_TE_path \
+                            + ' --output ' + clean_TE_path
+    os.system(remove_nested_command)
 
     # 3.generate consensus
     sample_name = 'test'
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
 
-    rename_fasta(confident_TE_path, confident_TE_path)
-    contignames, contigs = read_fasta(confident_TE_path)
+    rename_fasta(clean_TE_path, clean_TE_path)
+    contignames, contigs = read_fasta(clean_TE_path)
     new_contigs = {}
     for name in contignames:
         seq = contigs[name]
         if len(seq) < 100:
             continue
         new_contigs[name] = seq
-    store_fasta(new_contigs, confident_TE_path)
+    store_fasta(new_contigs, clean_TE_path)
 
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
+                     + ' -G 0 -g 1 -A 80 -i ' + clean_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
 
