@@ -13,10 +13,10 @@ import math
 #import regex
 from fuzzysearch import find_near_matches
 
-#import numpy as np
-# from matplotlib import pyplot as plt
-# import seaborn as sns
-# import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+import seaborn as sns
+import pandas as pd
 
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -1301,32 +1301,34 @@ def darw_barplot(input):
     sns.set_style('whitegrid')
     result=pd.read_csv(input)
     #print(result)
-    bar_plot = sns.barplot(y = result['time'].unique(), x = -result['number'], color = "DarkSalmon", 
+    bar_plot = sns.barplot(y = result['time'].unique(), x = -result[result['species'] == 'Rice']['number'], color = "DarkSalmon",
                        data = result, order = result['time'].unique()[::-1],)
-    bar_plot = sns.barplot(y = result['time'].unique(), x = result['number'], color = "CadetBlue",
+    bar_plot = sns.barplot(y = result['time'].unique(), x = result[result['species'] == 'Maize']['number'], color = "CadetBlue",
                         data = result, order = result['time'].unique()[::-1],)
     #plt.xticks([-650,-400,-200,0,200,400,650],[650,200,100,0,100,200,250])
     # plt.rcParams['font.sans-serif'] = ['SimHei']
     #plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']
     plt.rcParams['axes.unicode_minus'] = True
-    bar_plot.set(xlabel="Number of LTR", ylabel="Mya", title = "")
+    bar_plot.set(xlabel="Number of LTR (log)", ylabel="Mya", title = "")
+    #plt.show()
     plt.savefig('/home/hukang/LTR_insert_time.png', format='png')
 
-def generate_insert_time(ltr_file):
+def generate_insert_time(ltr_file, type):
     #将LTR_retriever的插入时间统计到文件
     times = []
     with open(ltr_file, 'r') as f_r:
         for line in f_r:
+            parts = line.split('\t')
             if line.startswith('#'):
                 continue
-            else:
-                time = int(line.split('\t')[11])
+            elif parts[9] == type:
+                time = int(parts[11])
                 times.append(time)
     f_r.close()
     #print(max(times))
 
-    #按照10W年分组
-    u = 1
+    #按照20W年分组
+    u = 2
     bin = u*100000
 
     #1.先确定最大年龄
@@ -1342,36 +1344,79 @@ def generate_insert_time(ltr_file):
         time_group[g_num] = cur_num + 1
     return time_group
 
-def generate_insertion_time():
+def generate_insertion_time(type):
     output = '/home/hukang/insert_time.csv'
     ltr_file = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE/all.chrs.rename.fa.pass.list'
     speices1 = 'Rice'
-    time_group1 = generate_insert_time(ltr_file)
+    time_group1 = generate_insert_time(ltr_file, type)
     #print(time_group1)
 
-    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE/all.chrs.rename.fa.pass.list'
-    speices2 = 'P.abies'
-    time_group2 = generate_insert_time(ltr_file)
+    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/maize/genome.rename.fa.pass.list'
+    speices2 = 'Maize'
+    time_group2 = generate_insert_time(ltr_file, type)
     #print(time_group2)
 
+    max_insert_time = 4.8
+    line1 = []
     with open(output, 'w') as f_save:
         f_save.write('time,species,number\n')
+        #对time进行填充，补充那些为空的数据
+        times = [round(num,1) for num in np.arange(0,max_insert_time+0.1, 0.1)]
+        for t in times:
+            if not time_group1.__contains__(t):
+                time_group1[t] = 0
+            if not time_group2.__contains__(t):
+                time_group2[t] = 0
+
         keys = sorted(time_group1.keys(), reverse=False)
+        out_max_insert_count1 = 0
         for i, g_num in enumerate(keys):
-            if i < len(keys)-1:
-                next_g_num = str(keys[i+1])
+            if g_num >= max_insert_time:
+                out_max_insert_count1 += time_group1[g_num]
             else:
-                next_g_num = ''
-            num = time_group1[g_num]
-            f_save.write(str(g_num)+'-'+str(next_g_num)+','+speices1+','+str(num)+'\n')
+                if i < len(keys)-1:
+                    next_g_num = str(keys[i+1])
+                else:
+                    next_g_num = ''
+                num = time_group1[g_num]
+                # 转化为Log
+                if num >= 1:
+                    num = math.log(num)
+                line = str(g_num)+'-'+str(next_g_num)+','+speices1+','+str(num)+'\n'
+                line1.append(line)
+                f_save.write(line)
+        # 转化为Log
+        if out_max_insert_count1 >= 1:
+            out_max_insert_count1 = math.log(out_max_insert_count1)
+        line = str(max_insert_time) + '-' + str('') + ',' + speices1 + ',' + str(out_max_insert_count1) + '\n'
+        line1.append(line)
+        f_save.write(line)
+
+        line2 = []
+        out_max_insert_count2 = 0
         keys = sorted(time_group2.keys(), reverse=False)
         for i, g_num in enumerate(keys):
-            if i < len(keys)-1:
-                next_g_num = str(keys[i+1])
+            if g_num >= max_insert_time:
+                out_max_insert_count2 += time_group2[g_num]
             else:
-                next_g_num = ''
-            num = time_group2[g_num]
-            f_save.write(str(g_num)+'-'+str(next_g_num)+','+speices2+','+str(num)+'\n')
+                if i < len(keys)-1 and g_num<max_insert_time:
+                    next_g_num = str(keys[i+1])
+                else:
+                    next_g_num = ''
+                num = time_group2[g_num]
+                # 转化为Log
+                if num >= 1:
+                    num = math.log(num)
+                line = str(g_num)+'-'+str(next_g_num)+','+speices2+','+str(num)+'\n'
+                line2.append(line)
+                f_save.write(line)
+        if out_max_insert_count2 >= 1:
+            out_max_insert_count2 = math.log(out_max_insert_count2)
+        line = str(max_insert_time) + '-' + str('') + ',' + speices2 + ',' + str(out_max_insert_count2) + '\n'
+        line2.append(line)
+        f_save.write(line)
+    print(len(line1), len(line2))
+    return output
 
 def get_cd_hit_cluster(cluster_file):
     cluster_idx = -1
@@ -2180,16 +2225,16 @@ if __name__ == '__main__':
     # print(s)
     # print(len(s))
 
-    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7'
-    reference = tmp_dir + '/genome.rename.fa'
-    member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
-    subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
-    plant = 1
-    TE_type = 'TIR'
-    temp_dir = tmp_dir + '/copies'
-    cur_file = temp_dir + '/test1.fa'
-    cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
-    print(cur_name)
+    # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7'
+    # reference = tmp_dir + '/genome.rename.fa'
+    # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # plant = 1
+    # TE_type = 'TIR'
+    # temp_dir = tmp_dir + '/copies'
+    # cur_file = temp_dir + '/test1.fa'
+    # cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
+    # print(cur_name)
 
     # true_tirs = {}
     # for job in as_completed(jobs):
@@ -2327,12 +2372,11 @@ if __name__ == '__main__':
    
     #分组散点图
     #draw_stripplot()
-    
-    #generate_insertion_time()
-            
+    type = 'Copia'
+    output_path = generate_insertion_time(type)
 
     #金字塔图
-    #darw_barplot(input)
+    darw_barplot(output_path)
 
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()

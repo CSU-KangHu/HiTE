@@ -65,6 +65,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
         if len(copies) <= 1:
             del confident_tir[query_name]
     store_fasta(confident_tir, confident_tir_path)
+    os.system('rm -rf ' + temp_dir)
 
     log.logger.info("filter TIR elements with high coverage with LTR")
     # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
@@ -73,6 +74,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
                                                     threads, query_coverage=0.8)
     new_confident_tir_path = remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
     rename_fasta(new_confident_tir_path, confident_tir_path, 'TIR')
+    os.system('rm -rf '+temp_dir)
 
 
 def get_score(confident_TIR):

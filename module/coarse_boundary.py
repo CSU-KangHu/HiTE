@@ -62,6 +62,7 @@ if __name__ == '__main__':
     repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
     multi_process_TRF(longest_repeats_path, repeats_path, trf_dir, tandem_region_cutoff,
                       threads=thread)
+    os.system('rm -rf ' + trf_dir)
 
     longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
     longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'

@@ -581,6 +581,8 @@ workflow {
             lib_path = "${lib_module}/cbrrep.ref"
         } else if (params.species == "zebrafish"){
             lib_path = "${lib_module}/zebrep.ref"
+        } else if (params.species == "maize"){
+            lib_path = "${lib_module}/maizeTE11122019"
         } else if (params.species == "test"){
             lib_path = "${lib_module}/test.ref"
         }

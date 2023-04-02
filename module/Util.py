@@ -4664,8 +4664,8 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
                                  '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
     f_save.close()
+    os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
-
 
 def get_TSD(all_copies, flanking_len):
     # tsd_info = {query_name: {copy1: tsd+','+seq}, {copy2: tsd+','+seq}, {total_copy_num:}, {tsd_copy_num:}}
@@ -6524,6 +6524,9 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
             del new_all_copies[cur_delete_name]
 
     print('deleted_names len: ' + str(len(deleted_names)))
+    # 用完了就将临时目录删了以减少磁盘空间占用
+    os.system('rm -rf ' + flank_align_dir)
+    os.system('rm -rf ' + tir_tsd_temp_dir)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking " + TE_type + " alignment: %.8s s" % (dtime))
