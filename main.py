@@ -340,7 +340,7 @@ if __name__ == '__main__':
             log.logger.info(resut_file + ' exists, skip...')
 
         longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-        resut_file = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.rename.cons.fa'
+        resut_file = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
             log.logger.info('Start step2.2: determine fine-grained TIR')

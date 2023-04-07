@@ -66,7 +66,7 @@ if __name__ == '__main__':
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
     f_r.close()
-    print(cut_references)
+    #print(cut_references)
 
 
 

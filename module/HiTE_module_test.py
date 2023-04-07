@@ -14,7 +14,9 @@ import math
 from fuzzysearch import find_near_matches
 
 import numpy as np
-from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.use('pdf')
+import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
@@ -1271,7 +1273,8 @@ def draw_violin(dist_path, my_pal):
     df = pd.read_csv(dist_path, sep='\t', encoding='utf-8')
     print(df)
     sns.violinplot(x=df["Type"], y=df["identity"], palette=my_pal)
-    plt.show()
+    #plt.show()
+    plt.savefig('/home/hukang/Novel_TIR_Ghd2.png', format='png')
 
     # Calculate number of obs per group & median to position labels
     medians = df.groupby(['Type'])['identity'].median().values
@@ -1351,17 +1354,17 @@ def generate_insertion_time(type):
     time_group1 = generate_insert_time(ltr_file, type)
     #print(time_group1)
 
-    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/maize/genome.rename.fa.pass.list'
+    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/maize/genome.rename.fa.pass.list_3.3e-08'
     speices2 = 'Maize'
     time_group2 = generate_insert_time(ltr_file, type)
     #print(time_group2)
 
-    max_insert_time = 4.8
+    max_insert_time = 3.6
     line1 = []
     with open(output, 'w') as f_save:
         f_save.write('time,species,number\n')
         #对time进行填充，补充那些为空的数据
-        times = [round(num,1) for num in np.arange(0,max_insert_time+0.1, 0.1)]
+        times = [round(num,1) for num in np.arange(0,max_insert_time+0.1, 0.2)]
         for t in times:
             if not time_group1.__contains__(t):
                 time_group1[t] = 0
@@ -1987,13 +1990,56 @@ def build_lib(raw_input, reference, threads, temp_copies_dir, temp_nested_dir, t
     return cur_output
 
 
+def change_LTR_insertion_time(orig_miu, miu):
+    ltr_file = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/maize/genome.rename.fa.pass.list'
+    new_ltr_file = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/maize/genome.rename.fa.pass.list_'+str(miu)
+    lines = []
+    with open(ltr_file, 'r') as f_r:
+        for i, line in enumerate(f_r):
+            if line.startswith('#'):
+                continue
+            parts = line.split('\t')
+            # d = 1 - float(parts[7])
+            # K=  -3/4*math.log(1-d*4/3)
+            # T = K/(2*orig_miu)
+            # print(line)
+            # print(d, K, T)
+
+            #根据插入时间反推一致性序列
+            T = float(parts[11])
+            K = T*2*orig_miu
+            # (-4*K)/3 = ln(1-d*4/3)
+            # math.exp((-4*K)/3) = 1-d*4/3
+            identity = 1 - (1-math.exp((-4*K)/3))*3/4
+            print(identity)
+            # 重新计算时间
+            d = 1 - identity
+            K =  -3/4*math.log(1-d*4/3)
+            T = int(round(K/(2*miu),1))
+            new_line = ''
+            for j, p in enumerate(parts):
+                if j != len(parts)-1:
+                    new_line += p + '\t'
+                else:
+                    new_line += str(T) + '\n'
+            lines.append(new_line)
+            # if i > 10:
+            #     break
+    print(lines)
+    with open(new_ltr_file, 'w') as f_w:
+        for line in lines:
+            f_w.write(line)
+    f_w.close()
+
+
+
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    #log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
     # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
     # # 1.获取longest_repeats
@@ -2372,11 +2418,15 @@ if __name__ == '__main__':
    
     #分组散点图
     #draw_stripplot()
-    type = 'Copia'
-    output_path = generate_insertion_time(type)
+    # type = 'Copia'
+    # output_path = generate_insertion_time(type)
+    #
+    # #金字塔图
+    # darw_barplot(output_path)
 
-    #金字塔图
-    darw_barplot(output_path)
+    # orig_miu = 1.3e-8
+    # miu = 3.3e-8
+    # change_LTR_insertion_time(orig_miu, miu)
 
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
@@ -2511,14 +2561,14 @@ if __name__ == '__main__':
 
     # lost_tirs_path = tmp_output_dir + '/test.fa'
     # get_seq_copies(lost_tirs_path, tmp_output_dir)
-
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     # sMITE_path = tmp_output_dir + '/sMITE.copies.fa'
-    # Hi_TIR_Ghd2_path = tmp_output_dir + '/Hi_TIR_Ghd2.copies.fa'
+    # Novel_TIR_Ghd2_path = tmp_output_dir + '/Novel_TIR_Ghd2.copies.fa'
     # dist_path = tmp_output_dir + '/MITE_dist.txt'
-    # generate_MITE_identity_dist(sMITE_path, Hi_TIR_Ghd2_path, tmp_output_dir, dist_path)
+    # generate_MITE_identity_dist(sMITE_path, Novel_TIR_Ghd2_path, tmp_output_dir, dist_path)
     dist_path = tmp_output_dir + '/MITE_dist.txt'
-    my_pal = {"sMITE": "#16499D", "Hi_TIR_Ghd2": "#E71F19"}
-    #draw_violin(dist_path, my_pal)
+    my_pal = {"sMITE": "#16499D", "Novel_TIR_Ghd2": "#E71F19"}
+    draw_violin(dist_path, my_pal)
 
 
 

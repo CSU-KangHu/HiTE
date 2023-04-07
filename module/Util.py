@@ -3982,16 +3982,24 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
     # print(longest_repeats)
     return longest_repeats, keep_longest_query
 
-def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, threads):
+def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug):
     split_repeats_path = repeats_path[0]
-    original_repeats_path = repeats_path[1]
+    target_files = repeats_path[1]
     blastn2Results_path = repeats_path[2]
     tmp_blast_dir = repeats_path[3]
-
-
-    align_command = 'blastn -db ' + original_repeats_path + ' -num_threads ' \
-                    + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
-    os.system(align_command)
+    if debug == 1 and os.path.exists(split_repeats_path+'.success'):
+        print('recover mode, skip finished alignment: ' + blastn2Results_path)
+    else:
+        for i, cur_target in enumerate(target_files):
+            align_command = 'blastn -db ' + cur_target + ' -num_threads ' \
+                            + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6'
+            if i == 0:
+                align_command += ' > ' + blastn2Results_path
+            else:
+                align_command += ' >> ' + blastn2Results_path
+            os.system(align_command)
+        if debug == 1:
+            os.system('touch ' + split_repeats_path+'.success')
 
     #print('coarse alignment -- alignment finished:' + str(split_repeats_path))
 
@@ -4585,15 +4593,26 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
     return longest_repeats_path
 
 def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, log):
+    debug = 1
     repeatNames, repeatContigs = read_fasta(repeats_path)
     # parallel
     tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_'+str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
+    if debug != 1:
+        os.system('rm -rf ' + tmp_blast_dir)
     if not os.path.exists(tmp_blast_dir):
         os.makedirs(tmp_blast_dir)
 
-    makedb_command = 'makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
-    os.system(makedb_command)
+    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
+    target_files = []
+    for i, name in enumerate(repeatNames):
+        seq = repeatContigs[name]
+        cur_contigs = {}
+        cur_contigs[name] = seq
+        cur_target = tmp_blast_dir + '/' + str(i) + '_target.fa'
+        store_fasta(cur_contigs, cur_target)
+        target_files.append(cur_target)
+        makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
+        os.system(makedb_command)
 
     seq_num = 1
     repeat_files = []
@@ -4607,7 +4626,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
             split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
             store_fasta(cur_contigs, split_repeat_file)
             output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
+            repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
             cur_contigs = {}
             file_index += 1
             cur_seq_index = 0
@@ -4615,7 +4634,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
         split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
         store_fasta(cur_contigs, split_repeat_file)
         output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
+        repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
 
     #log.logger.debug('coarse alignment -- total file size:'+str(len(repeat_files)))
     ex = ProcessPoolExecutor(threads)
@@ -4624,7 +4643,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
     jobs = []
     for file in repeat_files:
         job = ex.submit(get_longest_repeats_v3, file, fixed_extend_base_threshold,
-                        max_single_repeat_len, threads)
+                        max_single_repeat_len, debug)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -4664,7 +4683,8 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
                                  '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
     f_save.close()
-    os.system('rm -rf ' + tmp_blast_dir)
+    if debug != 1:
+        os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
 
 def get_TSD(all_copies, flanking_len):
@@ -6485,6 +6505,9 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
             continue
 
         for i, copy in enumerate(copy_list):
+            # 最多取100条
+            if i > 100:
+                break
             # copyt -> (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd)
             ref_name = copy[0]
             ref_start = int(copy[1])

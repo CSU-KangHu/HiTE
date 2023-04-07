@@ -159,7 +159,7 @@ process splitGenome {
 process coarseBoundary {
     tag "${cut_ref}"
 
-    label 'process_high'
+    label 'process_high_memory'
 
     input:
     path cut_ref
@@ -540,7 +540,7 @@ workflow {
     
     if (params.BM_RM2){
         if (!params.species)
-            exit 1, "--BM_RM2 is set as true, but there is no --species specified! Choose from dmel, rice, cb, and zebrafish."
+            exit 1, "--BM_RM2 is set as true, but there is no --species specified! Choose from test, dmel, rice, cb, zebrafish, and maize."
         
         if (params.skip_HiTE)
             Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_final }
@@ -553,6 +553,8 @@ workflow {
             lib_path = "${lib_module}/cbrrep.ref"
         } else if (params.species == "zebrafish"){
             lib_path = "${lib_module}/zebrep.ref"
+        } else if (params.species == "maize"){
+            lib_path = "${lib_module}/maizeTE11122019"
         } else{
             lib_path = "${lib_module}/test.ref"
         }
@@ -565,7 +567,7 @@ workflow {
 
     if (params.BM_EDTA){
         if (!params.species)
-            exit 1, "--BM_EDTA is set as true, but there is no --species specified! Choose from dmel, rice, cb, and zebrafish."
+            exit 1, "--BM_EDTA is set as true, but there is no --species specified! Choose from test, dmel, rice, cb, zebrafish, and maize."
         
         if (!params.EDTA_home)
             exit 1, "--BM_EDTA is set as true, but there is no --EDTA_home specified!"

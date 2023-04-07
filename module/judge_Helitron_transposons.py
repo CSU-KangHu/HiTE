@@ -80,12 +80,19 @@ if __name__ == '__main__':
     candidate_helitron_path = tmp_output_dir + '/candidate_helitron_'+str(ref_index)+'.fa'
     temp_dir = tmp_output_dir + '/helitron_tmp_'+str(ref_index)
     multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_helitron_path, temp_dir, EAHelitron, threads)
-    candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
 
     #运行helitronscanner
     # candidate_helitron_path = tmp_output_dir + '/candidate_helitronscanner_' + str(ref_index) + '.fa'
     # multi_process_helitronscanner(all_copies, candidate_helitron_path, sh_dir, temp_dir, HSDIR, HSJAR, threads)
     # candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
+
+    # 生成一致性序列
+    candidate_helitron_cons = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.cons.fa'
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + candidate_helitron_path + ' -o ' + candidate_helitron_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+    candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_cons)
+
 
     # 2.flanking candidate helitron 50bp,看flanking region是否有高同源性
     confident_copies = {}
@@ -97,7 +104,7 @@ if __name__ == '__main__':
         flanking_len = 50
         similar_ratio = 0.1
         TE_type = 'helitron'
-        confident_copies = flank_region_align_v1(candidate_helitron_path, flanking_len, similar_ratio, reference,
+        confident_copies = flank_region_align_v1(candidate_helitron_cons, flanking_len, similar_ratio, reference,
                                                  TE_type, tmp_output_dir, threads, ref_index, log)
         endtime = time.time()
         dtime = endtime - starttime
