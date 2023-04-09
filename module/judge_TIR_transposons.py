@@ -12,7 +12,7 @@ sys.path.append(cur_dir)
 from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
     multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
-    multi_process_align_and_get_copies, rename_fasta, remove_ltr_from_tir
+    multi_process_align_and_get_copies, rename_fasta, remove_ltr_from_tir, file_exist
 
 
 def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
@@ -198,6 +198,8 @@ if __name__ == '__main__':
                         help='e.g., 1')
     parser.add_argument('--ref_index', metavar='ref_index',
                         help='e.g., 0')
+    parser.add_argument('--recover', metavar='recover',
+                        help='e.g., 0')
 
     args = parser.parse_args()
     reference = args.g
@@ -210,6 +212,12 @@ if __name__ == '__main__':
     plant = int(args.plant)
     tandem_region_cutoff = float(args.tandem_region_cutoff)
     ref_index = args.ref_index
+    recover = args.recover
+
+    is_recover = False
+    recover = int(recover)
+    if recover == 1:
+        is_recover = True
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
@@ -225,34 +233,38 @@ if __name__ == '__main__':
     # all_copies = json.loads(js)
 
     # 取20条全长拷贝两端flanking 50bp以包含TSD，因为我们需要靠拷贝中是否有相同长度的TSD数量来支持，所以拷贝数量不能太少
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
+    resut_file = confident_tir_path
+    if not is_recover or not file_exist(resut_file):
+        # 对于每条序列而言，获取它具有TIR+TSD结构的拷贝，分析拷贝中出现最多次数的tsd_len，取第一条具有tsd_len的拷贝
+        log.logger.info('------get TIR+TSD in copies of candidate TIR')
+        starttime = time.time()
+        tir_tsd_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.fa'
+        tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
+        multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
 
-    # 对于每条序列而言，获取它具有TIR+TSD结构的拷贝，分析拷贝中出现最多次数的tsd_len，取第一条具有tsd_len的拷贝
-    log.logger.info('------get TIR+TSD in copies of candidate TIR')
-    starttime = time.time()
-    tir_tsd_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.fa'
-    tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
-    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
+        # 过滤掉串联重复
+        repeats_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.filter_tandem.fa'
+        trf_dir = tmp_output_dir + '/tir_trf_temp_' + str(ref_index)
+        # 去掉那些在终端20 bp、LTR、Internal中存在50%以上串联重复的序列
+        multi_process_TRF(tir_tsd_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
+                          TE_type='tir')
 
-    # 过滤掉串联重复
-    repeats_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.filter_tandem.fa'
-    trf_dir = tmp_output_dir + '/tir_trf_temp_' + str(ref_index)
-    # 去掉那些在终端20 bp、LTR、Internal中存在50%以上串联重复的序列
-    multi_process_TRF(tir_tsd_path, repeats_path, trf_dir, tandem_region_cutoff, threads=threads,
-                      TE_type='tir')
+        # 生成一致性序列
+        repeats_cons = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.cons.fa'
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                         + ' -G 0 -g 1 -A 80 -i ' + repeats_path + ' -o ' + repeats_cons + ' -T 0 -M 0'
+        os.system(cd_hit_command)
 
-    # 生成一致性序列
-    repeats_cons = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + repeats_path + ' -o ' + repeats_cons + ' -T 0 -M 0'
-    os.system(cd_hit_command)
-
-    # 3.判断我们具有准确边界的TIR是否是真实的。
-    # 条件：
-    # ①.它要有多份拷贝（单拷贝的序列需要靠判断它是否出现在“连续性原件“的直接侧翼序列，如基因、CDS或另一个转座子，因此我们不考虑单拷贝）。
-    # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
-    # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
-    # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
-    is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log)
+        # 3.判断我们具有准确边界的TIR是否是真实的。
+        # 条件：
+        # ①.它要有多份拷贝（单拷贝的序列需要靠判断它是否出现在“连续性原件“的直接侧翼序列，如基因、CDS或另一个转座子，因此我们不考虑单拷贝）。
+        # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
+        # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
+        # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
+        is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')

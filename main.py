@@ -299,7 +299,6 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------------------
     starttime = time.time()
     log.logger.info('Start step2.0: Splitting genome assembly into chunks')
-    # 识别TIR转座子
     split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
                                  + reference + ' --tmp_output_dir ' + tmp_output_dir \
                                  + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
@@ -331,7 +330,7 @@ if __name__ == '__main__':
                                    + ' --flanking_len ' + str(flanking_len) \
                                    + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                    + ' --ref_index ' + str(ref_index) \
-                                   + ' -r ' + reference
+                                   + ' -r ' + reference + ' --recover ' + str(recover)
             os.system(coarse_boundary_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -352,7 +351,7 @@ if __name__ == '__main__':
                                          + ' --tmp_output_dir ' + tmp_output_dir \
                                          + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                          + ' --ref_index ' + str(ref_index) \
-                                         + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len)
+                                         + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover)
             log.logger.debug(tir_identification_command)
             os.system(tir_identification_command)
             endtime = time.time()
@@ -369,7 +368,7 @@ if __name__ == '__main__':
             helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
                                               + ' --tmp_output_dir ' + tmp_output_dir + ' --EAHelitron ' + EAHelitron \
-                                              + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len)
+                                              + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover)
 
             # HSDIR = '/public/home/hpc194701009/repeat_detect_tools/TrainingSet'
             # HSJAR = '/public/home/hpc194701009/repeat_detect_tools/HelitronScanner/HelitronScanner.jar'
@@ -396,7 +395,7 @@ if __name__ == '__main__':
                                            + ' -t ' + str(threads) \
                                            + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
                                            + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index) \
-                                           + ' --library_dir ' + str(library_dir)
+                                           + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
             os.system(other_identification_command)
             endtime = time.time()
             dtime = endtime - starttime

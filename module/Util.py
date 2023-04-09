@@ -8,7 +8,7 @@ import re
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import handlers
-from fuzzysearch import find_near_matches
+#from fuzzysearch import find_near_matches
 
 import subprocess
 

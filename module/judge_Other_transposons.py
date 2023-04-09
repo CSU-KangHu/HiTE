@@ -9,7 +9,7 @@ import json
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, getReverseSequence, read_fasta_v2, get_copies, flanking_copies, \
-    multi_process_align, multi_process_align_and_get_copies, flanking_copies_v2, rename_fasta
+    multi_process_align, multi_process_align_and_get_copies, flanking_copies_v2, rename_fasta, Logger, file_exist
 
 
 def getPolyASeq(output, longest_repeats_path):
@@ -95,6 +95,8 @@ if __name__ == '__main__':
                         help='e.g., 0')
     parser.add_argument('--library_dir', metavar='library_dir',
                         help='e.g., ')
+    parser.add_argument('--recover', metavar='recover',
+                        help='e.g., 0')
 
 
     args = parser.parse_args()
@@ -106,46 +108,59 @@ if __name__ == '__main__':
     subject_coverage = float(args.subject_coverage)
     ref_index = args.ref_index
     library_dir = args.library_dir
+    recover = args.recover
 
-    tmp_output_dir = os.path.abspath(tmp_output_dir) 
+    is_recover = False
+    recover = int(recover)
+    if recover == 1:
+        is_recover = True
 
-    # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。
-    # 想要根据结构特征去识别有困难，我们根据同源性搜索的方法去识别。
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
 
-    # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
-    non_LTR_lib = library_dir + '/non_LTR.lib'
-
-    other_TE_dir = tmp_output_dir + '/other_TE_' + str(ref_index)
-    os.system('rm -rf ' + other_TE_dir)
-    if not os.path.exists(other_TE_dir):
-        os.makedirs(other_TE_dir)
-
-    # blastnResults_path = tmp_output_dir + '/non_LTR.lib.out'
-    # multi_process_align(longest_repeats_path, other_TE_lib, blastnResults_path, blast_program_dir, other_TE_dir, threads)
-    # all_copies = get_copies(blastnResults_path, longest_repeats_path, other_TE_lib,
-    #                         query_coverage=0.9, subject_coverage=0.9, threads=threads)
-
-
-    all_copies = multi_process_align_and_get_copies(non_LTR_lib, longest_repeats_flanked_path, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
-
-    flanking_len = 0
-    all_copies = flanking_copies_v2(all_copies, non_LTR_lib, longest_repeats_flanked_path, flanking_len, copy_num=1)
+    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
     confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
-    confident_other_contigs = {}
-    for query_name in all_copies.keys():
-        copies = all_copies[query_name]
-        if len(copies) >= 1:
-            seq = copies[0][4]
-            confident_other_contigs[query_name] = seq
-    store_fasta(confident_other_contigs, confident_other_path)
-    rename_fasta(confident_other_path, confident_other_path, 'Other')
+    resut_file = confident_other_path
+    if not is_recover or not file_exist(resut_file):
+        # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。
+        # 想要根据结构特征去识别有困难，我们根据同源性搜索的方法去识别。
 
-    # for test
-    confident_other_rename_consensus = tmp_output_dir + '/confident_other_' + str(ref_index) + '.rename.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_other_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command)
+        # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
+        non_LTR_lib = library_dir + '/non_LTR.lib'
+
+        other_TE_dir = tmp_output_dir + '/other_TE_' + str(ref_index)
+        os.system('rm -rf ' + other_TE_dir)
+        if not os.path.exists(other_TE_dir):
+            os.makedirs(other_TE_dir)
+
+        # blastnResults_path = tmp_output_dir + '/non_LTR.lib.out'
+        # multi_process_align(longest_repeats_path, other_TE_lib, blastnResults_path, blast_program_dir, other_TE_dir, threads)
+        # all_copies = get_copies(blastnResults_path, longest_repeats_path, other_TE_lib,
+        #                         query_coverage=0.9, subject_coverage=0.9, threads=threads)
+
+
+        all_copies = multi_process_align_and_get_copies(non_LTR_lib, longest_repeats_flanked_path, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
+
+        flanking_len = 0
+        all_copies = flanking_copies_v2(all_copies, non_LTR_lib, longest_repeats_flanked_path, flanking_len, copy_num=1)
+
+        confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
+        confident_other_contigs = {}
+        for query_name in all_copies.keys():
+            copies = all_copies[query_name]
+            if len(copies) >= 1:
+                seq = copies[0][4]
+                confident_other_contigs[query_name] = seq
+        store_fasta(confident_other_contigs, confident_other_path)
+        rename_fasta(confident_other_path, confident_other_path, 'Other')
+
+        # for test
+        confident_other_rename_consensus = tmp_output_dir + '/confident_other_' + str(ref_index) + '.rename.cons.fa'
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                         + ' -G 0 -g 1 -A 80 -i ' + confident_other_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
+        os.system(cd_hit_command)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
 
 

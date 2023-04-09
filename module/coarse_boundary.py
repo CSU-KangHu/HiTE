@@ -9,7 +9,8 @@ import time
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, determine_repeat_boundary_v3, multi_process_TRF, flanking_seq
+from Util import read_fasta, store_fasta, Logger, determine_repeat_boundary_v3, multi_process_TRF, flanking_seq, \
+    file_exist
 
 if __name__ == '__main__':
     # 1.parse args
@@ -31,6 +32,8 @@ if __name__ == '__main__':
                         help='input genome assembly path')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
+    parser.add_argument('--recover', metavar='recover',
+                        help='e.g., 0')
 
 
     args = parser.parse_args()
@@ -43,6 +46,12 @@ if __name__ == '__main__':
     tandem_region_cutoff = float(args.tandem_region_cutoff)
     reference = args.r
     tmp_output_dir = args.tmp_output_dir
+    recover = args.recover
+
+    is_recover = False
+    recover = int(recover)
+    if recover == 1:
+        is_recover = True
     
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
@@ -51,22 +60,26 @@ if __name__ == '__main__':
 
     repeats_path = cut_reference
     longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
-    # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
-    determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
-                                 tmp_output_dir, thread, ref_index, log)
-
-
-    trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
-    (repeat_dir, repeat_filename) = os.path.split(longest_repeats_path)
-    (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-    repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
-    multi_process_TRF(longest_repeats_path, repeats_path, trf_dir, tandem_region_cutoff,
-                      threads=thread)
-    os.system('rm -rf ' + trf_dir)
-
-    longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
     longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-    flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
+    resut_file = longest_repeats_flanked_path
+    if not is_recover or not file_exist(resut_file):
+        # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
+        determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
+                                     tmp_output_dir, thread, ref_index, log)
+        trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
+        (repeat_dir, repeat_filename) = os.path.split(longest_repeats_path)
+        (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
+        repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
+        multi_process_TRF(longest_repeats_path, repeats_path, trf_dir, tandem_region_cutoff,
+                          threads=thread)
+        os.system('rm -rf ' + trf_dir)
+
+        longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
+        longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
+        flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
 
     # output
     # longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'

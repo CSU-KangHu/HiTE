@@ -33,6 +33,7 @@ def helpMessage() {
     General options:
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
+      --recover                         Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
       --miu                             The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
       --classified                      Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ 1 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
@@ -50,6 +51,7 @@ def printSetting() {
       [Setting] Reference sequences / assemblies path = [ $params.genome ]
       [Setting] The chunk size of large genome = [ $params.chunk_size ] MB
       [Setting] Is plant genome = [ $params.plant ]
+      [Setting] recover = [ $params.recover ]
       [Setting] Is classified = [ $params.classified ]
       [Setting] The neutral mutation rate (per bp per ya) = = [ $params.miu ]
       [Setting] debug = [ $params.debug ]
@@ -103,6 +105,7 @@ fixed_extend_base_threshold = "${params.fixed_extend_base_threshold}"
 max_repeat_len = "${params.max_repeat_len}"
 flanking_len = "${params.flanking_len}"
 tandem_region_cutoff = "${params.tandem_region_cutoff}"
+recover = "${params.recover}"
 plant = "${params.plant}"
 classified = "${params.classified}"
 domain = "${params.domain}"
@@ -159,7 +162,7 @@ process splitGenome {
 process coarseBoundary {
     tag "${cut_ref}"
 
-    label 'process_high_memory'
+    label 'process_high'
 
     input:
     path cut_ref
@@ -176,7 +179,7 @@ process coarseBoundary {
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} -r ${out_genome}
+     --ref_index ${ref_index} -r ${out_genome} --recover ${recover}
 
     ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
     cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
@@ -211,7 +214,7 @@ process TIR {
     -t ${cores} --TRsearch_dir ${tools_module}  \
     --tmp_output_dir ${tmp_output_dir} \
     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-    --ref_index ${ref_index} --plant ${plant}
+    --ref_index ${ref_index} --plant ${plant} --recover ${recover}
 
     cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
     """
@@ -240,7 +243,7 @@ process Helitron {
     -g ${cut_ref} --seqs ${lrf} \
     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
     --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
-    --ref_index ${ref_index}
+    --ref_index ${ref_index} --recover ${recover}
 
     cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
     """
@@ -264,7 +267,7 @@ process OtherTE {
      --seqs ${lrf} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --query_coverage 0.8 --subject_coverage 0 \
-     --ref_index ${lrf_index} --library_dir ${lib_module}
+     --ref_index ${lrf_index} --library_dir ${lib_module} --recover ${recover}
 
     cp ${tmp_output_dir}/confident_other_${lrf_index}.fa ./
     """
@@ -287,7 +290,7 @@ process LTR {
     python3 ${ch_module}/judge_LTR_transposons.py \
      -g ${ref} --ltrfinder_home ${ch_ltrfinder} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --recover 0 --miu ${miu}
+     --recover ${recover} --miu ${miu}
 
     cp ${tmp_output_dir}/confident_ltr_cut.fa ./
     """
