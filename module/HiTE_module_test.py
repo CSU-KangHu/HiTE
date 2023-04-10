@@ -2041,6 +2041,16 @@ if __name__ == '__main__':
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
     #log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
+    #从repbase中提取玉米序列
+    gras_repbase = '/home/hukang/repeat_detect_tools/RepeatMasker-4.1.4/RepBase26.05.fasta/grasrep.ref'
+    names, contigs = read_fasta_v1(gras_repbase)
+    maize_repbase = '/home/hukang/HiTE/library/maize.ref'
+    new_contigs = {}
+    for name in names:
+        if name.__contains__('Zea mays'):
+            seq = contigs[name]
+            new_contigs[name] = seq
+    store_fasta(new_contigs, maize_repbase)
     # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
     # # 1.获取longest_repeats
     # longest_repeats_flanked_path = tmp_dir + '/longest_repeats_0.flanked.fa'
@@ -2566,9 +2576,9 @@ if __name__ == '__main__':
     # Novel_TIR_Ghd2_path = tmp_output_dir + '/Novel_TIR_Ghd2.copies.fa'
     # dist_path = tmp_output_dir + '/MITE_dist.txt'
     # generate_MITE_identity_dist(sMITE_path, Novel_TIR_Ghd2_path, tmp_output_dir, dist_path)
-    dist_path = tmp_output_dir + '/MITE_dist.txt'
-    my_pal = {"sMITE": "#16499D", "Novel_TIR_Ghd2": "#E71F19"}
-    draw_violin(dist_path, my_pal)
+    # dist_path = tmp_output_dir + '/MITE_dist.txt'
+    # my_pal = {"sMITE": "#16499D", "Novel_TIR_Ghd2": "#E71F19"}
+    # draw_violin(dist_path, my_pal)
 
 
 
