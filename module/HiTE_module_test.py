@@ -2041,16 +2041,17 @@ if __name__ == '__main__':
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
     #log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
-    #从repbase中提取玉米序列
-    gras_repbase = '/home/hukang/repeat_detect_tools/RepeatMasker-4.1.4/RepBase26.05.fasta/grasrep.ref'
-    names, contigs = read_fasta_v1(gras_repbase)
-    maize_repbase = '/home/hukang/HiTE/library/maize.ref'
-    new_contigs = {}
-    for name in names:
-        if name.__contains__('Zea mays'):
-            seq = contigs[name]
-            new_contigs[name] = seq
-    store_fasta(new_contigs, maize_repbase)
+    # #从repbase中提取玉米序列
+    # gras_repbase = '/home/hukang/repeat_detect_tools/RepeatMasker-4.1.4/RepBase26.05.fasta/grasrep.ref'
+    # names, contigs = read_fasta_v1(gras_repbase)
+    # maize_repbase = '/home/hukang/HiTE/library/maize.ref'
+    # new_contigs = {}
+    # for name in names:
+    #     if name.__contains__('Zea mays'):
+    #         seq = contigs[name]
+    #         new_contigs[name] = seq
+    # store_fasta(new_contigs, maize_repbase)
+
     # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test1/rice'
     # # 1.获取longest_repeats
     # longest_repeats_flanked_path = tmp_dir + '/longest_repeats_0.flanked.fa'
@@ -2291,6 +2292,38 @@ if __name__ == '__main__':
     # cur_file = temp_dir + '/test1.fa'
     # cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
     # print(cur_name)
+
+    # #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
+    # plant = 1
+    # TE_type = 'TIR'
+    # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
+    # raw_input = tmp_dir + '/tir.repbase.ref'
+    # output = tmp_dir + '/real_tirs.fa'
+    # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
+    # temp_dir = tmp_dir + '/copies'
+    # threads = 40
+    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    #                      TE_type)
+
+    #在longest_repeats_5里找到报错的那条记录
+    cur_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize/longest_repeats_blast_5'
+    found = False
+    for name in os.listdir(cur_dir):
+        if name.endswith('.fa'):
+            cur_f = cur_dir + '/' + name
+            contigNames, contigs = read_fasta(cur_f)
+            for cur_name in contigNames:
+                if cur_name.__contains__('chr_9chr_9$133000000'):
+                    print(cur_f)
+                    found = True
+                    break
+        if found:
+            break
+
+    # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
+    # rename_fasta(output, real_tirs_rename)
 
     # true_tirs = {}
     # for job in as_completed(jobs):
