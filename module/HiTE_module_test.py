@@ -2311,14 +2311,24 @@ if __name__ == '__main__':
     cur_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize/longest_repeats_blast_5'
     found = False
     for name in os.listdir(cur_dir):
-        if name.endswith('.fa'):
+        if name.endswith('.out'):
             cur_f = cur_dir + '/' + name
-            contigNames, contigs = read_fasta(cur_f)
-            for cur_name in contigNames:
-                if cur_name.__contains__('chr_9chr_9$133000000'):
-                    print(cur_f)
-                    found = True
-                    break
+            with open(cur_f, 'r') as f_r:
+                for idx, line in enumerate(f_r):
+                    # print('current line idx: %d' % (idx))
+                    parts = line.split('\t')
+                    query_name = parts[0]
+                    if query_name == 'chr_9chr_9$133000000':
+                        print(cur_f)
+                        found = True
+                        break
+            f_r.close()
+            # contigNames, contigs = read_fasta(cur_f)
+            # for cur_name in contigNames:
+            #     if cur_name.__contains__('chr_9chr_9$133000000'):
+            #         print(cur_f)
+            #         found = True
+            #         break
         if found:
             break
 
