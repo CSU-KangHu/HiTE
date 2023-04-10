@@ -2293,44 +2293,47 @@ if __name__ == '__main__':
     # cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
     # print(cur_name)
 
-    # #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
-    # plant = 1
-    # TE_type = 'TIR'
-    # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
-    # raw_input = tmp_dir + '/tir.repbase.ref'
-    # output = tmp_dir + '/real_tirs.fa'
+    #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
+    plant = 1
+    TE_type = 'TIR'
+    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
+    raw_input = tmp_dir + '/tir.repbase.ref'
+    output = tmp_dir + '/real_tirs.fa'
     # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
     # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
-    # temp_dir = tmp_dir + '/copies'
-    # threads = 40
-    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
-    #                      TE_type)
+    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
+    reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
+    temp_dir = tmp_dir + '/copies'
+    threads = 40
+    filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+                         TE_type)
 
-    #在longest_repeats_5里找到报错的那条记录
-    cur_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize/longest_repeats_blast_5'
-    found = False
-    for name in os.listdir(cur_dir):
-        if name.endswith('.out'):
-            cur_f = cur_dir + '/' + name
-            with open(cur_f, 'r') as f_r:
-                for idx, line in enumerate(f_r):
-                    # print('current line idx: %d' % (idx))
-                    parts = line.split('\t')
-                    query_name = parts[0]
-                    if query_name == 'chr_9chr_9$133000000':
-                        print(cur_f)
-                        found = True
-                        break
-            f_r.close()
-            # contigNames, contigs = read_fasta(cur_f)
-            # for cur_name in contigNames:
-            #     if cur_name.__contains__('chr_9chr_9$133000000'):
-            #         print(cur_f)
-            #         found = True
-            #         break
-        if found:
-            break
+    # #在longest_repeats_5里找到报错的那条记录
+    # cur_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize/longest_repeats_blast_5'
+    # found = False
+    # for name in os.listdir(cur_dir):
+    #     if name.endswith('.out'):
+    #         cur_f = cur_dir + '/' + name
+    #         with open(cur_f, 'r') as f_r:
+    #             for idx, line in enumerate(f_r):
+    #                 # print('current line idx: %d' % (idx))
+    #                 parts = line.split('\t')
+    #                 query_name = parts[0]
+    #                 if query_name == 'chr_9chr_9$133000000':
+    #                     print(cur_f)
+    #                     found = True
+    #                     break
+    #         f_r.close()
+    #         # contigNames, contigs = read_fasta(cur_f)
+    #         # for cur_name in contigNames:
+    #         #     if cur_name.__contains__('chr_9chr_9$133000000'):
+    #         #         print(cur_f)
+    #         #         found = True
+    #         #         break
+    #     if found:
+    #         break
 
     # real_tirs_rename = tmp_dir + '/real_tirs.rename.fa'
     # rename_fasta(output, real_tirs_rename)
