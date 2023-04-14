@@ -3268,6 +3268,29 @@ def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
         res_contigs[new_name] = highest_confident_TIR[2]
     return res_contigs
 
+
+def filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict):
+    # 综合考虑TSD TIR len等多个因素,占比(7/3)
+    res_contigs = {}
+    min_distance = 100000
+    min_distance_name = ''
+    for name in cur_copies_out_contigs.keys():
+        distance = int(name.split('-distance_')[1])
+        if distance < min_distance:
+            min_distance = distance
+            min_distance_name = name
+
+    parts = min_distance_name.split('-C_')
+    orig_query_name = parts[0]
+    tsd = parts[1].split('-tsd_')[1].split('-')[0]
+    if not TIR_len_dict.__contains__(min_distance_name):
+        tir_len = 0
+    else:
+        tir_len = TIR_len_dict[min_distance_name]
+    new_name = orig_query_name + '-tir_' + str(tir_len) + '-tsd_' + str(tsd)
+    res_contigs[new_name] = cur_copies_out_contigs[min_distance_name]
+    return res_contigs
+
 def file_exist(resut_file):
     if os.path.exists(resut_file) and os.path.getsize(resut_file) > 0:
         if resut_file.endswith('.fa') or resut_file.endswith('.fasta'):
@@ -5739,7 +5762,9 @@ def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch
     for query_name in group_copies_contigs.keys():
         cur_copies_out_contigs = group_copies_contigs[query_name]
         # 选择TIR长度(权重30%)和TSD(权重70%)综合最优的那一条
-        cur_contigs = filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict)
+        #cur_contigs = filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict)
+        # 选择distance最小的那一个
+        cur_contigs = filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict)
         filter_dup_itr_contigs.update(cur_contigs)
 
     return filter_dup_itr_contigs

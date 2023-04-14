@@ -33,7 +33,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
     determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
     run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
-    filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3
+    filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
+    multi_process_tsd
 
 
 def generate_repbases():
@@ -2381,35 +2382,53 @@ if __name__ == '__main__':
     # cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
     # print(cur_name)
 
-    #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
-    plant = 1
-    TE_type = 'TIR'
-    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
-    raw_input = tmp_dir + '/tir.repbase.ref'
-    output = tmp_dir + '/real_tirs.fa'
-    # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
-    # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
-    # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
-    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
-    reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/genome.rename.fa'
-    temp_dir = tmp_dir + '/copies'
-    threads = 40
-    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
-    #                     TE_type)
+    # #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
+    # plant = 1
+    # TE_type = 'TIR'
+    # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
+    # raw_input = tmp_dir + '/tir.repbase.ref'
+    # output = tmp_dir + '/real_tirs.fa'
+    # # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
+    # member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
+    # subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
+    # reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/genome.rename.fa'
+    # temp_dir = tmp_dir + '/copies'
+    # threads = 40
+    # # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    # #                     TE_type)
+    #
+    # # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
+    # raw_input = tmp_dir + '/fake_tir.fa'
+    # flanking_len = 50
+    # similar_ratio = 0.2
+    # TE_type = 'tir'
+    # ref_index = 0
+    # log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    # #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
+    #
+    # output = tmp_dir + '/confident_tir_'+str(ref_index)+'.fa'
+    # flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
 
-    # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
-    raw_input = tmp_dir + '/fake_tir.fa'
+    # N_21506序列的TE边界没找准，调试代码看为什么
+    name = 'N_21506-len_261-ref_chr12-1283774-1284035'
+    seq = 'AAATTCCAAGCTTTTCCATCTAACATCTCCCTCATTAGACCAGAAACATGCTTGCTTGCAAGCTACTCCCTCCGTATTTTAATATATGACGCCGTTGACTTTTTGACAAACGTTTAACCTTTTGTTTTATTCAAAAAATTTATGTAATTATATTTTATTTTATTGTAACTTGATTTATCATCAAATGTTTTTTAAGCATGACATAAGTATTTTTATATTTACATAAAATTTTTGAATAAGACGAGTGGTCAAACGTTGATTAAAAAGTCAACGGCGTCATACATTAAAATACGGAGGGAGTACCTGACAATGCAACCGTCCACGGACTGATTGCATATCGTACAAAAATTTCTGTAACACA'
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
+    longest_repeats_flanked_path = tmp_dir + '/test.fa'
+    contigs = {}
+    contigs[name] = seq
+    store_fasta(contigs, longest_repeats_flanked_path)
     flanking_len = 50
-    similar_ratio = 0.2
-    TE_type = 'tir'
+    threads = 1
+    plant = 1
     ref_index = 0
-    log = Logger(tmp_dir+'/HiTE.log', level='debug')
-    #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
-    
-    output = tmp_dir + '/confident_tir_'+str(ref_index)+'.fa'
-    flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
-
+    reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
+    TRsearch_dir = '/home/hukang/HiTE/tools'
+    tir_tsd_path = tmp_dir + '/tir_tsd_' + str(ref_index) + '.fa'
+    tir_tsd_dir = tmp_dir + '/tir_tsd_temp_' + str(ref_index)
+    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir,
+                      plant, reference)
 
     # #目前已经能够包含绝大多数的真实TIR，接下来我们需要过滤掉绝大多数的假阳性
     # #我们将confident_tir_0.fa评测RM2结果，大致知道哪些是假阳性的；然后将其用我们的过滤方法，看能否过滤掉这些假阳性
