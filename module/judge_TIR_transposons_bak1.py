@@ -12,7 +12,7 @@ sys.path.append(cur_dir)
 from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
     multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
-    multi_process_align_and_get_copies, rename_fasta, remove_ltr_from_tir, file_exist, flank_region_align_v2
+    multi_process_align_and_get_copies, rename_fasta, remove_ltr_from_tir, file_exist
 
 
 def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
@@ -26,7 +26,7 @@ def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
     os.system(rm2_res_command)
 
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log, member_script_path, subset_script_path, plant):
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log):
     log.logger.info('determine true TIR')
 
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
@@ -34,11 +34,10 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     # 我们将copies扩展50bp，一个orig_query_name对应一个文件，然后做自比对。
     # 解析每个自比对文件，判断C0与C1,C2...等拷贝的比对情况，如果有flanking区域包含在比对区域内，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
     flanking_len = 50
-    similar_ratio = 0.2
+    similar_ratio = 0.1
     TE_type = 'tir'
     #print(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, blast_program_dir, threads, ref_index)
-    confident_copies = flank_region_align_v2(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
-    print(len(confident_copies))
+    confident_copies = flank_region_align_v1(filter_dup_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
@@ -56,26 +55,26 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
             confident_tir[name] = filter_dup_contigs[name]
     store_fasta(confident_tir, confident_tir_path)
 
-    # log.logger.info("Realign to genome to filter single copy TIR elements")
-    # #重新比对到基因组，去除单比对TIR elements
-    # temp_dir = tmp_output_dir + '/tir_temp_' + str(ref_index)
-    # all_copies = multi_process_align_and_get_copies(confident_tir_path, reference,
-    #                                                 temp_dir, 'tir', threads)
-    # for query_name in all_copies.keys():
-    #     copies = all_copies[query_name]
-    #     if len(copies) <= 1:
-    #         del confident_tir[query_name]
-    # store_fasta(confident_tir, confident_tir_path)
-    # os.system('rm -rf ' + temp_dir)
+    log.logger.info("Realign to genome to filter single copy TIR elements")
+    #重新比对到基因组，去除单比对TIR elements
+    temp_dir = tmp_output_dir + '/tir_temp_' + str(ref_index)
+    all_copies = multi_process_align_and_get_copies(confident_tir_path, reference,
+                                                    temp_dir, 'tir', threads)
+    for query_name in all_copies.keys():
+        copies = all_copies[query_name]
+        if len(copies) <= 1:
+            del confident_tir[query_name]
+    store_fasta(confident_tir, confident_tir_path)
+    os.system('rm -rf ' + temp_dir)
 
-    # log.logger.info("filter TIR elements with high coverage with LTR")
-    # # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
-    # temp_dir = tmp_output_dir + '/tir_blast_ltr'
-    # all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, temp_dir, 'tir',
-    #                                                 threads, query_coverage=0.8)
-    # new_confident_tir_path = remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
-    # rename_fasta(new_confident_tir_path, confident_tir_path, 'TIR')
-    # os.system('rm -rf '+temp_dir)
+    log.logger.info("filter TIR elements with high coverage with LTR")
+    # 1. confident_ltr_cut_path比对到TIR候选序列上，并且过滤掉出现在LTR库中的TIR序列
+    temp_dir = tmp_output_dir + '/tir_blast_ltr'
+    all_copies = multi_process_align_and_get_copies(confident_ltr_cut_path, confident_tir_path, temp_dir, 'tir',
+                                                    threads, query_coverage=0.8)
+    new_confident_tir_path = remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies)
+    rename_fasta(new_confident_tir_path, confident_tir_path, 'TIR')
+    os.system('rm -rf '+temp_dir)
 
 
 def get_score(confident_TIR):
@@ -233,9 +232,6 @@ if __name__ == '__main__':
     # js = file.read()
     # all_copies = json.loads(js)
 
-    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
-
     # 取20条全长拷贝两端flanking 50bp以包含TSD，因为我们需要靠拷贝中是否有相同长度的TSD数量来支持，所以拷贝数量不能太少
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
     resut_file = confident_tir_path
@@ -269,6 +265,6 @@ if __name__ == '__main__':
         # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
         # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
         # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
-        is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log, member_script_path, subset_script_path, plant)
+        is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log)
     else:
         log.logger.info(resut_file + ' exists, skip...')

@@ -33,13 +33,13 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
     determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
     run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
-    filter_boundary_homo_v1, run_find_members_v3
+    filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3
 
 
 def generate_repbases():
     # 水稻
     repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
-    repbase_path = repbase_dir + '/zebrep.ref'
+    repbase_path = repbase_dir + '/maize.ref'
     repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
     tags = set()
     for name in repbase_names:
@@ -52,7 +52,9 @@ def generate_repbases():
     tir_tags = ['Mariner/Tc1', 'DNA transposon', 'EnSpm/CACTA', 'MuDR', 'hAT', 'Harbinger', 'Transib', 'piggyBac', 'P', 'DNA', 'Sola2', 'Kolobok', ]
     helitron_tags = ['Helitron', 'MINIME_DN']
     non_ltr_tags = ['L1', 'SINE2/tRNA', 'Non-LTR Retrotransposon', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
-    tmp_out_dir = repbase_dir + '/dmel'
+    tmp_out_dir = repbase_dir + '/maize'
+    if not os.path.exists(tmp_out_dir):
+        os.makedirs(tmp_out_dir)
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     helitron_repbase_path = tmp_out_dir + '/helitron.repbase.ref'
@@ -64,6 +66,92 @@ def generate_repbases():
     non_ltr_contigs = {}
     for name in repbase_names:
         tag = name.split('\t')[1]
+        if tag in ltr_tags:
+            ltr_contigs[name] = repbase_contigs[name]
+        elif tag in tir_tags:
+            tir_contigs[name] = repbase_contigs[name]
+        elif tag in helitron_tags:
+            helitron_contigs[name] = repbase_contigs[name]
+        elif tag in non_ltr_tags:
+            non_ltr_contigs[name] = repbase_contigs[name]
+    store_fasta(ltr_contigs, ltr_repbase_path)
+    store_fasta(tir_contigs, tir_repbase_path)
+    store_fasta(helitron_contigs, helitron_repbase_path)
+    store_fasta(non_ltr_contigs, non_ltr_repbase_path)
+
+def generate_rm2():
+    # 水稻
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/maize'
+    repbase_path = repbase_dir + '/maize-families.fa'
+    repbase_names, repbase_contigs = read_fasta(repbase_path)
+    tags = set()
+    for name in repbase_names:
+        tag = name.split('#')[1]
+        tags.add(tag)
+    print(tags)
+    print(len(tags))
+
+    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown']
+    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/PIF-Harbinger', 'Transib', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
+    helitron_tags = ['RC/Helitron', 'MINIME_DN']
+    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon/L1-derived', 'SINE/tRNA', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
+    tmp_out_dir = repbase_dir + '/maize'
+    if not os.path.exists(tmp_out_dir):
+        os.makedirs(tmp_out_dir)
+    ltr_repbase_path = tmp_out_dir + '/ltr.rm2.ref'
+    tir_repbase_path = tmp_out_dir + '/tir.rm2.ref'
+    helitron_repbase_path = tmp_out_dir + '/helitron.rm2.ref'
+    non_ltr_repbase_path = tmp_out_dir + '/non_ltr.rm2.ref'
+
+    ltr_contigs = {}
+    tir_contigs = {}
+    helitron_contigs = {}
+    non_ltr_contigs = {}
+    for name in repbase_names:
+        tag = name.split('#')[1]
+        if tag in ltr_tags:
+            ltr_contigs[name] = repbase_contigs[name]
+        elif tag in tir_tags:
+            tir_contigs[name] = repbase_contigs[name]
+        elif tag in helitron_tags:
+            helitron_contigs[name] = repbase_contigs[name]
+        elif tag in non_ltr_tags:
+            non_ltr_contigs[name] = repbase_contigs[name]
+    store_fasta(ltr_contigs, ltr_repbase_path)
+    store_fasta(tir_contigs, tir_repbase_path)
+    store_fasta(helitron_contigs, helitron_repbase_path)
+    store_fasta(non_ltr_contigs, non_ltr_repbase_path)
+
+def generate_HiTE():
+    # 水稻
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize'
+    repbase_path = repbase_dir + '/confident_TE.cons.fa.classified'
+    repbase_names, repbase_contigs = read_fasta(repbase_path)
+    tags = set()
+    for name in repbase_names:
+        tag = name.split('#')[1]
+        tags.add(tag)
+    print(tags)
+    print(len(tags))
+
+    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/DIRS', ]
+    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/hAT', 'DNA/PIF-Harbinger', 'DNA/TcMar-Tigger', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
+    helitron_tags = ['RC/Helitron', 'MINIME_DN']
+    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon/L1-derived', 'SINE/tRNA', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
+    tmp_out_dir = repbase_dir + '/maize'
+    if not os.path.exists(tmp_out_dir):
+        os.makedirs(tmp_out_dir)
+    ltr_repbase_path = tmp_out_dir + '/ltr.HiTE.ref'
+    tir_repbase_path = tmp_out_dir + '/tir.HiTE.ref'
+    helitron_repbase_path = tmp_out_dir + '/helitron.HiTE.ref'
+    non_ltr_repbase_path = tmp_out_dir + '/non_ltr.HiTE.ref'
+
+    ltr_contigs = {}
+    tir_contigs = {}
+    helitron_contigs = {}
+    non_ltr_contigs = {}
+    for name in repbase_names:
+        tag = name.split('#')[1]
         if tag in ltr_tags:
             ltr_contigs[name] = repbase_contigs[name]
         elif tag in tir_tags:
@@ -2304,11 +2392,112 @@ if __name__ == '__main__':
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
     member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
     subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
-    reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
+    reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/genome.rename.fa'
     temp_dir = tmp_dir + '/copies'
     threads = 40
-    filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
-                         TE_type)
+    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    #                     TE_type)
+
+    # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
+    raw_input = tmp_dir + '/fake_tir.fa'
+    flanking_len = 50
+    similar_ratio = 0.2
+    TE_type = 'tir'
+    ref_index = 0
+    log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
+    
+    output = tmp_dir + '/confident_tir_'+str(ref_index)+'.fa'
+    flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
+
+
+    # #目前已经能够包含绝大多数的真实TIR，接下来我们需要过滤掉绝大多数的假阳性
+    # #我们将confident_tir_0.fa评测RM2结果，大致知道哪些是假阳性的；然后将其用我们的过滤方法，看能否过滤掉这些假阳性
+    # #1.收集假阳性序列
+    # raw_tir_path = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/confident_tir_0.fa'
+    # file_path = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/rm2_test/file_final.0.1.txt'
+    # real_tir_names = set()
+    # total_names = set()
+    # with open(file_path, 'r') as f_r:
+    #     for line in f_r:
+    #         parts = line.split('\t')
+    #         query_name = parts[4]
+    #         c1 = float(parts[3])
+    #         c2 = float(parts[6])
+    #         if c1 >= 0.95 and c2 >= 0.95:
+    #             real_tir_names.add(query_name)
+    #         total_names.add(query_name)
+    # fake_tir_names = total_names.difference(real_tir_names)
+    # print(fake_tir_names)
+    # print(len(fake_tir_names))
+    # raw_names, raw_contigs = read_fasta(raw_tir_path)
+    # fake_tir_path = tmp_dir + '/fake_tir.fa'
+    # fake_tirs = {}
+    # for name in fake_tir_names:
+    #     seq = raw_contigs[name]
+    #     fake_tirs[name] = seq
+    # store_fasta(fake_tirs, fake_tir_path)
+
+
+    # # 2.看我们的过滤方法能否过滤掉这些假阳性序列，观察每个假阳性序列的拷贝比对情况
+    # raw_input = tmp_dir + '/fake_tir.fa'
+    # flanking_len = 50
+    # similar_ratio = 0.2
+    # TE_type = 'tir'
+    # ref_index = 0
+    # log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    # confident_copies = flank_region_align_v1(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log)
+
+    # output = tmp_dir + '/confident_tir_'+str(ref_index)+'.fa'
+    # confident_tir = {}
+    # filter_dup_names, filter_dup_contigs = read_fasta(raw_input)
+    # for name in confident_copies.keys():
+    #     copy_list = confident_copies[name]
+    #     if len(copy_list) >= 2:
+    #         confident_tir[name] = filter_dup_contigs[name]
+    # store_fasta(confident_tir, output)
+
+    # #用最新的过滤方法，看它认为哪些是假阳性
+    # plant = 1
+    # TE_type = 'TIR'
+    # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
+    # output = tmp_dir + '/real_tirs.fa'
+    # # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
+    # member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
+    # subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
+    # reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/GCF_001433935.1_IRGSP-1.0_genomic.rename.fa'
+    # temp_dir = tmp_dir + '/copies'
+    # threads = 40
+    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    #                     TE_type)
+
+    # #判断过滤掉了哪些真实的TIR
+    # contigNames, contigs = read_fasta(raw_input)
+    # contigNames1, contigs1 = read_fasta(output)
+    # diff_names = []
+    # for name in contigNames:
+    #     if not contigNames1.__contains__(name):
+    #         diff_names.append(name)
+    # # print(diff_names)
+    # # print(len(diff_names))
+    # exist_names = []
+    # for name in diff_names:
+    #     align_file = tmp_dir + '/flank_tir_align_0/'+name+'.out'
+    #     if os.path.exists(align_file):
+    #         exist_names.append(name)
+    # print(exist_names)
+    # print(len(exist_names))
+
+    # for name in diff_names:
+    #     align_file = tmp_dir + '/copies/'+name+'.fa.maf.fa'
+    #     cur_file = tmp_dir + '/copies/'+name+'.fa'
+    #     cur_names, cur_contigs = read_fasta(cur_file)
+    #     cur_seq = cur_contigs[cur_names[0]]
+    #     is_TE = judge_boundary(cur_seq, align_file, 1)
+    #     print(name, is_TE)
+
 
     # #在longest_repeats_5里找到报错的那条记录
     # cur_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize/longest_repeats_blast_5'

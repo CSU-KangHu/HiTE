@@ -8,7 +8,7 @@ import re
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import handlers
-#from fuzzysearch import find_near_matches
+from fuzzysearch import find_near_matches
 
 import subprocess
 
@@ -5531,6 +5531,16 @@ def run_blast_align(query_path, subject_path, output, flanking_len, flanking_reg
     delete_names, appeared_names = judge_flank_align(flanking_region_distance, output, flanking_len, flank_align_dir)
     return delete_names, appeared_names
 
+def run_blast_align_v1(query_path, subject_path, output, flanking_len, flanking_region_distance, flank_align_dir):
+    if file_exist(query_path) and file_exist(subject_path):
+        blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
+        align_command = 'blastn -db ' + subject_path + ' -num_threads ' \
+                        + str(1) + ' -query ' + query_path + ' -outfmt 6 > ' + output
+        os.system(blast_db_command)
+        os.system(align_command)
+
+    delete_names, appeared_names = judge_flank_align_v1(flanking_region_distance, output, flanking_len, flank_align_dir)
+    return delete_names, appeared_names
 
 def judge_itr_structure(TSD_set, orig_seq, name, raw_tir_start, raw_tir_end, cur_candidate_TIRs_path, TRsearch_dir, tir_tsd_dir, plant):
     # 具有短tir的TIR有：(hAT, 5-27bp tir, 8bp tsd, len<4kb), (Mutator, long/short tir, 9-11bp tsd, ), (CACTA, 5bp tir, 2-3bp tsd, )
@@ -6253,6 +6263,34 @@ def store_flank_align_groups(query_groups, flank_align_dir):
                     f_save.write(query_name+'\t'+subject_name+'\t'+str(q_start)+'\t'+str(q_end)+'\t'+str(s_start)+'\t'+str(s_end)+'\t'+str(direct)+'\n')
         f_save.close()
 
+def store_flank_align_groups_v1(groups, flank_align_dir):
+    # groups -> {
+    # orig_query_name: {
+    #   query_name : {subject_name: []}
+    #   }
+    # }
+    for orig_query_name in groups.keys():
+        query_groups = groups[orig_query_name]
+        for query_name in query_groups.keys():
+            tmp_out = flank_align_dir + '/' + query_name + '.out'
+            subject_groups = query_groups[query_name]
+            with open(tmp_out, 'w') as f_save:
+                for subject_name in subject_groups.keys():
+                    for item in subject_groups[subject_name]:
+                        q_start = item[0]
+                        q_end = item[1]
+                        orig_query_len = item[2]
+                        s_start = item[3]
+                        s_end = item[4]
+                        orig_subject_len = item[5]
+                        flanking_len = item[6]
+                        flanking_region_distance = item[7]
+                        direct = item[8]
+                        query_name = item[9]
+                        subject_name = item[10]
+                        f_save.write(query_name+'\t'+subject_name+'\t'+str(q_start)+'\t'+str(q_end)+'\t'+str(s_start)+'\t'+str(s_end)+'\t'+str(direct)+'\n')
+            f_save.close()
+
 def judge_flank_align(flanking_region_distance, output, flanking_len, flank_align_dir):
     # 按照 orig_query_name 进行分组，每个 orig_query_name 为一个单独的单元
     # query_groups -> {query_name: {subject_name: []}}
@@ -6410,6 +6448,210 @@ def judge_flank_align(flanking_region_distance, output, flanking_len, flank_alig
     # else:
     #     return ''
 
+def judge_flank_align_v1(flanking_region_distance, output, flanking_len, flank_align_dir):
+    # 按照 orig_query_name 进行分组，每个 orig_query_name 为一个单独的单元
+    # groups -> {
+    # orig_query_name: {
+    #   query_name : {subject_name: []}
+    #   }
+    # }
+    groups = {}
+    with open(output, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            parts = line.split('\t')
+            query_name = parts[0]
+            subject_name = parts[1]
+            if query_name == subject_name:
+                continue
+
+            match = re.search(r'chr_(\d+):(\d+)_(\d+)\(.+\)', query_name)
+            if not match:
+                continue
+            query_chrom = match.group(1)
+            query_start = match.group(2)
+            query_end = match.group(3)
+
+            match = re.search(r'chr_(\d+):(\d+)_(\d+)\(.+\)', subject_name)
+            if not match:
+                continue
+            sub_chrom = match.group(1)
+            sub_start = match.group(2)
+            sub_end = match.group(3)
+
+            if query_chrom == sub_chrom and (query_start == sub_start or query_end == sub_end):
+                continue
+           
+
+            orig_query_name = query_name.split('-c_')[0]
+            orig_subject_name = subject_name.split('-c_')[0]
+
+            # if orig_query_name == 'STOWAWAY16_OS':
+            #     print(output)
+
+            if orig_query_name != orig_subject_name:
+                continue
+            
+            # 按照orig_query_name进行分组,内部再按照query_name进行分组。
+            if not groups.__contains__(orig_query_name):
+                groups[orig_query_name] = {}
+            query_groups = groups[orig_query_name]
+
+            # 按照subject_name进行分组；按照分组去确定该subject_name是否该过滤。
+            if not query_groups.__contains__(query_name):
+                query_groups[query_name] = {}
+            subject_groups = query_groups[query_name]
+
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+            direct = '+'
+            if s_start > s_end:
+                direct = '-'
+            if query_name == subject_name:
+                continue
+
+            query_parts = query_name.split('-c_')
+            orig_query_len = int(query_parts[1].split('-')[1])
+
+            subject_parts = subject_name.split('-c_')
+            orig_subject_len = int(subject_parts[1].split('-')[1])
+
+            if not subject_groups.__contains__(subject_name):
+                subject_groups[subject_name] = []
+            subject_list = subject_groups[subject_name]
+            subject_list.append((q_start, q_end, orig_query_len, s_start, s_end, orig_subject_len, flanking_len, flanking_region_distance, direct, query_name, subject_name))
+    f_r.close()
+
+    #存储groups中的比对情况，方便我们后期调试
+    store_flank_align_groups_v1(groups, flank_align_dir)
+
+    delete_names = set()
+    appeared_names = set()
+    for orig_query_name in groups.keys():
+        is_fake = False
+        query_groups = groups[orig_query_name]
+        for query_name in query_groups.keys():
+            if is_fake:
+                break
+            # 统计整个flanking区域都能比对的次数，超过1次就过滤掉
+            complete_false_num = 0
+            # 统计明显超过边界的次数，超过5次就过滤掉
+            obvious_false_num = 0
+            appeared_names.add(orig_query_name)
+            subject_groups = query_groups[query_name]
+            if len(subject_groups) == 0:
+                delete_names.add(orig_query_name)
+                #print(query_name)
+            total_subject_names = set()
+            deleted_subject_names = set()
+            # full_subject_names = set()
+            # 可靠的支持数量应该超过1
+            # 可靠支持：一个真实的TE应满足它的首部边界比对到subject的首部边界，尾部边界比对到subject的尾部边界
+            # confident_support = 0
+            for subject_name in subject_groups.keys():
+                total_subject_names.add(subject_name)
+                group = subject_groups[subject_name]
+                # is_query_start_covered = False
+                # is_query_end_covered = False
+                # is_subject_start_covered = False
+                # is_subject_end_covered = False
+
+                # is_start_support = False
+                # is_end_support = False
+                for item in group:
+                    q_start = item[0]
+                    q_end = item[1]
+                    orig_query_len = item[2]
+                    s_start = item[3]
+                    s_end = item[4]
+                    orig_subject_len = item[5]
+                    flanking_len = item[6]
+                    flanking_region_distance = item[7]
+                    direct = item[8]
+
+                    # query_start_covered, query_end_covered, \
+                    # subject_start_covered, subject_end_covered = overlap_with_boundary(q_start, q_end, s_start, s_end,
+                    #                                                                         flanking_len,
+                    #                                                                         flanking_region_distance,
+                    #                                                                         orig_query_len, orig_subject_len)
+                    # is_query_start_covered = is_query_start_covered or query_start_covered
+                    # is_query_end_covered = is_query_end_covered or query_end_covered
+                    # is_subject_start_covered = is_subject_start_covered or subject_start_covered
+                    # is_subject_end_covered = is_subject_end_covered or subject_end_covered
+
+                    # #判断首部和尾部是否支持
+                    # if direct == '+' and (q_start >= (flanking_len+1-flanking_region_distance) and q_start <= (flanking_len+1+flanking_region_distance) and q_end > (flanking_len+1) and (s_start >= (flanking_len+1-flanking_region_distance) and s_start <= (flanking_len+1+flanking_region_distance) and s_end > (flanking_len+1))):
+                    #     is_start_support = True
+                    # elif direct == '+' and (q_start < (orig_query_len+flanking_len) and q_end <= (orig_query_len+flanking_len+flanking_region_distance) and q_end >= (orig_query_len+flanking_len-flanking_region_distance) and (s_start < (orig_subject_len+flanking_len) and s_end <= (orig_subject_len+flanking_len+flanking_region_distance) and s_end >= (orig_subject_len+flanking_len-flanking_region_distance))):
+                    #     is_end_support = True
+                    # elif direct == '-' and (q_start >= (flanking_len+1-flanking_region_distance) and q_start <= (flanking_len+1+flanking_region_distance) and q_end > (flanking_len+1) and (s_start > (flanking_len+1) and s_end >= (flanking_len+1-flanking_region_distance) and s_end <= (flanking_len+1+flanking_region_distance))):
+                    #     is_start_support = True
+                    # elif direct == '-' and (q_start < (orig_query_len+flanking_len) and q_end <= (orig_query_len+flanking_len+flanking_region_distance) and q_end >= (orig_query_len+flanking_len-flanking_region_distance) and (s_start <= (orig_subject_len+flanking_len+flanking_region_distance) and s_start >= (orig_subject_len+flanking_len-flanking_region_distance) and s_end < (orig_subject_len+flanking_len))):
+                    #     is_end_support = True
+
+
+
+                    #如果边界位置向里向外各(20/40)bp的序列具有同源性，说明边界周围的序列具有同源性
+                    if direct == '+' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20) and (s_start < (flanking_len+1-20) and s_end > (flanking_len+1+20))) or
+                                        (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20) and (s_start < (orig_subject_len+flanking_len-20) and s_end > (orig_subject_len+flanking_len+20)))):
+                        obvious_false_num += 1
+                    elif direct == '-' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20) and (s_start > (flanking_len+1+20) and s_end < (flanking_len+1-20))) or
+                                            (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20) and (s_start > (orig_subject_len+flanking_len+20) and s_end < (orig_subject_len+flanking_len-20)))):
+                        obvious_false_num += 1
+
+                    # 完全错误应该指的是query的边界比对到subject边界
+                    if direct == '+' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40) and (s_start < (flanking_len+1-40) and s_end > (flanking_len+1+40))) or
+                                        (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40) and (s_start < (orig_subject_len+flanking_len-40) and s_end > (orig_subject_len+flanking_len+40)))):
+                        complete_false_num += 1
+                    elif direct == '-' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40) and (s_start > (flanking_len+1+40) and s_end < (flanking_len+1-40))) or
+                                            (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40) and (s_start > (orig_subject_len+flanking_len+40) and s_end < (orig_subject_len+flanking_len-40)))):
+                        complete_false_num += 1
+
+
+
+                    # 判断C0与C1,C2...等拷贝的比对情况，如果有边界外的区域能和拷贝高同源性，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
+                    if direct == '+' and ((q_start < (flanking_len+1-flanking_region_distance) and q_end > (flanking_len+1) and (s_start < (flanking_len+1-flanking_region_distance) and s_end > (flanking_len+1))) or
+                                        (q_start < (orig_query_len+flanking_len) and q_end > (orig_query_len+flanking_len+flanking_region_distance) and (s_start < (orig_subject_len+flanking_len) and s_end > (orig_subject_len+flanking_len+flanking_region_distance)))):
+                        deleted_subject_names.add(subject_name)
+                        break
+                    elif direct == '-' and ((q_start < (flanking_len+1-flanking_region_distance) and q_end > (flanking_len+1) and (s_start > (flanking_len+1) and s_end < (flanking_len+1-flanking_region_distance))) or
+                                            (q_start < (orig_query_len+flanking_len) and q_end > (orig_query_len+flanking_len+flanking_region_distance) and (s_start > (orig_subject_len+flanking_len+flanking_region_distance) and s_end < (orig_subject_len+flanking_len)))):
+                        deleted_subject_names.add(subject_name)
+                        break
+                
+                # #因为比对的问题，真实的TE总是首部支持就没有尾部支持，或者相反，因此我们取“或”
+                # if is_start_support or is_end_support:
+                #     confident_support += 1
+
+                # if not is_query_start_covered or not is_query_end_covered or\
+                #         not is_subject_start_covered or not is_subject_end_covered:
+                #     deleted_subject_names.add(subject_name)
+                
+                # if is_query_start_covered and is_query_end_covered and\
+                #         is_subject_start_covered and is_subject_end_covered:
+                #     full_subject_names.add(subject_name)
+
+            # 如果50%拷贝的subject都有flanking区域能够比对，则这条序列应该被丢弃
+            #if complete_false_num >= 3 or obvious_false_num >= 3 or confident_support <= 0 or \
+            #if confident_support <= 0 or \
+            if (len(total_subject_names) > 0 and float(len(deleted_subject_names))/len(total_subject_names) >= 0.5):
+                delete_names.add(orig_query_name)
+                print(query_name, complete_false_num, obvious_false_num, len(deleted_subject_names), len(total_subject_names))
+                #print(query_name, complete_false_num, obvious_false_num, len(deleted_subject_names), len(total_subject_names), confident_support)
+                #print(deleted_subject_names)
+                is_fake = True
+                break
+
+    return delete_names, appeared_names
+
+    # 如果有3条以上拷贝的subject都有flanking区域能够比对，则这条序列应该被丢弃
+    # if len(total_subject_names) > 0 and len(deleted_subject_names) >= 3:
+    #     return cur_orig_query_name
+    # else:
+    #     return ''
+
 def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log):
     log.logger.info('------generating candidate ' + TE_type + ' copies')
     starttime = time.time()
@@ -6548,12 +6790,177 @@ def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, 
 
     print('deleted_names len: ' + str(len(deleted_names)))
     # 用完了就将临时目录删了以减少磁盘空间占用
-    os.system('rm -rf ' + flank_align_dir)
+    #os.system('rm -rf ' + flank_align_dir)
     os.system('rm -rf ' + tir_tsd_temp_dir)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking " + TE_type + " alignment: %.8s s" % (dtime))
     return new_all_copies
+
+def flank_region_align_v2(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant):
+    log.logger.info('------generating candidate ' + TE_type + ' copies')
+    starttime = time.time()
+    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    names, contigs = read_fasta(candidate_sequence_path)
+    split_files = []
+    for i, name in enumerate(names):
+        cur_file = temp_dir + '/' + str(name) + '.fa'
+        cur_contigs = {}
+        cur_contigs[name] = contigs[name]
+        store_fasta(cur_contigs, cur_file)
+        split_files.append(cur_file)
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for cur_file in split_files:
+        job = ex.submit(run_find_members_v5, cur_file, reference, temp_dir, member_script_path, subset_script_path,
+                        plant, TE_type, flanking_len)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    new_all_copies = {}
+    for job in as_completed(jobs):
+        cur_name, cur_copies = job.result()
+        if cur_name is not None:
+            new_all_copies[cur_name] = cur_copies
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of generating candidate " + TE_type + " copies: %.8s s" % (dtime))
+
+    log.logger.info('------flanking ' + TE_type + ' alignment')
+    starttime = time.time()
+    if ref_index == -1:
+        flank_align_dir = tmp_output_dir + '/flank_' + TE_type + '_align'
+    else:
+        flank_align_dir = tmp_output_dir + '/flank_'+TE_type+'_align_' + str(ref_index)
+    os.system('rm -rf '+flank_align_dir)
+    if not os.path.exists(flank_align_dir):
+        os.makedirs(flank_align_dir)
+
+    flanking_region_distance = int(flanking_len * similar_ratio)
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    #一条orig_query_name调用一次比对，CPU利用率太低，我们尝试50条序列调用一次
+    batch_size = 50
+    cur_query_copies = {}
+    cur_subject_copies = {}
+    batch_num = 0
+    for index, orig_query_name in enumerate(new_all_copies.keys()):
+        if index % batch_size == 0 and len(cur_query_copies) > 0:
+            cur_query_copy_path = flank_align_dir + '/' + str(batch_num) + '_query.fa'
+            store_fasta(cur_query_copies, cur_query_copy_path)
+            cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
+            store_fasta(cur_subject_copies, cur_subject_copy_path)
+            output_path = flank_align_dir + '/' + str(batch_num) + '.out'
+            job = ex.submit(run_blast_align_v1, cur_query_copy_path, cur_subject_copy_path, output_path,
+                            flanking_len, flanking_region_distance, flank_align_dir)
+            jobs.append(job)
+            batch_num += 1
+            cur_query_copies = {}
+            cur_subject_copies = {}
+
+        copy_list = new_all_copies[orig_query_name]
+
+        for i, copy in enumerate(copy_list):
+            # 最多取100条
+            if i > 100:
+                break
+            # copy -> (len, seq)
+            len_seq = int(copy[0])
+            chr_name = copy[1]
+            seq = copy[2]
+            if len_seq < 100:
+                continue
+            if i <= 2:
+                cur_query_copies[orig_query_name + '-c_' + str(i) + '-' + str(len_seq) + '-' + chr_name] = seq
+            cur_subject_copies[orig_query_name + '-c_' + str(i) + '-' + str(len_seq) + '-' + chr_name] = seq
+
+    if len(cur_query_copies) > 0:
+        cur_query_copy_path = flank_align_dir + '/' + str(batch_num) + '_query.fa'
+        store_fasta(cur_query_copies, cur_query_copy_path)
+        cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
+        store_fasta(cur_subject_copies, cur_subject_copy_path)
+        output_path = flank_align_dir + '/' + str(batch_num) + '.out'
+        job = ex.submit(run_blast_align_v1, cur_query_copy_path, cur_subject_copy_path, output_path,
+                        flanking_len, flanking_region_distance, flank_align_dir)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    deleted_names = set()
+    appeared_names = set()
+    for job in as_completed(jobs):
+        cur_delete_names, cur_appeared_names = job.result()
+        deleted_names.update(cur_delete_names)
+        appeared_names.update(cur_appeared_names)
+
+    for name in new_all_copies.keys():
+        if name not in appeared_names:
+            deleted_names.add(name)
+
+    for cur_delete_name in deleted_names:
+        if cur_delete_name != '':
+            del new_all_copies[cur_delete_name]
+    #print(deleted_names)
+    print('deleted_names len: ' + str(len(deleted_names)))
+    # 用完了就将临时目录删了以减少磁盘空间占用
+    #os.system('rm -rf ' + flank_align_dir)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of flanking " + TE_type + " alignment: %.8s s" % (dtime))
+    return new_all_copies
+
+def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant):
+    log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
+    starttime = time.time()
+    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    
+    names, contigs = read_fasta(candidate_sequence_path)
+    total_names = set(names)
+    split_files = []
+    for i, name in enumerate(names):
+        cur_file = temp_dir + '/' + str(name) + '.fa'
+        cur_contigs = {}
+        cur_contigs[name] = contigs[name]
+        store_fasta(cur_contigs, cur_file)
+        split_files.append(cur_file)
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for cur_file in split_files:
+        job = ex.submit(run_find_members_v6, cur_file, reference, temp_dir, member_script_path, subset_script_path,
+                        plant, TE_type, flanking_len)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    not_found_boundary = 0
+    full_length1 = 0
+    true_te_names = set()
+    true_tes = {}
+    for job in as_completed(jobs):
+        cur_name, cur_seq, info = job.result()
+        if info == 'nb':
+            not_found_boundary += 1
+        elif info == 'fl1':
+            full_length1 += 1
+        if cur_name is not None:
+            true_tes[cur_name] = cur_seq
+            true_te_names.add(cur_name)
+    store_fasta(true_tes, real_TEs)
+
+    deleted_names = total_names.difference(true_te_names)
+    print(deleted_names)
+    print('deleted_names len: ' + str(len(deleted_names)))
+    print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of determination of homology in regions outside the boundaries of  " + TE_type + " copies: %.8s s" % (dtime))
 
 def multi_process_alignx(query_path, subject_path, blastnResults_path, blast_program_dir, tmp_output_dir, threads):
     tools_dir = ''
@@ -6766,6 +7173,179 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies):
     store_fasta(subject_contigs, new_confident_tir_path)
     return new_confident_tir_path
 
+def search_boundary_homo_v1(col_base_map, valid_col_threshold, pos, matrix, row_num, col_num,
+                         out_homo_threshold, type, homo_threshold, debug):
+    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
+    # 需要定义的问题：
+    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
+    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
+    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
+
+    # 函数功能：
+    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
+    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
+    search_len = 15
+    if type == 'start':
+        start_align_valid = True
+        
+        col_index = pos - 1
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo_col = -1
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_no_homo_col = -1
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= 0:
+            # 从pos开始向左搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            if not col_base_map.__contains__(col_index):
+                col_base_map[col_index] = {}
+            base_map = col_base_map[col_index]
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+            # 非空行的数量超过阈值，则是有效行
+            if not base_map.__contains__('-'):
+                base_map['-'] = 0
+            no_gap_num = row_num - base_map['-']
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    if float(base_map[base])/no_gap_num >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_no_homo_col = col_index
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo_col = col_index
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
+        # if homo_col_count <= out_homo_threshold:
+        if max_con_homo + 1 <= out_homo_threshold:
+            start_align_valid &= True
+        else:
+            start_align_valid &= False
+        return start_align_valid
+    else:
+        end_align_valid = True
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo_col = -1
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_no_homo_col = -1
+
+        col_index = pos + 1
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            if not col_base_map.__contains__(col_index):
+                col_base_map[col_index] = {}
+            base_map = col_base_map[col_index]
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+            if not base_map.__contains__('-'):
+                base_map['-'] = 0
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    if float(base_map[base])/no_gap_num >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_no_homo_col = col_index
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo_col = col_index
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
+        # if homo_col_count <= out_homo_threshold:
+        if max_con_homo + 1 <= out_homo_threshold:
+            end_align_valid &= True
+        else:
+            end_align_valid &= False
+
+        return end_align_valid
 
 def search_boundary_homo(col_base_map, valid_col_threshold, pos, matrix, row_num, col_num, internal_no_homo_threshold,
                          out_homo_threshold, type, debug):
@@ -6818,7 +7398,7 @@ def search_boundary_homo(col_base_map, valid_col_threshold, pos, matrix, row_num
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    if base_map[base] * 10 >= no_gap_num * 7:
+                    if base_map[base] * 10 >= no_gap_num * 6:
                         homo_col_count += 1
                         # 是否连续同源列
                         if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
@@ -6896,7 +7476,7 @@ def search_boundary_homo(col_base_map, valid_col_threshold, pos, matrix, row_num
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    if base_map[base] * 10 >= no_gap_num * 7:
+                    if base_map[base] * 10 >= no_gap_num * 6:
                         homo_col_count += 1
                         # 是否连续同源列
                         if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
@@ -6977,7 +7557,7 @@ def search_boundary_homo(col_base_map, valid_col_threshold, pos, matrix, row_num
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    if base_map[base] * 10 >= no_gap_num * 7:
+                    if base_map[base] * 10 >= no_gap_num * 6:
                         homo_col_count += 1
                         # 是否连续同源列
                         if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
@@ -7055,10 +7635,13 @@ def search_boundary_homo(col_base_map, valid_col_threshold, pos, matrix, row_num
                 valid_col_count += 1
                 # 判断有效列是否是同源列
                 no_gap_num = row_num - base_map['-']
+                max_ratio = 0
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    if base_map[base] * 10 >= no_gap_num * 7:
+                    if base_map[base]/no_gap_num > max_ratio:
+                        max_ratio = base_map[base]/no_gap_num
+                    if base_map[base] * 10 >= no_gap_num * 6:
                         homo_col_count += 1
                         # 是否连续同源列
                         if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
@@ -7140,6 +7723,8 @@ def judge_boundary(cur_seq, align_file, debug):
     if align_start == -1 or align_end == -1:
         # 没有找到边界，异常情况
         return False
+    else:
+        print(align_file)
     align_names, align_contigs = read_fasta(align_file)
     if len(align_names) <= 0:
         return False
@@ -7236,6 +7821,194 @@ def judge_boundary(cur_seq, align_file, debug):
         return False
     else:
         return True
+    
+
+
+def judge_boundary_v2(cur_seq, align_file, debug):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    anchor_len = 20
+    first_10bp = cur_seq[0:anchor_len]
+    last_10bp = cur_seq[-anchor_len:]
+    align_names, align_contigs = read_fasta(align_file)
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 1
+        last_dist = 1
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            # 需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    if debug:
+        print(align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        return None
+    else:
+        print(align_file)
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        return None
+
+    col_base_map = {}
+    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝
+    # 在锚点位置上下20bp应该有碱基
+    full_length_member_names = []
+    full_length_member_contigs = {}
+    anchor_len = 5
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(full_length_member_names) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - anchor_len >= 0:
+            anchor_start = align_start - anchor_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
+        if align_end + anchor_len < len(align_seq):
+            anchor_end = align_end + anchor_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
+
+        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
+            full_length_member_names.append(name)
+            full_length_member_contigs[name] = align_seq
+
+    return full_length_member_names
+
+def judge_boundary_v3(cur_seq, align_file, debug):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    anchor_len = 20
+    first_10bp = cur_seq[0:anchor_len]
+    last_10bp = cur_seq[-anchor_len:]
+    align_names, align_contigs = read_fasta(align_file)
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 2
+        last_dist = 2
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            # 需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    if debug:
+        print(align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        if debug:
+            print('not found boundary:' + align_file)
+        return False, 'nb'
+    else:
+        print(align_file)
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        if debug:
+            print('align file size = 0, ' + align_file)
+        return False, ''
+
+    col_base_map = {}
+    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝
+    # 在锚点位置上下20bp应该有碱基
+    full_length_member_names = []
+    full_length_member_contigs = {}
+    anchor_len = 5
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(full_length_member_names) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - anchor_len >= 0:
+            anchor_start = align_start - anchor_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
+        if align_end + anchor_len < len(align_seq):
+            anchor_end = align_end + anchor_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
+
+        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
+            full_length_member_names.append(name)
+            full_length_member_contigs[name] = align_seq
+
+    # 判断align start处的拷贝们是否满足定律。
+    if len(full_length_member_contigs) <= 1:
+        if debug:
+            print('full length number = 1, ' + align_file)
+        return False, 'fl1'
+    else:
+        # 把序列存成矩阵，方便遍历和索引
+        first_seq = full_length_member_contigs[full_length_member_names[0]]
+        col_num = len(first_seq)
+        row_num = len(full_length_member_names)
+        matrix = [[''] * col_num for i in range(row_num)]
+        for row, name in enumerate(full_length_member_names):
+            seq = full_length_member_contigs[name]
+            for col in range(len(seq)):
+                matrix[row][col] = seq[col]
+        # 从align_start列开始，向左搜索15个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        valid_col_threshold = int(row_num/2)
+        #valid_col_threshold = 0
+        out_homo_threshold = 5
+        homo_threshold = 0.8
+        start_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_start, matrix, row_num,
+                                                 col_num, out_homo_threshold, 'start', homo_threshold, debug)
+
+        # 从align_end列开始，向右搜索15个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        end_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_end, matrix, row_num, 
+                                               col_num, out_homo_threshold, 'end', homo_threshold, debug)
+        if debug:
+            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
+        return start_align_valid & end_align_valid, ''
+
+
 
 def judge_boundary_v1(cur_seq, align_file, debug):
     # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
@@ -7375,11 +8148,94 @@ def judge_boundary_v1(cur_seq, align_file, debug):
     else:
         return True
 
+def run_find_members_v5(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type, flanking_len):
+    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
+    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
+    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
+    debug = 1
+
+    cur_names, cur_contigs = read_fasta(cur_file)
+    cur_seq = cur_contigs[cur_names[0]]
+
+    # 1.找members，扩展members 50bp,取最长的100条序列
+    extend_len = flanking_len
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
+        extend_len) + ' > /dev/null 2>&1'
+    os.system(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    member_names, member_contigs = read_fasta(member_file)
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        member_file += '.rdmSubset.fa'
+        align_file = cur_file + '.maf.fa'
+        align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+        os.system(align_command)
+        # 取在边界处不为空的全长拷贝
+        full_length_member_names = judge_boundary_v2(cur_seq, align_file, debug)
+        if full_length_member_names is None:
+            return None, None
+        copies = []
+        for name in full_length_member_names:
+            seq = member_contigs[name]
+            new_name = name.replace('-', '_')
+            copies.append((len(seq), new_name, seq))
+        copies.sort(key=lambda x: -x[0])
+        return cur_names[0], copies
+    elif len(member_names) == 1:
+        return None, None
+    else:
+        align_file = cur_file + '.maf.fa'
+        align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+        os.system(align_command)
+        # 取在边界处不为空的全长拷贝
+        full_length_member_names = judge_boundary_v2(cur_seq, align_file, debug)
+        if full_length_member_names is None:
+            return None, None
+        copies = []
+        for name in full_length_member_names:
+            seq = member_contigs[name]
+            new_name = name.replace('-', '_')
+            copies.append((len(seq), new_name, seq))
+        copies.sort(key=lambda x: -x[0])
+        return cur_names[0], copies
+
+def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type, flanking_len):
+    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
+    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
+    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
+    debug = 1
+
+    cur_names, cur_contigs = read_fasta(cur_file)
+    cur_seq = cur_contigs[cur_names[0]]
+
+    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
+    extend_len = flanking_len
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
+        extend_len) + ' > /dev/null 2>&1'
+    os.system(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    member_names, member_contigs = read_fasta(member_file)
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        member_file += '.rdmSubset.fa'
+    align_file = cur_file + '.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+    os.system(align_command)
+
+    # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
+    is_TE, info = judge_boundary_v3(cur_seq, align_file, debug)
+    if is_TE:
+        return cur_names[0], cur_seq, info
+    else:
+        return None, None, info
+
 def run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):
     # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
     # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
     # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-    debug = 0
+    debug = 1
     # if cur_file.__contains__('N_174912'):
     #     debug = 1
 
