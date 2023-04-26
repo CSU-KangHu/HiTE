@@ -2374,7 +2374,7 @@ if __name__ == '__main__':
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib1/rice/novel_tir'
     #identify_new_TIR(tmp_output_dir)
-    analyze_new_TIRs(tmp_output_dir)
+    #analyze_new_TIRs(tmp_output_dir)
 
 
     # #目前已经能够包含绝大多数的真实TIR，接下来我们需要过滤掉绝大多数的假阳性
@@ -2487,7 +2487,10 @@ if __name__ == '__main__':
     # my_pal = {"sMITE": "#16499D", "Novel_TIR_Ghd2": "#E71F19"}
     # draw_violin(dist_path, my_pal)
 
-
-
+    fixed_extend_base_threshold = 1000
+    max_single_repeat_len = 3000000000
+    output_dir = '/home/hukang/HiTE/demo/test'
+    repeats_path = (output_dir+'/genome.cut0.fa', output_dir+'/genome.cut0.fa', output_dir+'/genome.cut0.fa', '')
+    get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len)
 
 
