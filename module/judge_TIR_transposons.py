@@ -83,7 +83,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
 
     # 使用多比对序列+滑动窗口模式过滤掉假阳性序列
     # 多轮迭代是为了找到更加准确的边界
-    iter_num = 1
+    iter_num = 3
     input_file = filter_dup_path
     for i in range(iter_num):
         result_type = 'cons'

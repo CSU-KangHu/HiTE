@@ -123,7 +123,7 @@ if __name__ == '__main__':
         similar_ratio = 0.2
         TE_type = 'helitron'
         # 多轮迭代是为了找到更加准确的边界
-        iter_num = 1
+        iter_num = 3
         input_file = candidate_helitron_cons
         for i in range(iter_num):
             result_type = 'cons'
