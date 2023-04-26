@@ -4111,7 +4111,7 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
             q_end = int(parts[7])
             s_start = int(parts[8])
             s_end = int(parts[9])
-            if identity < 80:
+            if identity < 80 or (query_name==subject_name and q_start==s_start and q_end==s_end):
                 continue
             if not query_records.__contains__(query_name):
                 query_records[query_name] = {}
@@ -4225,6 +4225,9 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
                     longest_query_end = origin_frag[1]
                     longest_subject_start = origin_frag[2]
                     longest_subject_end = origin_frag[3]
+
+                    # if longest_query_start == 456006 and longest_query_end == 457161:
+                    #     print('here')
 
                     cur_extend_num = 0
 
