@@ -100,7 +100,7 @@ if __name__ == '__main__':
     resut_file = candidate_helitron_path
     if not is_recover or not file_exist(resut_file):
         # 运行helitronscanner
-        HS_temp_dir = tmp_output_dir + 'HS_temp'
+        HS_temp_dir = tmp_output_dir + '/HS_temp'
         if not os.path.exists(HS_temp_dir):
             os.makedirs(HS_temp_dir)
         candidate_helitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.fa'
