@@ -87,6 +87,11 @@ projectDir = workflow.projectDir
 ch_module = "${projectDir}/module"
 ch_classification = "${projectDir}/classification"
 tools_module = "${projectDir}/tools"
+HSDIR = "${projectDir}/bin/HelitronScanner/TrainingSet"
+HSJAR = "${projectDir}/bin/HelitronScanner/HelitronScanner.jar"
+sh_dir = "${projectDir}/module"
+member_script_path = "${projectDir}/tools/make_fasta_from_blast.sh"
+subset_script_path = "${projectDir}/tools/ready_for_MSA.sh"
 lib_module = "${projectDir}/library"
 ch_EAHelitron = "${projectDir}/bin/EAHelitron-master"
 ch_ltrfinder = "${projectDir}/bin/LTR_FINDER_parallel-master"
@@ -179,7 +184,7 @@ process coarseBoundary {
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} -r ${out_genome} --recover ${recover}
+     --ref_index ${ref_index} -r ${out_genome} --recover ${recover} --debug ${debug}
 
     ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
     cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
@@ -214,7 +219,9 @@ process TIR {
     -t ${cores} --TRsearch_dir ${tools_module}  \
     --tmp_output_dir ${tmp_output_dir} \
     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-    --ref_index ${ref_index} --plant ${plant} --recover ${recover}
+    --ref_index ${ref_index} --member_script_path ${member_script_path} \
+    --subset_script_path ${subset_script_path} \
+    --plant ${plant} --recover ${recover} --debug ${debug}
 
     cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
     """
@@ -242,8 +249,10 @@ process Helitron {
     python3 ${ch_module}/judge_Helitron_transposons.py \
     -g ${cut_ref} --seqs ${lrf} \
     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-    --flanking_len ${flanking_len} --EAHelitron ${ch_EAHelitron} \
-    --ref_index ${ref_index} --recover ${recover}
+    --HSDIR ${HSDIR} --HSJAR ${HSJAR} --sh_dir ${sh_dir} \
+    --member_script_path ${member_script_path} --subset_script_path ${subset_script_path} \
+    --flanking_len ${flanking_len} --debug ${debug} \
+    --ref_index ${ref_index} --recover ${recover} \
 
     cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
     """
@@ -253,7 +262,7 @@ process OtherTE {
     label 'process_high'
 
     input:
-    path lrf
+    tuple path(cut_ref), path(lrf)
 
 
     output:
@@ -264,9 +273,8 @@ process OtherTE {
     (full, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
     """
     python3 ${ch_module}/judge_Other_transposons.py \
-     --seqs ${lrf} \
+     -g ${cut_ref} --member_script_path ${member_script_path} --subset_script_path ${subset_script_path} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --query_coverage 0.8 --subject_coverage 0 \
      --ref_index ${lrf_index} --library_dir ${lib_module} --recover ${recover}
 
     cp ${tmp_output_dir}/confident_other_${lrf_index}.fa ./
@@ -519,7 +527,7 @@ workflow {
             ch_h = Helitron(merged_channel).collectFile(name: "${params.outdir}/confident_helitron.fa")
 
             //Other identification
-            ch_o = OtherTE(longest_repeats).collectFile(name: "${params.outdir}/confident_other.fa")
+            ch_o = OtherTE(merged_channel).collectFile(name: "${params.outdir}/confident_other.fa")
             //test(ch_o) | view { "$it" }
 
             //Unwrap nested TE

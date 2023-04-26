@@ -9,6 +9,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import handlers
 from fuzzysearch import find_near_matches
+import Levenshtein
 
 import subprocess
 
@@ -56,14 +57,8 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_
     cur_candidate_Helitrons = {}
     for item in cur_segments:
         query_name = item[0]
-        copies = item[1]
-        if len(copies) > 0:
-            copy = copies[0]
-            orig_seq = str(copy[4])
-            # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
-            if orig_seq.__contains__('NNNNNNNNNN'):
-                continue
-            cur_candidate_Helitrons[query_name] = orig_seq
+        orig_seq = item[1]
+        cur_candidate_Helitrons[query_name] = orig_seq
     store_fasta(cur_candidate_Helitrons, cur_candidate_Helitrons_path)
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR
@@ -77,7 +72,20 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_
     candidate_Helitrons.update(cur_rc_contigs)
     return candidate_Helitrons
 
+def run_HelitronScanner_v1(sh_dir, temp_dir, candidate_file, HSDIR, HSJAR, prefix):
+    HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
+                              + str(prefix) + ' ' + candidate_file + ' ' + HSDIR + ' ' + HSJAR
+    print(HelitronScanner_command)
+    os.system(HelitronScanner_command + '> /dev/null 2>&1')
 
+    cur_helitron_out = temp_dir + '/' + str(prefix) + '.HelitronScanner.draw.hel.fa'
+    cur_rc_helitron_out = temp_dir + '/' + str(prefix) + '.HelitronScanner.draw.rc.hel.fa'
+    cur_names, cur_contigs = read_fasta(cur_helitron_out)
+    cur_rc_names, cur_rc_contigs = read_fasta(cur_rc_helitron_out)
+    candidate_Helitrons = {}
+    candidate_Helitrons.update(cur_contigs)
+    candidate_Helitrons.update(cur_rc_contigs)
+    return candidate_Helitrons, prefix
 
 def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_index):
     all_candidate_helitron_contigs = {}
@@ -208,8 +216,9 @@ def multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, output,
     store_fasta(candidate_Helitrons, output)
 
 
-def multi_process_helitronscanner(all_copies, output, sh_dir, temp_dir, HSDIR, HSJAR, threads):
-    segments_cluster = divided_array(list(all_copies.items()), threads)
+def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDIR, HSJAR, threads):
+    candidate_names, candidate_contigs = read_fasta(candidate_file)
+    segments_cluster = divided_array(list(candidate_contigs.items()), threads)
 
     os.system('rm -rf ' + temp_dir)
     if not os.path.exists(temp_dir):
@@ -2967,6 +2976,68 @@ def TSDsearch_v2(orig_seq, tir_start, tir_end, TSD_set, plant):
                 TSD_set.add((tir_start - tsd_len, tir_start - 1, left_tsd_seq, tir_end + 1, tir_end + tsd_len, right_tsd_seq,
                      tir_start, tir_end, tir_end - tir_start + 1))
 
+def get_boundary_ungap_str(raw_align_seq, boundary_pos, search_len, direct):
+    valid_count = 0
+    col_index = boundary_pos
+    ungap_str = ''
+    if direct == 'right':
+        while valid_count < search_len and col_index < len(raw_align_seq):
+            cur_base = raw_align_seq[col_index]
+            if cur_base == '-':
+                col_index += 1
+                continue
+            ungap_str += cur_base
+            col_index += 1
+            valid_count += 1
+    else:
+        while valid_count < search_len and col_index >= 0:
+            cur_base = raw_align_seq[col_index]
+            if cur_base == '-':
+                col_index -= 1
+                continue
+            ungap_str = cur_base + ungap_str
+            col_index -= 1
+            valid_count += 1
+    return ungap_str
+
+def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
+    # 根据多序列比对文件中的序列，判断其是否具有TSD，需要考虑'-'
+    plant = int(plant)
+    # 2->TA或者animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3' 或者是 （TAA或TTA）, 4-> TTAA,
+    TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
+
+    # 取first 5bp
+    direct = 'right'
+    first_5bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_start, 5, direct)
+    first_3bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_start, 3, direct)
+    direct = 'left'
+    last_5bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_end, 5, direct)
+    last_3bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_end, 3, direct)
+
+
+    left_tsd_seq = ''
+    right_tsd_seq = ''
+    allow_mismatch_num = 1
+    for tsd_len in TIR_TSDs:
+        left_tsd = get_boundary_ungap_str(raw_align_seq, cur_boundary_start-1, tsd_len, 'left')
+        right_tsd = get_boundary_ungap_str(raw_align_seq, cur_boundary_end+1, tsd_len, 'right')
+        if len(left_tsd) != len(right_tsd) or len(left_tsd) != tsd_len:
+            continue
+        #print(left_tsd, right_tsd)
+        if left_tsd == right_tsd:
+            if (tsd_len != 2 and tsd_len != 3 and tsd_len != 4) or (tsd_len == 4 and left_tsd == 'TTAA') \
+                    or (tsd_len == 2 and (left_tsd == 'TA' or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG'))) \
+                    or (tsd_len == 3 and (left_tsd == 'TAA' or left_tsd == 'TTA'
+                                          or (plant == 1 and ((first_5bp == 'CACTA' and last_5bp == 'TAGTG')
+                                                              or (first_5bp == 'CACTG' and last_5bp == 'CAGTG'))))):
+                left_tsd_seq = left_tsd
+                right_tsd_seq = right_tsd
+        elif tsd_len >= 8 and allow_mismatch(left_tsd, right_tsd, allow_mismatch_num):
+            left_tsd_seq = left_tsd
+            right_tsd_seq = right_tsd
+    return left_tsd_seq, right_tsd_seq
+
+
 
 def TSDsearch_ltr(orig_seq, ltr_start, ltr_end, TSD_set):
     LTR_TSDs = [6, 5, 4]  # LTR:绝大部分是 5-'TG...CA-3'
@@ -4005,25 +4076,22 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
     # print(longest_repeats)
     return longest_repeats, keep_longest_query
 
-def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug):
+def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len):
     split_repeats_path = repeats_path[0]
     target_files = repeats_path[1]
     blastn2Results_path = repeats_path[2]
     tmp_blast_dir = repeats_path[3]
-    if debug == 1 and os.path.exists(split_repeats_path+'.success'):
-        print('recover mode, skip finished alignment: ' + blastn2Results_path)
-    else:
-        for i, cur_target in enumerate(target_files):
-            align_command = 'blastn -db ' + cur_target + ' -num_threads ' \
-                            + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6'
-            if i == 0:
-                align_command += ' > ' + blastn2Results_path
-            else:
-                align_command += ' >> ' + blastn2Results_path
-            os.system(align_command)
-        if debug == 1:
-            os.system('touch ' + split_repeats_path+'.success')
 
+    for i, cur_target in enumerate(target_files):
+        align_command = 'blastn -db ' + cur_target + ' -num_threads ' \
+                        + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6'
+        if i == 0:
+            align_command += ' > ' + blastn2Results_path
+        else:
+            align_command += ' >> ' + blastn2Results_path
+        os.system(align_command)
+
+    #blastn2Results_path = '/home/hukang/HiTE/demo/test/total_blast_0.out'
     #print('coarse alignment -- alignment finished:' + str(split_repeats_path))
 
     query_names, query_contigs = read_fasta(split_repeats_path)
@@ -4059,7 +4127,7 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
     keep_longest_query = {}
     longest_repeats = {}
     for idx, query_name in enumerate(query_records.keys()):
-        query_len = len(query_contigs[query_name])
+        #query_len = len(query_contigs[query_name])
         #print('total query size: %d, current query name: %s, idx: %d' % (len(query_records), query_name, idx))
 
         subject_dict = query_records[query_name]
@@ -4068,6 +4136,8 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
         # then it probably the true TE
         longest_queries = []
         for subject_name in subject_dict.keys():
+            # if query_name != 'chr_0$15000000' or subject_name != 'chr_0$15000000':
+            #     continue
             subject_pos = subject_dict[subject_name]
             # subject_pos.sort(key=lambda x: (x[2], x[3]))
 
@@ -4273,8 +4343,8 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
         pure_copies = []
         for cur_copy in copies:
             # 去掉copy[2] < 2 且不是全长拷贝的copies，没有其余的拷贝支持它是一个重复。
-            if cur_copy[2] < 2 and float(cur_copy[1] - cur_copy[0]) / query_len < 0.95:
-                continue
+            # if cur_copy[2] < 2 and float(cur_copy[1] - cur_copy[0]) / query_len < 0.95:
+            #     continue
             is_seg = False
             for i, pure_copy in enumerate(pure_copies):
                 # 因为真实的TE两端不会是重复，因此尽量取最长的边界
@@ -4307,11 +4377,13 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
 
             if len(copy_seq) >= 80:
                 intact_copies.append((ori_start_pos, ori_end_pos, chr_name, seq_ref_start, seq_ref_end, copy_seq))
+        # if query_name == 'chr_0$15000000' or subject_name == 'chr_0$15000000':
+        #     print(intact_copies[0])
         longest_repeats[query_name] = intact_copies
 
     #print('coarse alignment -- analyze finished:' + str(split_repeats_path))
     # print(longest_repeats)
-    return longest_repeats, keep_longest_query
+    return longest_repeats, keep_longest_query, blastn2Results_path
 
 def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
@@ -4348,14 +4420,18 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
     flanked_contigs = {}
     node_index = 0
     for name in seq_names:
+        if name.__contains__('ref_chr_0-15195596-15461482'):
+            print('here')
         # N_126-len_955-ref_NC_029267.1_7568408_7569363
         ref_info = name.split('-ref_')[1].split('-')
         ref_name = ref_info[0]
         ref_start = int(ref_info[1]) + 1
         ref_end = int(ref_info[2])
         ref_seq = ref_contigs[ref_name]
-        if ref_start - 1 - flanking_len < 0 or ref_end + flanking_len > len(ref_seq):
-            continue
+        if ref_start - 1 - flanking_len < 0:
+            ref_start = flanking_len + 1
+        if ref_end + flanking_len > len(ref_seq):
+            ref_end = len(ref_seq) - flanking_len
         flanked_seq = ref_seq[ref_start - 1 - flanking_len: ref_end + flanking_len]
         flanked_contigs[name] = flanked_seq
     store_fasta(flanked_contigs, longest_repeats_flanked_path)
@@ -4615,13 +4691,11 @@ def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_progr
     f_save.close()
     return longest_repeats_path
 
-def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, log):
-    debug = 1
+def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, debug):
     repeatNames, repeatContigs = read_fasta(repeats_path)
     # parallel
     tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_'+str(ref_index)
-    if debug != 1:
-        os.system('rm -rf ' + tmp_blast_dir)
+    os.system('rm -rf ' + tmp_blast_dir)
     if not os.path.exists(tmp_blast_dir):
         os.makedirs(tmp_blast_dir)
 
@@ -4666,16 +4740,21 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
     jobs = []
     for file in repeat_files:
         job = ex.submit(get_longest_repeats_v3, file, fixed_extend_base_threshold,
-                        max_single_repeat_len, debug)
+                        max_single_repeat_len)
         jobs.append(job)
     ex.shutdown(wait=True)
 
+    total_out = tmp_output_dir + '/total_blast_' + str(ref_index) + '.out'
+    os.system('rm -f ' + total_out)
     for job in as_completed(jobs):
-        cur_longest_repeats, cur_keep_longest_query = job.result()
+        cur_longest_repeats, cur_keep_longest_query, cur_blastn2Results_path = job.result()
         for query_name in cur_longest_repeats.keys():
             longest_repeats[query_name] = cur_longest_repeats[query_name]
         for query_name in cur_keep_longest_query.keys():
             keep_longest_query[query_name] = cur_keep_longest_query[query_name]
+
+        if debug == 1:
+            os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
 
     # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
     # with open(longest_repeats_file, 'w') as f_save:
@@ -4701,7 +4780,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
                 seq_ref_end = longest_seq[4]
                 seq = longest_seq[5]
                 # 如果有连续10个以上的N过滤掉
-                if len(seq) >= 100 and not seq.__contains__('NNNNNNNNNN'):
+                if len(seq) >= 100:
                     f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
                                  '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
                     node_index += 1
@@ -6216,13 +6295,18 @@ def search_confident_tir_v3(orig_seq, raw_tir_start, raw_tir_end, tsd_search_dis
         if str(tir_seq).startswith('TATATATA') or str(tir_seq).startswith('ATATATAT'):
             continue
 
-        # 如果以候选TSD定位边界，且tir的起始和结束5bp满足高相似性，则大概率这是一条真实的具有TSD+TIR结构的序列
-        tir_start_5base = orig_seq[tir_start - 1: tir_start + 4]
-        tir_end_5base = orig_seq[tir_end - 5: tir_end]
-        if allow_mismatch(getReverseSequence(tir_start_5base), tir_end_5base, 1):
-            new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_'+ str(distance)
-            itr_contigs[new_query_name] = tir_seq
-            query_dist.append((new_query_name, distance))
+        # # 如果以候选TSD定位边界，且tir的起始和结束5bp满足高相似性，则大概率这是一条真实的具有TSD+TIR结构的序列
+        # tir_start_5base = orig_seq[tir_start - 1: tir_start + 4]
+        # tir_end_5base = orig_seq[tir_end - 5: tir_end]
+        # if allow_mismatch(getReverseSequence(tir_start_5base), tir_end_5base, 1):
+        #     new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_'+ str(distance)
+        #     itr_contigs[new_query_name] = tir_seq
+        #     query_dist.append((new_query_name, distance))
+
+        #起始和结束5bp一致并不是TIR的充要条件，因为我们现在使用多序列比对的同源性去寻找真实的边界，因此我们无须要求
+        new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
+        itr_contigs[new_query_name] = tir_seq
+        query_dist.append((new_query_name, distance))
 
     top_itr_contigs = {}
     for i, item in enumerate(query_dist):
@@ -6938,7 +7022,38 @@ def flank_region_align_v2(candidate_sequence_path, flanking_len, similar_ratio, 
     log.logger.info("Running time of flanking " + TE_type + " alignment: %.8s s" % (dtime))
     return new_all_copies
 
-def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant):
+#输入：一个fasta序列文件, 参考基因组，输出目录, member_script_path, subset_script_path, flanking_len
+#输出：输出目录里面包含每条文件命名的拷贝序列；例如输入序列为N1，则输出拷贝文件为N1.fa.blast.bed.fa
+def get_seq_families(candidate_sequence_path, reference, member_script_path, subset_script_path, flanking_len, output_dir, threads):
+    temp_dir = output_dir + '/copies'
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+    names, contigs = read_fasta(candidate_sequence_path)
+    split_files = []
+    for i, name in enumerate(names):
+        new_name = name.split('#')[0]
+        cur_file = temp_dir + '/' + str(new_name) + '.fa'
+        cur_contigs = {}
+        cur_contigs[new_name] = contigs[name]
+        store_fasta(cur_contigs, cur_file)
+        split_files.append((new_name, cur_file))
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for cur_file in split_files:
+        job = ex.submit(run_find_members, cur_file, reference, temp_dir, member_script_path, subset_script_path, flanking_len)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    copy_files = []
+    for job in as_completed(jobs):
+        new_name, member_file = job.result()
+        copy_files.append((new_name, member_file))
+    return copy_files
+
+def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, result_type='cons'):
     log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
     starttime = time.time()
     temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
@@ -6960,12 +7075,13 @@ def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, simil
     jobs = []
     for cur_file in split_files:
         job = ex.submit(run_find_members_v6, cur_file, reference, temp_dir, member_script_path, subset_script_path,
-                        plant, TE_type, flanking_len)
+                        plant, TE_type, flanking_len, debug, result_type)
         jobs.append(job)
     ex.shutdown(wait=True)
 
     not_found_boundary = 0
     full_length1 = 0
+    copy_nums = {}
     true_te_names = set()
     true_tes = {}
     for job in as_completed(jobs):
@@ -6974,15 +7090,28 @@ def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, simil
             not_found_boundary += 1
         elif info == 'fl1':
             full_length1 += 1
+        elif info.startswith('copy_num:'):
+            copy_num = int(info.split('copy_num:')[1])
+            if not copy_nums.__contains__(copy_num):
+                copy_nums[copy_num] = 0
+            cur_copy_num = copy_nums[copy_num]
+            cur_copy_num += 1
+            copy_nums[copy_num] = cur_copy_num
         if cur_name is not None:
+            if TE_type == 'tir':
+                # 去掉TG...CA假阳性
+                if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
+                    continue
             true_tes[cur_name] = cur_seq
             true_te_names.add(cur_name)
     store_fasta(true_tes, real_TEs)
 
     deleted_names = total_names.difference(true_te_names)
-    print(deleted_names)
-    print('deleted_names len: ' + str(len(deleted_names)))
-    print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
+    if debug:
+        print(deleted_names)
+        print('deleted_names len: ' + str(len(deleted_names)))
+        print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
+        print(copy_nums)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of determination of homology in regions outside the boundaries of  " + TE_type + " copies: %.8s s" % (dtime))
@@ -7198,6 +7327,1357 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies):
     store_fasta(subject_contigs, new_confident_tir_path)
     return new_confident_tir_path
 
+
+def search_boundary_homo_v2(valid_col_threshold, pos, matrix, row_num, col_num,
+                            out_homo_threshold, int_homo_threshold, type, homo_threshold, debug, TE_type, align_file, boundary_change):
+    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
+    # 需要定义的问题：
+    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
+    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
+    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
+
+    # 函数功能：
+    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
+    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
+    # 记录每一列的碱基组成
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # 统计当前列的碱基占比
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    candidate_homo_boundary_start = -1
+    candidate_homo_boundary_end = -1
+    tir_search_len = 3
+    search_len = 100
+    if type == 'start':
+
+        start_align_valid = True
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num/2:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo,
+                     max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
+        if max_con_no_homo + 1 < int_homo_threshold:
+            start_align_valid &= True
+        else:
+            start_align_valid &= False
+
+        # 如果尾部边界发生了变化，则首先判断首部列是否是同源列，如果不是，则根据边界改遍的方向搜索第一个同源列
+        boundary_change_direct = ''
+        if boundary_change != 0:
+            if len(homo_cols) > 0 and homo_cols[0][0] == pos and homo_cols[0][1]:
+                if debug:
+                    print('cur col is homology')
+            else:
+                #因为保持和尾部边界相反的方向
+                if boundary_change == 1:
+                    boundary_change_direct = 'left'
+                else:
+                    boundary_change_direct = 'right'
+                if debug:
+                    print('cur col is not homology, boundary_change_direct: ' + boundary_change_direct)
+
+        if boundary_change_direct == '':
+            # 如果TE_type==tir
+            # 如果向右搜索是存在连续非同源碱基，说明边界没找准
+            # 那么反向遍历同源数组，找到第一个连续5bp的非同源列，把前一个同源列当做是边界。
+            if TE_type == 'tir':
+                if start_align_valid:
+                    #当前列不是同源列或者有效列，则向右搜索第一个同源列当做边界
+                    if len(homo_cols) > 0 and (homo_cols[0][0] != pos or not homo_cols[0][1]):
+                        find_homo_boundary = False
+                        for i, homo_col in enumerate(homo_cols):
+                            if homo_col[1]:
+                                candidate_homo_boundary_start = homo_col[0]
+                                if debug:
+                                    print('align start is non-homology, new boundary: ' + str(
+                                        candidate_homo_boundary_start))
+                                start_align_valid = True
+                                find_homo_boundary = True
+                                break
+                        if not find_homo_boundary:
+                            if debug:
+                                print('can not generate new boundary')
+                            return start_align_valid, -1
+                else:
+                    find_homo_boundary = False
+                    homo_cols.reverse()
+                    for i, homo_col in enumerate(homo_cols):
+                        if homo_col[4] + 1 >= tir_search_len:
+                            candidate_homo_boundary_start = homo_cols[i-1][0]
+                            #candidate_homo_boundary_start = homo_col[0] - (tir_search_len-1)
+                            if debug:
+                                print('align start right non-homology, new boundary: ' + str(candidate_homo_boundary_start))
+                            start_align_valid = True
+                            find_homo_boundary = True
+                            break
+                    if not find_homo_boundary:
+                        if debug:
+                            print('can not generate new boundary')
+                        return start_align_valid, -1
+        elif boundary_change_direct == 'right':
+            if not start_align_valid and TE_type == 'tir':
+                #找到第一个连续同源列
+                find_homo_boundary = False
+                homo_cols.reverse()
+                for i, homo_col in enumerate(homo_cols):
+                    if homo_col[4] + 1 >= tir_search_len:
+                        candidate_homo_boundary_start = homo_cols[i - 1][0]
+                        if debug:
+                            print('align start search right non-homology, new boundary: ' + str(candidate_homo_boundary_start))
+                        start_align_valid = True
+                        find_homo_boundary = True
+                        break
+                if not find_homo_boundary:
+                    if debug:
+                        print('can not generate new boundary')
+                    return start_align_valid, -1
+
+        if candidate_homo_boundary_start != -1:
+            col_index = candidate_homo_boundary_start - 1
+        else:
+            col_index = pos - 1
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= 0:
+            # 从pos开始向左搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            max_homo_ratio = 0
+            no_gap_num = row_num - base_map['-']
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+
+        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
+        # if homo_col_count <= out_homo_threshold:
+        if max_con_homo + 1 < out_homo_threshold:
+            start_align_valid &= True
+        else:
+            start_align_valid &= False
+
+        # 判断边界是否改变
+        if boundary_change_direct == '':
+            # 如果TE_type==tir
+            # 如果向左搜索是存在连续同源碱基，说明边界没找准
+            # 那么反向遍历同源数组，找到第一个连续5bp的同源列，把第一个同源列当做是边界。
+            if TE_type == 'tir':
+                if not start_align_valid:
+                    find_homo_boundary = False
+                    for homo_col in reversed(homo_cols):
+                        if homo_col[2] + 1 >= tir_search_len:
+                            candidate_homo_boundary_start = homo_col[0]
+                            if debug:
+                                print('align start left homology, new boundary: ' + str(candidate_homo_boundary_start))
+                            start_align_valid = True
+                            find_homo_boundary = True
+                            break
+                    if not find_homo_boundary:
+                        if debug:
+                            print('can not generate new boundary')
+                        return start_align_valid, -1
+        elif boundary_change_direct == 'left':
+            if not start_align_valid and TE_type == 'tir':
+                # 找到第一个连续同源列
+                find_homo_boundary = False
+                for homo_col in reversed(homo_cols):
+                    if homo_col[2] + 1 >= tir_search_len:
+                        candidate_homo_boundary_start = homo_col[0]
+                        if debug:
+                            print('align start search left homology, new boundary: ' + str(candidate_homo_boundary_start))
+                        start_align_valid = True
+                        find_homo_boundary = True
+                        break
+                if not find_homo_boundary:
+                    if debug:
+                        print('can not generate new boundary')
+                    return start_align_valid, -1
+
+        if candidate_homo_boundary_start != -1:
+            return start_align_valid, candidate_homo_boundary_start
+        else:
+            return start_align_valid, pos
+    else:
+        end_align_valid = True
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    if float(base_map[base]) / no_gap_num >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
+        # if homo_col_count <= out_homo_threshold:
+        if max_con_homo + 1 < out_homo_threshold:
+            end_align_valid &= True
+        else:
+            end_align_valid &= False
+
+        # 如果首部边界发生了变化，则首先判断尾部列是否是同源列，如果不是，则根据边界改遍的方向搜索第一个同源列
+        boundary_change_direct = ''
+        if boundary_change != 0:
+            if len(homo_cols) > 0 and homo_cols[0][0] == pos and homo_cols[0][1]:
+                if debug:
+                    print('cur col is homology')
+            else:
+                # 因为保持和尾部边界相反的方向
+                if boundary_change == 1:
+                    boundary_change_direct = 'left'
+                else:
+                    boundary_change_direct = 'right'
+                if debug:
+                    print('cur col is not homology, boundary_change_direct: ' + boundary_change_direct)
+
+        if boundary_change_direct == '':
+            # 如果TE_type==tir
+            # 如果向右搜索是存在连续同源碱基，说明边界没找准
+            # 那么反向遍历同源数组，找到第一个连续5bp的同源列，把第一个同源列当做是边界。
+            if TE_type == 'tir':
+                if not end_align_valid:
+                    find_homo_boundary = False
+                    for homo_col in reversed(homo_cols):
+                        if homo_col[2]+1 >= tir_search_len:
+                            candidate_homo_boundary_end = homo_col[0]
+                            if debug:
+                                print('align end search right homology, new boundary: ' + str(candidate_homo_boundary_end))
+                            end_align_valid = True
+                            find_homo_boundary = True
+                            break
+                    if not find_homo_boundary:
+                        if debug:
+                            print('can not generate new boundary')
+                        return end_align_valid, -1
+        elif boundary_change_direct == 'right':
+            if not end_align_valid and TE_type == 'tir':
+                # 找到第一个连续同源列
+                find_homo_boundary = False
+                for homo_col in reversed(homo_cols):
+                    if homo_col[2]+1 >= tir_search_len:
+                        candidate_homo_boundary_end = homo_col[0]
+                        if debug:
+                            print('align end search right homology, new boundary: ' + str(candidate_homo_boundary_end))
+                        end_align_valid = True
+                        find_homo_boundary = True
+                        break
+                if not find_homo_boundary:
+                    if debug:
+                        print('can not generate new boundary')
+                    return end_align_valid, -1
+
+        if candidate_homo_boundary_end != -1:
+            col_index = candidate_homo_boundary_end
+        else:
+            col_index = pos
+
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= col_num/2:
+            # 从pos开始向左搜索20个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                max_ratio = 0
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    if base_map[base] / no_gap_num > max_ratio:
+                        max_ratio = base_map[base] / no_gap_num
+                    if float(base_map[base]) / no_gap_num >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
+        if max_con_no_homo + 1 < int_homo_threshold:
+            end_align_valid &= True
+        else:
+            end_align_valid &= False
+
+        # 判断边界是否改变
+        if boundary_change_direct == '':
+            # 如果TE_type==tir
+            # 如果向左搜索是存在连续非同源性碱基，说明边界没找准
+            # 那么反向遍历同源数组，找到第一个连续5bp的非同源列，把前一个同源列当做是边界。
+            if TE_type == 'tir':
+                if end_align_valid:
+                    # 当前列不是同源列或者有效列，则向左搜索第一个同源列作为边界
+                    if len(homo_cols) > 0 and (homo_cols[0][0] != pos or not homo_cols[0][1]):
+                        find_homo_boundary = False
+                        for i, homo_col in enumerate(homo_cols):
+                            if homo_col[1]:
+                                candidate_homo_boundary_end = homo_col[0]
+                                end_align_valid = True
+                                find_homo_boundary = True
+                                if debug:
+                                    print('align end is non-homology, new boundary: ' + str(
+                                        candidate_homo_boundary_end))
+                                break
+                        if not find_homo_boundary:
+                            if debug:
+                                print('can not generate new boundary')
+                            return end_align_valid, -1
+                else:
+                    find_homo_boundary = False
+                    homo_cols.reverse()
+                    for i, homo_col in enumerate(homo_cols):
+                        if homo_col[4] + 1 >= tir_search_len:
+                            candidate_homo_boundary_end = homo_cols[i - 1][0]
+                            #candidate_homo_boundary_end = homo_col[0] + (tir_search_len-1)
+                            end_align_valid = True
+                            find_homo_boundary = True
+                            if debug:
+                                print('align end left non-homology, new boundary: ' + str(candidate_homo_boundary_end))
+                            break
+                    if not find_homo_boundary:
+                        if debug:
+                            print('can not generate new boundary')
+                        return end_align_valid, -1
+        elif boundary_change_direct == 'left':
+            if TE_type == 'tir':
+                if end_align_valid:
+                    # 当前列不是同源列或者有效列，则向左搜索第一个同源列作为边界
+                    if len(homo_cols) > 0 and (homo_cols[0][0] != pos or not homo_cols[0][1]):
+                        find_homo_boundary = False
+                        for i, homo_col in enumerate(homo_cols):
+                            if homo_col[1]:
+                                candidate_homo_boundary_end = homo_col[0]
+                                end_align_valid = True
+                                find_homo_boundary = True
+                                if debug:
+                                    print('align end is non-homology, new boundary: ' + str(
+                                        candidate_homo_boundary_end))
+                                break
+                        if not find_homo_boundary:
+                            if debug:
+                                print('can not generate new boundary')
+                            return end_align_valid, -1
+                else:
+                    find_homo_boundary = False
+                    homo_cols.reverse()
+                    for i, homo_col in enumerate(homo_cols):
+                        if homo_col[4] + 1 >= tir_search_len:
+                            candidate_homo_boundary_end = homo_cols[i - 1][0]
+                            # candidate_homo_boundary_end = homo_col[0] + (tir_search_len-1)
+                            end_align_valid = True
+                            find_homo_boundary = True
+                            if debug:
+                                print('align end search left non-homology, new boundary: ' + str(candidate_homo_boundary_end))
+                            break
+                    if not find_homo_boundary:
+                        if debug:
+                            print('can not generate new boundary')
+                        return end_align_valid, -1
+
+        if candidate_homo_boundary_end != -1:
+            return end_align_valid, candidate_homo_boundary_end
+        else:
+            return end_align_valid, pos
+
+def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
+                            type, homo_threshold, int_homo_threshold, out_homo_threshold, debug, sliding_window_size):
+    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
+    # 需要定义的问题：
+    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
+    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
+    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
+
+    # 函数功能：
+    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
+    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
+    # 记录每一列的碱基组成
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # 统计当前列的碱基占比
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    search_len = 100
+    if type == 'start':
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num / 2:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo,
+                     max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        cur_boundary = pos
+        new_boundary_start = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_start = window[0][0]
+                break
+        if new_boundary_start != pos and new_boundary_start != -1:
+            if debug:
+                print('align start right non-homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
+
+        col_index = cur_boundary
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= 0:
+            # 从pos开始向左搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            max_homo_ratio = 0
+            no_gap_num = row_num - base_map['-']
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        homo_cols.reverse()
+        new_boundary_start = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio)/sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_start = window[0][0]
+                break
+        if new_boundary_start != pos and new_boundary_start != -1:
+            if debug:
+                print('align start left homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
+
+        return True, cur_boundary
+    else:
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从左边开始计算第一个10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，就不是真实Helitron
+        new_boundary_end = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            if i != 0:
+                break
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio >= out_homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_end = window[len(window)-1][0]
+                break
+        if new_boundary_end != pos and new_boundary_end != -1:
+            if debug:
+                print('align end right homology, new boundary: ' + str(new_boundary_end))
+            return False, -1
+
+        col_index = pos
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= col_num / 2:
+            # 从pos开始向左搜索20个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从右边开始计算连续10个碱基，计算这个窗口的平均同源性是否低于阈值。
+        # 如果低于阈值，则不是真实Helitron
+        new_boundary_end = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            if i != 0:
+                break
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio < int_homo_threshold:
+                new_boundary_end = window[len(window)-1][0]
+                break
+        if new_boundary_end != pos and new_boundary_end != -1:
+            if debug:
+                print('align end left non-homology, new boundary: ' + str(new_boundary_end))
+            return False, -1
+        return True, pos
+
+def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
+                            type, homo_threshold, debug, sliding_window_size):
+    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
+    # 需要定义的问题：
+    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
+    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
+    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
+
+    # 函数功能：
+    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
+    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
+    # 记录每一列的碱基组成
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # 统计当前列的碱基占比
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    search_len = 100
+    if type == 'start':
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num / 2:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo,
+                     max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        cur_boundary = pos
+        new_boundary_start = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            first_candidate_boundary = -1
+            for item in window:
+                cur_homo_ratio = item[5]
+                if cur_homo_ratio >= homo_threshold-0.1 and first_candidate_boundary == -1:
+                    first_candidate_boundary = item[0]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_start = first_candidate_boundary
+                break
+        if new_boundary_start != pos and new_boundary_start != -1:
+            if debug:
+                print('align start right non-homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
+
+        col_index = cur_boundary
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= 0:
+            # 从pos开始向左搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            max_homo_ratio = 0
+            no_gap_num = row_num - base_map['-']
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        homo_cols.reverse()
+        new_boundary_start = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            first_candidate_boundary = -1
+            for item in window:
+                cur_homo_ratio = item[5]
+                if cur_homo_ratio >= homo_threshold-0.1 and first_candidate_boundary == -1:
+                    first_candidate_boundary = item[0]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio)/sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_start = first_candidate_boundary
+                break
+        if new_boundary_start != pos and new_boundary_start != -1:
+            if debug:
+                print('align start left homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
+
+        return cur_boundary
+    else:
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从右边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        cur_boundary = pos
+        homo_cols.reverse()
+        new_boundary_end = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            first_candidate_boundary = -1
+            for item in window:
+                cur_homo_ratio = item[5]
+                if cur_homo_ratio >= homo_threshold-0.1 and first_candidate_boundary == -1:
+                    first_candidate_boundary = item[0]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_end = first_candidate_boundary
+                break
+        if new_boundary_end != pos and new_boundary_end != -1:
+            if debug:
+                print('align end right homology, new boundary: ' + str(new_boundary_end))
+            cur_boundary = new_boundary_end
+
+        col_index = cur_boundary
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= col_num / 2:
+            # 从pos开始向左搜索20个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # 使用一个滑动窗口，从右边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
+        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        new_boundary_end = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            first_candidate_boundary = -1
+            for item in window:
+                cur_homo_ratio = item[5]
+                if cur_homo_ratio >= homo_threshold-0.1 and first_candidate_boundary == -1:
+                    first_candidate_boundary = item[0]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # 滑动窗口的同源性高于阈值，找到边界
+                new_boundary_end = first_candidate_boundary
+                break
+        if new_boundary_end != pos and new_boundary_end != -1:
+            if debug:
+                print('align end left non-homology, new boundary: ' + str(new_boundary_end))
+            cur_boundary = new_boundary_end
+
+        return cur_boundary
+
 def search_boundary_homo_v1(col_base_map, valid_col_threshold, pos, matrix, row_num, col_num,
                          out_homo_threshold, type, homo_threshold, debug):
     # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
@@ -7212,6 +8692,87 @@ def search_boundary_homo_v1(col_base_map, valid_col_threshold, pos, matrix, row_
     search_len = 15
     if type == 'start':
         start_align_valid = True
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo_col = -1
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_no_homo_col = -1
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num:
+            # 从pos开始向右搜索15个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            if not col_base_map.__contains__(col_index):
+                col_base_map[col_index] = {}
+            base_map = col_base_map[col_index]
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+            # 非空行的数量超过阈值，则是有效行
+            if not base_map.__contains__('-'):
+                base_map['-'] = 0
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base])/no_gap_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_no_homo_col = col_index
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo_col = col_index
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
+        if max_con_no_homo + 1 <= out_homo_threshold:
+            start_align_valid &= True
+        else:
+            start_align_valid &= False
+
+        # 如果向右搜索是存在连续非同源碱基，说明边界没找准，那么搜索到
         
         col_index = pos - 1
         valid_col_count = 0
@@ -7366,6 +8927,86 @@ def search_boundary_homo_v1(col_base_map, valid_col_threshold, pos, matrix, row_
         # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
         # if homo_col_count <= out_homo_threshold:
         if max_con_homo + 1 <= out_homo_threshold:
+            end_align_valid &= True
+        else:
+            end_align_valid &= False
+
+        col_index = pos
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo_col = -1
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_no_homo_col = -1
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= 0:
+            # 从pos开始向左搜索20个有效列
+            # 判断当前列是否是有效列
+            is_homo_col = False
+            if not col_base_map.__contains__(col_index):
+                col_base_map[col_index] = {}
+            base_map = col_base_map[col_index]
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+            if not base_map.__contains__('-'):
+                base_map['-'] = 0
+            # 非空行的数量超过阈值，则是有效行
+            no_gap_num = row_num - base_map['-']
+            if no_gap_num > valid_col_threshold:
+                valid_col_count += 1
+                # 判断有效列是否是同源列
+                no_gap_num = row_num - base_map['-']
+                max_ratio = 0
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    if base_map[base] / no_gap_num > max_ratio:
+                        max_ratio = base_map[base] / no_gap_num
+                    if float(base_map[base])/no_gap_num >= homo_threshold:
+                        homo_col_count += 1
+                        # 是否连续同源列
+                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_no_homo_col = col_index
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo_col = col_index
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        if debug:
+            print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
+            print(homo_cols)
+
+        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
+        if max_con_no_homo + 1 <= out_homo_threshold:
             end_align_valid &= True
         else:
             end_align_valid &= False
@@ -7977,10 +9618,151 @@ def judge_boundary_v3(cur_seq, align_file, debug):
 
     col_base_map = {}
     # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝
-    # 在锚点位置上下20bp应该有碱基
+    # 在锚点位置上下1bp应该有碱基
     full_length_member_names = []
     full_length_member_contigs = {}
-    anchor_len = 5
+    anchor_len = 1
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(full_length_member_names) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - anchor_len >= 0:
+            anchor_start = align_start - anchor_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
+        if align_end + anchor_len < len(align_seq):
+            anchor_end = align_end + anchor_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
+
+        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
+            full_length_member_names.append(name)
+            full_length_member_contigs[name] = align_seq
+
+    #将全长多比对序列存成文件
+    full_align_file = align_file + '.full.fa'
+    store_fasta(full_length_member_contigs, full_align_file)
+
+    # 判断align start处的拷贝们是否满足定律。
+    if len(full_length_member_contigs) <= 1:
+        if debug:
+            print('full length number = 1, ' + align_file)
+        return False, 'fl1'
+    else:
+        # 把序列存成矩阵，方便遍历和索引
+        first_seq = full_length_member_contigs[full_length_member_names[0]]
+        col_num = len(first_seq)
+        row_num = len(full_length_member_names)
+        matrix = [[''] * col_num for i in range(row_num)]
+        for row, name in enumerate(full_length_member_names):
+            seq = full_length_member_contigs[name]
+            for col in range(len(seq)):
+                matrix[row][col] = seq[col]
+        # 从align_start列开始，向左搜索15个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        valid_col_threshold = min(5, int(row_num/2))
+        #valid_col_threshold = 0
+        out_homo_threshold = 5
+        homo_threshold = 0.8
+        start_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_start, matrix, row_num,
+                                                 col_num, out_homo_threshold, 'start', homo_threshold, debug)
+
+        # 从align_end列开始，向右搜索15个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        end_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_end, matrix, row_num, 
+                                               col_num, out_homo_threshold, 'end', homo_threshold, debug)
+        if debug:
+            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
+        return start_align_valid & end_align_valid, ''
+
+def judge_boundary_v4(cur_seq, align_file, debug, TE_type, plant, result_type):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    anchor_len = 20
+    first_10bp = cur_seq[0:anchor_len]
+    last_10bp = cur_seq[-anchor_len:]
+    align_names, align_contigs = read_fasta(align_file)
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 2
+        last_dist = 2
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            # 需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    if debug:
+        print(align_file, align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        if debug:
+            print('not found boundary:' + align_file)
+        return False, 'nb', ''
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        if debug:
+            print('align file size = 0, ' + align_file)
+        return False, '', ''
+
+    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
+    # 在锚点位置上下2bp应该有碱基
+    start_member_names = []
+    start_member_contigs = {}
+    end_member_names = []
+    end_member_contigs = {}
+    search_len = 10
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(start_member_contigs) > 100:
+            break
+        if len(end_member_contigs) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - search_len >= 0:
+            anchor_start = align_start - search_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + search_len]
+        if not all(c == '-' for c in list(anchor_start_seq)):
+            start_member_names.append(name)
+            start_member_contigs[name] = align_seq
+        if align_end + search_len < len(align_seq):
+            anchor_end = align_end + search_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - search_len: anchor_end]
+        if not all(c == '-' for c in list(anchor_end_seq)):
+            end_member_names.append(name)
+            end_member_contigs[name] = align_seq
+
+    # 3.取全长序列用来生成一致性序列
+    # 在锚点位置上下1bp应该有碱基
+    full_length_member_names = []
+    full_length_member_contigs = {}
+    anchor_len = 1
     for name in align_names:
         # 为了减少计算量，只取100条全长拷贝
         if len(full_length_member_names) > 100:
@@ -8002,12 +9784,78 @@ def judge_boundary_v3(cur_seq, align_file, debug):
             full_length_member_contigs[name] = align_seq
 
     # 判断align start处的拷贝们是否满足定律。
-    if len(full_length_member_contigs) <= 1:
+    if len(align_names) <= 1:
         if debug:
             print('full length number = 1, ' + align_file)
-        return False, 'fl1'
+        return False, 'fl1', ''
     else:
         # 把序列存成矩阵，方便遍历和索引
+        first_seq = start_member_contigs[start_member_names[0]]
+        col_num = len(first_seq)
+        start_row_num = len(start_member_names)
+        matrix = [[''] * col_num for i in range(start_row_num)]
+        for row, name in enumerate(start_member_names):
+            seq = start_member_contigs[name]
+            for col in range(len(seq)):
+                matrix[row][col] = seq[col]
+
+        # 从align_start列开始，向左搜索15个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        #valid_col_threshold = min(2, int(row_num/2))
+        sliding_window_size = 10
+        valid_col_threshold = int(start_row_num/2)
+        out_homo_threshold = 5
+        int_homo_threshold = 5
+        if start_row_num <= 2:
+            homo_threshold = 0.95
+        elif start_row_num <= 5:
+            homo_threshold = 0.9
+        else:
+            homo_threshold = 0.7
+        boundary_change = 0
+        homo_boundary_start = search_boundary_homo_v3(valid_col_threshold, align_start, matrix, start_row_num,
+                                                 col_num, 'start', homo_threshold, debug, sliding_window_size)
+        if homo_boundary_start == -1:
+            return False, '', ''
+
+        # 判断边界是否发生了改变，0未改变，1向右平移，2向左平移
+        if homo_boundary_start != align_start:
+            if homo_boundary_start > align_start:
+                boundary_change = 1
+            else:
+                boundary_change = 2
+        else:
+            boundary_change = 0
+
+        # 把序列存成矩阵，方便遍历和索引
+        first_seq = end_member_contigs[end_member_names[0]]
+        col_num = len(first_seq)
+        end_row_num = len(end_member_names)
+        matrix = [[''] * col_num for i in range(end_row_num)]
+        for row, name in enumerate(end_member_names):
+            seq = end_member_contigs[name]
+            for col in range(len(seq)):
+                matrix[row][col] = seq[col]
+
+        # 从align_start列开始，向左搜索15个有效列
+        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+        # valid_col_threshold = min(2, int(row_num/2))
+        valid_col_threshold = int(end_row_num / 2)
+        if end_row_num <= 2:
+            homo_threshold = 0.95
+        elif end_row_num <= 5:
+            homo_threshold = 0.9
+        else:
+            homo_threshold = 0.7
+        homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, end_row_num,
+                                               col_num, 'end', homo_threshold, debug, sliding_window_size)
+
+        if homo_boundary_end == -1:
+            return False, '', ''
+        # if debug:
+        #     print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
+
+        # 利用全长拷贝生成一致性序列
         first_seq = full_length_member_contigs[full_length_member_names[0]]
         col_num = len(first_seq)
         row_num = len(full_length_member_names)
@@ -8016,24 +9864,826 @@ def judge_boundary_v3(cur_seq, align_file, debug):
             seq = full_length_member_contigs[name]
             for col in range(len(seq)):
                 matrix[row][col] = seq[col]
-        # 从align_start列开始，向左搜索15个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        valid_col_threshold = int(row_num/2)
-        #valid_col_threshold = 0
-        out_homo_threshold = 5
-        homo_threshold = 0.8
-        start_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_start, matrix, row_num,
-                                                 col_num, out_homo_threshold, 'start', homo_threshold, debug)
+        # 记录每一列的碱基组成
+        col_base_map = {}
+        for col_index in range(col_num):
+            if not col_base_map.__contains__(col_index):
+                col_base_map[col_index] = {}
+            base_map = col_base_map[col_index]
+            # 统计当前列的碱基占比
+            if len(base_map) == 0:
+                for row in range(row_num):
+                    cur_base = matrix[row][col_index]
+                    if not base_map.__contains__(cur_base):
+                        base_map[cur_base] = 0
+                    cur_count = base_map[cur_base]
+                    cur_count += 1
+                    base_map[cur_base] = cur_count
+            if not base_map.__contains__('-'):
+                base_map['-'] = 0
+        ## 生成一致性序列
+        model_seq = ''
+        if result_type == 'cons':
+            for col_index in range(homo_boundary_start, homo_boundary_end+1):
+                base_map = col_base_map[col_index]
+                #识别频次最多的碱基且超过阈值 valid_col_threshold
+                max_base_count = 0
+                max_base = ''
+                for cur_base in base_map.keys():
+                    # if cur_base == '-':
+                    #     continue
+                    cur_count = base_map[cur_base]
+                    if cur_count > max_base_count:
+                        max_base_count = cur_count
+                        max_base = cur_base
+                if max_base_count >= int(row_num/2):
+                    if max_base != '-':
+                        model_seq += max_base
+                    else:
+                        continue
+                else:
+                    model_seq += 'N'
+        else:
+            for col_index in range(homo_boundary_start, homo_boundary_end + 1):
+                cur_base = first_seq[col_index]
+                if cur_base != '-':
+                    model_seq += cur_base
+                else:
+                    continue
 
-        # 从align_end列开始，向右搜索15个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        end_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_end, matrix, row_num, 
-                                               col_num, out_homo_threshold, 'end', homo_threshold, debug)
+        # (TA、TTA、TAA、TTAA)xxxxx...xxxxx(TA、TTA、TAA、TTAA)造成错误的同源边界
+        # 判断同源边界的起始碱基
+        final_cons_seq = ''
+        first_5bps = []
+        end_5bps = []
+        first_5bps.append((model_seq[0:5], 0))
+        end_5bps.append((model_seq[-5:], 0))
+
+        if model_seq.startswith('A'):
+            first_5bps.append((model_seq[1:6], 1))
+        if model_seq.startswith('AA') or model_seq.startswith('TA'):
+            first_5bps.append((model_seq[2:7], 2))
+        if model_seq.startswith('TAA') or model_seq.startswith('TTA'):
+            first_5bps.append((model_seq[3:8], 3))
+        if model_seq.startswith('TTAA'):
+            first_5bps.append((model_seq[4:9], 4))
+
+        if model_seq.endswith('T'):
+            end_5bps.append((model_seq[len(model_seq)-6:len(model_seq)-1], 1))
+        if model_seq.endswith('TT') or model_seq.endswith('TA'):
+            end_5bps.append((model_seq[len(model_seq)-7:len(model_seq)-2], 2))
+        if model_seq.endswith('TAA') or model_seq.endswith('TTA'):
+            end_5bps.append((model_seq[len(model_seq)-8:len(model_seq)-3], 3))
+        if model_seq.endswith('TTAA'):
+            end_5bps.append((model_seq[len(model_seq)-9:len(model_seq)-4], 4))
+
+        final_boundary_start = -1
+        final_boundary_end = -1
+        # 取所有合法的边界，然后根据first_5bp和end_5bp的距离+TSD个数进行排序，距离越小，TSD越多的越可能是真实边界
+        all_boundaries = []
+        for first_5bp in first_5bps:
+            for end_5bp in end_5bps:
+                # 根据边界确定align file中是否有两个以上的TSD
+                # 存在即真实的边界
+                cur_boundary_start = homo_boundary_start + first_5bp[1]
+                cur_boundary_end = homo_boundary_end - end_5bp[1]
+                tsd_count = 0
+                for name in align_names:
+                    # 1.确定边界处是否有碱基
+                    raw_align_seq = align_contigs[name]
+                    boundary_start_base = raw_align_seq[cur_boundary_start]
+                    boundary_end_base = raw_align_seq[cur_boundary_end]
+                    if boundary_start_base == '-' or boundary_end_base == '-':
+                        continue
+                    # 2.能否在边界处找到TSD
+                    left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
+                    if left_tsd_seq != '':
+                        tsd_count += 1
+                if tsd_count > 0:
+                    edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
+                    all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
+        all_boundaries.sort(key=lambda x: (x[0], -x[1]))
+        if len(all_boundaries) > 0:
+            boundary = all_boundaries[0]
+            final_boundary_start = boundary[2]
+            final_boundary_end = boundary[3]
+            if boundary[5] != 0:
+                final_cons_seq = model_seq[boundary[4]: -boundary[5]]
+            else:
+                final_cons_seq = model_seq[boundary[4]: ]
+
+        if final_cons_seq == '':
+            is_TE = False
+        else:
+            is_TE = True
+
         if debug:
-            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
-        return start_align_valid & end_align_valid, ''
+            if boundary_change != 0:
+                if boundary_change == 1:
+                    boundary_change_direct = 'right'
+                else:
+                    boundary_change_direct = 'left'
+            else:
+                boundary_change_direct = 'no'
+            print(align_file, is_TE, final_boundary_start, final_boundary_end, 'boundary change: ' + str(boundary_change_direct))
+        return is_TE, '', final_cons_seq
+
+def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    anchor_len = 20
+    first_10bp = cur_seq[0:anchor_len]
+    last_10bp = cur_seq[-anchor_len:]
+    align_names, align_contigs = read_fasta(align_file)
+    # if TE_type == 'helitron':
+    #     return False, 'copy_num:'+str(len(align_names)), ''
+
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 2
+        last_dist = 2
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            # 需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    if debug:
+        print(align_file, align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        if debug:
+            print('not found boundary:' + align_file)
+        return False, 'nb', ''
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        if debug:
+            print('align file size = 0, ' + align_file)
+        return False, '', ''
+
+    # 3.取全长序列用来生成一致性序列
+    # 在锚点位置上下10bp应该有碱基
+    full_length_member_names = []
+    full_length_member_contigs = {}
+    anchor_len = 10
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(full_length_member_names) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - anchor_len >= 0:
+            anchor_start = align_start - anchor_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
+        if align_end + anchor_len < len(align_seq):
+            anchor_end = align_end + anchor_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
+
+        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
+            full_length_member_names.append(name)
+            full_length_member_contigs[name] = align_seq
+
+    # 利用全长拷贝生成一致性序列
+    first_seq = full_length_member_contigs[full_length_member_names[0]]
+    col_num = len(first_seq)
+    row_num = len(full_length_member_names)
+    if row_num <= 1:
+        if debug:
+            print('full length number = 1, ' + align_file)
+        return False, 'fl1', ''
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(full_length_member_names):
+        seq = full_length_member_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+
+    # 从align_start列开始，向左搜索15个有效列
+    # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+    #valid_col_threshold = min(2, int(row_num/2))
+    sliding_window_size = 10
+    valid_col_threshold = int(row_num/2)
+
+    if row_num <= 2:
+        homo_threshold = 0.95
+    elif row_num <= 5:
+        homo_threshold = 0.9
+    else:
+        homo_threshold = 0.7
+
+    homo_boundary_start = search_boundary_homo_v3(valid_col_threshold, align_start, matrix, row_num,
+                                             col_num, 'start', homo_threshold, debug, sliding_window_size)
+    if homo_boundary_start == -1:
+        return False, '', ''
 
 
+    # 从align_start列开始，向左搜索15个有效列
+    # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
+    homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, row_num,
+                                           col_num, 'end', homo_threshold, debug, sliding_window_size)
+
+    if homo_boundary_end == -1:
+        return False, '', ''
+    # if debug:
+    #     print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
+
+
+    # 记录每一列的碱基组成
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # 统计当前列的碱基占比
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+    ## 生成一致性序列
+    model_seq = ''
+    if result_type == 'cons':
+        for col_index in range(homo_boundary_start, homo_boundary_end+1):
+            base_map = col_base_map[col_index]
+            #识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                # if cur_base == '-':
+                #     continue
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num/2):
+                if max_base != '-':
+                    model_seq += max_base
+                else:
+                    continue
+            else:
+                #这里不用N，因为容易找不到边界，因此取非空的最大次数碱基
+                max_base_count = 0
+                max_base = ''
+                for cur_base in base_map.keys():
+                    if cur_base == '-':
+                        continue
+                    cur_count = base_map[cur_base]
+                    if cur_count > max_base_count:
+                        max_base_count = cur_count
+                        max_base = cur_base
+                model_seq += max_base
+    else:
+        for col_index in range(homo_boundary_start, homo_boundary_end + 1):
+            cur_base = first_seq[col_index]
+            if cur_base != '-':
+                model_seq += cur_base
+            else:
+                continue
+
+    # 判断同源边界的起始碱基
+    final_boundary_start = -1
+    final_boundary_end = -1
+    final_cons_seq = ''
+    if TE_type == 'tir':
+        # (TA、TTA、TAA、TTAA)xxxxx...xxxxx(TA、TTA、TAA、TTAA)造成错误的同源边界
+        first_5bps = []
+        end_5bps = []
+        first_5bps.append((model_seq[0:5], 0))
+        end_5bps.append((model_seq[-5:], 0))
+
+        if model_seq.startswith('A'):
+            first_5bps.append((model_seq[1:6], 1))
+        if model_seq.startswith('AA') or model_seq.startswith('TA'):
+            first_5bps.append((model_seq[2:7], 2))
+        if model_seq.startswith('TAA') or model_seq.startswith('TTA'):
+            first_5bps.append((model_seq[3:8], 3))
+        if model_seq.startswith('TTAA'):
+            first_5bps.append((model_seq[4:9], 4))
+
+        if model_seq.endswith('T'):
+            end_5bps.append((model_seq[len(model_seq)-6:len(model_seq)-1], 1))
+        if model_seq.endswith('TT') or model_seq.endswith('TA'):
+            end_5bps.append((model_seq[len(model_seq)-7:len(model_seq)-2], 2))
+        if model_seq.endswith('TAA') or model_seq.endswith('TTA'):
+            end_5bps.append((model_seq[len(model_seq)-8:len(model_seq)-3], 3))
+        if model_seq.endswith('TTAA'):
+            end_5bps.append((model_seq[len(model_seq)-9:len(model_seq)-4], 4))
+
+        # 取所有合法的边界，然后根据first_5bp和end_5bp的距离+TSD个数进行排序，距离越小，TSD越多的越可能是真实边界
+        all_boundaries = []
+        for first_5bp in first_5bps:
+            for end_5bp in end_5bps:
+                # 根据边界确定align file中是否有两个以上的TSD
+                # 存在即真实的边界
+                cur_boundary_start = homo_boundary_start + first_5bp[1]
+                cur_boundary_end = homo_boundary_end - end_5bp[1]
+                tsd_count = 0
+                for name in align_names:
+                    # 1.确定边界处是否有碱基
+                    raw_align_seq = align_contigs[name]
+                    boundary_start_base = raw_align_seq[cur_boundary_start]
+                    boundary_end_base = raw_align_seq[cur_boundary_end]
+                    if boundary_start_base == '-' or boundary_end_base == '-':
+                        continue
+                    # 2.能否在边界处找到TSD
+                    left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
+                    if left_tsd_seq != '':
+                        tsd_count += 1
+                if tsd_count > 0:
+                    edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
+                    all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
+        all_boundaries.sort(key=lambda x: (x[0], -x[1]))
+        if len(all_boundaries) > 0:
+            boundary = all_boundaries[0]
+            final_boundary_start = boundary[2]
+            final_boundary_end = boundary[3]
+            if boundary[5] != 0:
+                final_cons_seq = model_seq[boundary[4]: -boundary[5]]
+            else:
+                final_cons_seq = model_seq[boundary[4]: ]
+    elif TE_type == 'helitron':
+        # helitron转座子的话需要去边界附近找ATC...CTRR(R=A/G)T
+        # 策略1：往边界的外面扩展1bp，如果在边界的10bp范围内能找到ATC或者CTRRT，就算做真实Helitron
+        model_seq = ''
+        for col_index in range(homo_boundary_start, homo_boundary_end + 1):
+            base_map = col_base_map[col_index]
+            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num / 2):
+                if max_base != '-':
+                    model_seq += max_base
+                else:
+                    continue
+            else:
+                model_seq += 'N'
+        # 尝试往两端扩展1bp
+        ext_len = 1
+        col_index = homo_boundary_start - 1
+        ext_count = 0
+        while ext_count < ext_len and col_index >= 0:
+            base_map = col_base_map[col_index]
+            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num / 2) and max_base != '-':
+                model_seq = max_base + model_seq
+                ext_count += 1
+            col_index -= 1
+
+        col_index = homo_boundary_end + 1
+        ext_count = 0
+        while ext_count < ext_len and col_index < col_num:
+            base_map = col_base_map[col_index]
+            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num / 2) and max_base != '-':
+                model_seq += max_base
+                ext_count += 1
+            col_index += 1
+
+        # 在前10bp和后10bp中，寻找第一个ATC，CTRR(R=A/G)T
+        cur_search_len = 10
+        first_10bp = model_seq[0: cur_search_len]
+        last_10bp = model_seq[-cur_search_len:]
+        tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
+        for tail_motif in tail_motifs:
+            # 查找子串最后一次出现的位置
+            end_index = last_10bp.rfind(tail_motif)
+            if end_index != -1:
+                start_index = first_10bp.find('ATC')
+                if start_index != -1:
+                    final_boundary_start = homo_boundary_start-1+start_index+1
+                    final_boundary_end = homo_boundary_end+1-(cur_search_len-(end_index+3)-1)
+                    if (cur_search_len-(end_index+3)-1) == 0:
+                        final_cons_seq = model_seq[start_index+1:]
+                    else:
+                        final_cons_seq = model_seq[start_index + 1:-(cur_search_len-(end_index+3)-1)]
+                    break
+
+    if final_cons_seq == '':
+        is_TE = False
+    else:
+        is_TE = True
+
+    if debug:
+        print(align_file, is_TE, final_boundary_start, final_boundary_end)
+    return is_TE, '', final_cons_seq
+
+
+def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
+    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
+    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
+    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
+    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    anchor_len = 20
+    first_10bp = cur_seq[0:anchor_len]
+    last_10bp = cur_seq[-anchor_len:]
+    align_names, align_contigs = read_fasta(align_file)
+    # if TE_type == 'helitron':
+    #     return False, 'copy_num:'+str(len(align_names)), ''
+
+    align_start = -1
+    align_end = -1
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        position_reflex = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                continue
+            else:
+                align_seq += base
+                position_reflex[cur_align_index] = i
+                cur_align_index += 1
+
+        start_dist = 2
+        last_dist = 2
+        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
+        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
+        last_matches = last_matches[::-1]
+        if len(first_matches) > 0 and len(last_matches) > 0:
+            align_no_gap_start = first_matches[0].start
+            align_no_gap_end = last_matches[0].end - 1
+            # 需要将位置映射到原始比对序列上
+            align_start = position_reflex[align_no_gap_start]
+            align_end = position_reflex[align_no_gap_end]
+            break
+    if debug:
+        print(align_file, align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        # 没有找到边界，异常情况
+        if debug:
+            print('not found boundary:' + align_file)
+        return False, 'nb', ''
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        if debug:
+            print('align file size = 0, ' + align_file)
+        return False, '', ''
+
+    tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
+    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
+    # 在锚点位置上下2bp应该有碱基
+    start_member_names = []
+    start_member_contigs = {}
+    end_member_names = []
+    end_member_contigs = {}
+    search_len = 1
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(start_member_contigs) > 100:
+            break
+        if len(end_member_contigs) > 100:
+            break
+        align_seq = align_contigs[name]
+        if align_start - search_len >= 0:
+            anchor_start = align_start - search_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: align_start + search_len]
+        if not all(c == '-' for c in list(anchor_start_seq)):
+            start_member_names.append(name)
+            start_member_contigs[name] = align_seq
+
+        # 对align_seq的尾端判断是否有CTRRT结尾，过滤掉那些没有的align_seq
+        # 取align_end的下游1bp和上游3bp，共5bp。
+        # 尝试往左扩展3bp
+        tail_seq = align_seq[align_end]
+        ext_len = 3
+        col_index = align_end - 1
+        ext_count = 0
+        while ext_count < ext_len and col_index >= 0:
+            cur_base = align_seq[col_index]
+            if cur_base != '-':
+                tail_seq = cur_base + tail_seq
+                ext_count += 1
+            col_index -= 1
+
+        # 尝试往右扩展1bp
+        ext_len = 1
+        col_index = align_end + 1
+        ext_count = 0
+        while ext_count < ext_len and col_index < len(align_seq):
+            cur_base = align_seq[col_index]
+            if cur_base != '-':
+                tail_seq += cur_base
+                ext_count += 1
+            col_index += 1
+
+        if tail_seq not in tail_motifs:
+            continue
+
+        if align_end + search_len < len(align_seq):
+            anchor_end = align_end + search_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[align_end - search_len: anchor_end]
+        if not all(c == '-' for c in list(anchor_end_seq)):
+            end_member_names.append(name)
+            end_member_contigs[name] = align_seq
+
+    # 把序列存成矩阵，方便遍历和索引
+    if len(end_member_names) <= 0:
+        return False, '', ''
+    first_seq = end_member_contigs[end_member_names[0]]
+    col_num = len(first_seq)
+    end_row_num = len(end_member_names)
+    matrix = [[''] * col_num for i in range(end_row_num)]
+    for row, name in enumerate(end_member_names):
+        seq = end_member_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+
+    # Helitron的拷贝数较少，很难用与TIR一样的办法识别同源边界.因此我们使用连续同源性的办法去搜索
+    # 由于Helitron的末端已经固定，因此我们首先从末端开始找，如果满足条件，不发生改变则说明末端找准了
+    sliding_window_size = 10
+    valid_col_threshold = int(end_row_num/2)
+
+    if end_row_num <= 2:
+        homo_threshold = 0.95
+        int_homo_threshold = 0.9
+        out_homo_threshold = 0.95
+    elif end_row_num <= 5:
+        homo_threshold = 0.9
+        int_homo_threshold = 0.85
+        out_homo_threshold = 0.9
+    else:
+        homo_threshold = 0.7
+        int_homo_threshold = 0.65
+        out_homo_threshold = 0.7
+
+    # 首先判断末端是否是真实Helitron支持
+    end_align_valid, homo_boundary_end = search_boundary_homo_v4(valid_col_threshold, align_end, matrix, end_row_num,
+                                                 col_num, 'end', homo_threshold, int_homo_threshold, out_homo_threshold, debug, sliding_window_size)
+    if not end_align_valid:
+        if debug:
+            print(align_file, end_align_valid)
+        return end_align_valid, '', ''
+
+    # 把序列存成矩阵，方便遍历和索引
+    first_seq = start_member_contigs[start_member_names[0]]
+    col_num = len(first_seq)
+    start_row_num = len(start_member_names)
+    matrix = [[''] * col_num for i in range(start_row_num)]
+    for row, name in enumerate(start_member_names):
+        seq = start_member_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+
+    valid_col_threshold = int(start_row_num / 2)
+    if start_row_num <= 2:
+        homo_threshold = 0.95
+        int_homo_threshold = 0.9
+        out_homo_threshold = 0.95
+    elif start_row_num <= 5:
+        homo_threshold = 0.9
+        int_homo_threshold = 0.85
+        out_homo_threshold = 0.9
+    else:
+        homo_threshold = 0.7
+        int_homo_threshold = 0.65
+        out_homo_threshold = 0.7
+    # 从首端开始搜索同源列边界
+    start_align_valid, homo_boundary_start = search_boundary_homo_v4(valid_col_threshold, align_start, matrix, start_row_num,
+                                                                 col_num, 'start', homo_threshold, int_homo_threshold,
+                                                                 out_homo_threshold, debug, sliding_window_size)
+
+    # 3.取全长序列用来生成一致性序列
+    # 在锚点位置上下1bp应该有碱基
+    full_length_member_names = []
+    full_length_member_contigs = {}
+    anchor_len = 1
+    for name in align_names:
+        # 为了减少计算量，只取100条全长拷贝
+        if len(full_length_member_names) > 100:
+            break
+        align_seq = align_contigs[name]
+        if homo_boundary_start - anchor_len >= 0:
+            anchor_start = homo_boundary_start - anchor_len
+        else:
+            anchor_start = 0
+        anchor_start_seq = align_seq[anchor_start: homo_boundary_start + anchor_len]
+        if homo_boundary_end + anchor_len < len(align_seq):
+            anchor_end = homo_boundary_end + anchor_len
+        else:
+            anchor_end = len(align_seq)
+        anchor_end_seq = align_seq[homo_boundary_end - anchor_len: anchor_end]
+
+        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
+            full_length_member_names.append(name)
+            full_length_member_contigs[name] = align_seq
+
+    if len(full_length_member_names) <= 0:
+        if debug:
+            print('full length align file size = 0, ' + align_file)
+        return False, '', ''
+
+    # 利用全长拷贝生成一致性序列
+    first_seq = full_length_member_contigs[full_length_member_names[0]]
+    col_num = len(first_seq)
+    row_num = len(full_length_member_names)
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(full_length_member_names):
+        seq = full_length_member_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+
+    # 记录每一列的碱基组成
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # 统计当前列的碱基占比
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    ## 生成一致性序列
+    model_seq = ''
+    if result_type == 'cons':
+        for col_index in range(homo_boundary_start, homo_boundary_end+1):
+            base_map = col_base_map[col_index]
+            #识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                # if cur_base == '-':
+                #     continue
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num/2):
+                if max_base != '-':
+                    model_seq += max_base
+                else:
+                    continue
+            else:
+                model_seq += 'N'
+    else:
+        for col_index in range(homo_boundary_start, homo_boundary_end + 1):
+            cur_base = first_seq[col_index]
+            if cur_base != '-':
+                model_seq += cur_base
+            else:
+                continue
+
+    # 判断同源边界的起始碱基
+    # 确定首端同源边界homo_boundary_start后，我们对model seq扩展1bp，然后搜索model seq中'ATC'的位置，然后即可确定边界
+    final_boundary_start = -1
+    final_boundary_end = homo_boundary_end
+    final_cons_seq = ''
+    if TE_type == 'helitron':
+        # helitron转座子的话需要去边界附近找ATC...CTRR(R=A/G)T
+        # 策略1：往边界的外面扩展1bp，如果在边界的10bp范围内能找到ATC或者CTRRT，就算做真实Helitron
+        model_seq = ''
+        for col_index in range(homo_boundary_start, homo_boundary_end + 1):
+            base_map = col_base_map[col_index]
+            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num / 2):
+                if max_base != '-':
+                    model_seq += max_base
+                else:
+                    continue
+            else:
+                model_seq += 'N'
+        # 尝试往两端扩展1bp
+        ext_len = 1
+        col_index = homo_boundary_start - 1
+        ext_count = 0
+        while ext_count < ext_len and col_index >= 0:
+            base_map = col_base_map[col_index]
+            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num / 2) and max_base != '-':
+                model_seq = max_base + model_seq
+                ext_count += 1
+            col_index -= 1
+
+        col_index = homo_boundary_end + 1
+        ext_count = 0
+        while ext_count < ext_len and col_index < col_num:
+            base_map = col_base_map[col_index]
+            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            if max_base_count >= int(row_num / 2) and max_base != '-':
+                model_seq += max_base
+                ext_count += 1
+            col_index += 1
+
+        # 搜索model seq中'ATC'的位置，然后即可确定首端边界
+        # 查找子串最后一次出现的位置
+        # 在前10bp和后10bp中，寻找第一个ATC，CTRR(R=A/G)T
+        cur_search_len = 10
+        first_10bp = model_seq[0: cur_search_len]
+        last_10bp = model_seq[-cur_search_len:]
+        for tail_motif in tail_motifs:
+            # 查找子串最后一次出现的位置
+            end_index = last_10bp.rfind(tail_motif)
+            if end_index != -1:
+                start_index = first_10bp.find('ATC')
+                if start_index != -1:
+                    final_boundary_start = homo_boundary_start - 1 + start_index + 1
+                    final_boundary_end = homo_boundary_end + 1 - (cur_search_len - (end_index + 3) - 1)
+                    if (cur_search_len - (end_index + 3) - 1) == 0:
+                        final_cons_seq = model_seq[start_index + 1:]
+                    else:
+                        final_cons_seq = model_seq[start_index + 1:-(cur_search_len - (end_index + 3) - 1)]
+                    break
+        # tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
+        # for tail_motif in tail_motifs:
+        #     # 查找子串最后一次出现的位置
+        #     end_index = model_seq.rfind(tail_motif)
+        #     if end_index != -1:
+        #         start_index = model_seq.find('ATC')
+        #         if start_index != -1:
+        #             final_boundary_start = homo_boundary_start - 1 + start_index + 1
+        #             final_boundary_end = homo_boundary_end + 1 - (len(model_seq) - (end_index + 3) - 1)
+        #             if (len(model_seq)-(end_index+3)-1) == 0:
+        #                 final_cons_seq = model_seq[start_index+1:]
+        #             else:
+        #                 final_cons_seq = model_seq[start_index + 1:-(len(model_seq)-(end_index+3)-1)]
+        #             break
+
+    if final_cons_seq == '':
+        is_TE = False
+    else:
+        is_TE = True
+
+    if debug:
+        print(align_file, is_TE, final_boundary_start, final_boundary_end)
+    return is_TE, '', final_cons_seq
 
 def judge_boundary_v1(cur_seq, align_file, debug):
     # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
@@ -8225,11 +10875,33 @@ def run_find_members_v5(cur_file, reference, temp_dir, member_script_path, subse
         copies.sort(key=lambda x: -x[0])
         return cur_names[0], copies
 
-def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type, flanking_len):
+def run_find_members(file, reference, temp_dir, member_script_path, subset_script_path, flanking_len):
     # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
     # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
     # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-    debug = 1
+    new_name = file[0]
+    cur_file = file[1]
+    cur_names, cur_contigs = read_fasta(cur_file)
+
+    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
+    extend_len = flanking_len
+    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) + ' > /dev/null 2>&1'
+    os.system(copy_command)
+    #print(copy_command)
+    member_file = cur_file + '.blast.bed.fa'
+    member_names, member_contigs = read_fasta(member_file)
+    if len(member_names) > 100:
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        os.system(sub_command)
+        member_file += '.rdmSubset.fa'
+    return new_name, member_file
+
+
+
+def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
+    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
+    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
+    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
 
     cur_names, cur_contigs = read_fasta(cur_file)
     cur_seq = cur_contigs[cur_names[0]]
@@ -8239,6 +10911,7 @@ def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subse
     copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
         extend_len) + ' > /dev/null 2>&1'
     os.system(copy_command)
+    #print(copy_command)
     member_file = cur_file + '.blast.bed.fa'
     member_names, member_contigs = read_fasta(member_file)
     if len(member_names) > 100:
@@ -8250,9 +10923,12 @@ def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subse
     os.system(align_command)
 
     # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
-    is_TE, info = judge_boundary_v3(cur_seq, align_file, debug)
+    if TE_type == 'tir':
+        is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
+    elif TE_type == 'helitron':
+        is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
     if is_TE:
-        return cur_names[0], cur_seq, info
+        return cur_names[0], cons_seq, info
     else:
         return None, None, info
 

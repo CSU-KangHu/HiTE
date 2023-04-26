@@ -12,13 +12,16 @@ import math
 
 #import regex
 from fuzzysearch import find_near_matches
+import Levenshtein
 
 import numpy as np
 import matplotlib
-matplotlib.use('pdf')
+#matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+from openpyxl.utils import get_column_letter
+from pandas import ExcelWriter
 
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -34,7 +37,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
     run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
-    multi_process_tsd
+    multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
+    flanking_seq, multi_process_helitronscanner, get_seq_families
 
 
 def generate_repbases():
@@ -474,15 +478,15 @@ def get_LTR_seqs():
 
 def identify_new_TIR(tmp_output_dir):
     # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
-    confident_tir_path = tmp_output_dir + '/confident_tir.rename.cons.fa'
+    confident_tir_path = tmp_output_dir + '/confident_tir.fa'
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/rice'
     tir_repbase_path = repbase_dir + '/tir.repbase.ref'
-    confident_tir_consensus = tmp_output_dir + '/confident_tir.copy2.fa'
+
     total_tir_path = tmp_output_dir + '/total_tir.fa'
     total_tir_consensus = tmp_output_dir + '/total_tir.cons.fa'
-    os.system('cat '+tir_repbase_path+' '+confident_tir_consensus+' > '+total_tir_path)
+    os.system('cat '+tir_repbase_path+' '+confident_tir_path+' > '+total_tir_path)
 
-    confident_tir_names, confident_tir_contigs = read_fasta(confident_tir_consensus)
+    confident_tir_names, confident_tir_contigs = read_fasta(confident_tir_path)
 
     tools_dir = os.getcwd() + '/../tools'
     cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
@@ -514,7 +518,7 @@ def identify_new_TIR(tmp_output_dir):
             cluster = clusters[key]
             has_repbase = False
             for name in cluster:
-                if not name.startswith('N_'):
+                if not name.startswith('TIR_'):
                     has_repbase = True
                     break
             #没有repbase序列，代表这是我们新识别的TIR
@@ -618,7 +622,7 @@ def identify_new_TIR(tmp_output_dir):
             cluster = clusters[key]
             has_repbase = False
             for name in cluster:
-                if not name.startswith('N_'):
+                if not name.startswith('TIR_'):
                     has_repbase = True
                     break
             #没有repbase序列，代表这是我们新识别的TIR
@@ -628,99 +632,101 @@ def identify_new_TIR(tmp_output_dir):
     print('novel TIR with new TIR terminals:')
     #print(new_tir_names)
     print(len(new_tir_names))
+    return new_tir_names
 
-    #统计novel TIR的拷贝数量
-    threads = 40
-    reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna'
-    temp_dir = tmp_output_dir + '/temp'
-    blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
-    all_copies = multi_process_align_and_get_copies(novel_tir_consensus, reference, blast_program_dir,
-                                                    temp_dir, 'tir', threads)
+    # #统计novel TIR的拷贝数量
+    # threads = 40
+    # reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna'
+    # temp_dir = tmp_output_dir + '/temp'
+    # blast_program_dir = '/home/hukang/repeat_detect_tools/rmblast-2.9.0-p2'
+    # all_copies = multi_process_align_and_get_copies(novel_tir_consensus, reference, blast_program_dir,
+    #                                                 temp_dir, 'tir', threads)
+    #
+    # # 在copies的两端 flanking 20bp的序列
+    # flanking_len = 20
+    # all_copies, tsd_info = flanking_copies(all_copies, novel_tir_consensus, reference, flanking_len, copy_num=-1)
+    #
+    # multicopy_novel_tirs_num = 0
+    # # 统计每个query_name拷贝的数量
+    # # query_name -> (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
+    # query_copy_num = {}
+    # for query_name in all_copies.keys():
+    #     copies = all_copies[query_name]
+    #     query_copy_num[query_name] = len(copies)
+    #     if len(copies) >= 2:
+    #         multicopy_novel_tirs_num += 1
+    # #print(query_copy_num)
+    # print('novel TIR with copy number >= 2:')
+    # print(multicopy_novel_tirs_num)
+    #
+    # query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
+    # # 存储query_copy_num
+    # with codecs.open(query_copy_num_path, 'w', encoding='utf-8') as f:
+    #     json.dump(query_copy_num, f)
+    #
+    # novel_tir_copies = tmp_output_dir + '/novel_tir_copies.csv'
+    # # 存储all copies
+    # with codecs.open(novel_tir_copies, 'w', encoding='utf-8') as f:
+    #     json.dump(all_copies, f)
+    #
+    # # 判断copy的TSD信息
+    # # tsd_info = {query_name: {copy1: tsd+','+seq}, {copy2: tsd+','+seq}, {total_copy_num:}, {tsd_copy_num:}}
+    # tsd_info = get_TSD(all_copies, flanking_len)
+    #
+    # copies_list = []
+    # for query_name in tsd_info.keys():
+    #     info = tsd_info[query_name]
+    #     total_copy_num = info['total_copy_num']
+    #     total_copy_len = info['total_copy_len']
+    #     copies_list.append((query_name, total_copy_num, total_copy_len))
+    # copies_list.sort(key=lambda x: -x[2])
+    #
+    # copy_info_path = tmp_output_dir + '/novel_tir.copies.info'
+    # store_copies(tsd_info, copy_info_path)
+    #
+    # #计算Venn图指标
+    # #1.novel tir copy > 3 and novel tirs with new terminals
+    # #2.novel tir copy > 3 and novel tirs with known terminals
+    # #3.novel tir copy <=3 and novel tirs with new terminals
+    # #4.novel tir copy <=3 and novel tirs with known terminals
+    # query_copy_over_3 = set()
+    # query_copy_less_3 = set()
+    # for query_name in query_copy_num.keys():
+    #     copy_num = query_copy_num[query_name]
+    #     if copy_num >= 2:
+    #         query_copy_over_3.add(query_name)
+    #     else:
+    #         query_copy_less_3.add(query_name)
+    #
+    # c1 = 0
+    # c2 = 0
+    # c3 = 0
+    # c4 = 0
+    # for query_name in new_tir_contigs.keys():
+    #     if query_name in query_copy_over_3 and query_name in new_tir_names:
+    #         c1 += 1
+    #     elif query_name in query_copy_over_3 and query_name not in new_tir_names:
+    #         c2 += 1
+    #     elif query_name in query_copy_less_3 and query_name in new_tir_names:
+    #         c3 += 1
+    #     elif query_name in query_copy_less_3 and query_name not in new_tir_names:
+    #         c4 += 1
+    #
+    # print(c1, c2, c3, c4)
+    # print(new_tir_names)
+    # print(new_tir_contigs.keys())
+    # print(query_copy_over_3)
 
-    # 在copies的两端 flanking 20bp的序列
-    flanking_len = 20
-    all_copies, tsd_info = flanking_copies(all_copies, novel_tir_consensus, reference, flanking_len, copy_num=-1)
-
-    multicopy_novel_tirs_num = 0
-    # 统计每个query_name拷贝的数量
-    # query_name -> (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
-    query_copy_num = {}
-    for query_name in all_copies.keys():
-        copies = all_copies[query_name]
-        query_copy_num[query_name] = len(copies)
-        if len(copies) >= 2:
-            multicopy_novel_tirs_num += 1
-    #print(query_copy_num)
-    print('novel TIR with copy number >= 2:')
-    print(multicopy_novel_tirs_num)
-
-    query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
-    # 存储query_copy_num
-    with codecs.open(query_copy_num_path, 'w', encoding='utf-8') as f:
-        json.dump(query_copy_num, f)
-
-    novel_tir_copies = tmp_output_dir + '/novel_tir_copies.csv'
-    # 存储all copies
-    with codecs.open(novel_tir_copies, 'w', encoding='utf-8') as f:
-        json.dump(all_copies, f)
-
-    # 判断copy的TSD信息
-    # tsd_info = {query_name: {copy1: tsd+','+seq}, {copy2: tsd+','+seq}, {total_copy_num:}, {tsd_copy_num:}}
-    tsd_info = get_TSD(all_copies, flanking_len)
-
-    copies_list = []
-    for query_name in tsd_info.keys():
-        info = tsd_info[query_name]
-        total_copy_num = info['total_copy_num']
-        total_copy_len = info['total_copy_len']
-        copies_list.append((query_name, total_copy_num, total_copy_len))
-    copies_list.sort(key=lambda x: -x[2])
-
-    copy_info_path = tmp_output_dir + '/novel_tir.copies.info'
-    store_copies(tsd_info, copy_info_path)
-
-    #计算Venn图指标
-    #1.novel tir copy > 3 and novel tirs with new terminals
-    #2.novel tir copy > 3 and novel tirs with known terminals
-    #3.novel tir copy <=3 and novel tirs with new terminals
-    #4.novel tir copy <=3 and novel tirs with known terminals
-    query_copy_over_3 = set()
-    query_copy_less_3 = set()
-    for query_name in query_copy_num.keys():
-        copy_num = query_copy_num[query_name]
-        if copy_num >= 2:
-            query_copy_over_3.add(query_name)
-        else:
-            query_copy_less_3.add(query_name)
-
-    c1 = 0
-    c2 = 0
-    c3 = 0
-    c4 = 0
-    for query_name in new_tir_contigs.keys():
-        if query_name in query_copy_over_3 and query_name in new_tir_names:
-            c1 += 1
-        elif query_name in query_copy_over_3 and query_name not in new_tir_names:
-            c2 += 1
-        elif query_name in query_copy_less_3 and query_name in new_tir_names:
-            c3 += 1
-        elif query_name in query_copy_less_3 and query_name not in new_tir_names:
-            c4 += 1
-
-    print(c1, c2, c3, c4)
-    print(new_tir_names)
-    print(new_tir_contigs.keys())
-    print(query_copy_over_3)
 
 
-
-def draw_dist():
+def draw_dist(input_file):
     #tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
-    query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
-    file = open(query_copy_num_path, 'r')
-    js = file.read()
-    query_copy_num = json.loads(js)
+    #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/RepeatMasking_test/rice_no_kmer'
+    #query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
+    # query_copy_num_path = input_file
+    # file = open(query_copy_num_path, 'r')
+    # js = file.read()
+    # query_copy_num = json.loads(js)
     # print(query_copy_num)
     # count = 0
     # for name in query_copy_num.keys():
@@ -749,7 +755,15 @@ def draw_dist():
     # medians = df.groupby(['methods'])['copy number'].median().values
     # print(medians)
 
-    y = list(query_copy_num.values())
+    query_copy_num = []
+    with open(input_file, 'r') as f_r:
+        for i,line in enumerate(f_r):
+            line = line.replace('\n', '')
+            if i == 0 or line.strip()== '""':
+                continue
+            query_copy_num.append(float(line))
+
+    y = list(query_copy_num)
     x = pd.Series(y, name="copy number")
     sns.set_theme(style="ticks", font='Times New Roman', font_scale=1.4)
     sns.set_context("paper")
@@ -2121,6 +2135,176 @@ def change_LTR_insertion_time(orig_miu, miu):
     f_w.close()
 
 
+def analyze_new_TIRs():
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir'
+    new_tir_names = identify_new_TIR(tmp_output_dir)
+    novel_tir_path = tmp_output_dir + '/novel_tir.fa'
+    novel_tir_names, novel_tir_contigs = read_fasta(novel_tir_path)
+    novel_tir_names.sort(key=lambda x: int(x.split('_')[1]))
+
+    #获取TIR长度
+    novel_tir_len_path = tmp_output_dir + '/novel.itr.fa'
+    tir_len_names, tir_len_contigs = read_fasta(novel_tir_len_path)
+
+    #获取novel TIR的拷贝数和多序列比对文件
+    plant = 1
+    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
+    reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.cut0.fa'
+    threads = 40
+    flanking_len = 50
+    similar_ratio = 0.2
+    TE_type = 'tir'
+    ref_index = 0
+    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
+    debug = 1
+    output = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
+    flank_region_align_v3(novel_tir_path, output, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
+                          ref_index, log, member_script_path, subset_script_path, plant, debug, 'cons')
+    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
+
+    msa_dir = tmp_output_dir + '/msa'
+    if not os.path.exists(msa_dir):
+        os.makedirs(msa_dir)
+
+    # 获取novel TIR的蛋白质结构组成
+    protein_path = '/home/hukang/HiTE/library/RepeatPeps.lib'
+    output_table = novel_tir_path + '.domain'
+    domain_temp_dir = tmp_output_dir + '/domain'
+    get_domain_info(novel_tir_path, protein_path, output_table, threads, domain_temp_dir)
+    domain_info = {}
+    with open(output_table, 'r') as f_r:
+        for i, line in enumerate(f_r):
+            if i <= 1:
+                continue
+            parts = line.split('\t')
+            tir_name = parts[0]
+            domain_name = parts[1]
+            TE_start = parts[2]
+            TE_end = parts[3]
+            domain_start = parts[4]
+            domain_end = parts[5]
+            if not domain_info.__contains__(tir_name):
+                domain_info[tir_name] = []
+            info_array = domain_info[tir_name]
+            info_array.append((domain_name, TE_start, TE_end, domain_start, domain_end))
+
+
+    #存储所有的novel tir
+    #统计新的TIR和终端有多少个
+    known_terminal_count = 0
+    novel_terminal_count = 0
+    data = {}
+    data_names = []
+    data_tir_lens = []
+    data_tir_types = []
+    date_copy_nums = []
+    data_msa_files = []
+    data_domain_names = []
+    data_domain_TE_starts = []
+    data_domain_TE_ends = []
+    data_domain_starts = []
+    data_domain_ends = []
+    for name in novel_tir_names:
+        #获取TIR长度
+        if tir_len_contigs.__contains__(name + '-lTIR'):
+            tir_len = len(tir_len_contigs[name + '-lTIR'])
+        else:
+            continue
+        #获取TIR类型
+        if name in new_tir_names:
+            type = 'novel_terminal'
+            novel_terminal_count += 1
+        else:
+            type = 'known_terminal'
+            known_terminal_count += 1
+        #获取TIR的拷贝数
+        member_file = temp_dir + '/' + name + '.fa.blast.bed.fa'
+        member_names, member_contigs = read_fasta(member_file)
+        #获取TIR的MSA文件
+        file_name = name + '.fa.maf.fa'
+        file_path = temp_dir + '/' + file_name
+        if not os.path.exists(file_path):
+            print('mas not exist: ' + file_path)
+        os.system('cp ' + file_path + ' ' + msa_dir)
+
+        #获取domain信息
+        if not domain_info.__contains__(name):
+            data_names.append(name)
+            data_tir_lens.append(tir_len)
+            data_tir_types.append(type)
+            date_copy_nums.append(len(member_names))
+            data_msa_files.append(file_name)
+            data_domain_names.append('')
+            data_domain_TE_starts.append('')
+            data_domain_TE_ends.append('')
+            data_domain_starts.append('')
+            data_domain_ends.append('')
+        else:
+            info_array = domain_info[name]
+            for j, info in enumerate(info_array):
+                if j == 0:
+                    data_names.append(name)
+                    data_tir_lens.append(tir_len)
+                    data_tir_types.append(type)
+                    date_copy_nums.append(len(member_names))
+                    data_msa_files.append(file_name)
+                    data_domain_names.append(info[0])
+                    data_domain_TE_starts.append(info[1])
+                    data_domain_TE_ends.append(info[2])
+                    data_domain_starts.append(info[3])
+                    data_domain_ends.append(info[4])
+                else:
+                    data_names.append('')
+                    data_tir_lens.append('')
+                    data_tir_types.append('')
+                    date_copy_nums.append('')
+                    data_msa_files.append('')
+                    data_domain_names.append(info[0])
+                    data_domain_TE_starts.append(info[1])
+                    data_domain_TE_ends.append(info[2])
+                    data_domain_starts.append(info[3])
+                    data_domain_ends.append(info[4])
+    data['name'] = data_names
+    data['terminal tir len'] = data_tir_lens
+    data['terminal type'] = data_tir_types
+    data['copy num'] = date_copy_nums
+    data['msa file'] = data_msa_files
+    data['domain name'] = data_domain_names
+    data['TE start'] = data_domain_TE_starts
+    data['TE end'] = data_domain_TE_ends
+    data['domain start'] = data_domain_starts
+    data['domain end'] = data_domain_ends
+    print(data)
+    print(novel_terminal_count, known_terminal_count)
+
+    df = pd.DataFrame(data)
+
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(tmp_output_dir + '/data.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'novel TIR information')
+
+
+def to_excel_auto_column_weight(df: pd.DataFrame, writer: ExcelWriter, sheet_name="Shee1"):
+    """DataFrame保存为excel并自动设置列宽"""
+    # 数据 to 写入器，并指定sheet名称
+    df.to_excel(writer, sheet_name=sheet_name, index=False)
+    #  计算每列表头的字符宽度
+    column_widths = (
+        df.columns.to_series().apply(lambda x: len(str(x).encode('gbk'))).values
+    )
+    #  计算每列的最大字符宽度
+    max_widths = (
+        df.astype(str).applymap(lambda x: len(str(x).encode('gbk'))).agg(max).values
+    )
+    # 取前两者中每列的最大宽度
+    widths = np.max([column_widths, max_widths], axis=0)
+    # 指定sheet，设置该sheet的每列列宽
+    worksheet = writer.sheets[sheet_name]
+    for i, width in enumerate(widths, 1):
+        # openpyxl引擎设置字符宽度时会缩水0.5左右个字符，所以干脆+2使左右都空出一个字宽。
+        worksheet.column_dimensions[get_column_letter(i)].width = width + 2
+
 
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -2382,75 +2566,311 @@ if __name__ == '__main__':
     # cur_name, cur_seq = run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type)
     # print(cur_name)
 
-    # #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
-    # plant = 1
-    # TE_type = 'TIR'
-    # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
-    # raw_input = tmp_dir + '/tir.repbase.ref'
-    # output = tmp_dir + '/real_tirs.fa'
-    # # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
-    # # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
-    # # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
-    # member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
-    # subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
-    # reference = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/genome.rename.fa'
-    # temp_dir = tmp_dir + '/copies'
-    # threads = 40
-    # # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
-    # #                     TE_type)
-    #
-    # # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
-    # raw_input = tmp_dir + '/fake_tir.fa'
-    # flanking_len = 50
-    # similar_ratio = 0.2
-    # TE_type = 'tir'
-    # ref_index = 0
-    # log = Logger(tmp_dir+'/HiTE.log', level='debug')
-    # #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
-    #
-    # output = tmp_dir + '/confident_tir_'+str(ref_index)+'.fa'
-    # flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
-
-    # N_21506序列的TE边界没找准，调试代码看为什么
-    name = 'N_21506-len_261-ref_chr12-1283774-1284035'
-    seq = 'AAATTCCAAGCTTTTCCATCTAACATCTCCCTCATTAGACCAGAAACATGCTTGCTTGCAAGCTACTCCCTCCGTATTTTAATATATGACGCCGTTGACTTTTTGACAAACGTTTAACCTTTTGTTTTATTCAAAAAATTTATGTAATTATATTTTATTTTATTGTAACTTGATTTATCATCAAATGTTTTTTAAGCATGACATAAGTATTTTTATATTTACATAAAATTTTTGAATAAGACGAGTGGTCAAACGTTGATTAAAAAGTCAACGGCGTCATACATTAAAATACGGAGGGAGTACCTGACAATGCAACCGTCCACGGACTGATTGCATATCGTACAAAAATTTCTGTAACACA'
-    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
-    longest_repeats_flanked_path = tmp_dir + '/test.fa'
-    contigs = {}
-    contigs[name] = seq
-    store_fasta(contigs, longest_repeats_flanked_path)
-    flanking_len = 50
-    threads = 1
+    #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
     plant = 1
+    TE_type = 'TIR'
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/helitron_test'
+    #raw_input = tmp_dir + '/tir.repbase.ref'
+    output = tmp_dir + '/real_tirs.fa'
+    # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
+    # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
+    # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
+    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
+    #reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7/all.chrs.con'
+    reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.cut0.fa'
+    #reference = '/home/hukang/HiTE/demo/test/genome.cut0.fa'
+    temp_dir = tmp_dir + '/copies'
+    threads = 40
+    # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
+    #                     TE_type)
+
+    # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
+    #raw_input = tmp_dir + '/fake_helitron.fa'
+    raw_input = tmp_dir + '/test.fa'
+    #raw_input = tmp_dir + '/helitron.repbase.ref'
+    #raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
+    flanking_len = 50
+    similar_ratio = 0.2
+    TE_type = 'helitron'
     ref_index = 0
-    reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
-    TRsearch_dir = '/home/hukang/HiTE/tools'
-    tir_tsd_path = tmp_dir + '/tir_tsd_' + str(ref_index) + '.fa'
-    tir_tsd_dir = tmp_dir + '/tir_tsd_temp_' + str(ref_index)
-    multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir,
-                      plant, reference)
+    log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
+    debug = 1
+    output = tmp_dir + '/real_helitron_'+str(ref_index)+'.fa'
+    #output = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r1.fa'
+    #output1 = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
+    # result_type = 'cons'
+    # flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, result_type)
+
+    # confident_helitron_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/candidate_helitron_0.cons.fa'
+    # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
+
+    # # 我准备用HelitronScanner来判断Repbase中的Helitron
+    # # 1. 先将序列获取拷贝，并扩展50bp
+    # # 2. 用HelitronScanner运行拷贝文件，至少有两个以上的拷贝需要具有Helitron结构
+    # #raw_input = tmp_dir + '/helitron.repbase.ref'
+    # raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
+    # result_type = 'cons'
+    # # flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads,
+    # #                       ref_index, log, member_script_path, subset_script_path, plant, debug, result_type)
+    # HSDIR = '/home/hukang/repeat_detect_tools/TrainingSet'
+    # HSJAR = '/home/hukang/repeat_detect_tools/HelitronScanner/HelitronScanner.jar'
+    # sh_dir = '/home/hukang/HiTE/module'
+    # temp_dir = tmp_dir + '/' + TE_type + '_copies_' + str(ref_index)
+    #
+    # HS_temp_dir = tmp_dir + '/HS_temp'
+    # os.system('rm -rf ' + HS_temp_dir)
+    # if not os.path.exists(HS_temp_dir):
+    #     os.makedirs(HS_temp_dir)
+    #
+    # jobs = {}
+    # job_id = 0
+    # candidate_count = 0
+    # for name in os.listdir(temp_dir):
+    #     if name.endswith('.blast.bed.fa'):
+    #         copy_file = temp_dir + '/' + name
+    #         prefix = name.split('.fa.blast.bed.fa')[0]
+    #         jobs[job_id] = (copy_file, prefix)
+    #         job_id += 1
+    #
+    # ex = ProcessPoolExecutor(threads)
+    # objs = []
+    # for job_id in jobs.keys():
+    #     job = jobs[job_id]
+    #     obj = ex.submit(run_HelitronScanner_v1, sh_dir, HS_temp_dir, job[0], HSDIR, HSJAR, job[1])
+    #     objs.append(obj)
+    # ex.shutdown(wait=True)
+    #
+    # confident_helitron_names = []
+    # for obj in as_completed(objs):
+    #     cur_candidate_Helitrons, prefix = obj.result()
+    #     if len(cur_candidate_Helitrons) <= 1:
+    #         continue
+    #     cur_candidate_file = temp_dir + '/' + prefix + '.HS.fa'
+    #     store_fasta(cur_candidate_Helitrons, cur_candidate_file)
+    #     confident_helitron_names.append(prefix)
+    #
+    # raw_helitron_names, raw_helitron_contigs = read_fasta(raw_input)
+    # confident_helitron_contigs = {}
+    # for name in confident_helitron_names:
+    #     seq = raw_helitron_contigs[name]
+    #     confident_helitron_contigs[name] = seq
+    #
+    # confident_helitron_path = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
+    # store_fasta(confident_helitron_contigs, confident_helitron_path)
+
+    # #基于至少有两个拷贝满足Helitron条件之上，我们再用我们同源过滤方法测一遍
+    # raw_input = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
+    # output = tmp_dir + '/confident_helitron_' + str(ref_index) + '.filter.fa'
+    # result_type = 'cons'
+    # flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, result_type)
+
+
+
+    # output1 = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
+    # result_type = 'cons'
+    # flank_region_align_v3(output, output1, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads,
+    #                       ref_index, log, member_script_path, subset_script_path, plant, debug, result_type)
+    #
+    # rename_fasta(output, output1, 'Helitron')
+
+    # log = Logger(tmp_dir + '/HiTE.log', level='debug')
+    # raw_input = tmp_dir + '/test.fa'
+    # ref_index = 0
+    # confident_ltr_cut_path = tmp_dir + '/confident_ltr_cut.fa'
+    # debug = 1
+    # TRsearch_dir = '/home/hukang/HiTE/tools'
+    # is_transposons(raw_input, reference, threads, tmp_dir, ref_index, confident_ltr_cut_path, log,
+    #                member_script_path, subset_script_path, plant, debug, TRsearch_dir)
+
+
+
+    # #读取novel TIR的拷贝数列，统计拷贝数分布
+    # # 读取 Excel 表格
+    # df = pd.read_excel('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.xlsx', engine='openpyxl')
+    #
+    # # 统计 "terminal type" 列中每个不同值的数量
+    # counts = df['terminal type'].value_counts()
+    #
+    # # 输出 "novel_terminal" 和 "known_terminal" 的数量
+    # print('novel_terminal:', counts['novel_terminal'])
+    # print('known_terminal:', counts['known_terminal'])
+
+    # 使用列名访问数据
+    #column_data = df['copy num']
+
+    # column_data.to_csv('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv', index=False)
+    #
+    # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
+
+    # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
+    # analyze_new_TIRs()
+
+
+
+
+    # # 使用RepeatMasker, 去掉那些比对到LTR上的序列
+    # subject_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/confident_ltr_cut.fa'
+    # #query_path = tmp_dir + '/fake_tir.fa'
+    # query_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/confident_tir.fa'
+    # out_path = query_path + '.out'
+    # align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path
+    # os.system(align_command)
+    # #分析out文件，去除那些LTR能够完全比对上的序列
+    # delete_tir_names = set()
+    # query_names, query_contigs = read_fasta(query_path)
+    # subject_names, subject_contigs = read_fasta(subject_path)
+    # with open(out_path, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         parts = []
+    #         for p in line.split(' '):
+    #             if p.strip() != '':
+    #                 parts.append(p)
+    #         print(parts)
+    #         if len(parts) >= 15:
+    #             direct = parts[8]
+    #             query_name = parts[4]
+    #             subject_name = parts[9]
+    #             if direct == '+':
+    #                 subject_start = int(parts[11])
+    #                 subject_end = int(parts[12])
+    #                 subject_len = subject_end-subject_start+1
+    #                 #print(subject_len)
+    #             else:
+    #                 subject_start = int(parts[13])
+    #                 subject_end = int(parts[12])
+    #                 subject_len = subject_end - subject_start + 1
+    #                 #print(subject_len)
+    #             total_subject_len = len(subject_contigs[subject_name])
+    #             if float(subject_len)/total_subject_len >= 0.8:
+    #                 delete_tir_names.add(query_name)
+    # f_r.close()
+    # print(delete_tir_names)
+    # print(len(delete_tir_names))
+    # remain_names = set(query_names).difference(delete_tir_names)
+    # print(remain_names)
+    # print(len(remain_names))
+    # #删除掉假阳性 query
+    # for tir_name in delete_tir_names:
+    #     del query_contigs[tir_name]
+    # store_fasta(query_contigs, query_path)
+
+    # # 生成一致性序列
+    # query_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/confident_tir.fa'
+    # repeats_cons = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/confident_tir.cons.fa'
+    # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + query_path + ' -o ' + repeats_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+
+
+    # for query_name in all_copies.keys():
+    #     copies = all_copies[query_name]
+    #     for copy in copies:
+    #         subject_name = copy[0]
+    #         if subject_contigs.__contains__(subject_name):
+    #             delete_names.append(subject_name)
+    #             del subject_contigs[subject_name]
+    #         # subject_len = len(subject_contigs[subject_name])
+    #         # alignment_len = copy[2] - copy[1] + 1
+    #         # # 这是一条LTR序列，应该被过滤掉
+    #         # if float(alignment_len) / subject_len >= 0.95:
+    #         #     del query_contigs[query_name]
+    #         #     break
+    # new_confident_tir_path = confident_tir_path + '.remove_ltr'
+    # store_fasta(subject_contigs, new_confident_tir_path)
+    # return new_confident_tir_path
+
+
+    # seq1 = 'ATTTG'
+    # seq2 = 'ATTTG'
+    # edit_distance = Levenshtein.distance(seq1, seq2)
+    # print(edit_distance)
+
+    # # 用itrsearch过滤掉不存在TIR的假阳性
+    # TRsearch_dir = '/home/hukang/HiTE/tools/'
+    # run_itrsearch(TRsearch_dir, output, tmp_dir)
+    # tir_repbase_path = output + '.itr'
+
+    # confident_tir_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/confident_tir.fa'
+    # rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
+
+    # #查看repbase中的TIR有多少条前5bp和后5bp不一致的
+    # names, contigs = read_fasta(raw_input)
+    # log_file = '/home/hukang/test.log'
+    # str = ''
+    # count = 0
+    # with open(log_file, 'r') as f_r:
+    #     for line in f_r:
+    #         if line.__contains__('.maf.fa False'):
+    #             file_path = line.split(' ')[0]
+    #             names,contigs = read_fasta(file_path)
+    #             if len(names) >= 5:
+    #                 print(file_path)
+    #                 count += 1
+    # print(count)
+
+    # for name in names:
+    #     if not str.__contains__(name+'.fa.maf.fa True') and not str.__contains__(name+'.fa.maf.fa False') and not str.__contains__('not found boundary:/homeb/hukang/KmerRepFinder_test/library/tir_test/tir_copies_0/'+name+'.fa.maf.fa'):
+    #         print(name)
+
+
+    # allow_mismatch_num = 1
+    # ns_names = []
+    # for name in names:
+    #     seq = contigs[name]
+    #     first_5bps = seq[0:5]
+    #     end_5bps = seq[-5:]
+    #     if not allow_mismatch(getReverseSequence(first_5bps), end_5bps, allow_mismatch_num):
+    #         ns_names.append(name)
+    # print(ns_names)
+    # print(len(ns_names))
+
+    # # N_21506序列的TE边界没找准，调试代码看为什么
+    # name = 'N_21506-len_261-ref_chr12-1283774-1284035'
+    # seq = 'AAATTCCAAGCTTTTCCATCTAACATCTCCCTCATTAGACCAGAAACATGCTTGCTTGCAAGCTACTCCCTCCGTATTTTAATATATGACGCCGTTGACTTTTTGACAAACGTTTAACCTTTTGTTTTATTCAAAAAATTTATGTAATTATATTTTATTTTATTGTAACTTGATTTATCATCAAATGTTTTTTAAGCATGACATAAGTATTTTTATATTTACATAAAATTTTTGAATAAGACGAGTGGTCAAACGTTGATTAAAAAGTCAACGGCGTCATACATTAAAATACGGAGGGAGTACCTGACAATGCAACCGTCCACGGACTGATTGCATATCGTACAAAAATTTCTGTAACACA'
+    # tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
+    # longest_repeats_flanked_path = tmp_dir + '/test.fa'
+    # contigs = {}
+    # contigs[name] = seq
+    # store_fasta(contigs, longest_repeats_flanked_path)
+    # flanking_len = 50
+    # threads = 1
+    # plant = 1
+    # ref_index = 0
+    # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
+    # TRsearch_dir = '/home/hukang/HiTE/tools'
+    # tir_tsd_path = tmp_dir + '/tir_tsd_' + str(ref_index) + '.fa'
+    # tir_tsd_dir = tmp_dir + '/tir_tsd_temp_' + str(ref_index)
+    # multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir,
+    #                   plant, reference)
 
     # #目前已经能够包含绝大多数的真实TIR，接下来我们需要过滤掉绝大多数的假阳性
     # #我们将confident_tir_0.fa评测RM2结果，大致知道哪些是假阳性的；然后将其用我们的过滤方法，看能否过滤掉这些假阳性
     # #1.收集假阳性序列
-    # raw_tir_path = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/confident_tir_0.fa'
-    # file_path = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/rice/rm2_test/file_final.0.1.txt'
+    # raw_tir_path = '/homeb/hukang/KmerRepFinder_test/library/helitron_test/confident_helitron_0.fa'
+    # file_path = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_test/file_final.0.1.txt'
     # real_tir_names = set()
-    # total_names = set()
+    #
+    # #统计那些完全没有在金标准中出现的序列
     # with open(file_path, 'r') as f_r:
     #     for line in f_r:
     #         parts = line.split('\t')
     #         query_name = parts[4]
-    #         c1 = float(parts[3])
-    #         c2 = float(parts[6])
-    #         if c1 >= 0.95 and c2 >= 0.95:
-    #             real_tir_names.add(query_name)
-    #         total_names.add(query_name)
+    #         # c1 = float(parts[3])
+    #         # c2 = float(parts[6])
+    #         # if c1 >= 0.95 and c2 >= 0.95:
+    #         #     real_tir_names.add(query_name)
+    #         real_tir_names.add(query_name)
+    #         #total_names.add(query_name)
+    # raw_names, raw_contigs = read_fasta(raw_tir_path)
+    # total_names = set(raw_names)
     # fake_tir_names = total_names.difference(real_tir_names)
     # print(fake_tir_names)
     # print(len(fake_tir_names))
-    # raw_names, raw_contigs = read_fasta(raw_tir_path)
-    # fake_tir_path = tmp_dir + '/fake_tir.fa'
+    #
+    # fake_tir_path = tmp_dir + '/fake_helitron.fa'
     # fake_tirs = {}
     # for name in fake_tir_names:
     #     seq = raw_contigs[name]
@@ -2920,3 +3340,43 @@ if __name__ == '__main__':
     #         if ram_usage > max_ram_usage:
     #             max_ram_usage = ram_usage
     # print(max_ram_usage)
+
+    # fixed_extend_base_threshold = 1000
+    # max_single_repeat_len = 3000000000
+    output_dir = '/home/hukang/HiTE/demo/test'
+    # repeats_path = (output_dir+'/genome.cut0.fa', output_dir+'/genome.cut0.fa', output_dir+'/genome.cut0.fa', '')
+    # get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len)
+
+    # longest_repeats_path = output_dir + '/longest_repeats_0.filter_tandem.fa'
+    # longest_repeats_flanked_path = output_dir + '/longest_repeats_0.flanked.fa'
+    # candidate_helitron_path = output_dir + '/candidate_helitron_0.fa'
+    # sh_dir = '/home/hukang/HiTE/module'
+    # HS_temp_dir = output_dir + '/HS_temp'
+    # HSDIR = '/home/hukang/repeat_detect_tools/TrainingSet'
+    # HSJAR = '/home/hukang/repeat_detect_tools/HelitronScanner/HelitronScanner.jar'
+    # multi_process_helitronscanner(longest_repeats_flanked_path, candidate_helitron_path, sh_dir, HS_temp_dir, HSDIR, HSJAR, threads)
+
+    library_dir = '/home/hukang/HiTE/library'
+    non_LTR_lib = library_dir + '/non_LTR.lib'
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/non_ltr_test'
+
+    confident_non_ltr = tmp_dir + '/confident_other.fa'
+    confident_non_ltr_contigs = {}
+
+    contignames, contigs = read_fasta(non_LTR_lib)
+
+    output_dir = tmp_dir
+    flanking_len = 0
+    copy_files = get_seq_families(non_LTR_lib, reference, member_script_path, subset_script_path, flanking_len,
+                     output_dir, threads)
+    print(copy_files[0:10])
+    #copy_files = [('SINE6_OS', tmp_dir+'/copies/SINE6_OS.fa.blast.bed.fa')]
+    for copy_file in copy_files:
+        name = copy_file[0]
+        member_names, member_contigs = read_fasta(copy_file[1])
+        member_items = member_contigs.items()
+        member_items = sorted(member_items, key=lambda x: len(x[1]), reverse=True)
+        if len(member_items) > 0:
+            seq = member_items[0][1]
+            confident_non_ltr_contigs[name] = seq
+    store_fasta(confident_non_ltr_contigs, confident_non_ltr)

@@ -9,7 +9,8 @@ import json
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, getReverseSequence, read_fasta_v2, get_copies, flanking_copies, \
-    multi_process_align, multi_process_align_and_get_copies, flanking_copies_v2, rename_fasta, Logger, file_exist
+    multi_process_align, multi_process_align_and_get_copies, flanking_copies_v2, rename_fasta, Logger, file_exist, \
+    get_seq_families
 
 
 def getPolyASeq(output, longest_repeats_path):
@@ -81,16 +82,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run HiTE...')
     parser.add_argument('-g', metavar='Genome assembly',
                         help='input genome assembly path')
-    parser.add_argument('--seqs', metavar='seqs',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/longest_repeats_0.flanked.fa')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
+    parser.add_argument('--member_script_path', metavar='member_script_path',
+                        help='e.g., /home/hukang/HiTE/tools/make_fasta_from_blast.sh')
+    parser.add_argument('--subset_script_path', metavar='subset_script_path',
+                        help='e.g., /home/hukang/HiTE/tools/ready_for_MSA.sh')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/dmel')
-    parser.add_argument('--query_coverage', metavar='query_coverage',
-                        help='e.g., 0.95')
-    parser.add_argument('--subject_coverage', metavar='subject_coverage',
-                        help='e.g., 0.95')
     parser.add_argument('--ref_index', metavar='ref_index',
                         help='e.g., 0')
     parser.add_argument('--library_dir', metavar='library_dir',
@@ -100,15 +99,17 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    longest_repeats_flanked_path = args.seqs
     reference = args.g
     threads = int(args.t)
+    member_script_path = args.member_script_path
+    subset_script_path = args.subset_script_path
     tmp_output_dir = args.tmp_output_dir
-    query_coverage = float(args.query_coverage)
-    subject_coverage = float(args.subject_coverage)
     ref_index = args.ref_index
     library_dir = args.library_dir
     recover = args.recover
+
+    #将软链接路径转换绝对路径
+    reference = os.path.realpath(reference)
 
     is_recover = False
     recover = int(recover)
@@ -119,46 +120,40 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
+    # 一些思路：
+    # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。
+    # 想要根据结构特征去识别有困难，我们根据同源性搜索的方法去识别。
+    # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
+
     confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
     resut_file = confident_other_path
     if not is_recover or not file_exist(resut_file):
-        # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。
-        # 想要根据结构特征去识别有困难，我们根据同源性搜索的方法去识别。
-
-        # LINE （1000-7000bp），通常以poly(A)结尾和 SINE(100-600bp)，generate TSDs (5–15 bp)，通常以poly(T)结尾，发现也有polyA结尾。我们还需要考虑反向互补序列。
         non_LTR_lib = library_dir + '/non_LTR.lib'
-
         other_TE_dir = tmp_output_dir + '/other_TE_' + str(ref_index)
         os.system('rm -rf ' + other_TE_dir)
         if not os.path.exists(other_TE_dir):
             os.makedirs(other_TE_dir)
 
-        # blastnResults_path = tmp_output_dir + '/non_LTR.lib.out'
-        # multi_process_align(longest_repeats_path, other_TE_lib, blastnResults_path, blast_program_dir, other_TE_dir, threads)
-        # all_copies = get_copies(blastnResults_path, longest_repeats_path, other_TE_lib,
-        #                         query_coverage=0.9, subject_coverage=0.9, threads=threads)
 
+        confident_non_ltr_contigs = {}
+        contignames, contigs = read_fasta(non_LTR_lib)
 
-        all_copies = multi_process_align_and_get_copies(non_LTR_lib, longest_repeats_flanked_path, other_TE_dir, 'other', threads, query_coverage=query_coverage, subject_coverage=subject_coverage)
-
+        # 1.将库比对到参考上，获取其拷贝
         flanking_len = 0
-        all_copies = flanking_copies_v2(all_copies, non_LTR_lib, longest_repeats_flanked_path, flanking_len, copy_num=1)
+        copy_files = get_seq_families(non_LTR_lib, reference, member_script_path, subset_script_path, flanking_len,
+                                      tmp_output_dir, threads)
 
-        confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
-        confident_other_contigs = {}
-        for query_name in all_copies.keys():
-            copies = all_copies[query_name]
-            if len(copies) >= 1:
-                seq = copies[0][4]
-                confident_other_contigs[query_name] = seq
-        store_fasta(confident_other_contigs, confident_other_path)
+        # 2.取最长拷贝当做发现的non-LTR元素
+        for copy_file in copy_files:
+            name = copy_file[0]
+            member_names, member_contigs = read_fasta(copy_file[1])
+            member_items = member_contigs.items()
+            member_items = sorted(member_items, key=lambda x: len(x[1]), reverse=True)
+            if len(member_items) > 0:
+                seq = member_items[0][1]
+                confident_non_ltr_contigs[name] = seq
+        store_fasta(confident_non_ltr_contigs, confident_other_path)
         rename_fasta(confident_other_path, confident_other_path, 'Other')
-
-        # for test
-        confident_other_rename_consensus = tmp_output_dir + '/confident_other_' + str(ref_index) + '.rename.cons.fa'
-        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + confident_other_path + ' -o ' + confident_other_rename_consensus + ' -T 0 -M 0'
-        os.system(cd_hit_command)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 

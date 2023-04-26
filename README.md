@@ -144,24 +144,28 @@ to validate all configurations.
 ## <a name="start"></a>Quick start
 ```
 cd /your_path_to/HiTE
-python main.py --genome ../demo/genome.fa --thread 48 --outdir ../demo/test --plant 0
+python main.py --genome ../demo/genome.fa --thread 48 --outdir ../demo/test
 ```
 
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
 ```text
 demo/test/
-├── confident_helitron_0.fa (7.9 KB)
-├── confident_other_0.fa (0 KB)
-├── confident_TE.cons.fa (110 KB)
-├── confident_TE.cons.fa.classified (112 KB)
-├── confident_tir_0.fa (61 KB)
-├── confident_ltr_cut.fa (47 KB)
-├── genome_all.fa.harvest.scn (11 KB)
-├── genome.rename.fa.finder.combine.scn (1.3 KB)
-├── genome.rename.fa.LTRlib.fa (48 KB)
-├── genome.rename.fa (16 MB)
-├── longest_repeats_0.fa (1.2 MB)
-└── longest_repeats_0.flanked.fa (1.5 MB)
+├── confident_helitron.fa
+├── confident_other.fa
+├── confident_TE.cons.fa
+├── confident_TE.cons.fa.classified
+├── confident_tir.fa
+├── confident_ltr_cut.fa
+├── genome_0.fa.harvest.scn
+├── genome_all.fa.harvest.scn
+├── genome_all.fa.rawLTR.scn
+├── genome.rename.fa
+├── genome.rename.fa.finder.combine.scn
+├── genome.rename.fa.LTRlib.fa
+├── genome.rename.fa.pass.list
+├── genome.rename.fa.retriever.all.scn
+├── longest_repeats_0.fa
+└── longest_repeats_0.flanked.fa
 ```
 
 Note:
@@ -247,15 +251,14 @@ Most frequently used commands:
 python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --chunk_size 400 --plant 0 --recover 1
 
 usage: main.py [-h] [--genome genome] [--thread thread_num]
-               [--chunk_size chunk_size] [--plant is_plant]
-               [--remove_nested is_remove_nested] [--classified is_classified]
-               [--recover is_recover] [--debug is_debug] [--outdir output_dir]
-               [--flanking_len flanking_len]
+               [--chunk_size chunk_size] [--miu miu] [--plant is_plant]
+               [--classified is_classified] [--remove_nested is_remove_nested]
+               [--domain is_domain] [--recover is_recover] [--debug is_debug]
+               [--outdir output_dir] [--flanking_len flanking_len]
                [--fixed_extend_base_threshold fixed_extend_base_threshold]
                [--tandem_region_cutoff tandem_region_cutoff]
                [--max_repeat_len max_repeat_len]
                [--chrom_seg_length chrom_seg_length]
-               [--global_flanking_filter global_flanking_filter]
 
 ########################## HiTE, version 2.0.3 ##########################
 
@@ -265,15 +268,20 @@ optional arguments:
   --thread thread_num   Input thread num, default = [ 40 ]
   --chunk_size chunk_size
                         The chunk size of large genome, default = [ 400 MB ]
+  --miu miu             The neutral mutation rate (per bp per ya), default = [
+                        1.3e-08 MB ]
   --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1
                         ]
-  --remove_nested is_remove_nested
-                        Whether to unwrap the nested TE, 1: true, 0: false.
-                        default = [ 1 ]
   --classified is_classified
                         Whether to classify TE models, HiTE uses
                         RepeatClassifier from RepeatModeler to classify TEs,
                         1: true, 0: false. default = [ 1 ]
+  --remove_nested is_remove_nested
+                        Whether to remove nested TE, 1: true, 0: false.
+                        default = [ 1 ]
+  --domain is_domain    Whether to obtain TE domains, HiTE uses RepeatPeps.lib
+                        from RepeatMasker to obtain TE domains, 1: true, 0:
+                        false. default = [ 0 ]
   --recover is_recover  Whether to enable recovery mode to avoid starting from
                         the beginning, 1: true, 0: false. default = [ 0 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1:
@@ -292,15 +300,9 @@ optional arguments:
                         default = [ 0.5 ]
   --max_repeat_len max_repeat_len
                         The maximum length of a single repeat, default = [
-                        30000 ]
+                        300000000 ]
   --chrom_seg_length chrom_seg_length
                         The length of genome segments, default = [ 500000 ]
-  --global_flanking_filter global_flanking_filter
-                        Whether to filter false positives by global flanking
-                        alignment, significantly reduce false positives but
-                        require more memory, especially when inputting a large
-                        genome. 1: true (require more memory), 0: false.
-                        default = [ 1 ]
 ```
 
 ## <a name="QA"></a>More tutorials

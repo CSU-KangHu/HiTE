@@ -34,6 +34,8 @@ if __name__ == '__main__':
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
     parser.add_argument('--recover', metavar='recover',
                         help='e.g., 0')
+    parser.add_argument('--debug', metavar='recover',
+                        help='e.g., 0')
 
 
     args = parser.parse_args()
@@ -47,6 +49,12 @@ if __name__ == '__main__':
     reference = args.r
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
+    debug = args.debug
+
+    if debug is None:
+        debug = 0
+    else:
+        debug = int(debug)
 
     is_recover = False
     recover = int(recover)
@@ -65,7 +73,7 @@ if __name__ == '__main__':
     if not is_recover or not file_exist(resut_file):
         # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
         determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
-                                     tmp_output_dir, thread, ref_index, log)
+                                     tmp_output_dir, thread, ref_index, debug)
         trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
         (repeat_dir, repeat_filename) = os.path.split(longest_repeats_path)
         (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)

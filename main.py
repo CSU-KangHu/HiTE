@@ -30,7 +30,7 @@ if __name__ == '__main__':
     default_fixed_extend_base_threshold = 1000
     default_chunk_size = 400
     default_tandem_region_cutoff = 0.5
-    default_max_single_repeat_len = 30000
+    default_max_single_repeat_len = 300000000
     default_plant = 1
     default_recover = 0
     default_flanking_len = 50
@@ -211,6 +211,11 @@ if __name__ == '__main__':
 
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
     EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
+    HSDIR = os.getcwd() + '/bin/HelitronScanner/TrainingSet'
+    HSJAR = os.getcwd() + '/bin/HelitronScanner/HelitronScanner.jar'
+    member_script_path = tools_dir + '/make_fasta_from_blast.sh'
+    subset_script_path = tools_dir + '/ready_for_MSA.sh'
+    sh_dir = os.getcwd() + '/module'
     protein_lib_path = os.getcwd() + '/library/RepeatPeps.lib'
 
     if blast_program_dir == '':
@@ -261,7 +266,6 @@ if __name__ == '__main__':
                     '  [Setting] Fixed extend bases threshold = [ ' + str(fixed_extend_base_threshold) + ' ] Default( ' + str(default_fixed_extend_base_threshold) + ' )\n'
                     '  [Setting] Flanking length of TE = [ ' + str(flanking_len) + ' ]  Default( ' + str(default_flanking_len) + ' )\n'
                     '  [Setting] Cutoff of the repeat regarded as tandem sequence = [ ' + str(tandem_region_cutoff) + ' ] Default( ' + str(default_tandem_region_cutoff) + ' )\n'
-                    '  [Setting] Maximum length of TE = [ ' + str(max_repeat_len) + ' ]  Default( ' + str(default_max_single_repeat_len) + ' )\n'
                     '  [Setting] The length of genome segments = [ ' + str(chrom_seg_length) + ' ]  Default( ' + str(default_chrom_seg_length) + ' )\n'
                                                                                                                                                  
                     '  [Setting] Blast Program Home = [' + str(blast_program_dir) + ']\n'
@@ -330,7 +334,7 @@ if __name__ == '__main__':
                                    + ' --flanking_len ' + str(flanking_len) \
                                    + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                    + ' --ref_index ' + str(ref_index) \
-                                   + ' -r ' + reference + ' --recover ' + str(recover)
+                                   + ' -r ' + reference + ' --recover ' + str(recover) + ' --debug ' + str(debug)
             os.system(coarse_boundary_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -351,7 +355,10 @@ if __name__ == '__main__':
                                          + ' --tmp_output_dir ' + tmp_output_dir \
                                          + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                          + ' --ref_index ' + str(ref_index) \
-                                         + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover)
+                                         + ' --member_script_path ' + str(member_script_path) \
+                                         + ' --subset_script_path ' + str(subset_script_path) \
+                                         + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover) \
+                                         + ' --debug ' + str(debug)
             log.logger.debug(tir_identification_command)
             os.system(tir_identification_command)
             endtime = time.time()
@@ -367,16 +374,12 @@ if __name__ == '__main__':
             # 识别Helitron转座子
             helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                               + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
-                                              + ' --tmp_output_dir ' + tmp_output_dir + ' --EAHelitron ' + EAHelitron \
-                                              + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover)
+                                              + ' --tmp_output_dir ' + tmp_output_dir + ' --HSDIR ' + HSDIR + ' --HSJAR ' + HSJAR \
+                                              + ' --sh_dir ' + sh_dir + ' --member_script_path ' + member_script_path \
+                                              + ' --subset_script_path ' + subset_script_path \
+                                              + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
+                                              + ' --recover ' + str(recover) + ' --debug ' + str(debug)
 
-            # HSDIR = '/public/home/hpc194701009/repeat_detect_tools/TrainingSet'
-            # HSJAR = '/public/home/hpc194701009/repeat_detect_tools/HelitronScanner/HelitronScanner.jar'
-            # helitron_identification_command = 'cd ' + test_home + ' && python ' + test_home + '/judge_Helitron_transposons.py --copies ' \
-            #                              + longest_repeats_copies_file + ' -g ' + cut_reference + ' -t ' + str(threads)+' --HSDIR ' + HSDIR \
-            #                              + ' --HSJAR ' + HSJAR + ' --tmp_output_dir ' + tmp_output_dir \
-            #                              + ' --blast_program_dir ' + blast_program_dir \
-            #                              + ' --ref_index ' + str(ref_index)
             os.system(helitron_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -391,10 +394,10 @@ if __name__ == '__main__':
             log.logger.info('Start step2.4: homology-based other TE searching')
             #同源搜索其他转座子
             other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
-                                           + ' --seqs ' + longest_repeats_flanked_path\
-                                           + ' -t ' + str(threads) \
-                                           + ' --tmp_output_dir ' + tmp_output_dir + ' --query_coverage ' + str(0.8) \
-                                           + ' --subject_coverage ' + str(0) + ' --ref_index ' + str(ref_index) \
+                                           + ' -g ' + cut_reference \
+                                           + ' -t ' + str(threads) + ' --member_script_path ' + member_script_path \
+                                           + ' --subset_script_path ' + subset_script_path \
+                                           + ' --tmp_output_dir ' + tmp_output_dir + ' --ref_index ' + str(ref_index) \
                                            + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
             os.system(other_identification_command)
             endtime = time.time()

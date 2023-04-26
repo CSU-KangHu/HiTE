@@ -13,7 +13,11 @@ dependencies:
   - repeatmodeler=2.0.1
   - bedtools=2.30.0
   - cd-hit=4.8.1
-  - emboss
+#  - emboss
   - cialign
   - samtools
+  - python-levenshtein
+  - pip
+  - pip:
+    - fuzzysearch
 
