@@ -203,6 +203,7 @@ process TIR {
     input:
     tuple path(cut_ref), path(lrf)
     path ltrs
+    path ref
 
     output:
     path "confident_tir_*.fa"
@@ -221,7 +222,7 @@ process TIR {
     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
     --ref_index ${ref_index} --member_script_path ${member_script_path} \
     --subset_script_path ${subset_script_path} \
-    --plant ${plant} --recover ${recover} --debug ${debug}
+    --plant ${plant} --recover ${recover} --debug ${debug} -r ${ref}
 
     cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
     """
@@ -235,7 +236,7 @@ process Helitron {
 
     input:
     tuple path(cut_ref), path(lrf)
-
+    path ref
 
     output:
     path "confident_helitron_*.fa"
@@ -247,7 +248,7 @@ process Helitron {
     script:
     """
     python3 ${ch_module}/judge_Helitron_transposons.py \
-    -g ${cut_ref} --seqs ${lrf} \
+    -r ${ref} --seqs ${lrf} \
     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
     --HSDIR ${HSDIR} --HSJAR ${HSJAR} --sh_dir ${sh_dir} \
     --member_script_path ${member_script_path} --subset_script_path ${subset_script_path} \
@@ -263,21 +264,21 @@ process OtherTE {
 
     input:
     tuple path(cut_ref), path(lrf)
-
+    path ref
 
     output:
-    path "confident_other_*.fa"
+    path "confident_other.fa"
 
     script:
     cores = task.cpus
     (full, lrf_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
     """
     python3 ${ch_module}/judge_Other_transposons.py \
-     -g ${cut_ref} --member_script_path ${member_script_path} --subset_script_path ${subset_script_path} \
+     -r ${ref} --member_script_path ${member_script_path} --subset_script_path ${subset_script_path} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --ref_index ${lrf_index} --library_dir ${lib_module} --recover ${recover}
+     --library_dir ${lib_module} --recover ${recover}
 
-    cp ${tmp_output_dir}/confident_other_${lrf_index}.fa ./
+    cp ${tmp_output_dir}/confident_other.fa ./
     """
 }
 
@@ -521,13 +522,13 @@ workflow {
             //test(merged_channel) | view { "$it" }
 
             //TIR identification
-            ch_tirs = TIR(merged_channel, ch_ltrs).collectFile(name: "${params.outdir}/confident_tir.fa")
+            ch_tirs = TIR(merged_channel, ch_ltrs, ch_g).collectFile(name: "${params.outdir}/confident_tir.fa")
 
             //Helitron identification
-            ch_h = Helitron(merged_channel).collectFile(name: "${params.outdir}/confident_helitron.fa")
+            ch_h = Helitron(merged_channel, ch_g).collectFile(name: "${params.outdir}/confident_helitron.fa")
 
             //Other identification
-            ch_o = OtherTE(merged_channel).collectFile(name: "${params.outdir}/confident_other.fa")
+            ch_o = OtherTE(merged_channel, ch_g).collectFile(name: "${params.outdir}/confident_other.fa")
             //test(ch_o) | view { "$it" }
 
             //Unwrap nested TE

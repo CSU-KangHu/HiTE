@@ -34,8 +34,6 @@ def cut_reference(fasta_path, line_len):
 if __name__ == '__main__':
     # 1.parse args
     parser = argparse.ArgumentParser(description='run HiTE...')
-    parser.add_argument('-g', metavar='Genome assembly',
-                        help='input genome assembly path')
     parser.add_argument('--seqs', metavar='seqs',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/longest_repeats_0.flanked.fa')
     parser.add_argument('-t', metavar='threads number',
@@ -60,10 +58,11 @@ if __name__ == '__main__':
                         help='e.g., 0')
     parser.add_argument('--debug', metavar='recover',
                         help='e.g., 1')
+    parser.add_argument('-r', metavar='Reference path',
+                        help='input Reference path')
 
     args = parser.parse_args()
 
-    reference = args.g
     longest_repeats_flanked_path = args.seqs
     threads = int(args.t)
     HSDIR = args.HSDIR
@@ -76,10 +75,11 @@ if __name__ == '__main__':
     flanking_len = int(args.flanking_len)
     recover = args.recover
     debug = args.debug
+    reference = args.r
 
     # 将软链接路径转换绝对路径
-    reference = os.path.realpath(reference)
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
+    reference = os.path.realpath(reference)
 
     if debug is None:
         debug = 0
@@ -134,51 +134,6 @@ if __name__ == '__main__':
             input_file = output_file
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.fa'
         rename_fasta(cur_confident_helitron_path, confident_helitron_path, 'Helitron')
-
-        # # 用HelitronScanner再次过滤出至少有两个拷贝具有Helitron结构的序列
-        # # 1. 先将序列获取拷贝，并扩展50bp
-        # # 2. 用HelitronScanner运行拷贝文件，至少有两个以上的拷贝需要具有Helitron结构
-        # temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
-        # HS_temp_dir = tmp_output_dir + '/HS_temp'
-        # os.system('rm -rf ' + HS_temp_dir)
-        # if not os.path.exists(HS_temp_dir):
-        #     os.makedirs(HS_temp_dir)
-        #
-        # jobs = {}
-        # job_id = 0
-        # candidate_count = 0
-        # for name in os.listdir(temp_dir):
-        #     if name.endswith('.blast.bed.fa'):
-        #         copy_file = temp_dir + '/' + name
-        #         prefix = name.split('.fa.blast.bed.fa')[0]
-        #         jobs[job_id] = (copy_file, prefix)
-        #         job_id += 1
-        #
-        # ex = ProcessPoolExecutor(threads)
-        # objs = []
-        # for job_id in jobs.keys():
-        #     job = jobs[job_id]
-        #     obj = ex.submit(run_HelitronScanner_v1, sh_dir, HS_temp_dir, job[0], HSDIR, HSJAR, job[1])
-        #     objs.append(obj)
-        # ex.shutdown(wait=True)
-        #
-        # confident_helitron_names = []
-        # for obj in as_completed(objs):
-        #     cur_candidate_Helitrons, prefix = obj.result()
-        #     if len(cur_candidate_Helitrons) <= 1:
-        #         continue
-        #     # cur_candidate_file = temp_dir + '/' + prefix + '.HS.fa'
-        #     # store_fasta(cur_candidate_Helitrons, cur_candidate_file)
-        #     confident_helitron_names.append(prefix)
-        #
-        # raw_helitron_names, raw_helitron_contigs = read_fasta(candidate_helitron_cons)
-        # confident_helitron_contigs = {}
-        # for name in confident_helitron_names:
-        #     seq = raw_helitron_contigs[name]
-        #     confident_helitron_contigs[name] = seq
-        # store_fasta(confident_helitron_contigs, confident_helitron_path)
-
-
     else:
         log.logger.info(resut_file + ' exists, skip...')
 

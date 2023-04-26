@@ -281,7 +281,7 @@ if __name__ == '__main__':
 
     pipeline_starttime = time.time()
 
-    log.logger.info('Start step1: Structural Based LTR Searching')
+    log.logger.info('Start step0: Structural Based LTR Searching')
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
     resut_file = confident_ltr_cut_path
     if not is_recover or not file_exist(resut_file):
@@ -292,6 +292,25 @@ if __name__ == '__main__':
                                      + ' --tmp_output_dir ' + tmp_output_dir \
                                      + ' --recover ' + str(recover) + ' --miu ' + str(miu)
         os.system(LTR_identification_command)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step0: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    confident_other_path = tmp_output_dir + '/confident_other.fa'
+    resut_file = confident_other_path
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        log.logger.info('Start step1: homology-based other TE searching')
+        # 同源搜索其他转座子
+        other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
+                                       + ' -r ' + reference \
+                                       + ' -t ' + str(threads) + ' --member_script_path ' + member_script_path \
+                                       + ' --subset_script_path ' + subset_script_path \
+                                       + ' --tmp_output_dir ' + tmp_output_dir  \
+                                       + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
+        os.system(other_identification_command)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of step1: %.8s s" % (dtime))
@@ -358,7 +377,7 @@ if __name__ == '__main__':
                                          + ' --member_script_path ' + str(member_script_path) \
                                          + ' --subset_script_path ' + str(subset_script_path) \
                                          + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover) \
-                                         + ' --debug ' + str(debug)
+                                         + ' --debug ' + str(debug) + ' -r ' + reference
             log.logger.debug(tir_identification_command)
             os.system(tir_identification_command)
             endtime = time.time()
@@ -373,7 +392,7 @@ if __name__ == '__main__':
             log.logger.info('Start step2.3: determine fine-grained Helitron')
             # 识别Helitron转座子
             helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
-                                              + longest_repeats_flanked_path + ' -g ' + cut_reference + ' -t ' + str(threads) \
+                                              + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
                                               + ' --tmp_output_dir ' + tmp_output_dir + ' --HSDIR ' + HSDIR + ' --HSJAR ' + HSJAR \
                                               + ' --sh_dir ' + sh_dir + ' --member_script_path ' + member_script_path \
                                               + ' --subset_script_path ' + subset_script_path \
@@ -388,63 +407,18 @@ if __name__ == '__main__':
             log.logger.info(resut_file + ' exists, skip...')
 
 
-        resut_file = tmp_output_dir + '/confident_other_'+str(ref_index)+'.fa'
-        if not is_recover or not file_exist(resut_file):
-            starttime = time.time()
-            log.logger.info('Start step2.4: homology-based other TE searching')
-            #同源搜索其他转座子
-            other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
-                                           + ' -g ' + cut_reference \
-                                           + ' -t ' + str(threads) + ' --member_script_path ' + member_script_path \
-                                           + ' --subset_script_path ' + subset_script_path \
-                                           + ' --tmp_output_dir ' + tmp_output_dir + ' --ref_index ' + str(ref_index) \
-                                           + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
-            os.system(other_identification_command)
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of step2.4: %.8s s" % (dtime))
-        else:
-            log.logger.info(resut_file + ' exists, skip...')
-
-
     # 过滤TIR候选序列中的LTR转座子（intact LTR or LTR terminals or LTR internals）
     # 1.1 合并所有parts的TIR序列
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
     confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
-    confident_other_path = tmp_output_dir + '/confident_other.fa'
     os.system('rm -f ' + confident_tir_path)
     os.system('rm -f ' + confident_helitron_path)
-    os.system('rm -f ' + confident_other_path)
     for ref_index, ref_rename_path in enumerate(cut_references):
         cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
-        cur_confident_other_path = tmp_output_dir + '/confident_other_' + str(ref_index) + '.fa'
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
         os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
-        os.system('cat ' + cur_confident_other_path + ' >> ' + confident_other_path)
 
-
-
-
-    # log.logger.info('Start step3: Remove nested TE')
-    # starttime = time.time()
-    # remove_nested_command = 'cd ' + test_home + ' && python3 ' + test_home + '/remove_nested.py ' \
-    #                              + ' -g ' + reference + ' --confident_ltr_cut ' + confident_ltr_cut_path \
-    #                              + ' --confident_tir ' + confident_tir_path \
-    #                              + ' --confident_helitron ' + confident_helitron_path \
-    #                              + ' --confident_other ' + confident_other_path \
-    #                              + ' -t ' + str(threads) \
-    #                              + ' --tmp_output_dir ' + tmp_output_dir \
-    #                              + ' --remove_nested ' + str(remove_nested) + ' --test_home ' + str(test_home)
-    #                              #+ ' --global_flanking_filter ' + str(global_flanking_filter)
-    #
-    #
-    # os.system(remove_nested_command)
-    # endtime = time.time()
-    # dtime = endtime - starttime
-    # log.logger.info("Running time of step3: %.8s s" % (dtime))
-
-    # confident_TE_path = tmp_output_dir + '/confident_TE.fa'
 
     starttime = time.time()
     log.logger.info('Start step3: generate non-redundant library')

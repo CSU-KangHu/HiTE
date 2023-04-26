@@ -242,9 +242,11 @@ if __name__ == '__main__':
                         help='e.g., 0')
     parser.add_argument('--debug', metavar='debug',
                         help='e.g., 0')
+    parser.add_argument('-r', metavar='Reference path',
+                        help='input Reference path')
 
     args = parser.parse_args()
-    reference = args.g
+    genome = args.g
     longest_repeats_flanked_path = args.seqs
     confident_ltr_cut_path = args.confident_ltr_cut_path
     threads = int(args.t)
@@ -258,11 +260,13 @@ if __name__ == '__main__':
     subset_script_path = args.subset_script_path
     recover = args.recover
     debug = args.debug
+    reference = args.r
 
     # 将软链接路径转换绝对路径
-    reference = os.path.realpath(reference)
+    genome = os.path.realpath(genome)
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
+    reference = os.path.realpath(reference)
 
     if debug is None:
         debug = 0
@@ -297,7 +301,7 @@ if __name__ == '__main__':
         starttime = time.time()
         tir_tsd_path = tmp_output_dir + '/tir_tsd_'+str(ref_index)+'.fa'
         tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
-        multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference)
+        multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, genome)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
