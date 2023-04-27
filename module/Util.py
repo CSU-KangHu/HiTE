@@ -4864,21 +4864,54 @@ def store_copies_seq(copies, copy_info_path):
                 f_save.write('>'+new_query_name + '\n' + copy[4] + '\n')
     f_save.close()
 
+def split_fasta(fasta_file, subfile_size, output_dir):
+    # Create the output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Read the input fasta file and iterate over the records
+    with open(fasta_file) as handle:
+        current_subfile_size = 0
+        current_subfile_index = 0
+        current_subfile_name = os.path.join(output_dir, f"subfile_{current_subfile_index}.fasta")
+        current_subfile = open(current_subfile_name, "w")
+
+        for line in handle:
+            if line.startswith(">") and current_subfile_size >= subfile_size:
+                # Close the current subfile and open a new one
+                current_subfile.close()
+                current_subfile_index += 1
+                current_subfile_name = os.path.join(output_dir, f"subfile_{current_subfile_index}.fasta")
+                current_subfile = open(current_subfile_name, "w")
+                current_subfile_size = 0
+
+            # Write the current line to the current subfile
+            current_subfile.write(line)
+            current_subfile_size += len(line)
+
+        # Close the last subfile
+        current_subfile.close()
+
 def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
     os.system('rm -rf '+tir_tsd_dir)
     if not os.path.exists(tir_tsd_dir):
         os.makedirs(tir_tsd_dir)
 
-    seq_names, seq_contigs = read_fasta(longest_repeats_flanked_path)
-
-    # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
-    segments_cluster = divided_array(list(seq_contigs.items()), threads)
+    # 应该直接将数据划分成更小的块，交给48个线程去计算，块更小了，那么内存溢出的问题应该也解决了
+    # 直接定义每个块的大小，然后确定要划分的块数
+    fasta_file = longest_repeats_flanked_path
+    subfile_size = 10000 #10K
+    output_dir = tir_tsd_dir
+    split_fasta(fasta_file, subfile_size, output_dir)
+    split_files = []
+    for split_file_name in os.listdir(output_dir):
+        split_file = output_dir + '/' + split_file_name
+        split_files.append(split_file)
 
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(search_confident_tir_batch, cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant)
+    for partition_index, split_file in enumerate(split_files):
+        obj = ex.submit(search_confident_tir_batch, split_file, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
@@ -5774,13 +5807,14 @@ def filter_large_gap_tirs(input, output):
     store_fasta(contigs, output)
 
 
-def search_confident_tir_batch(cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant):
+def search_confident_tir_batch(split_file, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant):
+    cur_contignames, cur_contigs = read_fasta(split_file)
+
     all_copies_itr_contigs = {}
     all_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '.fa'
     short_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '_s.fa'
-    for item in cur_segments:
-        query_name = item[0]
-        seq = item[1]
+    for query_name in cur_contignames:
+        seq = cur_contigs[query_name]
 
         #如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if seq.__contains__('NNNNNNNNNN'):
@@ -8403,10 +8437,10 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 # 滑动窗口的同源性高于阈值，找到边界
                 new_boundary_start = first_candidate_boundary
                 break
-        if new_boundary_start != pos and new_boundary_start != -1:
+        if new_boundary_start != cur_boundary and new_boundary_start != -1:
             if debug:
                 print('align start right non-homology, new boundary: ' + str(new_boundary_start))
-            cur_boundary = new_boundary_start
+        cur_boundary = new_boundary_start
 
         col_index = cur_boundary
         valid_col_count = 0
@@ -8492,7 +8526,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 # 滑动窗口的同源性高于阈值，找到边界
                 new_boundary_start = first_candidate_boundary
                 break
-        if new_boundary_start != pos and new_boundary_start != -1:
+        if new_boundary_start != cur_boundary and new_boundary_start != -1:
             if debug:
                 print('align start left homology, new boundary: ' + str(new_boundary_start))
             cur_boundary = new_boundary_start
@@ -8585,7 +8619,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 # 滑动窗口的同源性高于阈值，找到边界
                 new_boundary_end = first_candidate_boundary
                 break
-        if new_boundary_end != pos and new_boundary_end != -1:
+        if new_boundary_end != cur_boundary and new_boundary_end != -1:
             if debug:
                 print('align end right homology, new boundary: ' + str(new_boundary_end))
             cur_boundary = new_boundary_end
@@ -8674,10 +8708,10 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 # 滑动窗口的同源性高于阈值，找到边界
                 new_boundary_end = first_candidate_boundary
                 break
-        if new_boundary_end != pos and new_boundary_end != -1:
+        if new_boundary_end != cur_boundary and new_boundary_end != -1:
             if debug:
                 print('align end left non-homology, new boundary: ' + str(new_boundary_end))
-            cur_boundary = new_boundary_end
+        cur_boundary = new_boundary_end
 
         return cur_boundary
 
@@ -10921,6 +10955,8 @@ def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subse
         sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
         os.system(sub_command)
         member_file += '.rdmSubset.fa'
+    if not os.path.exists(member_file):
+        return None, None, ''
     align_file = cur_file + '.maf.fa'
     align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
     os.system(align_command)
@@ -10930,6 +10966,11 @@ def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subse
         is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
     elif TE_type == 'helitron':
         is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
+
+    # 删除中间文件
+    if not debug:
+        os.system('rm -f ' + cur_file + '*')
+
     if is_TE:
         return cur_names[0], cons_seq, info
     else:
