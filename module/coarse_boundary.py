@@ -68,23 +68,38 @@ if __name__ == '__main__':
 
     repeats_path = cut_reference
     longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
-    longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-    resut_file = longest_repeats_flanked_path
+    resut_file = longest_repeats_path
     if not is_recover or not file_exist(resut_file):
         # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
         determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
                                      tmp_output_dir, thread, ref_index, debug)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    # longest_repeats_cons = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.cons.fa'
+    # resut_file = longest_repeats_cons
+    # if not is_recover or not file_exist(resut_file):
+    #     # 减少一些冗余序列
+    #     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                      + ' -G 0 -g 1 -A 80 -i ' + longest_repeats_path + ' -o ' + longest_repeats_cons + ' -T 0 -M 0'
+    #     os.system(cd_hit_command)
+    # else:
+    #     log.logger.info(resut_file + ' exists, skip...')
+
+    repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
+    resut_file = repeats_path
+    if not is_recover or not file_exist(resut_file):
         trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
-        (repeat_dir, repeat_filename) = os.path.split(longest_repeats_path)
-        (repeat_name, repeat_extension) = os.path.splitext(repeat_filename)
-        repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
         multi_process_TRF(longest_repeats_path, repeats_path, trf_dir, tandem_region_cutoff,
                           threads=thread)
         os.system('rm -rf ' + trf_dir)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
-        longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
-        longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-        flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
+    longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
+    resut_file = longest_repeats_flanked_path
+    if not is_recover or not file_exist(resut_file):
+        flanking_seq(repeats_path, longest_repeats_flanked_path, reference, flanking_len)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 

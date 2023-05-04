@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--HSJAR', metavar='HSJAR',
                         help='e.g., /home/hukang/repeat_detect_tools/HelitronScanner/HelitronScanner.jar')
     parser.add_argument('--sh_dir', metavar='sh_dir',
-                        help='e.g., /home/hukang/HiTE/module')
+                        help='e.g., /home/hukang/HiTE/modcd ule')
     parser.add_argument('--member_script_path', metavar='member_script_path',
                         help='e.g., /home/hukang/HiTE/tools/make_fasta_from_blast.sh')
     parser.add_argument('--subset_script_path', metavar='subset_script_path',

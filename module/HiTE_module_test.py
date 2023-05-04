@@ -26,6 +26,7 @@ from pandas import ExcelWriter
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
+from collections import defaultdict
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -38,7 +39,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
-    flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta
+    flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, process_all_seqs
 
 
 def generate_repbases():
@@ -1383,6 +1384,7 @@ def draw_violin(dist_path, my_pal):
     medians = df.groupby(['Type'])['identity'].median().values
     print(medians)
 
+
 def draw_stripplot():
     fig, ax = plt.subplots()
     #设置风格
@@ -1396,11 +1398,13 @@ def draw_stripplot():
     案例2：
     根据x的类别进行分组统计
     """
-    sns.stripplot(x="process",y="Execution time (minutes)", data=tips, ax=ax, s=10)
+
+    sns.stripplot(x="process",y="Execution time (minutes)", data=tips, ax=ax, s=15, linewidth=1, palette=sns.hls_palette(8))
     ax.grid(True)
     plt.xticks(rotation=60)
     plt.tight_layout()
-    plt.savefig('/home/hukang/nextflow_runtime.png', format='png')
+    plt.show()
+    #plt.savefig('/home/hukang/nextflow_runtime.png', format='png')
 
 def darw_barplot(input):
     #sns.set(context="notebook", style='whitegrid', font_scale=1)
@@ -2136,7 +2140,7 @@ def change_LTR_insertion_time(orig_miu, miu):
 
 
 def analyze_new_TIRs(tmp_output_dir):
-    #new_tir_names = identify_new_TIR(tmp_output_dir)
+    new_tir_names = identify_new_TIR(tmp_output_dir)
     novel_tir_path = tmp_output_dir + '/novel_tir.fa'
     novel_tir_names, novel_tir_contigs = read_fasta(novel_tir_path)
     novel_tir_names.sort(key=lambda x: int(x.split('_')[1]))
@@ -2162,126 +2166,126 @@ def analyze_new_TIRs(tmp_output_dir):
                           ref_index, log, member_script_path, subset_script_path, plant, debug, 'cons')
     temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
 
-    # msa_dir = tmp_output_dir + '/msa'
-    # if not os.path.exists(msa_dir):
-    #     os.makedirs(msa_dir)
-    #
-    # # 获取novel TIR的蛋白质结构组成
-    # protein_path = '/home/hukang/HiTE/library/RepeatPeps.lib'
-    # output_table = novel_tir_path + '.domain'
-    # domain_temp_dir = tmp_output_dir + '/domain'
-    # get_domain_info(novel_tir_path, protein_path, output_table, threads, domain_temp_dir)
-    # domain_info = {}
-    # with open(output_table, 'r') as f_r:
-    #     for i, line in enumerate(f_r):
-    #         if i <= 1:
-    #             continue
-    #         parts = line.split('\t')
-    #         tir_name = parts[0]
-    #         domain_name = parts[1]
-    #         TE_start = parts[2]
-    #         TE_end = parts[3]
-    #         domain_start = parts[4]
-    #         domain_end = parts[5]
-    #         if not domain_info.__contains__(tir_name):
-    #             domain_info[tir_name] = []
-    #         info_array = domain_info[tir_name]
-    #         info_array.append((domain_name, TE_start, TE_end, domain_start, domain_end))
-    #
-    #
-    # #存储所有的novel tir
-    # #统计新的TIR和终端有多少个
-    # known_terminal_count = 0
-    # novel_terminal_count = 0
-    # data = {}
-    # data_names = []
-    # data_tir_lens = []
-    # data_tir_types = []
-    # date_copy_nums = []
-    # data_msa_files = []
-    # data_domain_names = []
-    # data_domain_TE_starts = []
-    # data_domain_TE_ends = []
-    # data_domain_starts = []
-    # data_domain_ends = []
-    # for name in novel_tir_names:
-    #     #获取TIR长度
-    #     if tir_len_contigs.__contains__(name + '-lTIR'):
-    #         tir_len = len(tir_len_contigs[name + '-lTIR'])
-    #     else:
-    #         continue
-    #     #获取TIR类型
-    #     if name in new_tir_names:
-    #         type = 'novel_terminal'
-    #         novel_terminal_count += 1
-    #     else:
-    #         type = 'known_terminal'
-    #         known_terminal_count += 1
-    #     #获取TIR的拷贝数
-    #     member_file = temp_dir + '/' + name + '.fa.blast.bed.fa'
-    #     member_names, member_contigs = read_fasta(member_file)
-    #     #获取TIR的MSA文件
-    #     file_name = name + '.fa.maf.fa'
-    #     file_path = temp_dir + '/' + file_name
-    #     if not os.path.exists(file_path):
-    #         print('mas not exist: ' + file_path)
-    #     os.system('cp ' + file_path + ' ' + msa_dir)
-    #
-    #     #获取domain信息
-    #     if not domain_info.__contains__(name):
-    #         data_names.append(name)
-    #         data_tir_lens.append(tir_len)
-    #         data_tir_types.append(type)
-    #         date_copy_nums.append(len(member_names))
-    #         data_msa_files.append(file_name)
-    #         data_domain_names.append('')
-    #         data_domain_TE_starts.append('')
-    #         data_domain_TE_ends.append('')
-    #         data_domain_starts.append('')
-    #         data_domain_ends.append('')
-    #     else:
-    #         info_array = domain_info[name]
-    #         for j, info in enumerate(info_array):
-    #             if j == 0:
-    #                 data_names.append(name)
-    #                 data_tir_lens.append(tir_len)
-    #                 data_tir_types.append(type)
-    #                 date_copy_nums.append(len(member_names))
-    #                 data_msa_files.append(file_name)
-    #                 data_domain_names.append(info[0])
-    #                 data_domain_TE_starts.append(info[1])
-    #                 data_domain_TE_ends.append(info[2])
-    #                 data_domain_starts.append(info[3])
-    #                 data_domain_ends.append(info[4])
-    #             else:
-    #                 data_names.append('')
-    #                 data_tir_lens.append('')
-    #                 data_tir_types.append('')
-    #                 date_copy_nums.append('')
-    #                 data_msa_files.append('')
-    #                 data_domain_names.append(info[0])
-    #                 data_domain_TE_starts.append(info[1])
-    #                 data_domain_TE_ends.append(info[2])
-    #                 data_domain_starts.append(info[3])
-    #                 data_domain_ends.append(info[4])
-    # data['name'] = data_names
-    # data['terminal tir len'] = data_tir_lens
-    # data['terminal type'] = data_tir_types
-    # data['copy num'] = date_copy_nums
-    # data['msa file'] = data_msa_files
-    # data['domain name'] = data_domain_names
-    # data['TE start'] = data_domain_TE_starts
-    # data['TE end'] = data_domain_TE_ends
-    # data['domain start'] = data_domain_starts
-    # data['domain end'] = data_domain_ends
-    # print(data)
-    # print(novel_terminal_count, known_terminal_count)
-    #
-    # df = pd.DataFrame(data)
-    #
-    # # 将 DataFrame 存储到 Excel 文件中
-    # with pd.ExcelWriter(tmp_output_dir + '/data.xlsx', engine="openpyxl") as writer:
-    #     to_excel_auto_column_weight(df, writer, f'novel TIR information')
+    msa_dir = tmp_output_dir + '/msa'
+    if not os.path.exists(msa_dir):
+        os.makedirs(msa_dir)
+
+    # 获取novel TIR的蛋白质结构组成
+    protein_path = '/home/hukang/HiTE/library/RepeatPeps.lib'
+    output_table = novel_tir_path + '.domain'
+    domain_temp_dir = tmp_output_dir + '/domain'
+    get_domain_info(novel_tir_path, protein_path, output_table, threads, domain_temp_dir)
+    domain_info = {}
+    with open(output_table, 'r') as f_r:
+        for i, line in enumerate(f_r):
+            if i <= 1:
+                continue
+            parts = line.split('\t')
+            tir_name = parts[0]
+            domain_name = parts[1]
+            TE_start = parts[2]
+            TE_end = parts[3]
+            domain_start = parts[4]
+            domain_end = parts[5]
+            if not domain_info.__contains__(tir_name):
+                domain_info[tir_name] = []
+            info_array = domain_info[tir_name]
+            info_array.append((domain_name, TE_start, TE_end, domain_start, domain_end))
+
+
+    #存储所有的novel tir
+    #统计新的TIR和终端有多少个
+    known_terminal_count = 0
+    novel_terminal_count = 0
+    data = {}
+    data_names = []
+    data_tir_lens = []
+    data_tir_types = []
+    date_copy_nums = []
+    data_msa_files = []
+    data_domain_names = []
+    data_domain_TE_starts = []
+    data_domain_TE_ends = []
+    data_domain_starts = []
+    data_domain_ends = []
+    for name in novel_tir_names:
+        #获取TIR长度
+        if tir_len_contigs.__contains__(name + '-lTIR'):
+            tir_len = len(tir_len_contigs[name + '-lTIR'])
+        else:
+            continue
+        #获取TIR类型
+        if name in new_tir_names:
+            type = 'novel_terminal'
+            novel_terminal_count += 1
+        else:
+            type = 'known_terminal'
+            known_terminal_count += 1
+        #获取TIR的拷贝数
+        member_file = temp_dir + '/' + name + '.fa.blast.bed.fa'
+        member_names, member_contigs = read_fasta(member_file)
+        #获取TIR的MSA文件
+        file_name = name + '.fa.maf.fa'
+        file_path = temp_dir + '/' + file_name
+        if not os.path.exists(file_path):
+            print('mas not exist: ' + file_path)
+        os.system('cp ' + file_path + ' ' + msa_dir)
+
+        #获取domain信息
+        if not domain_info.__contains__(name):
+            data_names.append(name)
+            data_tir_lens.append(tir_len)
+            data_tir_types.append(type)
+            date_copy_nums.append(len(member_names))
+            data_msa_files.append(file_name)
+            data_domain_names.append('')
+            data_domain_TE_starts.append('')
+            data_domain_TE_ends.append('')
+            data_domain_starts.append('')
+            data_domain_ends.append('')
+        else:
+            info_array = domain_info[name]
+            for j, info in enumerate(info_array):
+                if j == 0:
+                    data_names.append(name)
+                    data_tir_lens.append(tir_len)
+                    data_tir_types.append(type)
+                    date_copy_nums.append(len(member_names))
+                    data_msa_files.append(file_name)
+                    data_domain_names.append(info[0])
+                    data_domain_TE_starts.append(info[1])
+                    data_domain_TE_ends.append(info[2])
+                    data_domain_starts.append(info[3])
+                    data_domain_ends.append(info[4])
+                else:
+                    data_names.append('')
+                    data_tir_lens.append('')
+                    data_tir_types.append('')
+                    date_copy_nums.append('')
+                    data_msa_files.append('')
+                    data_domain_names.append(info[0])
+                    data_domain_TE_starts.append(info[1])
+                    data_domain_TE_ends.append(info[2])
+                    data_domain_starts.append(info[3])
+                    data_domain_ends.append(info[4])
+    data['name'] = data_names
+    data['terminal tir len'] = data_tir_lens
+    data['terminal type'] = data_tir_types
+    data['copy num'] = date_copy_nums
+    data['msa file'] = data_msa_files
+    data['domain name'] = data_domain_names
+    data['TE start'] = data_domain_TE_starts
+    data['TE end'] = data_domain_TE_ends
+    data['domain start'] = data_domain_starts
+    data['domain end'] = data_domain_ends
+    print(data)
+    print(novel_terminal_count, known_terminal_count)
+
+    df = pd.DataFrame(data)
+
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(tmp_output_dir + '/data.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'novel TIR information')
 
 
 def to_excel_auto_column_weight(df: pd.DataFrame, writer: ExcelWriter, sheet_name="Shee1"):
@@ -2353,26 +2357,26 @@ if __name__ == '__main__':
     # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
 
 
-    # #读取novel TIR的拷贝数列，统计拷贝数分布
-    # # 读取 Excel 表格
-    # df = pd.read_excel('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.xlsx', engine='openpyxl')
-    #
-    # # 统计 "terminal type" 列中每个不同值的数量
-    # counts = df['terminal type'].value_counts()
-    #
-    # # 输出 "novel_terminal" 和 "known_terminal" 的数量
-    # print('novel_terminal:', counts['novel_terminal'])
-    # print('known_terminal:', counts['known_terminal'])
+    #读取novel TIR的拷贝数列，统计拷贝数分布
+    # 读取 Excel 表格
+    df = pd.read_excel('/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice/novel_tir/data.xlsx', engine='openpyxl')
 
-    # 使用列名访问数据
-    #column_data = df['copy num']
+    # 统计 "terminal type" 列中每个不同值的数量
+    counts = df['terminal type'].value_counts()
 
-    # column_data.to_csv('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv', index=False)
-    #
-    # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
+    # 输出 "novel_terminal" 和 "known_terminal" 的数量
+    print('novel_terminal:', counts['novel_terminal'])
+    print('known_terminal:', counts['known_terminal'])
+
+    #使用列名访问数据
+    column_data = df['copy num']
+
+    column_data.to_csv('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv', index=False)
+
+    draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
 
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib1/rice/novel_tir'
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice/novel_tir'
     #analyze_new_TIRs(tmp_output_dir)
 
 
@@ -2452,32 +2456,34 @@ if __name__ == '__main__':
 
     #generate_seq_logos(tmp_output_dir)
 
-    # paths = [tmp_output_dir + '/confident_other_0.fa', '/home/hukang/HiTE-2.0.1/ReferenceMode/library/non_LTR.lib']
+    # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice'
+    # tmp_output_dir1 = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice'
+    # paths = [tmp_output_dir + '/confident_other.fa', '/home/hukang/HiTE/library/non_LTR.lib']
     # labels = ['HiTE-Non-LTR', 'Non-LTR']
     # my_pal = {"HiTE-Non-LTR": "#4497B1", "Non-LTR": "#F7B92E"}
     # output_path = tmp_output_dir + '/non_ltr_length_dist.txt'
 
-    # paths = [tmp_output_dir+'/confident_tir.rename.cons.fa', tmp_output_dir+'/tir_tsd_0.cons.rename.fa']
+    # paths = [tmp_output_dir+'/confident_tir.fa', tmp_output_dir1+'/tir_tsd_0.cons.fa']
     # labels = ['HiTE-TIR', 'HiTE-TIR-NoFiltering']
     # my_pal = {"HiTE-TIR": "#4497B1", "HiTE-TIR-NoFiltering": "#F7B92E"}
     # output_path = tmp_output_dir + '/tir_length_dist.txt'
 
-    # paths = [tmp_output_dir + '/confident_TE.cons.fa.final.classified', tmp_output_dir + '/longest_repeats_0.cons.rename.fa']
+    # paths = [tmp_output_dir + '/confident_TE.cons.fa.classified', tmp_output_dir1 + '/longest_repeats_0.cons.rename.fa']
     # labels = ['HiTE', 'HiTE-FMEA']
     # my_pal = {"HiTE": "#4497B1", "HiTE-FMEA": "#F7B92E"}
     # output_path = tmp_output_dir + '/TE_length_dist.txt'
 
-    # paths = [tmp_output_dir + '/confident_helitron_0.rename.cons.fa', tmp_output_dir + '/candidate_helitron_0.cons.rename.fa']
+    # paths = [tmp_output_dir + '/confident_helitron.fa', tmp_output_dir + '/candidate_helitron_0.fa']
     # labels = ['HiTE-Helitron', 'HiTE-Helitron-NoFiltering']
     # my_pal = {"HiTE-Helitron": "#4497B1", "HiTE-Helitron-NoFiltering": "#F7B92E"}
     # output_path = tmp_output_dir + '/helitron_length_dist.txt'
-    #get_length_dist(paths, labels, my_pal, output_path)
+    # get_length_dist(paths, labels, my_pal, output_path)
 
     #run_LTR_test()
 
     # lost_tirs_path = tmp_output_dir + '/test.fa'
     # get_seq_copies(lost_tirs_path, tmp_output_dir)
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
+    # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     # sMITE_path = tmp_output_dir + '/sMITE.copies.fa'
     # Novel_TIR_Ghd2_path = tmp_output_dir + '/Novel_TIR_Ghd2.copies.fa'
     # dist_path = tmp_output_dir + '/MITE_dist.txt'
@@ -2488,10 +2494,49 @@ if __name__ == '__main__':
 
     # fixed_extend_base_threshold = 1000
     # max_single_repeat_len = 3000000000
+    # debug = 1
     # output_dir = '/home/hukang/HiTE/demo/test'
-    # repeats_path = (output_dir+'/genome.cut0.fa', output_dir+'/genome.cut0.fa', output_dir+'/genome.cut0.fa', '')
-    # get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single_repeat_len)
+    # repeats_path = (output_dir+'/genome.cut0.fa', [output_dir+'/genome.cut0.fa'], output_dir+'/genome.cut0.fa', '')
+    # get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug)
 
+    # candidate_helitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.fa'
+    # resut_file = candidate_helitron_path
+    # longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_0.flanked.fa'
+    # sh_dir = '/home/hukang/HiTE/module'
+    # HSDIR = '/home/hukang/repeat_detect_tools/TrainingSet'
+    # HSJAR = '/home/hukang/repeat_detect_tools/HelitronScanner/HelitronScanner.jar'
+    # # 运行helitronscanner
+    # HS_temp_dir = tmp_output_dir + '/HS_temp'
+    # if not os.path.exists(HS_temp_dir):
+    #     os.makedirs(HS_temp_dir)
+    # candidate_helitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.fa'
+    # multi_process_helitronscanner(longest_repeats_flanked_path, candidate_helitron_path, sh_dir, HS_temp_dir, HSDIR,
+    #                               HSJAR, threads)
+    # candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
+    # os.system('rm -rf ' + HS_temp_dir)
 
+    # # 看一下能否过滤或者合并longest_repeats
+    # max_single_repeat_len = 30000
+    output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib1/rice'
+    # longest_repeats_path = output_dir + '/longest_repeats_0.fa'
+    # contigName, contigs = read_fasta(longest_repeats_path)
+    # r1_longest_repeats_path = output_dir + '/longest_repeats_0.r1.fa'
+    # with open(r1_longest_repeats_path, 'w') as f_save:
+    #     for name in contigName:
+    #         seq = contigs[name]
+    #         if len(seq) < max_single_repeat_len:
+    #             f_save.write('>'+name+'\n'+seq+'\n')
 
-
+    #尝试合并
+    # output_dir = '/home/hukang/HiTE/demo/test'
+    # max_single_repeat_len = 30000
+    # r1_longest_repeats_path = output_dir + '/longest_repeats_0.fa'
+    # contigNames, contigs = read_fasta(r1_longest_repeats_path)
+    # merge_contigNames = process_all_seqs(contigNames)
+    # print(len(contigNames), len(merge_contigNames))
+    # r2_longest_repeats_path = output_dir + '/longest_repeats_0.r2.fa'
+    # with open(r2_longest_repeats_path, 'w') as f_save:
+    #     for name in merge_contigNames:
+    #         seq = contigs[name]
+    #         if len(seq) < max_single_repeat_len:
+    #             f_save.write('>'+name+'\n'+seq+'\n')

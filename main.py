@@ -30,12 +30,12 @@ if __name__ == '__main__':
     default_fixed_extend_base_threshold = 1000
     default_chunk_size = 400
     default_tandem_region_cutoff = 0.5
-    default_max_single_repeat_len = 300000000
+    default_max_single_repeat_len = 30000
     default_plant = 1
     default_recover = 0
     default_flanking_len = 50
     default_debug = 0
-    default_chrom_seg_length = 500000
+    default_chrom_seg_length = 1000000
     default_classified = 1
     default_domain = 0
     default_miu = str(1.3e-8)

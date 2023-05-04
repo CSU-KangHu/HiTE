@@ -4089,9 +4089,9 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
             align_command += ' > ' + blastn2Results_path
         else:
             align_command += ' >> ' + blastn2Results_path
-        os.system(align_command)
+        #os.system(align_command)
 
-    #blastn2Results_path = '/home/hukang/HiTE/demo/test/total_blast_0.out'
+    blastn2Results_path = '/home/hukang/HiTE/demo/test/total_blast_0.out'
     #print('coarse alignment -- alignment finished:' + str(split_repeats_path))
 
     query_names, query_contigs = read_fasta(split_repeats_path)
@@ -4136,8 +4136,8 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
         # then it probably the true TE
         longest_queries = []
         for subject_name in subject_dict.keys():
-            # if query_name != 'chr_0$15000000' or subject_name != 'chr_0$15000000':
-            #     continue
+            if query_name != 'chr_0$15000000' or subject_name != 'chr_0$15000000':
+                continue
             subject_pos = subject_dict[subject_name]
             # subject_pos.sort(key=lambda x: (x[2], x[3]))
 
@@ -4388,6 +4388,344 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
     # print(longest_repeats)
     return longest_repeats, keep_longest_query, blastn2Results_path
 
+def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug):
+    split_repeats_path = repeats_path[0]
+    target_files = repeats_path[1]
+    blastn2Results_path = repeats_path[2]
+    tmp_blast_dir = repeats_path[3]
+
+    subject_contigs = {}
+    for i, cur_target in enumerate(target_files):
+        align_command = 'blastn -db ' + cur_target + ' -num_threads ' \
+                        + str(1) + ' -evalue 1e-20 -query ' + split_repeats_path + ' -outfmt 6'
+        if i == 0:
+            align_command += ' > ' + blastn2Results_path
+        else:
+            align_command += ' >> ' + blastn2Results_path
+        os.system(align_command)
+        cur_subject_names, cur_subject_contigs = read_fasta(cur_target)
+        subject_contigs.update(cur_subject_contigs)
+
+    #blastn2Results_path = '/home/hukang/HiTE/demo/test/total_blast_0.out'
+    #print('coarse alignment -- alignment finished:' + str(split_repeats_path))
+
+    query_names, query_contigs = read_fasta(split_repeats_path)
+
+    # parse blastn output, determine the repeat boundary
+    # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
+    query_records = {}
+    with open(blastn2Results_path, 'r') as f_r:
+        for idx, line in enumerate(f_r):
+            #print('current line idx: %d' % (idx))
+            parts = line.split('\t')
+            query_name = parts[0]
+            subject_name = parts[1]
+            identity = float(parts[2])
+            alignment_len = int(parts[3])
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+            if identity < 80 or (query_name==subject_name and q_start==s_start and q_end==s_end):
+                continue
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
+    #print('coarse alignment -- file open finished:' + str(split_repeats_path))
+
+    keep_longest_query = {}
+    # longest_repeats -> {'chr1:100-1000': seq, }
+    longest_repeats = {}
+    # 记录所有可能的整数位置，例如chr1, start:98, end: 995，会得到下面这四种位置坐标
+    # chr_pos_candidates -> {'chr1:90-990': 1, 'chr1:90-1000': 1, 'chr1:100-990': 1, 'chr1:100-1000': 1}
+    chr_pos_candidates = {}
+    for idx, query_name in enumerate(query_records.keys()):
+        #query_len = len(query_contigs[query_name])
+        #print('total query size: %d, current query name: %s, idx: %d' % (len(query_records), query_name, idx))
+
+        subject_dict = query_records[query_name]
+
+        # if there are more than one longest query overlap with the final longest query over 90%,
+        # then it probably the true TE
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            # if query_name != 'chr_0$15000000' or subject_name != 'chr_0$15000000':
+            #     continue
+            subject_pos = subject_dict[subject_name]
+            # subject_pos.sort(key=lambda x: (x[2], x[3]))
+
+            # cluster all closed fragments, split forward and reverse records
+            forward_pos = []
+            reverse_pos = []
+            for pos_item in subject_pos:
+                if pos_item[2] > pos_item[3]:
+                    reverse_pos.append(pos_item)
+                else:
+                    forward_pos.append(pos_item)
+            forward_pos.sort(key=lambda x: (x[2], x[3]))
+            reverse_pos.sort(key=lambda x: (-x[2], -x[3]))
+
+            clusters = {}
+            cluster_index = 0
+            for k, frag in enumerate(forward_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        if (frag[2] - exist_frag[3] < fixed_extend_base_threshold):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            cluster_index += 1
+            for k, frag in enumerate(reverse_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        if (exist_frag[3] - frag[2] < fixed_extend_base_threshold):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            for cluster_index in clusters.keys():
+                cur_cluster = clusters[cluster_index]
+                cur_cluster.sort(key=lambda x: (x[0], x[1]))
+
+                # print('subject pos size: %d' %(len(cur_cluster)))
+                # record visited fragments
+                visited_frag = {}
+                for i in range(len(cur_cluster)):
+                    # keep a longest query start from each fragment
+                    origin_frag = cur_cluster[i]
+                    if visited_frag.__contains__(origin_frag):
+                        continue
+                    cur_frag_len = origin_frag[1] - origin_frag[0]
+                    cur_longest_query_len = cur_frag_len
+                    longest_query_start = origin_frag[0]
+                    longest_query_end = origin_frag[1]
+                    longest_subject_start = origin_frag[2]
+                    longest_subject_end = origin_frag[3]
+
+                    # if longest_query_start == 456006 and longest_query_end == 457161:
+                    #     print('here')
+
+                    cur_extend_num = 0
+
+                    visited_frag[origin_frag] = 1
+                    # try to extend query
+                    for j in range(i + 1, len(cur_cluster)):
+                        ext_frag = cur_cluster[j]
+                        if visited_frag.__contains__(ext_frag):
+                            continue
+
+                        # could extend
+                        # extend right
+                        if ext_frag[1] > longest_query_end:
+                            # judge subject direction
+                            if longest_subject_start < longest_subject_end and ext_frag[2] < ext_frag[3]:
+                                # +
+                                if ext_frag[3] > longest_subject_end:
+                                    # forward extend
+                                    if ext_frag[0] - longest_query_end < fixed_extend_base_threshold and ext_frag[
+                                        2] - longest_subject_end < fixed_extend_base_threshold:
+                                        # update the longest path
+                                        longest_query_start = longest_query_start
+                                        longest_query_end = ext_frag[1]
+                                        longest_subject_start = longest_subject_start if longest_subject_start < \
+                                                                                         ext_frag[
+                                                                                             2] else ext_frag[2]
+                                        longest_subject_end = ext_frag[3]
+                                        cur_longest_query_len = longest_query_end - longest_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[ext_frag] = 1
+                                    elif ext_frag[0] - longest_query_end >= fixed_extend_base_threshold:
+                                        break
+                            elif longest_subject_start > longest_subject_end and ext_frag[2] > ext_frag[3]:
+                                # reverse
+                                if ext_frag[3] < longest_subject_end:
+                                    # reverse extend
+                                    if ext_frag[
+                                        0] - longest_query_end < fixed_extend_base_threshold and longest_subject_end - \
+                                            ext_frag[2] < fixed_extend_base_threshold:
+                                        # update the longest path
+                                        longest_query_start = longest_query_start
+                                        longest_query_end = ext_frag[1]
+                                        longest_subject_start = longest_subject_start if longest_subject_start > \
+                                                                                         ext_frag[
+                                                                                             2] else ext_frag[2]
+                                        longest_subject_end = ext_frag[3]
+                                        cur_longest_query_len = longest_query_end - longest_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[ext_frag] = 1
+                                    elif ext_frag[0] - longest_query_end >= fixed_extend_base_threshold:
+                                        break
+                    # keep this longest query
+                    if cur_longest_query_len != -1:
+                        longest_queries.append((longest_query_start, longest_query_end,
+                                                cur_longest_query_len, longest_subject_start,
+                                                longest_subject_end, longest_subject_end - longest_subject_start, subject_name, cur_extend_num))
+
+
+        # 取所有可能得重复区，按照（染色体：start-end）进行编号，并记录下来，对于再次重复的序列，不再保存以减少后续计算量。
+        # 即每个重复片段只保留一次
+        parts = query_name.split('$')
+        query_chr_name = parts[0]
+        query_chr_start = int(parts[1])
+
+        query_seq = query_contigs[query_name]
+
+        query_repeatNames = []
+        query_repeats = {}
+        for repeat in longest_queries:
+            # if repeat[0] == 456006 and repeat[1] == 462658:
+            #     print('here')
+            # Subject序列处理流程
+            subject_name = repeat[6]
+            subject_seq = subject_contigs[subject_name]
+            parts = subject_name.split('$')
+            subject_chr_name = parts[0]
+            subject_chr_start = int(parts[1])
+
+            old_subject_start_pos = repeat[3] - 1
+            old_subject_end_pos = repeat[4]
+            cur_subject_seq = subject_seq[old_subject_start_pos: old_subject_end_pos]
+            subject_start_pos = subject_chr_start + old_subject_start_pos
+            subject_end_pos = subject_chr_start + old_subject_end_pos
+
+            # 对位置坐标取10的整数，例如567，我们得到两个数560和570.
+            subject_start_pos1, subject_start_pos2 = get_integer_pos(subject_start_pos)
+            subject_end_pos1, subject_end_pos2 = get_integer_pos(subject_end_pos)
+            # 记录下这个片段对应的染色体坐标
+            subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+            subject_pos1 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos1)
+            subject_pos2 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos2)
+            subject_pos3 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos1)
+            subject_pos4 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos2)
+
+            # Query序列处理流程
+            old_query_start_pos = repeat[0] - 1
+            old_query_end_pos = repeat[1]
+            cur_query_seq = query_seq[old_query_start_pos: old_query_end_pos]
+            query_start_pos = query_chr_start + old_query_start_pos
+            query_end_pos = query_chr_start + old_query_end_pos
+
+            # 对位置坐标取10的整数，例如567，我们得到两个数560和570.
+            query_start_pos1, query_start_pos2 = get_integer_pos(query_start_pos)
+            query_end_pos1, query_end_pos2 = get_integer_pos(query_end_pos)
+            # 记录下这个片段对应的染色体坐标
+            query_pos = query_chr_name + ':' + str(query_start_pos) + '-' + str(query_end_pos)
+            query_pos1 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos1)
+            query_pos2 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos2)
+            query_pos3 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos1)
+            query_pos4 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos2)
+
+            # 判断这条序列是否已经存下了，如果没有，则记录下这个subject片段的序列
+            if not chr_pos_candidates.__contains__(subject_pos1) \
+                    and not chr_pos_candidates.__contains__(subject_pos2) \
+                    and not chr_pos_candidates.__contains__(subject_pos3) \
+                    and not chr_pos_candidates.__contains__(subject_pos4) \
+                    and not chr_pos_candidates.__contains__(query_pos1) \
+                    and not chr_pos_candidates.__contains__(query_pos2) \
+                    and not chr_pos_candidates.__contains__(query_pos3) \
+                    and not chr_pos_candidates.__contains__(query_pos4):
+
+                if len(cur_query_seq) >= 80 and len(cur_query_seq) < max_single_repeat_len:
+                    query_repeatNames.append(query_pos)
+                    query_repeats[query_pos] = cur_query_seq
+            else:
+                if debug:
+                    print(subject_pos + ' exists, skip...')
+
+            chr_pos_candidates[subject_pos1] = 1
+            chr_pos_candidates[subject_pos2] = 1
+            chr_pos_candidates[subject_pos3] = 1
+            chr_pos_candidates[subject_pos4] = 1
+            chr_pos_candidates[query_pos1] = 1
+            chr_pos_candidates[query_pos2] = 1
+            chr_pos_candidates[query_pos3] = 1
+            chr_pos_candidates[query_pos4] = 1
+
+        # 对于query_repeats进行合并，只取最长的重复片段
+        merge_contigNames = process_all_seqs(query_repeatNames)
+        for name in merge_contigNames:
+            longest_repeats[name] = query_repeats[name]
+    #print('coarse alignment -- analyze finished:' + str(split_repeats_path))
+    # print(longest_repeats)
+    return longest_repeats, keep_longest_query, blastn2Results_path
+
+def get_overlap_len(seq1, seq2):
+    """计算两个序列的重叠长度"""
+    overlap_len = min(seq1[1], seq2[1]) - max(seq1[0], seq2[0])
+    return overlap_len if overlap_len > 0 else 0
+
+def process_seq_group(seq_group):
+    seq_group.sort(key=lambda x: x[1] - x[0], reverse=True) # 按照长度排序
+    keep_seq = [True] * len(seq_group)  # 存储每条序列是否应该被保留的布尔值列表
+    for i in range(len(seq_group)):
+        if not keep_seq[i]:  # 如果当前序列已经被判定为需要被删除，跳过
+            continue
+        seq1 = seq_group[i]
+        for j in range(i + 1, len(seq_group)):
+            if not keep_seq[j]:  # 如果下一条序列已经被判定为需要被删除，跳过
+                continue
+            seq2 = seq_group[j]
+            # 判断当前序列是否与下一条序列有95%以上的Overlap
+            overlap_len = get_overlap_len(seq2, seq1)
+            if overlap_len / (seq2[1] - seq2[0]) >= 0.95:
+                keep_seq[j] = False  # 将下一条序列标记为需要被删除
+    # 返回被保留的序列
+    return [seq[2] for i, seq in enumerate(seq_group) if keep_seq[i]]
+
+def process_all_seqs(seq_list):
+    """对所有序列进行处理"""
+    seq_dict = {}
+    for seq in seq_list:
+        chrom, pos = seq.split(":")
+        start, end = pos.split("-")
+        start, end = int(start), int(end)
+        if chrom not in seq_dict:
+            seq_dict[chrom] = []
+        seq_dict[chrom].append((start, end, seq))
+    result = []
+    for chrom, seq_group in seq_dict.items():
+        result.extend(process_seq_group(seq_group))
+    return result
+
+#对位置坐标取10的整数，例如567，我们得到两个数560和570.
+def get_integer_pos(x):
+    y = (x // 10) * 10  # 取整到10的整数倍
+    z = y + 10
+    return y, z
+
 def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
@@ -4423,13 +4761,14 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
     flanked_contigs = {}
     node_index = 0
     for name in seq_names:
-        if name.__contains__('ref_chr_0-15195596-15461482'):
-            print('here')
-        # N_126-len_955-ref_NC_029267.1_7568408_7569363
-        ref_info = name.split('-ref_')[1].split('-')
+        # if name.__contains__('ref_chr_0-15195596-15461482'):
+        #     print('here')
+        # chr_0:10023581-10023756
+        ref_info = name.split(':')
         ref_name = ref_info[0]
-        ref_start = int(ref_info[1]) + 1
-        ref_end = int(ref_info[2])
+        pos_info = ref_info[1].split('-')
+        ref_start = int(pos_info[0]) + 1
+        ref_end = int(pos_info[1])
         ref_seq = ref_contigs[ref_name]
         if ref_start - 1 - flanking_len < 0:
             ref_start = flanking_len + 1
@@ -4703,12 +5042,26 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
         os.makedirs(tmp_blast_dir)
 
     # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
+    # 增加target数量，一次10个，以增加cpu利用率
+    seq_num = 10
     target_files = []
-    for i, name in enumerate(repeatNames):
-        seq = repeatContigs[name]
-        cur_contigs = {}
-        cur_contigs[name] = seq
-        cur_target = tmp_blast_dir + '/' + str(i) + '_target.fa'
+    file_index = 0
+    cur_seq_index = 0
+    cur_contigs = {}
+    for name in repeatNames:
+        cur_contigs[name] = repeatContigs[name]
+        cur_seq_index += 1
+        if cur_seq_index >= seq_num:
+            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+            store_fasta(cur_contigs, cur_target)
+            target_files.append(cur_target)
+            makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
+            os.system(makedb_command)
+            cur_contigs = {}
+            file_index += 1
+            cur_seq_index = 0
+    if len(cur_contigs) > 0:
+        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
         store_fasta(cur_contigs, cur_target)
         target_files.append(cur_target)
         makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
@@ -4738,23 +5091,20 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
 
     #log.logger.debug('coarse alignment -- total file size:'+str(len(repeat_files)))
     ex = ProcessPoolExecutor(threads)
-    longest_repeats = {}
-    keep_longest_query = {}
+
     jobs = []
     for file in repeat_files:
-        job = ex.submit(get_longest_repeats_v3, file, fixed_extend_base_threshold,
-                        max_single_repeat_len)
+        job = ex.submit(get_longest_repeats_v4, file, fixed_extend_base_threshold,
+                        max_single_repeat_len, debug)
         jobs.append(job)
     ex.shutdown(wait=True)
 
     total_out = tmp_output_dir + '/total_blast_' + str(ref_index) + '.out'
     os.system('rm -f ' + total_out)
+    longest_repeats = {}
     for job in as_completed(jobs):
         cur_longest_repeats, cur_keep_longest_query, cur_blastn2Results_path = job.result()
-        for query_name in cur_longest_repeats.keys():
-            longest_repeats[query_name] = cur_longest_repeats[query_name]
-        for query_name in cur_keep_longest_query.keys():
-            keep_longest_query[query_name] = cur_keep_longest_query[query_name]
+        longest_repeats.update(cur_longest_repeats)
 
         if debug == 1:
             os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
@@ -4771,23 +5121,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
     # with codecs.open(longest_repeats_file, 'w', encoding='utf-8') as f:
     #     json.dump(longest_repeats, f)
 
-    node_index = 0
-    with open(longest_repeats_path, 'w') as f_save:
-        for query_name in longest_repeats.keys():
-            seqs_tuples = longest_repeats[query_name]
-            for longest_seq in seqs_tuples:
-                orig_start_pos = longest_seq[0]
-                orig_end_pos = longest_seq[1]
-                chr_name = longest_seq[2]
-                seq_ref_start = longest_seq[3]
-                seq_ref_end = longest_seq[4]
-                seq = longest_seq[5]
-                # 如果有连续10个以上的N过滤掉
-                if len(seq) >= 100:
-                    f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
-                                 '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
-                    node_index += 1
-    f_save.close()
+    store_fasta(longest_repeats, longest_repeats_path)
     if debug != 1:
         os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
@@ -4920,6 +5254,7 @@ def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, f
         cur_candidate_TIRs = obj.result()
         candidate_TIRs.update(cur_candidate_TIRs)
     store_fasta(candidate_TIRs, tir_tsd_path)
+    os.system('rm -rf ' + tir_tsd_dir)
 
 def multi_process_tsd_v3(longest_repeats_flanked_path, tir_tsd_path, all_tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
     os.system('rm -rf '+tir_tsd_dir)
