@@ -116,6 +116,7 @@ classified = "${params.classified}"
 domain = "${params.domain}"
 debug = "${params.debug}"
 miu = "${params.miu}"
+ref = "${params.genome}"
 //parameters of Evaluation
 
 
@@ -202,8 +203,6 @@ process TIR {
 
     input:
     tuple path(cut_ref), path(lrf)
-    path ltrs
-    path ref
 
     output:
     path "confident_tir_*.fa"
@@ -216,7 +215,7 @@ process TIR {
     script:
     """
     python3 ${ch_module}/judge_TIR_transposons.py \
-    -g ${cut_ref} --seqs ${lrf} --confident_ltr_cut_path ${ltrs} \
+    -g ${cut_ref} --seqs ${lrf} \
     -t ${cores} --TRsearch_dir ${tools_module}  \
     --tmp_output_dir ${tmp_output_dir} \
     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
@@ -236,7 +235,6 @@ process Helitron {
 
     input:
     tuple path(cut_ref), path(lrf)
-    path ref
 
     output:
     path "confident_helitron_*.fa"
@@ -264,7 +262,6 @@ process OtherTE {
 
     input:
     tuple path(cut_ref), path(lrf)
-    path ref
 
     output:
     path "confident_other.fa"
@@ -522,18 +519,14 @@ workflow {
             //test(merged_channel) | view { "$it" }
 
             //TIR identification
-            ch_tirs = TIR(merged_channel, ch_ltrs, ch_g).collectFile(name: "${params.outdir}/confident_tir.fa")
+            ch_tirs = TIR(merged_channel).collectFile(name: "${params.outdir}/confident_tir.fa")
 
             //Helitron identification
-            ch_h = Helitron(merged_channel, ch_g).collectFile(name: "${params.outdir}/confident_helitron.fa")
+            ch_h = Helitron(merged_channel).collectFile(name: "${params.outdir}/confident_helitron.fa")
 
             //Other identification
-            ch_o = OtherTE(merged_channel, ch_g).collectFile(name: "${params.outdir}/confident_other.fa")
+            ch_o = OtherTE(merged_channel).collectFile(name: "${params.outdir}/confident_other.fa")
             //test(ch_o) | view { "$it" }
-
-            //Unwrap nested TE
-            //ch_TE = UnwrapNested(params.genome, ch_ltrs, ch_tirs, ch_h, ch_o)
-            //test(ch_TE) | view { "$it" }
 
             //Build TE library
             ch_lib = BuildLib(ch_ltrs, ch_tirs, ch_h, ch_o)

@@ -369,7 +369,6 @@ if __name__ == '__main__':
             # 识别TIR转座子
             tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
                                          + cut_reference + ' --seqs ' + longest_repeats_flanked_path \
-                                         + ' --confident_ltr_cut_path ' + confident_ltr_cut_path\
                                          + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
                                          + ' --tmp_output_dir ' + tmp_output_dir \
                                          + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \

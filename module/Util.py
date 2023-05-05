@@ -7677,27 +7677,51 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
         cur_blastn2Results_path = job.result()
         os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastnResults_path)
 
-def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, all_copies):
-    # copy -> (subject_name, subject_start, subject_end, query[2], direct)\
-    delete_names = []
-    query_names, query_contigs = read_fasta(confident_ltr_cut_path)
-    subject_names, subject_contigs = read_fasta(confident_tir_path)
-    for query_name in all_copies.keys():
-        copies = all_copies[query_name]
-        for copy in copies:
-            subject_name = copy[0]
-            if subject_contigs.__contains__(subject_name):
-                delete_names.append(subject_name)
-                del subject_contigs[subject_name]
-            # subject_len = len(subject_contigs[subject_name])
-            # alignment_len = copy[2] - copy[1] + 1
-            # # 这是一条LTR序列，应该被过滤掉
-            # if float(alignment_len) / subject_len >= 0.95:
-            #     del query_contigs[query_name]
-            #     break
-    new_confident_tir_path = confident_tir_path + '.remove_ltr'
-    store_fasta(subject_contigs, new_confident_tir_path)
-    return new_confident_tir_path
+def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
+    # 使用RepeatMasker, 去掉那些比对到LTR上的序列
+    subject_path = confident_ltr_cut_path
+    query_path = confident_tir_path
+    out_path = query_path + '.out'
+    align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path
+    os.system(align_command)
+    #分析out文件，去除那些LTR能够完全比对上的序列
+    delete_tir_names = set()
+    query_names, query_contigs = read_fasta(query_path)
+    subject_names, subject_contigs = read_fasta(subject_path)
+    if not os.path.exists(out_path) or os.path.getsize(out_path) <= 0:
+        return
+    with open(out_path, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            parts = []
+            for p in line.split(' '):
+                if p.strip() != '':
+                    parts.append(p)
+            if len(parts) >= 15:
+                direct = parts[8]
+                query_name = parts[4]
+                subject_name = parts[9]
+                if direct == '+':
+                    subject_start = int(parts[11])
+                    subject_end = int(parts[12])
+                    subject_len = subject_end-subject_start+1
+                else:
+                    subject_start = int(parts[13])
+                    subject_end = int(parts[12])
+                    subject_len = subject_end - subject_start + 1
+                total_subject_len = len(subject_contigs[subject_name])
+                if float(subject_len)/total_subject_len >= 0.8:
+                    delete_tir_names.add(query_name)
+    f_r.close()
+    # print(delete_tir_names)
+    # print(len(delete_tir_names))
+    # remain_names = set(query_names).difference(delete_tir_names)
+    # print(remain_names)
+    # print(len(remain_names))
+    #删除掉假阳性 query
+    for tir_name in delete_tir_names:
+        del query_contigs[tir_name]
+    store_fasta(query_contigs, query_path)
 
 
 def search_boundary_homo_v2(valid_col_threshold, pos, matrix, row_num, col_num,

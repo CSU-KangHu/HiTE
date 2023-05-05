@@ -15,52 +15,6 @@ from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     multi_process_align_and_get_copies, rename_fasta, file_exist, flank_region_align_v2, \
     flank_region_align_v3, run_itrsearch
 
-def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
-    # 使用RepeatMasker, 去掉那些比对到LTR上的序列
-    subject_path = confident_ltr_cut_path
-    query_path = confident_tir_path
-    out_path = query_path + '.out'
-    align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path
-    os.system(align_command)
-    #分析out文件，去除那些LTR能够完全比对上的序列
-    delete_tir_names = set()
-    query_names, query_contigs = read_fasta(query_path)
-    subject_names, subject_contigs = read_fasta(subject_path)
-    if not os.path.exists(out_path) or os.path.getsize(out_path) <= 0:
-        return
-    with open(out_path, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            parts = []
-            for p in line.split(' '):
-                if p.strip() != '':
-                    parts.append(p)
-            if len(parts) >= 15:
-                direct = parts[8]
-                query_name = parts[4]
-                subject_name = parts[9]
-                if direct == '+':
-                    subject_start = int(parts[11])
-                    subject_end = int(parts[12])
-                    subject_len = subject_end-subject_start+1
-                else:
-                    subject_start = int(parts[13])
-                    subject_end = int(parts[12])
-                    subject_len = subject_end - subject_start + 1
-                total_subject_len = len(subject_contigs[subject_name])
-                if float(subject_len)/total_subject_len >= 0.8:
-                    delete_tir_names.add(query_name)
-    f_r.close()
-    # print(delete_tir_names)
-    # print(len(delete_tir_names))
-    # remain_names = set(query_names).difference(delete_tir_names)
-    # print(remain_names)
-    # print(len(remain_names))
-    #删除掉假阳性 query
-    for tir_name in delete_tir_names:
-        del query_contigs[tir_name]
-    store_fasta(query_contigs, query_path)
-
 
 def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
     if not os.path.exists(temp_dir):
@@ -73,7 +27,7 @@ def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
     os.system(rm2_res_command)
 
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir):
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir):
     log.logger.info('determine true TIR')
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
     starttime = time.time()
@@ -93,7 +47,6 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
         input_file = output_file
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
-    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads)
 
     # 用itrsearch过滤掉不存在TIR的假阳性
     run_itrsearch(TRsearch_dir, confident_tir_path, tmp_output_dir)
@@ -218,8 +171,6 @@ if __name__ == '__main__':
                         help='input genome assembly path')
     parser.add_argument('--seqs', metavar='seqs',
                         help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/longest_repeats_0.flanked.fa')
-    parser.add_argument('--confident_ltr_cut_path', metavar='confident_ltr_cut_path',
-                        help='e.g., ')
     parser.add_argument('-t', metavar='threads number',
                         help='input threads number')
     parser.add_argument('--TRsearch_dir', metavar='TRsearch_dir',
@@ -248,7 +199,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     genome = args.g
     longest_repeats_flanked_path = args.seqs
-    confident_ltr_cut_path = args.confident_ltr_cut_path
     threads = int(args.t)
     TRsearch_dir = args.TRsearch_dir
     tmp_output_dir = args.tmp_output_dir
@@ -265,7 +215,6 @@ if __name__ == '__main__':
     # 将软链接路径转换绝对路径
     genome = os.path.realpath(genome)
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
-    confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
     reference = os.path.realpath(reference)
 
     if debug is None:
@@ -327,6 +276,6 @@ if __name__ == '__main__':
         # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
         # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
         # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
-        is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, confident_ltr_cut_path, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir)
+        is_transposons(repeats_cons, reference, threads, tmp_output_dir, ref_index, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir)
     else:
         log.logger.info(resut_file + ' exists, skip...')
