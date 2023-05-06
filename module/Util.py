@@ -51,7 +51,7 @@ def run_TRsearch(TRsearch_dir, longest_repeats_multi_line_path, longest_repeats_
     TR_out = longest_repeats_multi_line_path + '.TR.set'
     return TR_out
 
-def run_HelitronScanner(sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_index):
+def run_HelitronScanner(sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_index, debug):
     candidate_Helitrons = {}
     cur_candidate_Helitrons_path = temp_dir + '/' + str(partition_index) + '.fa'
     cur_candidate_Helitrons = {}
@@ -63,6 +63,8 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR
     os.system(HelitronScanner_command + '> /dev/null 2>&1')
+    if debug:
+        print(HelitronScanner_command)
 
     cur_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.hel.fa'
     cur_rc_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.rc.hel.fa'
@@ -216,7 +218,7 @@ def multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, output,
     store_fasta(candidate_Helitrons, output)
 
 
-def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDIR, HSJAR, threads):
+def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDIR, HSJAR, threads, debug):
     candidate_names, candidate_contigs = read_fasta(candidate_file)
     segments_cluster = divided_array(list(candidate_contigs.items()), threads)
 
@@ -228,7 +230,7 @@ def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDI
     ex = ProcessPoolExecutor(threads)
     objs = []
     for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(run_HelitronScanner, sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_index)
+        obj = ex.submit(run_HelitronScanner, sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_index, debug)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)

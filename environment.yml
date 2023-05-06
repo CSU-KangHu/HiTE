@@ -6,6 +6,7 @@ channels:
   - r
 dependencies:
   - python=3.6.15
+  - java-jdk
   - genometools-genometools=1.6.1
   - ltr_retriever=2.9.0
   - repeatmasker=4.1.1

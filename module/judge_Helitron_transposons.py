@@ -104,9 +104,10 @@ if __name__ == '__main__':
         if not os.path.exists(HS_temp_dir):
             os.makedirs(HS_temp_dir)
         candidate_helitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.fa'
-        multi_process_helitronscanner(longest_repeats_flanked_path, candidate_helitron_path, sh_dir, HS_temp_dir, HSDIR, HSJAR, threads)
+        multi_process_helitronscanner(longest_repeats_flanked_path, candidate_helitron_path, sh_dir, HS_temp_dir, HSDIR, HSJAR, threads, debug)
         candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
-        os.system('rm -rf ' + HS_temp_dir)
+        if not debug:
+            os.system('rm -rf ' + HS_temp_dir)
 
     # 生成一致性序列
     candidate_helitron_cons = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.cons.fa'
