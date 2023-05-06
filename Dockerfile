@@ -2,7 +2,7 @@ FROM continuumio/miniconda3
 
 # Author and maintainer
 MAINTAINER Kang Hu <kanghu@csu.edu.cn>
-LABEL description="HiTE: A progressive method for accurate detection of intact Transposable Elements" \
+LABEL description="HiTE: An innovative and incremental approach for accurate detection and annotation of full-length Transposable Elements in Genome Assemblies" \
       author="kanghu@csu.edu.cn"
 
 ARG DNAME="HiTE"

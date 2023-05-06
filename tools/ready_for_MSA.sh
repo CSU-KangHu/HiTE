@@ -35,7 +35,7 @@ if [ $temp -gt $max ] # Only files with more sequences than the user selected th
 	if [ $largest -ge 0 ] && [ $largest -le $max ]
 		then        
         		sort -nk 2 -r $fasta.fai > $fasta.fai.sortedbylength 
-        		((l = $largest))  #l is the number of largest sequences to be selected
+        		l=$largest  #l is the number of largest sequences to be selected
         		r=$(($max - $largest)) #r is the number sequences to be randomly selected             
         		head -$l $fasta.fai.sortedbylength | awk '{print $1}' >> $fasta.headers #headears of "l" largest seqs
         		awk "NR> $l {print}" < $fasta.fai.sortedbylength > $fasta.temp 
