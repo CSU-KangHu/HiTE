@@ -144,7 +144,7 @@ to validate all configurations.
 ## <a name="start"></a>Quick start
 ```
 cd /your_path_to/HiTE
-python main.py --genome ../demo/genome.fa --thread 48 --outdir ../demo/test
+python main.py --genome ./demo/genome.fa --thread 48 --outdir ./demo/test
 ```
 
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
