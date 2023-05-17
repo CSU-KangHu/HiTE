@@ -269,7 +269,7 @@ optional arguments:
   --chunk_size chunk_size
                         The chunk size of large genome, default = [ 400 MB ]
   --miu miu             The neutral mutation rate (per bp per ya), default = [
-                        1.3e-08 MB ]
+                        1.3e-08 ]
   --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1
                         ]
   --classified is_classified
