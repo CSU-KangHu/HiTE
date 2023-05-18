@@ -17,6 +17,11 @@
 - [More tutorials](#QA)
 
 ## <a name="install"></a>Installation
+### Dowload project
+```sh
+git clone https://github.com/CSU-KangHu/HiTE.git
+```
+
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
