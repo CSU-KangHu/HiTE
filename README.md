@@ -60,9 +60,6 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.3 python main.py \
 
 ### <a name="install_conda"></a>Option 3. Run with conda
 ```sh
-# Download project 
-git clone https://github.com/CSU-KangHu/HiTE.git
-
 # Find the **yml** file in the project directory and run
 cd HiTE
 conda env create --name HiTE -f environment.yml
