@@ -42,9 +42,19 @@ if __name__ == '__main__':
     default_remove_nested = 1
 
     version_num = '2.0.3'
- 
+
+    describe_image = '\n' + \
+    '     __  __     __     ______   ______    \n' + \
+    '    /\ \_\ \   /\ \   /\__  _\ /\  ___\   \n' + \
+    '    \ \  __ \  \ \ \  \/_/\ \/ \ \  __\   \n' + \
+    '     \ \_\ \_\  \ \_\    \ \_\  \ \_____\ \n' + \
+    '      \/_/\/_/   \/_/     \/_/   \/_____/ ' + \
+    'version ' + str(version_num) + '\n\n'
+    print(describe_image)
+
     # 1.parse args
-    parser = argparse.ArgumentParser(description='########################## HiTE, version ' + str(version_num) + ' ##########################')
+    describe_info = '########################## HiTE, version ' + str(version_num) + ' ##########################'
+    parser = argparse.ArgumentParser(description=describe_info)
     parser.add_argument('--genome', metavar='genome', help='Input genome assembly path')
     parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
@@ -243,7 +253,13 @@ if __name__ == '__main__':
 
 
     log.logger.info('\n-------------------------------------------------------------------------------------------\n'
-                    'HiTE, version ' + str(version_num) + '\n'
+                    '     __  __     __     ______   ______    \n'
+                    '    /\ \_\ \   /\ \   /\__  _\ /\  ___\   \n'
+                    '    \ \  __ \  \ \ \  \/_/\ \/ \ \  __\   \n'
+                    '     \ \_\ \_\  \ \_\    \ \_\  \ \_____\ \n'
+                    '      \/_/\/_/   \/_/     \/_/   \/_____/ '
+                                      
+                    'version ' + str(version_num) + '\n\n\n'
                     'Copyright (C) 2022 Kang Hu ( kanghu@csu.edu.cn )\n'
                     'Hunan Provincial Key Lab on Bioinformatics, School of Computer Science and \n'
                     'Engineering, Central South University, Changsha 410083, P.R. China.\n'
