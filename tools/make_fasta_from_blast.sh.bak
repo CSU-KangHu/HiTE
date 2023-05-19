@@ -2,8 +2,8 @@
 
 if [ $# -ne 4 ]
 then
-short_name=$(basename $0)
-    echo -e "\nusage: $(basename $0) <genome> <fasta.in> <min_length> <flank>\n"
+short_name=`basename $0`
+    echo -e "\nusage: `basename $0` <genome> <fasta.in> <min_length> <flank>\n"
     echo -e "DESCRIPTION: This script takes a fasta sequence <fasta.in>, blasts it to the genome, recovers locations with alingment length > <min_length>, prints them as bed file, extends bed coordinates <flank> bases in each direction, and makes fasta from that BED.\n"
 
     echo -e "INPUT:     <genome>      location of genome in fasta format"
@@ -49,7 +49,7 @@ fi
 
 
 # if the value 0 is entered as min_length by the user, redifine min_length as half the length of  fasta.in 
-if [ "$3" == "0" ]
+if [ $3 == 0 ]
 then 
 	min_length=`grep -v ">" $2 | wc | awk '{print $3/2}'`
 else
@@ -82,4 +82,4 @@ fasta_count=`grep -c ">" $out.blast.bed.fa`
 echo "the fasta has "$fasta_count " sequences"
 
 # remove redundant files
-rm "$out".blast.o "$out".blast.bed "$out".blast.flank.bed
+rm $out.blast.o $out.blast.bed $out.blast.flank.bed

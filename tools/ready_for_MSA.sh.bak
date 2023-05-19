@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ $# -ne 3 ] 
 then 
-    echo -e "\nUSAGE:         $(basename $0) <input.multi.fa> <max> <keep_largest>"
+    echo -e "\nUSAGE:         `basename $0` <input.multi.fa> <max> <keep_largest>"
    
     echo -e "\nDESCRIPTION: The script generates a multifasta file containing <max> sequences obtained from the input file"    
     echo -e "               Firstly, it takes the <keep_largest> largest  sequences from the input <input.multi.fa>."
@@ -22,7 +22,7 @@ In addition, the script also creates a *subset.len file, which indicates the len
     
 fi
 
-fasta="$1"
+fasta=$1
 max=$2
 largest=$3
 
@@ -36,9 +36,9 @@ if [ $temp -gt $max ] # Only files with more sequences than the user selected th
 		then        
         		sort -nk 2 -r $fasta.fai > $fasta.fai.sortedbylength 
         		l=$largest  #l is the number of largest sequences to be selected
-        		r=$max-$largest #r is the number sequences to be randomly selected
+        		r=$(($max - $largest)) #r is the number sequences to be randomly selected             
         		head -$l $fasta.fai.sortedbylength | awk '{print $1}' >> $fasta.headers #headears of "l" largest seqs
-        		awk "NR> "$l" {print}" < $fasta.fai.sortedbylength > $fasta.temp
+        		awk "NR> $l {print}" < $fasta.fai.sortedbylength > $fasta.temp 
         		sort -R $fasta.temp | head -$r | awk '{print $1}' >> $fasta.headers #headers of "l" plus "r" random seqs 
         		grep -A 1 -f $fasta.headers $fasta | sed '/^--/d' > $fasta.rdmSubset.fa  
         		awk 'FNR==NR{a[$1]=$2;next} {print $1,a[$1]}' $fasta.fai $fasta.headers | sort -nk 2 -r >> $fasta.rdmSubset.len

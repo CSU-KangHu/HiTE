@@ -253,13 +253,6 @@ if __name__ == '__main__':
 
 
     log.logger.info('\n-------------------------------------------------------------------------------------------\n'
-                    '     __  __     __     ______   ______    \n'
-                    '    /\ \_\ \   /\ \   /\__  _\ /\  ___\   \n'
-                    '    \ \  __ \  \ \ \  \/_/\ \/ \ \  __\   \n'
-                    '     \ \_\ \_\  \ \_\    \ \_\  \ \_____\ \n'
-                    '      \/_/\/_/   \/_/     \/_/   \/_____/ '
-                                      
-                    'version ' + str(version_num) + '\n\n\n'
                     'Copyright (C) 2022 Kang Hu ( kanghu@csu.edu.cn )\n'
                     'Hunan Provincial Key Lab on Bioinformatics, School of Computer Science and \n'
                     'Engineering, Central South University, Changsha 410083, P.R. China.\n'
