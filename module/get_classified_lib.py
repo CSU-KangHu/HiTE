@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE_classify.log', level='debug')
 
     sample_name = 'test'
     # 1.classify

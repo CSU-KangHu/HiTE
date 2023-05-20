@@ -23,7 +23,7 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     debug = int(args.debug)
 
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE_clean.log', level='debug')
 
 
     # remove temp files and directories

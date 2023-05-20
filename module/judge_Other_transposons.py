@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
 
-    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
+    log = Logger(tmp_output_dir + '/HiTE_other.log', level='debug')
 
     # 一些思路：
     # 除了LTR、TIR、Helitron之外的其他转座子，包括LINE、SINE、DIRS、PLE(在Dfam中属于LINE)、Crypton它们缺少或具有复杂的终端结构特点，且没有稳定的TSD特征。

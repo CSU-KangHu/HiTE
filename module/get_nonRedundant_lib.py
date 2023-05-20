@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
 
     # 对合并的TIR和Helitron文件，生成一致性序列，并且重命名
     # 生成一致性序列

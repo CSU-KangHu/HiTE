@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    log = Logger(tmp_output_dir+'/HiTE_helitron.log', level='debug')
 
     # 取10条全长拷贝两端flanking 50bp以包含Helitron边界
     candidate_helitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.fa'
