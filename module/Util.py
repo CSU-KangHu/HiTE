@@ -5045,15 +5045,18 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
 
     # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
     # 增加target数量，一次10个，以增加cpu利用率
-    seq_num = 10
+
+    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
+    base_threshold = 1000000 #1Mb
     target_files = []
     file_index = 0
-    cur_seq_index = 0
+    base_count = 0
     cur_contigs = {}
     for name in repeatNames:
-        cur_contigs[name] = repeatContigs[name]
-        cur_seq_index += 1
-        if cur_seq_index >= seq_num:
+        cur_seq = repeatContigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
             cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
             store_fasta(cur_contigs, cur_target)
             target_files.append(cur_target)
@@ -5061,7 +5064,7 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
             os.system(makedb_command)
             cur_contigs = {}
             file_index += 1
-            cur_seq_index = 0
+            base_count = 0
     if len(cur_contigs) > 0:
         cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
         store_fasta(cur_contigs, cur_target)
@@ -5069,22 +5072,22 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
         makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
         os.system(makedb_command)
 
-    seq_num = 1
     repeat_files = []
     file_index = 0
-    cur_seq_index = 0
+    base_count = 0
     cur_contigs = {}
     for name in repeatNames:
-        cur_contigs[name] = repeatContigs[name]
-        cur_seq_index += 1
-        if cur_seq_index >= seq_num:
+        cur_seq = repeatContigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
             split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
             store_fasta(cur_contigs, split_repeat_file)
             output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
             repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
             cur_contigs = {}
             file_index += 1
-            cur_seq_index = 0
+            base_count = 0
     if len(cur_contigs) > 0:
         split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
         store_fasta(cur_contigs, split_repeat_file)
