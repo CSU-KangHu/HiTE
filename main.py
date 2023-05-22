@@ -300,6 +300,7 @@ if __name__ == '__main__':
                                      + ' -t ' + str(threads) \
                                      + ' --tmp_output_dir ' + tmp_output_dir \
                                      + ' --recover ' + str(recover) + ' --miu ' + str(miu)
+        log.logger.info(LTR_identification_command)
         os.system(LTR_identification_command)
         endtime = time.time()
         dtime = endtime - starttime
@@ -319,6 +320,7 @@ if __name__ == '__main__':
                                        + ' --subset_script_path ' + subset_script_path \
                                        + ' --tmp_output_dir ' + tmp_output_dir  \
                                        + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
+        log.logger.info(other_identification_command)
         os.system(other_identification_command)
         endtime = time.time()
         dtime = endtime - starttime
@@ -334,6 +336,7 @@ if __name__ == '__main__':
     split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
                                  + reference + ' --tmp_output_dir ' + tmp_output_dir \
                                  + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    log.logger.info(split_genome_command)
     os.system(split_genome_command)
     endtime = time.time()
     dtime = endtime - starttime
@@ -363,6 +366,7 @@ if __name__ == '__main__':
                                    + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                    + ' --ref_index ' + str(ref_index) \
                                    + ' -r ' + reference + ' --recover ' + str(recover) + ' --debug ' + str(debug)
+            log.logger.info(coarse_boundary_command)
             os.system(coarse_boundary_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -407,6 +411,7 @@ if __name__ == '__main__':
                                               + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
                                               + ' --recover ' + str(recover) + ' --debug ' + str(debug)
 
+            log.logger.info(helitron_identification_command)
             os.system(helitron_identification_command)
             endtime = time.time()
             dtime = endtime - starttime
@@ -437,7 +442,7 @@ if __name__ == '__main__':
                            + ' --confident_other ' + confident_other_path \
                            + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --test_home ' + str(test_home)
-
+    log.logger.info(generate_lib_command)
     os.system(generate_lib_command)
     endtime = time.time()
     dtime = endtime - starttime
@@ -453,7 +458,7 @@ if __name__ == '__main__':
                            + ' --classified ' + str(classified) + ' --domain ' + str(domain) + ' --TEClass_home ' + str(TEClass_home) \
                            + ' --protein_path ' + str(protein_lib_path) \
                            + ' --debug ' + str(debug)
-
+    log.logger.info(classify_lib_command)
     os.system(classify_lib_command)
     endtime = time.time()
     dtime = endtime - starttime

@@ -7439,16 +7439,20 @@ def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, simil
     total_names = set(names)
     split_files = []
     for i, name in enumerate(names):
-        cur_file = temp_dir + '/' + str(name) + '.fa'
+        # 为了防止并行运行时出现混乱，将每条序列单独创建一个目录
+        cur_temp_dir = temp_dir + '/' + str(i)
+        if not os.path.exists(cur_temp_dir):
+            os.makedirs(cur_temp_dir)
+        cur_file = cur_temp_dir + '/' + str(name) + '.fa'
         cur_contigs = {}
         cur_contigs[name] = contigs[name]
         store_fasta(cur_contigs, cur_file)
-        split_files.append(cur_file)
+        split_files.append((cur_temp_dir, cur_file))
 
     ex = ProcessPoolExecutor(threads)
     jobs = []
-    for cur_file in split_files:
-        job = ex.submit(run_find_members_v6, cur_file, reference, temp_dir, member_script_path, subset_script_path,
+    for cur_file_tuple in split_files:
+        job = ex.submit(run_find_members_v6, cur_file_tuple, reference, member_script_path, subset_script_path,
                         plant, TE_type, flanking_len, debug, result_type)
         jobs.append(job)
     ex.shutdown(wait=True)
@@ -11296,30 +11300,30 @@ def run_find_members(file, reference, temp_dir, member_script_path, subset_scrip
 
 
 
-def run_find_members_v6(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
+def run_find_members_v6(cur_file_tuple, reference, member_script_path, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
     # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
     # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
     # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-
+    (cur_temp_dir, cur_file) = cur_file_tuple
     cur_names, cur_contigs = read_fasta(cur_file)
     cur_seq = cur_contigs[cur_names[0]]
 
     # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
     extend_len = flanking_len
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
+    copy_command = 'cd ' + cur_temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
         extend_len) + ' > /dev/null 2>&1'
     os.system(copy_command)
     #print(copy_command)
     member_file = cur_file + '.blast.bed.fa'
     member_names, member_contigs = read_fasta(member_file)
     if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        sub_command = 'cd ' + cur_temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
         os.system(sub_command)
         member_file += '.rdmSubset.fa'
     if not os.path.exists(member_file):
         return None, None, ''
     align_file = cur_file + '.maf.fa'
-    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+    align_command = 'cd ' + cur_temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
     os.system(align_command)
 
     # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性

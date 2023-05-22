@@ -24,7 +24,7 @@ fi
 
 genome=$1
 fasta_in=$2
-out=`basename $2`
+out=$(basename $2)
 min_length=$3
 flank=$4
 
@@ -48,7 +48,7 @@ fi
 
 
 
-# if the value 0 is entered as min_length by the user, redifine min_length as half the length of  fasta.in 
+#if the value 0 is entered as min_length by the user, redifine min_length as half the length of  fasta.in
 if [ "$3" == "0" ]
 then 
 	min_length=`grep -v ">" $2 | wc | awk '{print $3/2}'`
