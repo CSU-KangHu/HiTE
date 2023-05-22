@@ -2357,23 +2357,23 @@ if __name__ == '__main__':
     # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
 
 
-    #读取novel TIR的拷贝数列，统计拷贝数分布
-    # 读取 Excel 表格
-    df = pd.read_excel('/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice/novel_tir/data.xlsx', engine='openpyxl')
-
-    # 统计 "terminal type" 列中每个不同值的数量
-    counts = df['terminal type'].value_counts()
-
-    # 输出 "novel_terminal" 和 "known_terminal" 的数量
-    print('novel_terminal:', counts['novel_terminal'])
-    print('known_terminal:', counts['known_terminal'])
-
-    #使用列名访问数据
-    column_data = df['copy num']
-
-    column_data.to_csv('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv', index=False)
-
-    draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
+    # #读取novel TIR的拷贝数列，统计拷贝数分布
+    # # 读取 Excel 表格
+    # df = pd.read_excel('/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice/novel_tir/data.xlsx', engine='openpyxl')
+    #
+    # # 统计 "terminal type" 列中每个不同值的数量
+    # counts = df['terminal type'].value_counts()
+    #
+    # # 输出 "novel_terminal" 和 "known_terminal" 的数量
+    # print('novel_terminal:', counts['novel_terminal'])
+    # print('known_terminal:', counts['known_terminal'])
+    #
+    # #使用列名访问数据
+    # column_data = df['copy num']
+    #
+    # column_data.to_csv('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv', index=False)
+    #
+    # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
 
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
     tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice/novel_tir'

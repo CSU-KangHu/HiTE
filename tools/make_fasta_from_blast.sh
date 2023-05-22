@@ -73,6 +73,8 @@ bedtools slop -s  -i $out.blast.bed  -g $genome.length -b $flank > $out.blast.fl
 
 
 # extract fasta sequence from the reference genome
+command="bedtools getfasta -fi  $genome -fo $out.blast.bed.fa  -bed $out.blast.flank.bed -s"
+echo $command
 
 bedtools getfasta -fi  $genome -fo $out.blast.bed.fa  -bed $out.blast.flank.bed -s 
 
@@ -82,4 +84,4 @@ fasta_count=`grep -c ">" $out.blast.bed.fa`
 echo "the fasta has "$fasta_count " sequences"
 
 # remove redundant files
-rm "$out".blast.o "$out".blast.bed "$out".blast.flank.bed
+#rm "$out".blast.o "$out".blast.bed "$out".blast.flank.bed
