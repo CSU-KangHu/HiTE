@@ -49,7 +49,6 @@ if __name__ == '__main__':
         is_recover = True
 
     # 1.重命名reference文件
-
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     rename_reference(reference, ref_rename_path)
 

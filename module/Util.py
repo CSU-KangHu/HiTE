@@ -7437,6 +7437,11 @@ def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, simil
     os.system('rm -rf ' + temp_dir)
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
+
+    #由于在获取拷贝时，经常出现reference的索引问题，导致拷贝乱码或者全N的情况，因此决定在获取拷贝之前，重新生成reference索引
+    os.system('makeblastdb -in ' + reference + ' -dbtype nucl')
+    os.system('samtools faidx ' + reference)
+    os.system("awk '{OFS=\"\t\"; print $1,$2}' < " + reference + ".fai > " + reference + ".length")
     
     names, contigs = read_fasta(candidate_sequence_path)
     total_names = set(names)

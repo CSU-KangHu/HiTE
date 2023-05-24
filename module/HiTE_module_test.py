@@ -44,8 +44,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
 
 def generate_repbases():
     # 水稻
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase'
-    repbase_path = repbase_dir + '/maize.ref'
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
+    repbase_path = repbase_dir + '/athrep.ref'
     repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
     tags = set()
     for name in repbase_names:
@@ -58,7 +58,7 @@ def generate_repbases():
     tir_tags = ['Mariner/Tc1', 'DNA transposon', 'EnSpm/CACTA', 'MuDR', 'hAT', 'Harbinger', 'Transib', 'piggyBac', 'P', 'DNA', 'Sola2', 'Kolobok', ]
     helitron_tags = ['Helitron', 'MINIME_DN']
     non_ltr_tags = ['L1', 'SINE2/tRNA', 'Non-LTR Retrotransposon', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
-    tmp_out_dir = repbase_dir + '/maize'
+    tmp_out_dir = repbase_dir + '/ath'
     if not os.path.exists(tmp_out_dir):
         os.makedirs(tmp_out_dir)
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
@@ -2439,6 +2439,7 @@ if __name__ == '__main__':
 
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
+    generate_repbases()
 
     #测试LTR_finder结果
     # test_LTR_finder()
