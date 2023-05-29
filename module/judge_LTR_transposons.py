@@ -10,7 +10,7 @@ import time
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, rename_reference, file_exist, Logger, run_LTR_harvest, run_LTR_retriever, \
+from Util import read_fasta, store_fasta, rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
     rename_fasta
 
 if __name__ == '__main__':
@@ -19,6 +19,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run HiTE...')
     parser.add_argument('-g', metavar='Genome assembly',
                         help='input genome assembly path')
+    parser.add_argument('--ltrharvest_home', metavar='ltrharvest_home',
+                        help='e.g., ')
     parser.add_argument('--ltrfinder_home', metavar='ltrfinder_home',
                         help='e.g., ')
     parser.add_argument('-t', metavar='threads number',
@@ -33,6 +35,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     reference = args.g
+    LTR_harvest_parallel_Home = args.ltrharvest_home
     LTR_finder_parallel_Home = args.ltrfinder_home
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
@@ -54,30 +57,14 @@ if __name__ == '__main__':
 
     resut_file = tmp_output_dir + '/genome_all.fa.harvest.scn'
     if not is_recover or not file_exist(resut_file):
-        log.logger.info('Start step2.1: Running LTR_harvest and LTR_finder_parallel')
-        run_LTR_harvest(ref_rename_path, tmp_output_dir, threads, LTR_finder_parallel_Home, log)
+        log.logger.info('Start step2.1: Running LTR_harvest_parallel and LTR_finder_parallel')
+        run_LTR_detection(ref_rename_path, tmp_output_dir, threads, LTR_harvest_parallel_Home, LTR_finder_parallel_Home, log)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
-    # resut_file = ref_rename_path + '.finder.combine.scn'
-    # if not is_recover or not file_exist(resut_file):
-    #     starttime = time.time()
-    #     log.logger.info('Start step2.2: Running LTR finder parallel to obtain candidate LTRs')
-
-    #     # 运行LTR_finder_parallel来获取候选的LTR序列
-    #     # 2.运行LTR_finder_parallel
-    #     LTR_finder_parallel_command = 'perl ' + LTR_finder_parallel_Home + '/LTR_FINDER_parallel -harvest_out -seq ' + ref_rename_path + ' -threads ' + str(threads)
-    #     log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
-    #     os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
-
-    #     endtime = time.time()
-    #     dtime = endtime - starttime
-    #     log.logger.info("Running time of LTR finder parallel: %.8s s" % (dtime))
-    # else:
-    #     log.logger.info(resut_file + ' exists, skip...')
 
     # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever
-    ltrharvest_output = tmp_output_dir + '/genome_all.fa.harvest.scn'
+    ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
     ltrfinder_output = ref_rename_path + '.finder.combine.scn'
     ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
     os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)

@@ -45,32 +45,38 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
 def generate_repbases():
     # 水稻
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
-    repbase_path = repbase_dir + '/athrep.ref'
+    repbase_path = repbase_dir + '/edcotrep.ref'
     repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
     tags = set()
     for name in repbase_names:
+        if not name.__contains__('Solanum tuberosum'):
+            continue
         tag = name.split('\t')[1]
         tags.add(tag)
     print(tags)
     print(len(tags))
 
-    ltr_tags = ['Gypsy', 'Copia', 'LTR Retrotransposon', 'BEL', 'LTR', 'Endogenous Retrovirus']
+    ltr_tags = ['Gypsy', 'Copia', 'LTR Retrotransposon', 'BEL', 'LTR', 'Endogenous Retrovirus', 'Caulimoviridae']
     tir_tags = ['Mariner/Tc1', 'DNA transposon', 'EnSpm/CACTA', 'MuDR', 'hAT', 'Harbinger', 'Transib', 'piggyBac', 'P', 'DNA', 'Sola2', 'Kolobok', ]
     helitron_tags = ['Helitron', 'MINIME_DN']
     non_ltr_tags = ['L1', 'SINE2/tRNA', 'Non-LTR Retrotransposon', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
-    tmp_out_dir = repbase_dir + '/ath'
+    tmp_out_dir = repbase_dir + '/potato'
     if not os.path.exists(tmp_out_dir):
         os.makedirs(tmp_out_dir)
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
     tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     helitron_repbase_path = tmp_out_dir + '/helitron.repbase.ref'
     non_ltr_repbase_path = tmp_out_dir + '/non_ltr.repbase.ref'
+    all_repbase_path = tmp_out_dir + '/all.repbase.ref'
 
+    all_contigs = {}
     ltr_contigs = {}
     tir_contigs = {}
     helitron_contigs = {}
     non_ltr_contigs = {}
     for name in repbase_names:
+        if not name.__contains__('Solanum tuberosum'):
+            continue
         tag = name.split('\t')[1]
         if tag in ltr_tags:
             ltr_contigs[name] = repbase_contigs[name]
@@ -80,10 +86,12 @@ def generate_repbases():
             helitron_contigs[name] = repbase_contigs[name]
         elif tag in non_ltr_tags:
             non_ltr_contigs[name] = repbase_contigs[name]
+        all_contigs[name] = repbase_contigs[name]
     store_fasta(ltr_contigs, ltr_repbase_path)
     store_fasta(tir_contigs, tir_repbase_path)
     store_fasta(helitron_contigs, helitron_repbase_path)
     store_fasta(non_ltr_contigs, non_ltr_repbase_path)
+    store_fasta(all_contigs, all_repbase_path)
 
 def generate_rm2():
     # 水稻
@@ -387,21 +395,49 @@ def test_filter_diff_5bp_tirs():
             del tir_contigs[name]
     store_fasta(tir_contigs, confident_tir_filter_path)
 
-def summary_not_appear_repbase():
+def summary_not_perfect_repbase():
     #我们观察，有哪些序列是没有出现在比对中
-    align_file = '/public/home/hpc194701009/KmerRepFinder_test/library/get_family_summary_test/file_final.0.1.txt'
+    align_file = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_test/perfect.families'
     query_names = set()
     with open(align_file, 'r') as f_r:
         for line in f_r:
-            query_name = line.split('\t')[4]
+            query_name = line.replace('\n', '')
             query_names.add(query_name)
 
-    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/drerio'
-    names, contigs = read_fasta(tmp_dir + '/confident_tir.rename.cons.fa')
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/ath'
+    names, contigs = read_fasta(tmp_dir + '/tir.repbase.ref')
     names = set(names)
     diff_set = names.difference(query_names)
     print(diff_set)
     print('not appear size: ' + str(len(diff_set)))
+
+    lost_tirs = '/homeb/hukang/KmerRepFinder_test/library/tir_test/lost_tir.fa'
+    lost_contigs = {}
+    for name in diff_set:
+        lost_contigs[name] = contigs[name]
+    store_fasta(lost_contigs, lost_tirs)
+
+def summary_not_appear_repbase():
+    #我们观察，有哪些序列是没有出现在比对中
+    align_file = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_test/file_final.0.1.txt'
+    query_names = set()
+    with open(align_file, 'r') as f_r:
+        for line in f_r:
+            query_name = line.split('\t')[0]
+            query_names.add(query_name)
+
+    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/ath'
+    names, contigs = read_fasta(tmp_dir + '/tir.repbase.ref')
+    names = set(names)
+    diff_set = names.difference(query_names)
+    print(diff_set)
+    print('not appear size: ' + str(len(diff_set)))
+
+    lost_tirs = '/homeb/hukang/KmerRepFinder_test/library/tir_test/lost_tir.fa'
+    lost_contigs = {}
+    for name in diff_set:
+        lost_contigs[name] = contigs[name]
+    store_fasta(lost_contigs, lost_tirs)
 
     # diff_set1 = set()
     # #去除掉TGCA后还有多少条
@@ -2309,6 +2345,108 @@ def to_excel_auto_column_weight(df: pd.DataFrame, writer: ExcelWriter, sheet_nam
         worksheet.column_dimensions[get_column_letter(i)].width = width + 2
 
 
+def analyze_potato_libs():
+    #这个实验分析流程：
+    # 1.应该可以拿到5个不同的TE库，分别是来自于RepBase，RepeatMasker，RepeatModeler2，EDTA，以及HiTE。
+    # 2.有如下的情况可以分析：a) HiTE独有，其它4个库没有的TE序列。 b) HiTE与其它任意一个库共有，但是剩余的库没有的TE序列。 c）HiTE没有，但是其它库有的TE序列。
+    # 3.我们统计上述三种情况的TE，然后可以拿出一些具体的样例进行分析，目的需要证明两个点：a) HiTE找到的序列 (无论独有或者是共有)，是真实的TE序列。b）HiTE没有找到的序列，不是TE或者不是全长TE（缺乏TE结构）。
+    work_dir = '/homeb/hukang/KmerRepFinder_test/library/potato_test'
+    lib_paths = []
+    HiTE_lib = work_dir + '/'
+    repbase_lib = work_dir + '/repbase.ref'
+    rm_lib = work_dir + '/potato_repeatmasker.ref'
+    rm2_lib = work_dir + '/'
+    edta_lib = work_dir + '/C514.fa.mod.EDTA.TElib.fa'
+    lib_paths.append((repbase_lib, 'Repbase'))
+    lib_paths.append((rm_lib, 'RM'))
+    #lib_paths.append((HiTE_lib, 'HiTE'))
+    #lib_paths.append((rm2_lib, 'RM2'))
+    #lib_paths.append((edta_lib, 'EDTA'))
+    analyze_lib_name = 'Repbase'
+
+    # 0.对library重命名，添加工具名称，方便后续分别；合并所有的library
+    merge_lib = work_dir + '/merge.fa'
+    merge_lib_contigs = {}
+    for i, path_item in enumerate(lib_paths):
+        path = path_item[0]
+        tool_name = path_item[1]
+        lib_names, lib_contigs = read_fasta(path)
+        for name in lib_names:
+            new_name = tool_name + '-' + name
+            merge_lib_contigs[new_name] = lib_contigs[name]
+    store_fasta(merge_lib_contigs, merge_lib)
+
+    merge_lib_cons = work_dir + '/merge.cons.fa'
+    # 1.使用cd-hit-est聚类
+    tools_dir = os.getcwd() + '/../tools'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + merge_lib + ' -o ' + merge_lib_cons + ' -T 0 -M 0'
+    #os.system(cd_hit_command)
+
+    # 2. 分析聚类文件
+    cluster_file = merge_lib_cons + '.clstr'
+    cluster_idx = -1
+    clusters = {}
+    cluster_rep = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                cur_cluster.append(name)
+                if line.endswith('*'):
+                    cluster_rep['rep_' + str(cluster_idx)] = name
+
+    #使用一个dict记录每个簇，包含的库的类别，format: {Rep_seq: {HiTE: 1, Repbase: 1, RM: 1, RM2: 1, EDTA: 0}}
+    represent_dict = {}
+    for cluster_rep_name in cluster_rep.keys():
+        rep_name = cluster_rep[cluster_rep_name]
+        cluster_idx = cluster_rep_name.replace('rep_', '')
+        cluster = clusters[cluster_idx]
+        has_HiTE = 0
+        has_Repbase = 0
+        has_RM = 0
+        has_RM2 = 0
+        has_EDTA = 0
+        for name in cluster:
+            if name.startswith('HiTE-'):
+                has_HiTE = 1
+            elif name.startswith('Repbase-'):
+                has_Repbase = 1
+            elif name.startswith('RM-'):
+                has_RM = 1
+            elif name.startswith('RM2-'):
+                has_RM2 = 1
+            elif name.startswith('EDTA-'):
+                has_EDTA = 1
+        record = {}
+        record['HiTE'] = has_HiTE
+        record['Repbase'] = has_Repbase
+        record['RM'] = has_RM
+        record['RM2'] = has_RM2
+        record['EDTA'] = has_EDTA
+        represent_dict[rep_name] = record
+
+    print(represent_dict)
+    print(len(represent_dict))
+
+    # 统计待分析Library锁独有的，共有的，缺失的序列
+
+    #转dataframe
+    df = pd.DataFrame(represent_dict).T
+
+    # 使用条件筛选和逻辑运算符进行统计
+    filtered_df = df[(df['Repbase'] == 1) & (df['RM'] == 1) & (df['HiTE'] == 0) & (df['RM2'] == 0) & (df['EDTA'] == 0)]
+
+    print(filtered_df)
+
+
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
@@ -2321,14 +2459,15 @@ if __name__ == '__main__':
     TE_type = 'TIR'
     tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
     #raw_input = tmp_dir + '/tir.repbase.ref'
-    output = tmp_dir + '/real_tirs.fa'
+    output = tmp_dir + '/real_lost_tirs.fa'
+    #output = tmp_dir + '/real_test.fa'
     # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
     # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
     member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
     subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
     #reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7/all.chrs.con'
-    reference = '/home/hukang/EDTA/krf_test/rice/GCF_001433935.1_IRGSP-1.0_genomic.fna'
+    reference = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
     #reference = '/home/hukang/HiTE/demo/test/genome.cut0.fa'
     temp_dir = tmp_dir + '/copies'
     threads = 40
@@ -2337,7 +2476,8 @@ if __name__ == '__main__':
 
     # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
     #raw_input = tmp_dir + '/fake_helitron.fa'
-    raw_input = tmp_dir + '/test.fa'
+    raw_input = tmp_dir + '/lost_tir.fa'
+    #raw_input = tmp_dir + '/test.fa'
     #raw_input = tmp_dir + '/helitron.repbase.ref'
     #raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
     flanking_len = 50
@@ -2347,11 +2487,11 @@ if __name__ == '__main__':
     log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
     debug = 1
-    output = tmp_dir + '/real_tir_'+str(ref_index)+'.fa'
+    #output = tmp_dir + '/real_tir_'+str(ref_index)+'.fa'
     #output = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r1.fa'
     #output1 = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
-    # result_type = 'cons'
-    # flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, result_type)
+    result_type = 'cons'
+    #flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
 
     # confident_helitron_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/candidate_helitron_0.cons.fa'
     # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
@@ -2439,7 +2579,10 @@ if __name__ == '__main__':
 
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
-    generate_repbases()
+    #generate_repbases()
+    # input = '/homeb/hukang/KmerRepFinder_test/library/WebTE_Lib/Arabidopsis_thaliana_3702/GCF_000001735.4_TAIR10.1_genomic.fna'
+    # output = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
+    # rename_reference(input, output)
 
     #测试LTR_finder结果
     # test_LTR_finder()
@@ -2541,3 +2684,9 @@ if __name__ == '__main__':
     #         seq = contigs[name]
     #         if len(seq) < max_single_repeat_len:
     #             f_save.write('>'+name+'\n'+seq+'\n')
+
+    #summary_not_perfect_repbase()
+
+    #analyze_potato_libs()
+
+    #去掉longest_repeats.fa中的片段序列，只保留全长序列

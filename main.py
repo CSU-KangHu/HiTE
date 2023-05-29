@@ -35,7 +35,7 @@ if __name__ == '__main__':
     default_recover = 0
     default_flanking_len = 50
     default_debug = 0
-    default_chrom_seg_length = 1000000
+    default_chrom_seg_length = 100000
     default_classified = 1
     default_domain = 0
     default_miu = str(1.3e-8)
@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
     # LTR_finder_parallel_Home = param['LTR_finder_parallel_Home']
     # EAHelitron = param['EAHelitron']
-
+    LTR_harvest_parallel_Home = os.getcwd() + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
     EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
     HSDIR = os.getcwd() + '/bin/HelitronScanner/TrainingSet'
@@ -296,8 +296,8 @@ if __name__ == '__main__':
     if not is_recover or not file_exist(resut_file):
         starttime = time.time()
         LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
-                                     + ' -g ' + reference + ' --ltrfinder_home ' + LTR_finder_parallel_Home \
-                                     + ' -t ' + str(threads) \
+                                     + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
+                                     + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
                                      + ' --tmp_output_dir ' + tmp_output_dir \
                                      + ' --recover ' + str(recover) + ' --miu ' + str(miu)
         log.logger.info(LTR_identification_command)
@@ -358,7 +358,7 @@ if __name__ == '__main__':
             starttime = time.time()
             log.logger.info('Start 2.1: Coarse-grained boundary mapping')
             coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
-                                   + '-g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
+                                   + ' -g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
                                    + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
                                    + ' --max_repeat_len ' + str(max_repeat_len) \
                                    + ' --thread ' + str(threads) \

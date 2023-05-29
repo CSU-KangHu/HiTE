@@ -10,7 +10,7 @@ import time
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, determine_repeat_boundary_v3, multi_process_TRF, flanking_seq, \
-    file_exist
+    file_exist, determine_repeat_boundary_v4
 
 if __name__ == '__main__':
     # 1.parse args
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     resut_file = longest_repeats_path
     if not is_recover or not file_exist(resut_file):
         # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
-        determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
+        determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
                                      tmp_output_dir, thread, ref_index, debug)
     else:
         log.logger.info(resut_file + ' exists, skip...')
@@ -86,20 +86,20 @@ if __name__ == '__main__':
     # else:
     #     log.logger.info(resut_file + ' exists, skip...')
 
-    repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
-    resut_file = repeats_path
-    if not is_recover or not file_exist(resut_file):
-        trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
-        multi_process_TRF(longest_repeats_path, repeats_path, trf_dir, tandem_region_cutoff,
-                          threads=thread)
-        os.system('rm -rf ' + trf_dir)
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    # repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.filter_tandem.fa'
+    # resut_file = repeats_path
+    # if not is_recover or not file_exist(resut_file):
+    #     trf_dir = tmp_output_dir + '/trf_temp_' + str(ref_index)
+    #     multi_process_TRF(longest_repeats_path, repeats_path, trf_dir, tandem_region_cutoff,
+    #                       threads=thread)
+    #     os.system('rm -rf ' + trf_dir)
+    # else:
+    #     log.logger.info(resut_file + ' exists, skip...')
 
     longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
     resut_file = longest_repeats_flanked_path
     if not is_recover or not file_exist(resut_file):
-        flanking_seq(repeats_path, longest_repeats_flanked_path, reference, flanking_len)
+        flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 

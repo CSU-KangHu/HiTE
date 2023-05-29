@@ -109,12 +109,6 @@ if __name__ == '__main__':
         if not debug:
             os.system('rm -rf ' + HS_temp_dir)
 
-    # 生成一致性序列
-    candidate_helitron_cons = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.cons.fa'
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + candidate_helitron_path + ' -o ' + candidate_helitron_cons + ' -T 0 -M 0'
-    os.system(cd_hit_command)
-    #rename_fasta(candidate_helitron_cons, candidate_helitron_cons, 'Helitron')
 
     # 对HelitronScanner识别的结果使用同源性过滤方法过滤
     confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
@@ -125,16 +119,21 @@ if __name__ == '__main__':
         TE_type = 'helitron'
         # 多轮迭代是为了找到更加准确的边界
         iter_num = 3
-        input_file = candidate_helitron_cons
+        input_file = candidate_helitron_path
         for i in range(iter_num):
             result_type = 'cons'
             output_file = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
             flank_region_align_v3(input_file, output_file, flanking_len, similar_ratio, reference, TE_type,
                                   tmp_output_dir, threads,
-                                  ref_index, log, member_script_path, subset_script_path, 1, debug, result_type)
+                                  ref_index, log, member_script_path, subset_script_path, 1, debug, i, result_type)
             input_file = output_file
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.fa'
-        rename_fasta(cur_confident_helitron_path, confident_helitron_path, 'Helitron')
+        cur_confident_helitron_cons = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.cons.fa'
+        # 生成一致性序列
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                         + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0'
+        os.system(cd_hit_command)
+        rename_fasta(cur_confident_helitron_cons, confident_helitron_path, 'Helitron')
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
