@@ -7,6 +7,7 @@ import logging
 import re
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Manager
 from logging import handlers
 from fuzzysearch import find_near_matches
 import Levenshtein
@@ -4482,7 +4483,7 @@ def get_alignment_records(repeats_path):
         os.system(align_command)
     return blastn2Results_path
 
-def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_single_repeat_len, debug):
+def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_single_repeat_len, chr_pos_candidates, debug):
     # 这个函数的目的，其实是根据比对信息，找到可能的候选重复序列
     # longest_repeats -> {'chr1:100-1000': seq, }
     longest_repeats = {}
@@ -4628,8 +4629,48 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
                                                 cur_longest_query_len, longest_subject_start,
                                                 longest_subject_end, longest_subject_end - longest_subject_start, subject_name, cur_extend_num))
 
-        longest_repeats[query_name] = longest_queries
+        # 取所有可能的重复区，按照（染色体：start-end）进行编号，并记录下来，对于再次重复的序列，不再保存以减少后续计算量。
+        # 即每个重复片段只保留一次
+        parts = query_name.split('$')
+        query_chr_name = parts[0]
+        query_chr_start = int(parts[1])
 
+        query_repeatNames = []
+        query_repeats = {}
+        for repeat in longest_queries:
+            # Subject序列处理流程
+            subject_name = repeat[6]
+            parts = subject_name.split('$')
+            subject_chr_name = parts[0]
+            subject_chr_start = int(parts[1])
+
+            old_subject_start_pos = repeat[3] - 1
+            old_subject_end_pos = repeat[4]
+            subject_start_pos = subject_chr_start + old_subject_start_pos
+            subject_end_pos = subject_chr_start + old_subject_end_pos
+            # 记录下这个片段对应的染色体坐标
+            subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+
+            # Query序列处理流程
+            old_query_start_pos = repeat[0] - 1
+            old_query_end_pos = repeat[1]
+
+            cur_seq_len = old_query_end_pos - old_query_start_pos
+            query_start_pos = query_chr_start + old_query_start_pos
+            query_end_pos = query_chr_start + old_query_end_pos
+            query_pos = query_chr_name + ':' + str(query_start_pos) + '-' + str(query_end_pos)
+
+            if cur_seq_len >= 80 and cur_seq_len < max_single_repeat_len:
+                if not chr_pos_candidates.__contains__(query_pos) and not chr_pos_candidates.__contains__(subject_pos):
+                    query_repeatNames.append(query_pos)
+                    query_repeats[query_pos] = (query_name, old_query_start_pos, old_query_end_pos)
+                chr_pos_candidates[query_pos] = 1
+                chr_pos_candidates[subject_pos] = 1
+
+        # 对query_repeats进行合并,overlap超过95%，则丢弃
+        merge_contigNames = process_all_seqs(query_repeatNames)
+        for query_pos in merge_contigNames:
+            longest_repeats[query_pos] = query_repeats[query_pos]
     return longest_repeats
 
 def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug):
@@ -4947,7 +4988,11 @@ def process_seq_group(seq_group):
             if overlap_len / (seq2[1] - seq2[0]) >= 0.95:
                 keep_seq[j] = False  # 将下一条序列标记为需要被删除
     # 返回被保留的序列
-    return [seq[2] for i, seq in enumerate(seq_group) if keep_seq[i]]
+    # filter_res = [seq for i, seq in enumerate(seq_group) if keep_seq[i]]
+    # filter_res.sort(key=lambda x: (x[0], x[1]))
+    # res = [seq[2] for i, seq in enumerate(filter_res)]
+    res = [seq[2] for i, seq in enumerate(seq_group) if keep_seq[i]]
+    return res
 
 def process_all_seqs(seq_list):
     """对所有序列进行处理"""
@@ -5399,6 +5444,8 @@ def determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_exten
 
     #3. 我们串行读取比对文件，将其输入到内存dict中，当dict达到10000条时，进行分析并返回结果，结果会落盘存在文件中
     batch_size = 100
+    manager = Manager()
+    chr_pos_candidates = manager.dict()
     ex = ProcessPoolExecutor(threads)
     jobs = []
     query_records = {}
@@ -5431,107 +5478,28 @@ def determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_exten
                 if len(query_records) == batch_size:
                     # 处理当前批次的数据
                     job = ex.submit(get_longest_repeats_v5, query_records, fixed_extend_base_threshold,
-                                    max_single_repeat_len, debug)
+                                    max_single_repeat_len, chr_pos_candidates, debug)
                     jobs.append(job)
                     query_records = {}
         f_r.close()
     # 处理剩余的数据（如果文件行数不是batch_size的整数倍）
     if len(query_records) > 0:
         job = ex.submit(get_longest_repeats_v5, query_records, fixed_extend_base_threshold,
-                        max_single_repeat_len, debug)
+                        max_single_repeat_len, chr_pos_candidates, debug)
         jobs.append(job)
     ex.shutdown(wait=True)
 
     # 上面的函数已经获得了所有可能的候选重复片段
-
     #取所有的重复区片段进行合并
+    # 对query_repeats进行合并,overlap超过95%，则丢弃
     longest_repeats = {}
-    # 记录所有可能的整数位置，例如chr1, start:98, end: 995，会得到下面这四种位置坐标
-    # chr_pos_candidates -> {'chr1:90-990': 1, 'chr1:90-1000': 1, 'chr1:100-990': 1, 'chr1:100-1000': 1}
-    chr_pos_candidates = {}
     for job in as_completed(jobs):
         cur_longest_repeats = job.result()
-        for query_name in cur_longest_repeats.keys():
-            longest_queries = cur_longest_repeats[query_name]
-            # 取所有可能得重复区，按照（染色体：start-end）进行编号，并记录下来，对于再次重复的序列，不再保存以减少后续计算量。
-            # 即每个重复片段只保留一次
-            parts = query_name.split('$')
-            query_chr_name = parts[0]
-            query_chr_start = int(parts[1])
-
-            query_repeatNames = []
-            query_repeats = {}
-            for repeat in longest_queries:
-                # Subject序列处理流程
-                subject_name = repeat[6]
-                parts = subject_name.split('$')
-                subject_chr_name = parts[0]
-                subject_chr_start = int(parts[1])
-
-                old_subject_start_pos = repeat[3] - 1
-                old_subject_end_pos = repeat[4]
-                subject_start_pos = subject_chr_start + old_subject_start_pos
-                subject_end_pos = subject_chr_start + old_subject_end_pos
-
-                # 对位置坐标取10的整数，例如567，我们得到两个数560和570.
-                subject_start_pos1, subject_start_pos2 = get_integer_pos(subject_start_pos)
-                subject_end_pos1, subject_end_pos2 = get_integer_pos(subject_end_pos)
-                # 记录下这个片段对应的染色体坐标
-                subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
-                subject_pos1 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos1)
-                subject_pos2 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos2)
-                subject_pos3 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos1)
-                subject_pos4 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos2)
-
-                # Query序列处理流程
-                old_query_start_pos = repeat[0] - 1
-                old_query_end_pos = repeat[1]
-
-                cur_seq_len = old_query_end_pos - old_query_start_pos
-                query_start_pos = query_chr_start + old_query_start_pos
-                query_end_pos = query_chr_start + old_query_end_pos
-
-                # 对位置坐标取10的整数，例如567，我们得到两个数560和570.
-                query_start_pos1, query_start_pos2 = get_integer_pos(query_start_pos)
-                query_end_pos1, query_end_pos2 = get_integer_pos(query_end_pos)
-                # 记录下这个片段对应的染色体坐标
-                query_pos = query_chr_name + ':' + str(query_start_pos) + '-' + str(query_end_pos)
-                query_pos1 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos1)
-                query_pos2 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos2)
-                query_pos3 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos1)
-                query_pos4 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos2)
-
-                # 判断这条序列是否已经存下了，如果没有，则记录下这个subject片段的序列
-                if not chr_pos_candidates.__contains__(subject_pos1) \
-                        and not chr_pos_candidates.__contains__(subject_pos2) \
-                        and not chr_pos_candidates.__contains__(subject_pos3) \
-                        and not chr_pos_candidates.__contains__(subject_pos4) \
-                        and not chr_pos_candidates.__contains__(query_pos1) \
-                        and not chr_pos_candidates.__contains__(query_pos2) \
-                        and not chr_pos_candidates.__contains__(query_pos3) \
-                        and not chr_pos_candidates.__contains__(query_pos4):
-
-                    if cur_seq_len >= 80 and cur_seq_len < max_single_repeat_len:
-                        query_repeatNames.append(query_pos)
-                        query_repeats[query_pos] = (query_name, old_query_start_pos, old_query_end_pos)
-
-                chr_pos_candidates[subject_pos1] = 1
-                chr_pos_candidates[subject_pos2] = 1
-                chr_pos_candidates[subject_pos3] = 1
-                chr_pos_candidates[subject_pos4] = 1
-                chr_pos_candidates[query_pos1] = 1
-                chr_pos_candidates[query_pos2] = 1
-                chr_pos_candidates[query_pos3] = 1
-                chr_pos_candidates[query_pos4] = 1
-
-            # 对query_repeats进行合并,overlap超过95%，则丢弃
-            merge_contigNames = process_all_seqs(query_repeatNames)
-            for name in merge_contigNames:
-                (query_name, old_query_start_pos, old_query_end_pos) = query_repeats[name]
-                query_seq = repeatContigs[query_name]
-                cur_query_seq = query_seq[old_query_start_pos: old_query_end_pos]
-                longest_repeats[name] = cur_query_seq
-
+        for query_pos in cur_longest_repeats.keys():
+            (query_name, old_query_start_pos, old_query_end_pos) = cur_longest_repeats[query_pos]
+            query_seq = repeatContigs[query_name]
+            cur_query_seq = query_seq[old_query_start_pos: old_query_end_pos]
+            longest_repeats[query_pos] = cur_query_seq
     store_fasta(longest_repeats, longest_repeats_path)
     if debug != 1:
         os.system('rm -rf ' + tmp_blast_dir)

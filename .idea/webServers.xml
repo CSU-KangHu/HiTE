@@ -16,6 +16,13 @@
           </advancedOptions>
         </fileTransfer>
       </webServer>
+      <webServer id="fec1758d-3f7c-44bf-b0f9-f9fd26a7db00" name="WebTE计算节点">
+        <fileTransfer accessType="SFTP" host="122.207.108.6" port="20023" sshConfigId="dec5864e-0dd4-4b03-a180-1a0a99ba02c7" sshConfig="root@122.207.108.6:20023 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
     </option>
   </component>
 </project>
