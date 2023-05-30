@@ -10,7 +10,7 @@ import time
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, determine_repeat_boundary_v3, multi_process_TRF, flanking_seq, \
-    file_exist, determine_repeat_boundary_v4
+    file_exist, determine_repeat_boundary_v4, determine_repeat_boundary_v5
 
 if __name__ == '__main__':
     # 1.parse args
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     resut_file = longest_repeats_path
     if not is_recover or not file_exist(resut_file):
         # -------------------------------Stage02: this stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
-        determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
+        determine_repeat_boundary_v5(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_repeat_len,
                                      tmp_output_dir, thread, ref_index, debug)
     else:
         log.logger.info(resut_file + ' exists, skip...')

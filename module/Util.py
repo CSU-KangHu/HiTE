@@ -4891,8 +4891,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
         query_repeatNames = []
         query_repeats = {}
         for repeat in longest_queries:
-            # if repeat[0] == 456006 and repeat[1] == 462658:
-            #     print('here')
             # Subject序列处理流程
             subject_name = repeat[6]
             subject_seq = subject_contigs[subject_name]
@@ -5490,8 +5488,6 @@ def determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_exten
     ex.shutdown(wait=True)
 
     # 上面的函数已经获得了所有可能的候选重复片段
-    #取所有的重复区片段进行合并
-    # 对query_repeats进行合并,overlap超过95%，则丢弃
     longest_repeats = {}
     for job in as_completed(jobs):
         cur_longest_repeats = job.result()
@@ -5500,6 +5496,140 @@ def determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_exten
             query_seq = repeatContigs[query_name]
             cur_query_seq = query_seq[old_query_start_pos: old_query_end_pos]
             longest_repeats[query_pos] = cur_query_seq
+    store_fasta(longest_repeats, longest_repeats_path)
+    if debug != 1: 
+        os.system('rm -rf ' + tmp_blast_dir)
+    return longest_repeats_path
+
+def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, debug):
+    repeatNames, repeatContigs = read_fasta(repeats_path)
+    # parallel
+    tmp_blast_dir = tmp_output_dir + '/trf_filter_'+str(ref_index)
+    os.system('rm -rf ' + tmp_blast_dir)
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+
+    # 我们发现导致blastn比对内存飙升的主要原因是：数据序列中存在大量的短串联重复，导致出现复杂的比对
+    # 因为STR不是我们的目标，因此我们应该预处理过滤掉这一部分数据
+    # 使用TRF去掉target_files中的串联重复
+    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
+    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
+    #1.将序列切成1Mb的文件，减少TRF运行时间
+    base_threshold = 1000000 #1Mb
+    all_files = []
+    file_index = 0
+    base_count = 0
+    cur_contigs = {}
+    for name in repeatNames:
+        cur_seq = repeatContigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
+            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+            cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
+            store_fasta(cur_contigs, cur_target)
+            all_files.append((cur_target, cur_trf))
+            cur_contigs = {}
+            file_index += 1
+            base_count = 0
+    if len(cur_contigs) > 0:
+        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+        cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
+        store_fasta(cur_contigs, cur_target)
+        all_files.append((cur_target, cur_trf))
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for file in all_files:
+        cur_target = file[0]
+        cur_trf = file[1]
+        job = ex.submit(run_remove_TR,cur_target, cur_trf)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    filter_tandem_file = tmp_output_dir + '/filter_tandem_' + str(ref_index) + '.fa'
+    if os.path.exists(filter_tandem_file):
+        os.system('rm -f ' + filter_tandem_file)
+    for job in as_completed(jobs):
+        cur_target_file = job.result()
+        os.system('cat ' + cur_target_file + ' >> ' + filter_tandem_file)
+
+    # 2.将过滤串联后的序列收集，并且划分成10Mb的文件，增加blastn cpu利用率
+    repeatNames, repeatContigs = read_fasta(filter_tandem_file)
+    # parallel
+    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_' + str(ref_index)
+    os.system('rm -rf ' + tmp_blast_dir)
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+
+    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
+    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
+    base_threshold = 10000000  # 10Mb
+    target_files = []
+    file_index = 0
+    base_count = 0
+    cur_contigs = {}
+    for name in repeatNames:
+        cur_seq = repeatContigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
+            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+            store_fasta(cur_contigs, cur_target)
+            target_files.append(cur_target)
+            makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
+            os.system(makedb_command)
+            cur_contigs = {}
+            file_index += 1
+            base_count = 0
+    if len(cur_contigs) > 0:
+        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+        store_fasta(cur_contigs, cur_target)
+        target_files.append(cur_target)
+        makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
+        os.system(makedb_command)
+
+    repeat_files = []
+    file_index = 0
+    base_count = 0
+    cur_contigs = {}
+    for name in repeatNames:
+        cur_seq = repeatContigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
+            split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
+            store_fasta(cur_contigs, split_repeat_file)
+            output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
+            repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
+            cur_contigs = {}
+            file_index += 1
+            base_count = 0
+    if len(cur_contigs) > 0:
+        split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
+        store_fasta(cur_contigs, split_repeat_file)
+        output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
+        repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
+
+    ex = ProcessPoolExecutor(threads)
+
+    jobs = []
+    for file in repeat_files:
+        job = ex.submit(get_longest_repeats_v4, file, fixed_extend_base_threshold,
+                        max_single_repeat_len, debug)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    total_out = tmp_output_dir + '/total_blast_' + str(ref_index) + '.out'
+    os.system('rm -f ' + total_out)
+    longest_repeats = {}
+    for job in as_completed(jobs):
+        cur_longest_repeats, cur_keep_longest_query, cur_blastn2Results_path = job.result()
+        longest_repeats.update(cur_longest_repeats)
+
+        if debug == 1:
+            os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
+
     store_fasta(longest_repeats, longest_repeats_path)
     if debug != 1:
         os.system('rm -rf ' + tmp_blast_dir)
@@ -5514,8 +5644,6 @@ def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_exten
         os.makedirs(tmp_blast_dir)
 
     # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
-    # 增加target数量，一次10个，以增加cpu利用率
-
     # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
     base_threshold = 1000000 #1Mb
     target_files = []
