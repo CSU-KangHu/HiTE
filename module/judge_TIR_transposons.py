@@ -13,7 +13,7 @@ from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
     multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
     multi_process_align_and_get_copies, rename_fasta, file_exist, flank_region_align_v2, \
-    flank_region_align_v3, run_itrsearch
+    flank_region_align_v3, run_itrsearch, get_short_tir_contigs
 
 
 def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
@@ -45,10 +45,25 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
         flank_region_align_v3(input_file, output_file, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
                               ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
         input_file = output_file
+
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
+    tir_names, tir_contigs = read_fasta(confident_tir_path)
+    # 保存短tir的序列
+    short_itr_contigs = get_short_tir_contigs(tir_contigs, plant)
+
+    # 剩下的序列交由itrsearch去搜索TIR结构
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.no_short_tir.fa'
+    for name in short_itr_contigs.keys():
+        del tir_contigs[name]
+    store_fasta(tir_contigs, confident_tir_path)
+    all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, confident_tir_path, tmp_output_dir)
+    all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    all_copies_out_contigs.update(short_itr_contigs)
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.all_tir.fa'
+    store_fasta(all_copies_out_contigs, confident_tir_path)
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
 
-    confident_tir_cons = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.cons.fa'
+    confident_tir_cons = confident_tir_path + '.cons.fa'
     # 生成一致性序列
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_tir_path + ' -o ' + confident_tir_cons + ' -T 0 -M 0'

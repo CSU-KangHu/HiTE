@@ -55,12 +55,14 @@ if __name__ == '__main__':
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     rename_reference(reference, ref_rename_path)
 
-    resut_file = tmp_output_dir + '/genome_all.fa.harvest.scn'
-    if not is_recover or not file_exist(resut_file):
+    ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
+    ltrfinder_output = ref_rename_path + '.finder.combine.scn'
+    if not is_recover or not file_exist(ltrharvest_output) or not file_exist(ltrfinder_output):
         log.logger.info('Start step2.1: Running LTR_harvest_parallel and LTR_finder_parallel')
         run_LTR_detection(ref_rename_path, tmp_output_dir, threads, LTR_harvest_parallel_Home, LTR_finder_parallel_Home, log)
     else:
-        log.logger.info(resut_file + ' exists, skip...')
+        log.logger.info(ltrharvest_output + ' exists, skip...')
+        log.logger.info(ltrfinder_output + ' exists, skip...')
 
 
     # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever

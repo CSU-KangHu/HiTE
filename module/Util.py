@@ -183,6 +183,8 @@ def run_itrsearch_v1(TRsearch_dir, tir_seq):
 def run_itrsearch(TRsearch_dir, input, input_dir):
     TRsearch_command = TRsearch_dir + '/itrsearch -i 0.7 -l 7 ' + input
     #print(TRsearch_command + "> /dev/null 2>&1")
+    if not os.path.exists(input_dir):
+        os.makedirs(input_dir)
     TR_log = input + '.log'
     os.system('cd ' + input_dir + ' && ' +TRsearch_command + ' > ' + TR_log)
     TR_out = input + '.itr'

@@ -39,7 +39,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
-    flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, process_all_seqs
+    flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, \
+    process_all_seqs, get_short_tir_contigs
 
 
 def generate_repbases():
@@ -2350,19 +2351,24 @@ def analyze_potato_libs():
     # 1.应该可以拿到5个不同的TE库，分别是来自于RepBase，RepeatMasker，RepeatModeler2，EDTA，以及HiTE。
     # 2.有如下的情况可以分析：a) HiTE独有，其它4个库没有的TE序列。 b) HiTE与其它任意一个库共有，但是剩余的库没有的TE序列。 c）HiTE没有，但是其它库有的TE序列。
     # 3.我们统计上述三种情况的TE，然后可以拿出一些具体的样例进行分析，目的需要证明两个点：a) HiTE找到的序列 (无论独有或者是共有)，是真实的TE序列。b）HiTE没有找到的序列，不是TE或者不是全长TE（缺乏TE结构）。
-    work_dir = '/homeb/hukang/KmerRepFinder_test/library/potato_test'
+    #work_dir = '/homeb/hukang/KmerRepFinder_test/library/ath_test'
+    work_dir = '/home/hukang/HiTE_test/ath_test'
     lib_paths = []
-    HiTE_lib = work_dir + '/'
+    HiTE_lib = work_dir + '/HiTE_lib.fa'
     repbase_lib = work_dir + '/repbase.ref'
-    rm_lib = work_dir + '/potato_repeatmasker.ref'
-    rm2_lib = work_dir + '/'
-    edta_lib = work_dir + '/C514.fa.mod.EDTA.TElib.fa'
+    rm_lib = work_dir + '/ath_repeatmasker.ref'
+    rm2_lib = work_dir + '/rm2_lib.fa'
+    edta_lib = work_dir + '/EDTA_lib.fa'
     lib_paths.append((repbase_lib, 'Repbase'))
     lib_paths.append((rm_lib, 'RM'))
-    #lib_paths.append((HiTE_lib, 'HiTE'))
-    #lib_paths.append((rm2_lib, 'RM2'))
-    #lib_paths.append((edta_lib, 'EDTA'))
-    analyze_lib_name = 'Repbase'
+    lib_paths.append((HiTE_lib, 'HiTE'))
+    lib_paths.append((rm2_lib, 'RM2'))
+    lib_paths.append((edta_lib, 'EDTA'))
+    analyze_lib_name = 'HiTE'
+
+    # repbase1_lib = work_dir + '/repbase1.ref'
+    # repbase_names, repbase_contigs = read_fasta_v1(repbase_lib)
+    # store_fasta(repbase_contigs, repbase1_lib)
 
     # 0.对library重命名，添加工具名称，方便后续分别；合并所有的library
     merge_lib = work_dir + '/merge.fa'
@@ -2433,18 +2439,95 @@ def analyze_potato_libs():
         record['EDTA'] = has_EDTA
         represent_dict[rep_name] = record
 
-    print(represent_dict)
-    print(len(represent_dict))
+    #print(represent_dict)
+    #print(len(represent_dict))
 
     # 统计待分析Library锁独有的，共有的，缺失的序列
 
     #转dataframe
     df = pd.DataFrame(represent_dict).T
+    print('Total clusters:')
+    print(df)
 
+    # # 使用条件筛选和逻辑运算符进行统计
+    # filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0) & (df['RM'] == 0) & (df['RM2'] == 0) & (df['EDTA'] == 0)]
+    # print('HiTE unique clusters:')
+    # print(filtered_df)
+    #
+    # filtered_df = df[(df['HiTE'] == 1) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1) | (df['EDTA'] == 1))]
+    # print('HiTE share clusters:')
+    # print(filtered_df)
+    #
+    # filtered_df = df[(df['HiTE'] == 0) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1) | (df['EDTA'] == 1))]
+    # print('without HiTE clusters:')
+    # print(filtered_df)
+
+    # # 排除掉EDTA库
+    # # 使用条件筛选和逻辑运算符进行统计
+    # filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0) & (df['RM'] == 0) & (df['RM2'] == 0)]
+    # print('HiTE unique clusters:')
+    # print(filtered_df)
+    #
+    # filtered_df = df[
+    #     (df['HiTE'] == 1) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1))]
+    # print('HiTE share clusters:')
+    # print(filtered_df)
+    #
+    # filtered_df = df[
+    #     (df['HiTE'] == 0) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1))]
+    # print('without HiTE clusters:')
+    # print(filtered_df)
+
+    # 排除掉RepeatMasker库
     # 使用条件筛选和逻辑运算符进行统计
-    filtered_df = df[(df['Repbase'] == 1) & (df['RM'] == 1) & (df['HiTE'] == 0) & (df['RM2'] == 0) & (df['EDTA'] == 0)]
-
+    filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0)]
+    print('HiTE unique clusters:')
     print(filtered_df)
+
+    filtered_df = df[
+        (df['HiTE'] == 1) & ((df['Repbase'] == 1))]
+    print('HiTE share clusters:')
+    print(filtered_df)
+
+    filtered_df = df[
+        (df['HiTE'] == 0) & ((df['Repbase'] == 1))]
+    print('without HiTE clusters:')
+    print(filtered_df)
+
+
+def filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path):
+    i = 2
+    result_type = 'cons'
+    input_file = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i-1) + '.fa'
+    output_file = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
+    flank_region_align_v3(input_file, output_file, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir,
+                          threads, ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
+
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
+    tir_names, tir_contigs = read_fasta(confident_tir_path)
+    # 保存短tir的序列
+    short_itr_contigs = get_short_tir_contigs(tir_contigs, plant)
+
+    # 剩下的序列交由itrsearch去搜索TIR结构
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.no_short_tir.fa'
+    for name in short_itr_contigs.keys():
+        del tir_contigs[name]
+    store_fasta(tir_contigs, confident_tir_path)
+    all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, confident_tir_path, tmp_output_dir)
+    all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    all_copies_out_contigs.update(short_itr_contigs)
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.all_tir.fa'
+    store_fasta(all_copies_out_contigs, confident_tir_path)
+    rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
+
+    confident_tir_cons = confident_tir_path + '.cons.fa'
+    # 生成一致性序列
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + confident_tir_path + ' -o ' + confident_tir_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
+    rename_fasta(confident_tir_cons, confident_tir_path, 'TIR')
 
 
 if __name__ == '__main__':
@@ -2459,8 +2542,8 @@ if __name__ == '__main__':
     TE_type = 'TIR'
     tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
     #raw_input = tmp_dir + '/tir.repbase.ref'
-    output = tmp_dir + '/real_lost_tirs.fa'
-    #output = tmp_dir + '/real_test.fa'
+    #output = tmp_dir + '/real_lost_tirs.fa'
+    output = tmp_dir + '/real_test.fa'
     # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
     # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
@@ -2476,15 +2559,15 @@ if __name__ == '__main__':
 
     # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
     #raw_input = tmp_dir + '/fake_helitron.fa'
-    raw_input = tmp_dir + '/lost_tir.fa'
-    #raw_input = tmp_dir + '/test.fa'
+    #raw_input = tmp_dir + '/lost_tir.fa'
+    raw_input = tmp_dir + '/test.fa'
     #raw_input = tmp_dir + '/helitron.repbase.ref'
     #raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
     flanking_len = 50
     similar_ratio = 0.2
     TE_type = 'tir'
     ref_index = 0
-    log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    #log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
     debug = 1
     #output = tmp_dir + '/real_tir_'+str(ref_index)+'.fa'
@@ -2689,4 +2772,12 @@ if __name__ == '__main__':
 
     #analyze_potato_libs()
 
-    #去掉longest_repeats.fa中的片段序列，只保留全长序列
+    #下面这段代码是把老版本的TIR结果用itrsearch+short_itr过滤一遍
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/potato'
+    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
+    reference = tmp_output_dir + '/C514_hifiasm_ctg.rename.fasta'
+    ref_index = 1
+    TRsearch_dir = '/home/hukang/HiTE/tools'
+    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
+    filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path)
