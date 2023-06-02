@@ -147,8 +147,9 @@ python configure.py
 to validate all configurations.
 -->
 
-## <a name="start"></a>Quick start
+## <a name="start"></a>Quick start (conda mode)
 ```
+conda activate HiTE
 cd /your_path_to/HiTE
 python main.py --genome ./demo/genome.fa --thread 48 --outdir ./demo/test
 ```
@@ -156,22 +157,12 @@ python main.py --genome ./demo/genome.fa --thread 48 --outdir ./demo/test
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
 ```text
 demo/test/
-├── confident_helitron.fa
-├── confident_other.fa
-├── confident_TE.cons.fa
-├── confident_TE.cons.fa.classified
-├── confident_tir.fa
-├── confident_ltr_cut.fa
-├── genome_0.fa.harvest.scn
-├── genome_all.fa.harvest.scn
-├── genome_all.fa.rawLTR.scn
-├── genome.rename.fa
-├── genome.rename.fa.finder.combine.scn
-├── genome.rename.fa.LTRlib.fa
-├── genome.rename.fa.pass.list
-├── genome.rename.fa.retriever.all.scn
-├── longest_repeats_0.fa
-└── longest_repeats_0.flanked.fa
+├── confident_helitron.fa (1.4K)
+├── confident_other.fa (14K)
+├── confident_tir.fa (34K)
+├── confident_ltr_cut.fa (47K)
+├── confident_TE.cons.fa (92K)
+└── confident_TE.cons.fa.classified (93K)
 ```
 
 Note:
@@ -217,8 +208,6 @@ output_dir/
 ├── confident_helitron_*.fa
 ├── confident_other_*.fa
 ├── confident_ltr_cut.fa
-├── genome_all.fa.harvest.scn
-├── genome.rename.fa.*
 ├── confident_TE.cons.fa
 └── confident_TE.cons.fa.classified
 ```
