@@ -43,6 +43,28 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     process_all_seqs, get_short_tir_contigs
 
 
+def filter_repbase_nonTE():
+    # 水稻
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
+    TE_repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/only_TE/repbase'
+    if not os.path.exists(TE_repbase_dir):
+        os.makedirs(TE_repbase_dir)
+    repbase_names = ['athrep.ref', 'cbrrep.ref', 'drorep.ref', 'maize.ref', 'oryrep.ref', 'zebrep.ref', 'edcotrep.ref']
+    nonTE_tags = ['Satellite', 'SAT', 'MSAT', 'Multicopy gene', 'rRNA', 'tRNA', 'snRNA', 'Integrated Virus', 'DNA Virus', 'Caulimoviridae']
+    for repbase_name in repbase_names:
+        repbase_path = repbase_dir+'/'+repbase_name
+        repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
+
+        TE_contigs = {}
+        for name in repbase_names:
+            tag = name.split('\t')[1]
+            if nonTE_tags.__contains__(tag):
+                continue
+            if (repbase_name == 'edcotrep.ref' and not name.__contains__('Solanum tuberosum')):
+                continue
+            TE_contigs[name] = repbase_contigs[name]
+        store_fasta(TE_contigs, TE_repbase_dir+'/'+repbase_name)
+
 def generate_repbases():
     # 水稻
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -2356,18 +2378,18 @@ def analyze_potato_libs():
     lib_paths = []
     HiTE_lib = work_dir + '/HiTE_lib.fa'
     repbase_lib = work_dir + '/repbase.ref'
-    rm_lib = work_dir + '/ath_repeatmasker.ref'
+    #rm_lib = work_dir + '/ath_repeatmasker.ref'
     rm2_lib = work_dir + '/rm2_lib.fa'
     edta_lib = work_dir + '/EDTA_lib.fa'
     lib_paths.append((repbase_lib, 'Repbase'))
-    lib_paths.append((rm_lib, 'RM'))
+    #lib_paths.append((rm_lib, 'RM'))
     lib_paths.append((HiTE_lib, 'HiTE'))
     lib_paths.append((rm2_lib, 'RM2'))
     lib_paths.append((edta_lib, 'EDTA'))
     analyze_lib_name = 'HiTE'
 
-    # repbase1_lib = work_dir + '/repbase1.ref'
-    # repbase_names, repbase_contigs = read_fasta_v1(repbase_lib)
+    # repbase1_lib = work_dir + '/rm2_lib1.fa'
+    # repbase_names, repbase_contigs = read_fasta_v1(rm2_lib)
     # store_fasta(repbase_contigs, repbase1_lib)
 
     # 0.对library重命名，添加工具名称，方便后续分别；合并所有的library
@@ -2408,7 +2430,7 @@ def analyze_potato_libs():
                 cur_cluster.append(name)
                 if line.endswith('*'):
                     cluster_rep['rep_' + str(cluster_idx)] = name
-
+    print(len(clusters))
     #使用一个dict记录每个簇，包含的库的类别，format: {Rep_seq: {HiTE: 1, Repbase: 1, RM: 1, RM2: 1, EDTA: 0}}
     represent_dict = {}
     for cluster_rep_name in cluster_rep.keys():
@@ -2444,23 +2466,26 @@ def analyze_potato_libs():
 
     # 统计待分析Library锁独有的，共有的，缺失的序列
 
+    #pd.set_option('display.max_rows', None)
     #转dataframe
     df = pd.DataFrame(represent_dict).T
     print('Total clusters:')
     print(df)
 
-    # # 使用条件筛选和逻辑运算符进行统计
-    # filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0) & (df['RM'] == 0) & (df['RM2'] == 0) & (df['EDTA'] == 0)]
-    # print('HiTE unique clusters:')
-    # print(filtered_df)
-    #
-    # filtered_df = df[(df['HiTE'] == 1) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1) | (df['EDTA'] == 1))]
-    # print('HiTE share clusters:')
-    # print(filtered_df)
-    #
-    # filtered_df = df[(df['HiTE'] == 0) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1) | (df['EDTA'] == 1))]
-    # print('without HiTE clusters:')
-    # print(filtered_df)
+    # 使用条件筛选和逻辑运算符进行统计
+    filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0) & (df['RM'] == 0) & (df['RM2'] == 0) & (df['EDTA'] == 0)]
+    print('HiTE unique clusters:')
+    print(filtered_df)
+
+    filtered_df = df[(df['HiTE'] == 1) & ((df['Repbase'] == 1) | (df['RM'] == 1) | (df['RM2'] == 1) | (df['EDTA'] == 1))]
+    print('HiTE share clusters:')
+    print(filtered_df)
+
+    filtered_df = df[(df['HiTE'] == 0) & ((df['Repbase'] == 1) | (df['RM'] == 1)) | ((df['RM2'] == 1) | (df['EDTA'] == 1))]
+    print('without HiTE clusters:')
+    print(filtered_df)
+    rows = filtered_df.shape[0]
+    print(rows)
 
     # # 排除掉EDTA库
     # # 使用条件筛选和逻辑运算符进行统计
@@ -2478,21 +2503,21 @@ def analyze_potato_libs():
     # print('without HiTE clusters:')
     # print(filtered_df)
 
-    # 排除掉RepeatMasker库
-    # 使用条件筛选和逻辑运算符进行统计
-    filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0)]
-    print('HiTE unique clusters:')
-    print(filtered_df)
-
-    filtered_df = df[
-        (df['HiTE'] == 1) & ((df['Repbase'] == 1))]
-    print('HiTE share clusters:')
-    print(filtered_df)
-
-    filtered_df = df[
-        (df['HiTE'] == 0) & ((df['Repbase'] == 1))]
-    print('without HiTE clusters:')
-    print(filtered_df)
+    # # 排除掉RepeatMasker库
+    # # 使用条件筛选和逻辑运算符进行统计
+    # filtered_df = df[(df['HiTE'] == 1) & (df['Repbase'] == 0)]
+    # print('HiTE unique clusters:')
+    # print(filtered_df)
+    #
+    # filtered_df = df[
+    #     (df['HiTE'] == 1) & ((df['Repbase'] == 1))]
+    # print('HiTE share clusters:')
+    # print(filtered_df)
+    #
+    # filtered_df = df[
+    #     (df['HiTE'] == 0) & ((df['Repbase'] == 1))]
+    # print('without HiTE clusters:')
+    # print(filtered_df)
 
 
 def filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path):
@@ -2566,6 +2591,7 @@ if __name__ == '__main__':
     flanking_len = 50
     similar_ratio = 0.2
     TE_type = 'tir'
+    #TE_type = 'helitron'
     ref_index = 0
     #log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
@@ -2770,14 +2796,16 @@ if __name__ == '__main__':
 
     #summary_not_perfect_repbase()
 
-    #analyze_potato_libs()
+    analyze_potato_libs()
 
-    #下面这段代码是把老版本的TIR结果用itrsearch+short_itr过滤一遍
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/potato'
-    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
-    reference = tmp_output_dir + '/C514_hifiasm_ctg.rename.fasta'
-    ref_index = 1
-    TRsearch_dir = '/home/hukang/HiTE/tools'
-    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
-    filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path)
+    #filter_repbase_nonTE()
+
+    # #下面这段代码是把老版本的TIR结果用itrsearch+short_itr过滤一遍
+    # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/potato'
+    # log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
+    # reference = tmp_output_dir + '/C514_hifiasm_ctg.rename.fasta'
+    # ref_index = 1
+    # TRsearch_dir = '/home/hukang/HiTE/tools'
+    # member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
+    # subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
+    # filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path)
