@@ -2555,6 +2555,11 @@ def filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, T
     rename_fasta(confident_tir_cons, confident_tir_path, 'TIR')
 
 
+def split_module_test():
+    work_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/module_test'
+    # 1.生成为过滤文件
+
+
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
@@ -2796,9 +2801,12 @@ if __name__ == '__main__':
 
     #summary_not_perfect_repbase()
 
-    analyze_potato_libs()
+    #analyze_potato_libs()
 
     #filter_repbase_nonTE()
+
+    #分模块测试LTR、TIR、Helitron、non-LTR
+    #split_module_test()
 
     # #下面这段代码是把老版本的TIR结果用itrsearch+short_itr过滤一遍
     # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/potato'
