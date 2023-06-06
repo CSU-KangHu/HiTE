@@ -50,7 +50,7 @@ fi
 
 #if the value 0 is entered as min_length by the user, redifine min_length as half the length of  fasta.in
 if [ "$3" == "0" ]
-then 
+then
 	min_length=`grep -v ">" $2 | wc | awk '{print $3/2}'`
 else
 	min_length=$3

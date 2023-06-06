@@ -2637,6 +2637,7 @@ def split_module_test():
         temp_dir = work_dir + '/rice/helitron_tmp_'+str(ref_index)
         multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_helitron_path, temp_dir, EAHelitron, threads)
 
+
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
@@ -2646,7 +2647,7 @@ if __name__ == '__main__':
 
     #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
     plant = 1
-    TE_type = 'TIR'
+    #TE_type = 'TIR'
     tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
     #raw_input = tmp_dir + '/tir.repbase.ref'
     #output = tmp_dir + '/real_lost_tirs.fa'
@@ -2657,8 +2658,8 @@ if __name__ == '__main__':
     member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
     subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
     #reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7/all.chrs.con'
-    reference = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
-    #reference = '/home/hukang/HiTE/demo/test/genome.cut0.fa'
+    #reference = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
+    reference = '/home/hukang/HiTE/demo/genome.fa'
     temp_dir = tmp_dir + '/copies'
     threads = 40
     # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
@@ -2667,22 +2668,23 @@ if __name__ == '__main__':
     # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
     #raw_input = tmp_dir + '/fake_helitron.fa'
     #raw_input = tmp_dir + '/lost_tir.fa'
-    raw_input = tmp_dir + '/test.fa'
+    #raw_input = tmp_dir + '/test.fa'
+    raw_input = tmp_dir + '/test_helitron.fa'
     #raw_input = tmp_dir + '/helitron.repbase.ref'
     #raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
     flanking_len = 50
     similar_ratio = 0.2
-    TE_type = 'tir'
-    #TE_type = 'helitron'
+    #TE_type = 'tir'
+    TE_type = 'helitron'
     ref_index = 0
-    #log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
     debug = 1
     #output = tmp_dir + '/real_tir_'+str(ref_index)+'.fa'
     #output = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r1.fa'
     #output1 = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
     result_type = 'cons'
-    #flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
+    flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
 
     # confident_helitron_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/candidate_helitron_0.cons.fa'
     # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
