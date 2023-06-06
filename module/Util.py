@@ -6254,7 +6254,7 @@ def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, 
                 else:
                     is_closed = False
                     for exist_frag in reversed(cur_cluster):
-                        if (frag[2] - exist_frag[3] < subject_fixed_extend_base_threshold):
+                        if (frag[2] - exist_frag[3] < subject_fixed_extend_base_threshold and frag[1] > exist_frag[1]):
                             is_closed = True
                             break
                     if is_closed:
@@ -6276,7 +6276,7 @@ def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, 
                 else:
                     is_closed = False
                     for exist_frag in reversed(cur_cluster):
-                        if (exist_frag[3] - frag[2] < subject_fixed_extend_base_threshold):
+                        if (exist_frag[3] - frag[2] < subject_fixed_extend_base_threshold and frag[1] > exist_frag[1]):
                             is_closed = True
                             break
                     if is_closed:
@@ -8070,7 +8070,7 @@ def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, simil
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for cur_split_files in split_files:
-        job = ex.submit(run_find_members_v6, cur_split_files, reference, member_script_path, subset_script_path,
+        job = ex.submit(run_find_members_v7, cur_split_files, reference, member_script_path, subset_script_path,
                         plant, TE_type, flanking_len, debug, result_type)
         jobs.append(job)
     ex.shutdown(wait=True)
@@ -11937,6 +11937,81 @@ def run_find_members_v6(cur_split_files, reference, member_script_path, subset_s
         os.system(copy_command)
         #print(copy_command)
         member_file = cur_file + '.blast.bed.fa'
+        member_names, member_contigs = read_fasta(member_file)
+        if len(member_names) > 100:
+            sub_command = 'cd ' + cur_temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+            os.system(sub_command)
+            member_file += '.rdmSubset.fa'
+        if not os.path.exists(member_file):
+            result_list.append((None, None, ''))
+            continue
+        align_file = cur_file + '.maf.fa'
+        align_command = 'cd ' + cur_temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+        os.system(align_command)
+
+        # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
+        if TE_type == 'tir':
+            is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
+        elif TE_type == 'helitron':
+            is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
+
+        # 删除中间文件
+        if not debug:
+            os.system('rm -f ' + cur_file + '*')
+
+        if is_TE:
+            result_list.append((cur_names[0], cons_seq, info))
+            continue
+        else:
+            result_list.append((None, None, info))
+            continue
+    return result_list
+
+def get_full_length_member(query_path, reference, flanking_len):
+     # 尝试我们的获取拷贝方法能不能连接blastn的片段
+    member_file = query_path + '.blast.bed.fa'
+    blastn2Results_path = query_path + '.blast.out'
+    align_command = 'blastn -db ' + reference + ' -query ' + query_path + ' -evalue 1e-20 -outfmt 6 > ' + blastn2Results_path
+    os.system(align_command)
+    all_copies = get_copies_v1(blastn2Results_path, query_path, reference, query_coverage=0.95)
+
+    # 获取fasta序列
+    ref_names, ref_contigs = read_fasta(reference)
+    new_all_copies = {}
+    for query_name in all_copies.keys():
+        copies = all_copies[query_name]
+        for copy in copies:
+            ref_name = copy[0]
+            copy_ref_start = int(copy[1])
+            copy_ref_end = int(copy[2])
+            direct = copy[4]
+            copy_len = copy_ref_end - copy_ref_start + 1
+            if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
+                continue
+            copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
+            if direct == '-':
+                copy_seq = getReverseSequence(copy_seq)
+            if len(copy_seq) < 100:
+                continue
+            new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
+            new_all_copies[new_name] = copy_seq
+    store_fasta(new_all_copies, member_file)
+    return member_file
+
+def run_find_members_v7(cur_split_files, reference, member_script_path, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
+    result_list = []
+    for cur_file_tuple in cur_split_files:
+        # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
+        # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
+        # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
+        (cur_temp_dir, cur_file) = cur_file_tuple
+        cur_names, cur_contigs = read_fasta(cur_file)
+        cur_seq = cur_contigs[cur_names[0]]
+
+        # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
+        # 原来的找拷贝的方法无法连接相邻的片段，导致无法识别全长拷贝
+        extend_len = flanking_len
+        member_file = get_full_length_member(cur_file, reference, flanking_len)
         member_names, member_contigs = read_fasta(member_file)
         if len(member_names) > 100:
             sub_command = 'cd ' + cur_temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
