@@ -135,8 +135,8 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
         for name in cur_copies_out_contigs.keys():
             raw_name = name.split(' ')[1]
             parts = raw_name.split(':')
-            raw_name = parts[0]
-            pos_parts = parts[1].split('..')
+            raw_name = parts[0]+':'+parts[1]
+            pos_parts = parts[2].split('..')
             cur_start = int(pos_parts[0])
             cur_end = int(pos_parts[1])
             if cur_start > cur_end:
@@ -8051,7 +8051,7 @@ def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, simil
     cur_split_files = []
     for i, name in enumerate(names):
         # 为了防止并行运行时出现混乱，将每条序列单独创建一个目录
-        cur_temp_dir = temp_dir + '/' + str(i)
+        cur_temp_dir = temp_dir
         if not os.path.exists(cur_temp_dir):
             os.makedirs(cur_temp_dir)
         cur_file = cur_temp_dir + '/' + str(name) + '.fa'

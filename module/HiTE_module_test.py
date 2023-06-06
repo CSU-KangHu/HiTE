@@ -40,7 +40,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
     flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, \
-    process_all_seqs, get_short_tir_contigs
+    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron
 
 
 def filter_repbase_nonTE():
@@ -67,8 +67,8 @@ def filter_repbase_nonTE():
 
 def generate_repbases():
     # 水稻
-    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
-    repbase_path = repbase_dir + '/edcotrep.ref'
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/only_TE/repbase/'
+    repbase_path = repbase_dir + '/potato.ref'
     repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
     tags = set()
     for name in repbase_names:
@@ -118,8 +118,8 @@ def generate_repbases():
 
 def generate_rm2():
     # 水稻
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/maize'
-    repbase_path = repbase_dir + '/maize-families.fa'
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/potato'
+    repbase_path = repbase_dir + '/potato-families.fa'
     repbase_names, repbase_contigs = read_fasta(repbase_path)
     tags = set()
     for name in repbase_names:
@@ -128,22 +128,25 @@ def generate_rm2():
     print(tags)
     print(len(tags))
 
-    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown']
-    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/PIF-Harbinger', 'Transib', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
+    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/Caulimovirus']
+    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/TcMar', 'DNA/Maverick', 'DNA/TcMar-Pogo', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/CMC', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/PIF-Harbinger', 'Transib', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
     helitron_tags = ['RC/Helitron', 'MINIME_DN']
-    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon/L1-derived', 'SINE/tRNA', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
-    tmp_out_dir = repbase_dir + '/maize'
+    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon', 'Retroposon/L1-derived', 'SINE/tRNA', 'SINE/tRNA-RTE', 'SINE/ID', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
+    unknown_tags = ['Unknown']
+    tmp_out_dir = repbase_dir + '/potato'
     if not os.path.exists(tmp_out_dir):
         os.makedirs(tmp_out_dir)
     ltr_repbase_path = tmp_out_dir + '/ltr.rm2.ref'
     tir_repbase_path = tmp_out_dir + '/tir.rm2.ref'
     helitron_repbase_path = tmp_out_dir + '/helitron.rm2.ref'
     non_ltr_repbase_path = tmp_out_dir + '/non_ltr.rm2.ref'
+    unknown_repbase_path = tmp_out_dir + '/unknown.rm2.ref'
 
     ltr_contigs = {}
     tir_contigs = {}
     helitron_contigs = {}
     non_ltr_contigs = {}
+    unknown_contigs = {}
     for name in repbase_names:
         tag = name.split('#')[1]
         if tag in ltr_tags:
@@ -154,14 +157,17 @@ def generate_rm2():
             helitron_contigs[name] = repbase_contigs[name]
         elif tag in non_ltr_tags:
             non_ltr_contigs[name] = repbase_contigs[name]
+        elif tag in unknown_tags:
+            unknown_contigs[name] = repbase_contigs[name]
     store_fasta(ltr_contigs, ltr_repbase_path)
     store_fasta(tir_contigs, tir_repbase_path)
     store_fasta(helitron_contigs, helitron_repbase_path)
     store_fasta(non_ltr_contigs, non_ltr_repbase_path)
+    store_fasta(unknown_contigs, unknown_repbase_path)
 
 def generate_HiTE():
     # 水稻
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize'
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/potato'
     repbase_path = repbase_dir + '/confident_TE.cons.fa.classified'
     repbase_names, repbase_contigs = read_fasta(repbase_path)
     tags = set()
@@ -171,22 +177,26 @@ def generate_HiTE():
     print(tags)
     print(len(tags))
 
-    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/DIRS', ]
-    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/hAT', 'DNA/PIF-Harbinger', 'DNA/TcMar-Tigger', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
+    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/DIRS', 'LTR/Caulimovirus']
+    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/hAT-Charlie', 'DNA/TcMar-Pogo', 'DNA/CMC-EnSpm', 'DNA/MULE-MuDR', 'DNA/Crypton-H', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/hAT', 'DNA/PIF-Harbinger', 'DNA/TcMar-Tigger', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
     helitron_tags = ['RC/Helitron', 'MINIME_DN']
-    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon/L1-derived', 'SINE/tRNA', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
-    tmp_out_dir = repbase_dir + '/maize'
+    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon', 'Retroposon/L1-derived', 'Retroposon/RTE-derived', 'SINE/tRNA', 'SINE/tRNA-RTE', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
+    unknown_tags = ['Unknown']
+
+    tmp_out_dir = repbase_dir + '/potato'
     if not os.path.exists(tmp_out_dir):
         os.makedirs(tmp_out_dir)
     ltr_repbase_path = tmp_out_dir + '/ltr.HiTE.ref'
     tir_repbase_path = tmp_out_dir + '/tir.HiTE.ref'
     helitron_repbase_path = tmp_out_dir + '/helitron.HiTE.ref'
     non_ltr_repbase_path = tmp_out_dir + '/non_ltr.HiTE.ref'
+    unknown_repbase_path = tmp_out_dir + '/unknown.HiTE.ref'
 
     ltr_contigs = {}
     tir_contigs = {}
     helitron_contigs = {}
     non_ltr_contigs = {}
+    unknown_contigs = {}
     for name in repbase_names:
         tag = name.split('#')[1]
         if tag in ltr_tags:
@@ -197,10 +207,63 @@ def generate_HiTE():
             helitron_contigs[name] = repbase_contigs[name]
         elif tag in non_ltr_tags:
             non_ltr_contigs[name] = repbase_contigs[name]
+        elif tag in unknown_tags:
+            unknown_contigs[name] = repbase_contigs[name]
     store_fasta(ltr_contigs, ltr_repbase_path)
     store_fasta(tir_contigs, tir_repbase_path)
     store_fasta(helitron_contigs, helitron_repbase_path)
     store_fasta(non_ltr_contigs, non_ltr_repbase_path)
+    store_fasta(unknown_contigs, unknown_repbase_path)
+
+def generate_EDTA():
+    # 水稻
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/EDTA_lib/potato'
+    repbase_path = repbase_dir + '/C514.fa.mod.EDTA.TElib.fa'
+    repbase_names, repbase_contigs = read_fasta(repbase_path)
+    tags = set()
+    for name in repbase_names:
+        tag = name.split('#')[1]
+        tags.add(tag)
+    print(tags)
+    print(len(tags))
+
+    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/unknown', 'LTR/DIRS']
+    tir_tags = ['MITE/DTA', 'MITE/DTC', 'MITE/DTM', 'MITE/DTH', 'MITE/DTT', 'TIR/PIF_Harbinger', 'DNA/DTH', 'DNA/DTC', 'DNA/DTM', 'DNA/DTT', 'DNA/DTA', 'TIR/MuDR_Mutator', 'Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/hAT', 'DNA/PIF-Harbinger', 'DNA/TcMar-Tigger', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
+    helitron_tags = ['RC/Helitron', 'MINIME_DN', 'DNA/Helitron']
+    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'LINE/unknown', 'Retroposon', 'Retroposon/L1-derived', 'SINE/tRNA', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
+    unknown_tags = ['Unknown']
+    
+    tmp_out_dir = repbase_dir + '/potato'
+    if not os.path.exists(tmp_out_dir):
+        os.makedirs(tmp_out_dir)
+    ltr_repbase_path = tmp_out_dir + '/ltr.EDTA.ref'
+    tir_repbase_path = tmp_out_dir + '/tir.EDTA.ref'
+    helitron_repbase_path = tmp_out_dir + '/helitron.EDTA.ref'
+    non_ltr_repbase_path = tmp_out_dir + '/non_ltr.EDTA.ref'
+    unknown_repbase_path = tmp_out_dir + '/unknown.EDTA.ref'
+
+    ltr_contigs = {}
+    tir_contigs = {}
+    helitron_contigs = {}
+    non_ltr_contigs = {}
+    unknown_contigs = {}
+    for name in repbase_names:
+        tag = name.split('#')[1]
+        if tag in ltr_tags:
+            ltr_contigs[name] = repbase_contigs[name]
+        elif tag in tir_tags:
+            tir_contigs[name] = repbase_contigs[name]
+        elif tag in helitron_tags:
+            helitron_contigs[name] = repbase_contigs[name]
+        elif tag in non_ltr_tags:
+            non_ltr_contigs[name] = repbase_contigs[name]
+        elif tag in unknown_tags:
+            unknown_contigs[name] = repbase_contigs[name]
+    store_fasta(ltr_contigs, ltr_repbase_path)
+    store_fasta(tir_contigs, tir_repbase_path)
+    store_fasta(helitron_contigs, helitron_repbase_path)
+    store_fasta(non_ltr_contigs, non_ltr_repbase_path)
+    store_fasta(unknown_contigs, unknown_repbase_path)
 
 def generate_zebrafish_repbases():
     # 水稻
@@ -539,7 +602,7 @@ def get_LTR_seqs():
 def identify_new_TIR(tmp_output_dir):
     # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/rice'
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/rice'
     tir_repbase_path = repbase_dir + '/tir.repbase.ref'
 
     total_tir_path = tmp_output_dir + '/total_tir.fa'
@@ -598,7 +661,7 @@ def identify_new_TIR(tmp_output_dir):
     # print(len(exist_tir_names))
 
     # 1.用itrseach识别repbase_TIR以及新TIR中的TIRs
-    TRsearch_dir = '/home/hukang/HiTE-2.0.1/ReferenceMode/tools'
+    TRsearch_dir = '/public/home/hpc194701009/HiTE/tools'
     run_itrsearch(TRsearch_dir, tir_repbase_path, repbase_dir)
     tir_repbase_out = tir_repbase_path + '.itr'
     repbase_itr_names, repbase_itr_contigs = read_fasta_v1(tir_repbase_out)
@@ -2210,27 +2273,28 @@ def analyze_new_TIRs(tmp_output_dir):
 
     #获取novel TIR的拷贝数和多序列比对文件
     plant = 1
-    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
-    reference = '/home/hukang/EDTA/krf_test/rice/GCF_001433935.1_IRGSP-1.0_genomic.fna'
+    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
+    reference = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/rice/GCF_001433935.1_IRGSP-1.0_genomic.rename.fna'
     threads = 40
     flanking_len = 50
     similar_ratio = 0.2
     TE_type = 'tir'
     ref_index = 0
+    iter_num = 0
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
     debug = 1
     output = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
     flank_region_align_v3(novel_tir_path, output, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
-                          ref_index, log, member_script_path, subset_script_path, plant, debug, 'cons')
-    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
+                          ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, 'cons')
+    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
 
     msa_dir = tmp_output_dir + '/msa'
     if not os.path.exists(msa_dir):
         os.makedirs(msa_dir)
 
     # 获取novel TIR的蛋白质结构组成
-    protein_path = '/home/hukang/HiTE/library/RepeatPeps.lib'
+    protein_path = '/public/home/hpc194701009/HiTE/library/RepeatPeps.lib'
     output_table = novel_tir_path + '.domain'
     domain_temp_dir = tmp_output_dir + '/domain'
     get_domain_info(novel_tir_path, protein_path, output_table, threads, domain_temp_dir)
@@ -2554,6 +2618,24 @@ def filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, T
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
     rename_fasta(confident_tir_cons, confident_tir_path, 'TIR')
 
+def split_module_test():
+    EAHelitron = '/public/home/hpc194701009/HiTE/bin/EAHelitron-master'
+    work_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/module_test'
+    # 1.生成未过滤文件
+    unfilter_files = ['rice/tir_tsd_0.fa']
+    for unfilter_file in unfilter_files:
+        unfilter_path = work_dir + '/' + unfilter_file
+        unfilter_cons = unfilter_path + '.cons'
+        # 生成一致性序列
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                        + ' -G 0 -g 1 -A 80 -i ' + unfilter_path + ' -o ' + unfilter_cons + ' -T 0 -M 0'
+        os.system(cd_hit_command)
+
+        longest_repeats_flanked_path = work_dir + '/rice/longest_repeats_0.flanked.fa'
+        flanking_len = 50
+        candidate_helitron_path = work_dir + '/rice/EAHelitron.fa'
+        temp_dir = work_dir + '/rice/helitron_tmp_'+str(ref_index)
+        multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_helitron_path, temp_dir, EAHelitron, threads)
 
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -2625,7 +2707,7 @@ if __name__ == '__main__':
     # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
 
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib2/rice/novel_tir'
+    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/module_test/rice/novel_tir'
     #analyze_new_TIRs(tmp_output_dir)
 
 
@@ -2689,6 +2771,9 @@ if __name__ == '__main__':
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
     #generate_repbases()
+    #generate_rm2()
+    generate_EDTA()
+    generate_HiTE()
     # input = '/homeb/hukang/KmerRepFinder_test/library/WebTE_Lib/Arabidopsis_thaliana_3702/GCF_000001735.4_TAIR10.1_genomic.fna'
     # output = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
     # rename_reference(input, output)
@@ -2796,9 +2881,12 @@ if __name__ == '__main__':
 
     #summary_not_perfect_repbase()
 
-    analyze_potato_libs()
+    #analyze_potato_libs()
 
     #filter_repbase_nonTE()
+
+    #分模块测试LTR、TIR、Helitron、non-LTR
+    #split_module_test()
 
     # #下面这段代码是把老版本的TIR结果用itrsearch+short_itr过滤一遍
     # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/potato'
