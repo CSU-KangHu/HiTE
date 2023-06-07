@@ -8020,6 +8020,8 @@ def flank_region_align_v4(candidate_sequence_path, real_TEs, flanking_len, simil
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
+    os.system('makeblastdb -in ' + reference + ' -dbtype nucl')
+
     # 我们考虑现在的运行时间太长了，也许跟一条序列需要提交一次Blastn比对有关.
     # 我们尝试一次将100条序列合在一起，运行一次Blastn
     #为了增加CPU利用率，100条序列提交一个线程处理
