@@ -2900,3 +2900,14 @@ if __name__ == '__main__':
     # member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
     # subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
     # filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path)
+
+    #测试为什么没有找到Jing
+    work_dir = '/homeb/hukang/KmerRepFinder_test/library/test/rice_v7'
+    query_path = work_dir+'/genome.cut0.fa'
+    target_path = work_dir+'/22_target.fa'
+    makedb_command = 'makeblastdb -dbtype nucl -in ' + target_path + ' > /dev/null 2>&1'
+    os.system(makedb_command)
+    repeats_path = (query_path, [target_path], work_dir+'/test.out', work_dir)
+    fixed_extend_base_threshold = 1000
+    max_single_repeat_len = 30000
+    get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug)

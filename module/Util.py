@@ -4693,8 +4693,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
         cur_subject_names, cur_subject_contigs = read_fasta(cur_target)
         subject_contigs.update(cur_subject_contigs)
 
-    #blastn2Results_path = '/home/hukang/HiTE/demo/test/total_blast_0.out'
-    #print('coarse alignment -- alignment finished:' + str(split_repeats_path))
 
     query_names, query_contigs = read_fasta(split_repeats_path)
 
@@ -4724,7 +4722,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
             subject_pos = subject_dict[subject_name]
             subject_pos.append((q_start, q_end, s_start, s_end))
     f_r.close()
-    #print('coarse alignment -- file open finished:' + str(split_repeats_path))
 
     keep_longest_query = {}
     # longest_repeats -> {'chr1:100-1000': seq, }
@@ -4733,19 +4730,13 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
     # chr_pos_candidates -> {'chr1:90-990': 1, 'chr1:90-1000': 1, 'chr1:100-990': 1, 'chr1:100-1000': 1}
     chr_pos_candidates = {}
     for idx, query_name in enumerate(query_records.keys()):
-        #query_len = len(query_contigs[query_name])
-        #print('total query size: %d, current query name: %s, idx: %d' % (len(query_records), query_name, idx))
-
         subject_dict = query_records[query_name]
 
         # if there are more than one longest query overlap with the final longest query over 90%,
         # then it probably the true TE
         longest_queries = []
         for subject_name in subject_dict.keys():
-            # if query_name != 'chr_0$15000000' or subject_name != 'chr_0$15000000':
-            #     continue
             subject_pos = subject_dict[subject_name]
-            # subject_pos.sort(key=lambda x: (x[2], x[3]))
 
             # cluster all closed fragments, split forward and reverse records
             forward_pos = []
@@ -4822,9 +4813,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                     longest_subject_start = origin_frag[2]
                     longest_subject_end = origin_frag[3]
 
-                    # if longest_query_start == 456006 and longest_query_end == 457161:
-                    #     print('here')
-
                     cur_extend_num = 0
 
                     visited_frag[origin_frag] = 1
@@ -4895,14 +4883,14 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
         for repeat in longest_queries:
             # Subject序列处理流程
             subject_name = repeat[6]
-            subject_seq = subject_contigs[subject_name]
+            #subject_seq = subject_contigs[subject_name]
             parts = subject_name.split('$')
             subject_chr_name = parts[0]
             subject_chr_start = int(parts[1])
 
             old_subject_start_pos = repeat[3] - 1
             old_subject_end_pos = repeat[4]
-            cur_subject_seq = subject_seq[old_subject_start_pos: old_subject_end_pos]
+            #cur_subject_seq = subject_seq[old_subject_start_pos: old_subject_end_pos]
             subject_start_pos = subject_chr_start + old_subject_start_pos
             subject_end_pos = subject_chr_start + old_subject_end_pos
 
@@ -4946,9 +4934,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                 if len(cur_query_seq) >= 80 and len(cur_query_seq) < max_single_repeat_len:
                     query_repeatNames.append(query_pos)
                     query_repeats[query_pos] = cur_query_seq
-            # else:
-            #     if debug:
-            #         print(subject_pos + ' exists, skip...')
 
             chr_pos_candidates[subject_pos1] = 1
             chr_pos_candidates[subject_pos2] = 1
@@ -4963,8 +4948,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
         merge_contigNames = process_all_seqs(query_repeatNames)
         for name in merge_contigNames:
             longest_repeats[name] = query_repeats[name]
-    #print('coarse alignment -- analyze finished:' + str(split_repeats_path))
-    # print(longest_repeats)
     return longest_repeats, keep_longest_query, blastn2Results_path
 
 def get_overlap_len(seq1, seq2):
