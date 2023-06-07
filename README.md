@@ -21,6 +21,8 @@
 40 CPU processors, 128 GB RAM. The runtime of the program is dependent on the complexity of the input genome's repetitive regions. 
 If the program takes too long to run, you may want to check out [Issues with installation and usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage).
 
+HiTE is still in the development stage, and we are continuously working to improve the performance and fix any bugs that are discovered.
+
 ### Dowload project
 ```sh
 git clone https://github.com/CSU-KangHu/HiTE.git
