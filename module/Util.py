@@ -6218,7 +6218,7 @@ def flanking_copies_v1(all_copies, reference, flanking_len):
             new_all_copies[query_name] = (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
     return new_all_copies
 
-def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, subject_coverage, query_fixed_extend_base_threshold, subject_fixed_extend_base_threshold):
+def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, subject_coverage, query_fixed_extend_base_threshold=200, subject_fixed_extend_base_threshold=200):
     all_copies = {}
 
     if subject_coverage > 0:
@@ -6390,13 +6390,6 @@ def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, 
                                             cluster_longest_subject_end, cluster_longest_subject_len, subject_name,
                                             cluster_extend_num, cluster_identity))
 
-        # if query_name.__contains__('N_21202-len_1496-ref_NC_029260.1-22739190-22740686-C_29-tsd_TTTTTTCAT-distance_18'):
-        #     print('here')
-
-
-        # we now consider, we should take some sequences from longest_queries to represent this query sequence.
-        # we take the longest sequence by length, if the latter sequence overlap with the former sequence largely (50%),
-        # continue find next sequence until the ratio of query sequence over 90% or no more sequences.
         longest_queries.sort(key=lambda x: -x[2])
         query_len = len(query_contigs[query_name])
         # query_len = int(query_name.split('-')[1].split('_')[1])
@@ -6423,12 +6416,11 @@ def get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, 
                 if float(query[2]) / query_len >= query_coverage and item not in keeped_copies:
                     copies.append((subject_name, subject_start, subject_end, query[2], direct))
                     keeped_copies.add(item)
-        copies.sort(key=lambda x: abs(x[3]-(x[2]-x[1]+1)))
+        #copies.sort(key=lambda x: abs(x[3]-(x[2]-x[1]+1)))
         all_copies[query_name] = copies
     return all_copies
 
-def get_copies_v1(blastnResults_path, query_path, subject_path, query_coverage=0.99, subject_coverage=0,
-               query_fixed_extend_base_threshold=1000, subject_fixed_extend_base_threshold=1000):
+def get_copies_v1(blastnResults_path, query_path, subject_path, query_coverage=0.95, subject_coverage=0):
     query_records = {}
     with open(blastnResults_path, 'r') as f_r:
         for idx, line in enumerate(f_r):
@@ -6455,13 +6447,12 @@ def get_copies_v1(blastnResults_path, query_path, subject_path, query_coverage=0
 
     query_names, query_contigs = read_fasta(query_path)
     cur_segments = list(query_records.items())
-    all_copies = get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, subject_coverage, query_fixed_extend_base_threshold, subject_fixed_extend_base_threshold)
+    all_copies = get_query_copies(cur_segments, query_contigs, subject_path, query_coverage, subject_coverage)
 
     return all_copies
 
 
-def get_copies(blastnResults_path, query_path, subject_path, query_coverage=0.99, subject_coverage=0,
-               query_fixed_extend_base_threshold=1000, subject_fixed_extend_base_threshold=1000, threads=48):
+def get_copies(blastnResults_path, query_path, subject_path, query_coverage=0.99, subject_coverage=0, threads=48):
     query_records = {}
     with open(blastnResults_path, 'r') as f_r:
         for idx, line in enumerate(f_r):
@@ -6493,7 +6484,7 @@ def get_copies(blastnResults_path, query_path, subject_path, query_coverage=0.99
     ex = ProcessPoolExecutor(threads)
     objs = []
     for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(get_query_copies, cur_segments, query_contigs, subject_path, query_coverage, subject_coverage, query_fixed_extend_base_threshold, subject_fixed_extend_base_threshold)
+        obj = ex.submit(get_query_copies, cur_segments, query_contigs, subject_path, query_coverage, subject_coverage)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
@@ -6576,26 +6567,17 @@ def multiple_alignment_blast(repeats_path, tools_dir):
 
     return blastn2Results_path
 
-def multiple_alignment_blast_and_get_copies(repeats_path, tools_dir, query_coverage, TE_type, subject_coverage=0):
+def multiple_alignment_blast_and_get_copies(repeats_path):
     split_repeats_path = repeats_path[0]
     ref_db_path = repeats_path[1]
     blastn2Results_path = repeats_path[2]
     all_copies = None
     repeat_names, repeat_contigs = read_fasta(split_repeats_path)
     if len(repeat_contigs) > 0:
-
         align_command = 'blastn -db ' + ref_db_path + ' -num_threads ' \
-                        + str(1) + ' -query ' + split_repeats_path + ' -outfmt 6 > ' + blastn2Results_path
+                        + str(1) + ' -query ' + split_repeats_path + ' -evalue 1e-20 -outfmt 6 > ' + blastn2Results_path
         os.system(align_command)
-
-        # if TE_type == 'ltr':
-        #     all_copies = get_copies_v1(blastn2Results_path, split_repeats_path, ref_db_path,
-        #                                query_coverage=query_coverage, query_fixed_extend_base_threshold=10000,
-        #                                subject_fixed_extend_base_threshold=10000)
-        # else:
-
-        all_copies = get_copies_v1(blastn2Results_path, split_repeats_path, ref_db_path, query_coverage=query_coverage, subject_coverage=subject_coverage)
-
+        all_copies = get_copies_v1(blastn2Results_path, split_repeats_path, ref_db_path)
     return all_copies
 
 def run_blast_align(query_path, subject_path, output, flanking_len, flanking_region_distance, flank_align_dir):
@@ -8030,6 +8012,85 @@ def get_seq_families(candidate_sequence_path, reference, member_script_path, sub
         copy_files.append((new_name, member_file))
     return copy_files
 
+def flank_region_align_v4(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, result_type='cons'):
+    log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
+    starttime = time.time()
+    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
+    os.system('rm -rf ' + temp_dir)
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+    # 我们考虑现在的运行时间太长了，也许跟一条序列需要提交一次Blastn比对有关.
+    # 我们尝试一次将100条序列合在一起，运行一次Blastn
+    #为了增加CPU利用率，100条序列提交一个线程处理
+    batch_size = 100
+    batch_id = 0
+    names, contigs = read_fasta(candidate_sequence_path)
+    total_names = set(names)
+    split_files = []
+    cur_contigs = {}
+    for i, name in enumerate(names):
+        cur_file = temp_dir + '/' + str(batch_id) + '.fa'
+        cur_contigs[name] = contigs[name]
+        if len(cur_contigs) == batch_size:
+            store_fasta(cur_contigs, cur_file)
+            split_files.append(cur_file)
+            cur_contigs = {}
+            batch_id += 1
+    if len(cur_contigs) > 0:
+        cur_file = temp_dir + '/' + str(batch_id) + '.fa'
+        store_fasta(cur_contigs, cur_file)
+        split_files.append(cur_file)
+        batch_id += 1
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for cur_split_files in split_files:
+        job = ex.submit(run_find_members_v7, cur_split_files, reference, temp_dir, subset_script_path,
+                        plant, TE_type, flanking_len, debug, result_type)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    not_found_boundary = 0
+    full_length1 = 0
+    copy_nums = {}
+    true_te_names = set()
+    true_tes = {}
+    for job in as_completed(jobs):
+        result_list = job.result()
+        for result_info in result_list:
+            cur_name, cur_seq, info = result_info
+            if info == 'nb':
+                not_found_boundary += 1
+            elif info == 'fl1':
+                full_length1 += 1
+            elif info.startswith('copy_num:'):
+                copy_num = int(info.split('copy_num:')[1])
+                if not copy_nums.__contains__(copy_num):
+                    copy_nums[copy_num] = 0
+                cur_copy_num = copy_nums[copy_num]
+                cur_copy_num += 1
+                copy_nums[copy_num] = cur_copy_num
+            if cur_name is not None:
+                if TE_type == 'tir':
+                    # 去掉TG...CA假阳性
+                    if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
+                        continue
+                true_tes[cur_name] = cur_seq
+                true_te_names.add(cur_name)
+    store_fasta(true_tes, real_TEs)
+
+    deleted_names = total_names.difference(true_te_names)
+    if debug:
+        print(deleted_names)
+        print('deleted_names len: ' + str(len(deleted_names)))
+        print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
+        print(copy_nums)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of determination of homology in regions outside the boundaries of  " + TE_type + " copies: %.8s s" % (dtime))
+
+
 def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, result_type='cons'):
     log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
     starttime = time.time()
@@ -8248,7 +8309,7 @@ def multi_process_align_and_get_copies(query_path, subject_path, tmp_blast_dir, 
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for file in longest_repeat_files:
-        job = ex.submit(multiple_alignment_blast_and_get_copies, file, tools_dir, query_coverage, TE_type, subject_coverage=subject_coverage)
+        job = ex.submit(multiple_alignment_blast_and_get_copies, file)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -11998,30 +12059,67 @@ def get_full_length_member(query_path, reference, flanking_len):
     store_fasta(new_all_copies, member_file)
     return member_file
 
-def run_find_members_v7(cur_split_files, reference, member_script_path, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
+
+def get_full_length_member_batch(query_path, reference, temp_dir, flanking_len):
+    batch_member_files = []
+    blastn2Results_path = query_path + '.blast.out'
+    repeats_path = (query_path, reference, blastn2Results_path)
+    all_copies = multiple_alignment_blast_and_get_copies(repeats_path)
+
+    # 获取fasta序列
+    ref_names, ref_contigs = read_fasta(reference)
+    new_all_copies = {}
+    for query_name in all_copies.keys():
+        copies = all_copies[query_name]
+        for copy in copies:
+            ref_name = copy[0]
+            copy_ref_start = int(copy[1])
+            copy_ref_end = int(copy[2])
+            direct = copy[4]
+            copy_len = copy_ref_end - copy_ref_start + 1
+            if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
+                continue
+            copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
+            if direct == '-':
+                copy_seq = getReverseSequence(copy_seq)
+            if len(copy_seq) < 100:
+                continue
+            new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
+            if not new_all_copies.__contains__(query_name):
+                new_all_copies[query_name] = {}
+            copy_contigs = new_all_copies[query_name]
+            copy_contigs[new_name] = copy_seq
+            new_all_copies[query_name] = copy_contigs
+    for query_name in new_all_copies.keys():
+        copy_contigs = new_all_copies[query_name]
+        cur_member_file = temp_dir + '/' + query_name + '.blast.bed.fa'
+        store_fasta(copy_contigs, cur_member_file)
+        batch_member_files.append((query_name, cur_member_file))
+    return batch_member_files
+
+def run_find_members_v7(cur_split_files, reference, temp_dir, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
     result_list = []
-    for cur_file_tuple in cur_split_files:
+    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
+    # 原来的找拷贝的方法无法连接相邻的片段，导致无法识别全长拷贝
+    batch_member_files = get_full_length_member_batch(cur_split_files, reference, temp_dir, flanking_len)
+    cur_names, cur_contigs = read_fasta(cur_split_files)
+    # 循环处理批次的拷贝
+    for (query_name, member_file) in batch_member_files:
         # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
         # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
         # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-        (cur_temp_dir, cur_file) = cur_file_tuple
-        cur_names, cur_contigs = read_fasta(cur_file)
-        cur_seq = cur_contigs[cur_names[0]]
+        cur_seq = cur_contigs[query_name]
 
-        # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
-        # 原来的找拷贝的方法无法连接相邻的片段，导致无法识别全长拷贝
-        extend_len = flanking_len
-        member_file = get_full_length_member(cur_file, reference, flanking_len)
         member_names, member_contigs = read_fasta(member_file)
         if len(member_names) > 100:
-            sub_command = 'cd ' + cur_temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+            sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
             os.system(sub_command)
             member_file += '.rdmSubset.fa'
         if not os.path.exists(member_file):
             result_list.append((None, None, ''))
             continue
-        align_file = cur_file + '.maf.fa'
-        align_command = 'cd ' + cur_temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+        align_file = member_file + '.maf.fa'
+        align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
         os.system(align_command)
 
         # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
@@ -12030,16 +12128,10 @@ def run_find_members_v7(cur_split_files, reference, member_script_path, subset_s
         elif TE_type == 'helitron':
             is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
 
-        # 删除中间文件
-        if not debug:
-            os.system('rm -f ' + cur_file + '*')
-
         if is_TE:
-            result_list.append((cur_names[0], cons_seq, info))
-            continue
+            result_list.append((query_name, cons_seq, info))
         else:
             result_list.append((None, None, info))
-            continue
     return result_list
 
 def run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):

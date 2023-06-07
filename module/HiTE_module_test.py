@@ -40,7 +40,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
     flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, \
-    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron
+    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, flank_region_align_v4
 
 
 def filter_repbase_nonTE():
@@ -2285,7 +2285,7 @@ def analyze_new_TIRs(tmp_output_dir):
     log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
     debug = 1
     output = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
-    flank_region_align_v3(novel_tir_path, output, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
+    flank_region_align_v4(novel_tir_path, output, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
                           ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, 'cons')
     temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
 
@@ -2657,9 +2657,10 @@ if __name__ == '__main__':
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
     member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
     subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
+    reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/GCF_001433935.1_IRGSP-1.0_genomic.fna'
     #reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7/all.chrs.con'
     #reference = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
-    reference = '/home/hukang/HiTE/demo/genome.fa'
+    #reference = '/home/hukang/HiTE/demo/genome.fa'
     temp_dir = tmp_dir + '/copies'
     threads = 40
     # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
@@ -2668,14 +2669,14 @@ if __name__ == '__main__':
     # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
     #raw_input = tmp_dir + '/fake_helitron.fa'
     #raw_input = tmp_dir + '/lost_tir.fa'
-    #raw_input = tmp_dir + '/test.fa'
-    raw_input = tmp_dir + '/test_helitron.fa'
+    raw_input = tmp_dir + '/test.fa'
+    #raw_input = tmp_dir + '/test_helitron.fa'
     #raw_input = tmp_dir + '/helitron.repbase.ref'
     #raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
     flanking_len = 50
     similar_ratio = 0.2
-    #TE_type = 'tir'
-    TE_type = 'helitron'
+    TE_type = 'tir'
+    #TE_type = 'helitron'
     ref_index = 0
     log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
@@ -2684,7 +2685,7 @@ if __name__ == '__main__':
     #output = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r1.fa'
     #output1 = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
     result_type = 'cons'
-    flank_region_align_v3(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
+    #flank_region_align_v4(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
 
     # confident_helitron_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/candidate_helitron_0.cons.fa'
     # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
@@ -2774,8 +2775,8 @@ if __name__ == '__main__':
     #generate_zebrafish_repbases()
     #generate_repbases()
     #generate_rm2()
-    generate_EDTA()
-    generate_HiTE()
+    # generate_EDTA()
+    # generate_HiTE()
     # input = '/homeb/hukang/KmerRepFinder_test/library/WebTE_Lib/Arabidopsis_thaliana_3702/GCF_000001735.4_TAIR10.1_genomic.fna'
     # output = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
     # rename_reference(input, output)

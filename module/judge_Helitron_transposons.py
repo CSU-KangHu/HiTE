@@ -12,7 +12,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, multi_process_helitronscanner, get_copies, multi_process_align, \
     flank_region_align_v1, multi_process_EAHelitron, Logger, flanking_copies, rename_fasta, file_exist, \
-    flank_region_align_v3, run_HelitronScanner_v1
+    flank_region_align_v3, run_HelitronScanner_v1, flank_region_align_v4
 
 
 def cut_reference(fasta_path, line_len):
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         for i in range(iter_num):
             result_type = 'cons'
             output_file = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
-            flank_region_align_v3(input_file, output_file, flanking_len, similar_ratio, reference, TE_type,
+            flank_region_align_v4(input_file, output_file, flanking_len, similar_ratio, reference, TE_type,
                                   tmp_output_dir, threads,
                                   ref_index, log, member_script_path, subset_script_path, 1, debug, i, result_type)
             input_file = output_file

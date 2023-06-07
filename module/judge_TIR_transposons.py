@@ -13,7 +13,7 @@ from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
     multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
     multi_process_align_and_get_copies, rename_fasta, file_exist, flank_region_align_v2, \
-    flank_region_align_v3, run_itrsearch, get_short_tir_contigs
+    flank_region_align_v3, run_itrsearch, get_short_tir_contigs, flank_region_align_v4
 
 
 def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
@@ -42,7 +42,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     for i in range(iter_num):
         result_type = 'cons'
         output_file = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
-        flank_region_align_v3(input_file, output_file, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
+        flank_region_align_v4(input_file, output_file, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
                               ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
         input_file = output_file
 
@@ -55,6 +55,14 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.no_short_tir.fa'
     for name in short_itr_contigs.keys():
         del tir_contigs[name]
+    for name in tir_contigs.keys():
+        seq = tir_contigs[name]
+        # 去掉序列首尾的TA或AT
+        while seq.startswith("TATA") or seq.startswith("ATAT"):
+            seq = seq[4:]
+        while seq.endswith("TATA") or seq.endswith("ATAT"):
+            seq = seq[:-4]
+        tir_contigs[name] = seq
     store_fasta(tir_contigs, confident_tir_path)
     all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, confident_tir_path, tmp_output_dir)
     all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
