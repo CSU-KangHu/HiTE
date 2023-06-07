@@ -40,7 +40,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
     flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, \
-    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, flank_region_align_v4
+    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, flank_region_align_v4, search_confident_tir_v4
 
 
 def filter_repbase_nonTE():
@@ -2901,13 +2901,12 @@ if __name__ == '__main__':
     # subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
     # filter_last_round_tir_with_itrsearch(tmp_output_dir, reference, ref_index, TRsearch_dir, member_script_path, subset_script_path)
 
-    #测试为什么没有找到Jing
-    work_dir = '/homeb/hukang/KmerRepFinder_test/library/test/rice_v7'
-    query_path = work_dir+'/genome.cut0.fa'
-    target_path = work_dir+'/22_target.fa'
-    makedb_command = 'makeblastdb -dbtype nucl -in ' + target_path + ' > /dev/null 2>&1'
-    os.system(makedb_command)
-    repeats_path = (query_path, [target_path], work_dir+'/test.out', work_dir)
-    fixed_extend_base_threshold = 1000
-    max_single_repeat_len = 30000
-    get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug)
+    #测试get_tsd函数是否正确工作
+    seq = 'GCACGCGAGTGCCATTACAGAGTTACAGGCATTTTATCGTGTTTTATTTATGGGGCAATTACGTTTTTATCCTGTTTTGGTGCCTATTTTTAATTTGGTTCTGTTTTTTTAAGTTTGCTTATTTGACCCTCTTTTTTAAAAATAAAGATCAGGCTTGACCCTATTCTGTGAAGGCAACCTAACGGCGTTAGCTCATGACAAAAATACCGTTTATGCCCTTGCTCATTTGACCCTACTTTTATTATTATTTTTATTTATCCAGGTTTGACAAAGCGGTGTTATATTTGAGAAATTTTGATATGGGTTTGATAAATTTAACATACGTTTGACAAATTTCGATAATTTTGACATAAATTTTATATATTTTTGACAAATTTAACTTACACTTCACAGATTTGGTAAATTTTTTGTAACATCAATCTCAAACTGTACATATCCAAGAAAAACACAAACACGTAGTTAAGGTATCCCCGCAGGCTTAAAAAAAATCCGGAGGCTAACCAGATGGAGCTCGAATGCTAGATAGCCATCTCCCGCATGTCGTTGCTGCTGCAGCTGAGCAGCTCCTACGCGCCGCCGCGGGAGCACTCGCGCGTCGTCGTCGGTGCCGCACTACGCGTCGCTGCAACTCCTGCATGCCGCCATTTGCTGCACCTGCATACTGTCGTTGTCGAAGCCCTTTCGCCCGCACATGCCGCCGCTGTAGCACCCGTATGCCGCCACCGCAGCTCTCGCGAGCCGTCGCCGCCGAAGCCCTCTATGTACGCCGCCTCCGCAGCTCGCGCCAAGTGCTATCTCCGTAGTCCCTACCGCGCGGCGCCCGCCGTTGCAGCCCCGCCTCGTGCCACCACCGCAGCTCCCGCCGCCTCCGCCATAGCCGAAGCCCTCTCTGTGCGCCGCCACCGCAGCCCCCACCGAGCGTCGACGCCGCTGGACCACAGCTCCCATCACGAGCCGCCGCCGCCGCCCTCACCGTGTGCCGCCTCCGCCGAACCCTAGCTGCGCCGCCAAGAAGGCACGGGATGAAAAATTTGACCGTGGGGTGAGAAATTTGGTGTTTGATTTGGTGTTCACTGCTCAGGGTTATTTTAGTCAGTTTATATTATAAAATGATTTTTTTTTCTGTTTCCTTTAAAAAACCCTAACGGTGGAGTGGAAAGAGGATCAGACGGCAATTTCGATTTTAGAAAGCAGGGTTAAATGAGCAAAGTTTAAAAAGTAGGGTTAAATTAGTAGTTGGACTTCAGAACAGGGTCAAATGAACAATTGTCCCTTTATTTATCTAGTAGTATTGCGATTTGCGAGTAGTACTGGAGTAACTGTTT'
+    tir_start = flanking_len + 1
+    tir_end = len(seq) - flanking_len
+    tsd_search_distance = flanking_len
+    query_name = 'Chr3:9324053-9325377'
+    plant = 1
+    cur_itr_contigs = search_confident_tir_v4(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
+

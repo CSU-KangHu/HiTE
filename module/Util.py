@@ -4760,7 +4760,7 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                 else:
                     is_closed = False
                     for exist_frag in reversed(cur_cluster):
-                        if (frag[2] - exist_frag[3] < fixed_extend_base_threshold):
+                        if (frag[2] - exist_frag[3] < fixed_extend_base_threshold and frag[1] > exist_frag[1]):
                             is_closed = True
                             break
                     if is_closed:
@@ -4782,7 +4782,7 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                 else:
                     is_closed = False
                     for exist_frag in reversed(cur_cluster):
-                        if (exist_frag[3] - frag[2] < fixed_extend_base_threshold):
+                        if (exist_frag[3] - frag[2] < fixed_extend_base_threshold and frag[1] > exist_frag[1]):
                             is_closed = True
                             break
                     if is_closed:
@@ -6729,7 +6729,7 @@ def search_confident_tir_batch(split_file, flanking_len, tir_tsd_dir, TRsearch_d
         tir_end = len(seq) - flanking_len
         # 寻找所有可能的TSD序列，计算每条序列的边界与原始边界的距离，并存到header里
         tsd_search_distance = flanking_len
-        cur_itr_contigs = search_confident_tir_v3(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
+        cur_itr_contigs = search_confident_tir_v4(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
         all_copies_itr_contigs.update(cur_itr_contigs)
 
     #保存短tir的序列，交由itrsearch确定TIR长度
@@ -7244,6 +7244,123 @@ def search_confident_tir_v3(orig_seq, raw_tir_start, raw_tir_end, tsd_search_dis
         #     new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_'+ str(distance)
         #     itr_contigs[new_query_name] = tir_seq
         #     query_dist.append((new_query_name, distance))
+
+        #起始和结束5bp一致并不是TIR的充要条件，因为我们现在使用多序列比对的同源性去寻找真实的边界，因此我们无须要求
+        new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
+        itr_contigs[new_query_name] = tir_seq
+        query_dist.append((new_query_name, distance))
+
+    top_itr_contigs = {}
+    for i, item in enumerate(query_dist):
+        query_name = item[0]
+        top_itr_contigs[query_name] = itr_contigs[query_name]
+    return top_itr_contigs
+
+
+def search_confident_tir_v4(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distance, query_name, plant):
+    #将坐标都换成以0开始的
+    raw_tir_start -= 1
+    raw_tir_end -= 1
+
+    #我们之前的方法时间复杂度是100*100*9=90000
+    #我现在希望通过切kmer的方法将时间复杂度降为9*（100-k）*2=1800
+    #节省的时间为50倍
+    itr_contigs = {}
+    orig_seq_len = len(orig_seq)
+    TSD_set = set()
+    # 1.先取起始、结束位置附近的2*tsd_search_distance序列
+    left_start = raw_tir_start - tsd_search_distance
+    if left_start < 0:
+        left_start = 0
+    left_end = raw_tir_start + tsd_search_distance + 1
+    left_round_seq = orig_seq[left_start: left_end]
+    #获取left_round_seq相对于整条序列的位置偏移，用来校正后面的TSD边界位置
+    left_offset = left_start
+    right_start = raw_tir_end - tsd_search_distance
+    if right_start < 0:
+        right_start = 0
+    right_end = raw_tir_end + tsd_search_distance + 1
+    right_round_seq = orig_seq[right_start: right_end]
+    #获取right_round_seq相对于整条序列的位置偏移，用来校正后面的TSD边界位置
+    right_offset = right_start
+
+    # 2.将左右两边的序列切成k-mer，用一个dict存起左边的k-mer，然后遍历右边k-mer时，判断是不是和左边k-mer一致，如果一致，则为一个候选的TSD，记录下位置信息
+    TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
+    # 记录的位置应该是离原始边界最近的位置
+    # exist_tsd -> {'TAA': {'left_pos': 100, 'right_pos': 200}}
+    exist_tsd = {}
+    for k_num in TIR_TSDs:
+        for i in range(len(left_round_seq) - k_num + 1):
+            left_kmer = left_round_seq[i: i + k_num]
+            cur_pos = left_offset + i + k_num
+            if cur_pos < 0 or cur_pos > orig_seq_len-1:
+                continue
+            if not exist_tsd.__contains__(left_kmer):
+                exist_tsd[left_kmer] = {}
+            pos_dict = exist_tsd[left_kmer]
+            if not pos_dict.__contains__('left_pos'):
+                pos_dict['left_pos'] = cur_pos
+            else:
+                prev_pos = pos_dict['left_pos']
+                #判断谁的位置离原始边界更近
+                if abs(cur_pos-raw_tir_start) < abs(prev_pos-raw_tir_start):
+                    pos_dict['left_pos'] = cur_pos
+            exist_tsd[left_kmer] = pos_dict
+    for k_num in TIR_TSDs:
+        for i in range(len(right_round_seq) - k_num + 1):
+            right_kmer = right_round_seq[i: i + k_num]
+            cur_pos = right_offset + i - 1
+            if cur_pos < 0 or cur_pos > orig_seq_len - 1:
+                continue
+            if exist_tsd.__contains__(right_kmer):
+                #这是一个TSD
+                pos_dict = exist_tsd[right_kmer]
+                if not pos_dict.__contains__('right_pos'):
+                    pos_dict['right_pos'] = cur_pos
+                else:
+                    prev_pos = pos_dict['right_pos']
+                    # 判断谁的位置离原始边界更近
+                    if abs(cur_pos - raw_tir_end) < abs(prev_pos - raw_tir_end):
+                        pos_dict['right_pos'] = cur_pos
+                exist_tsd[right_kmer] = pos_dict
+                #判断这个TSD是否满足一些基本要求
+                tir_start = pos_dict['left_pos']
+                tir_end = pos_dict['right_pos']
+                first_3bp = orig_seq[tir_start: tir_start + 3]
+                last_3bp = orig_seq[tir_end - 2: tir_end+1]
+                if (k_num != 2 and k_num != 4) \
+                        or (k_num == 4 and right_kmer == 'TTAA') \
+                        or (k_num == 2 and (right_kmer == 'TA' or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG'))):
+                    TSD_set.add((right_kmer, tir_start, tir_end))
+
+    # 按照tir_start, tir_end与原始边界的距离进行排序，越近的排在前面
+    TSD_set = sorted(TSD_set, key=lambda x: abs(x[1] - raw_tir_start) + abs(x[2] - raw_tir_end))
+
+    query_dist = []
+    for i, tsd_info in enumerate(TSD_set):
+        left_tsd = tsd_info[0]
+
+        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
+        if left_tsd.__contains__('NN'):
+            continue
+
+        tir_start = tsd_info[1]
+        tir_end = tsd_info[2]
+
+        tir_seq = orig_seq[tir_start: tir_end+1]
+        #计算与原始边界的距离
+        distance = abs(tir_start - raw_tir_start) + abs(tir_end - raw_tir_end)
+
+        if len(tir_seq) < 100:
+            continue
+
+        #过滤掉具有TG..CA motif的TIR序列，绝大多数应该是假阳性
+        if tir_seq[0:2] == 'TG' and tir_seq[-2:] == 'CA':
+            continue
+
+        # 过滤掉以TATATATA开头和结束的TIR
+        if str(tir_seq).startswith('TATATATA') or str(tir_seq).startswith('ATATATAT'):
+            continue
 
         #起始和结束5bp一致并不是TIR的充要条件，因为我们现在使用多序列比对的同源性去寻找真实的边界，因此我们无须要求
         new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
