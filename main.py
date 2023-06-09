@@ -422,8 +422,8 @@ if __name__ == '__main__':
 
     # 过滤TIR候选序列中的LTR转座子（intact LTR or LTR terminals or LTR internals）
     # 1.1 合并所有parts的TIR序列
-    confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-    confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
+    confident_tir_path = tmp_output_dir + '/confident_tir_merge.fa'
+    confident_helitron_path = tmp_output_dir + '/confident_helitron_merge.fa'
     os.system('rm -f ' + confident_tir_path)
     os.system('rm -f ' + confident_helitron_path)
     for ref_index, ref_rename_path in enumerate(cut_references):

@@ -42,27 +42,30 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
 
+    final_confident_tir_path = tmp_output_dir + '/confident_tir.fa'
+    final_confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
+
     # 对合并的TIR和Helitron文件，生成一致性序列，并且重命名
     # 生成一致性序列
     candidate_tir_cons = confident_tir_path + '.cons'
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_tir_path + ' -o ' + candidate_tir_cons + ' -T 0 -M 0'
     os.system(cd_hit_command)
-    rename_fasta(candidate_tir_cons, confident_tir_path, 'TIR')
+    rename_fasta(candidate_tir_cons, final_confident_tir_path, 'TIR')
 
     confident_helitron_cons = confident_helitron_path + '.cons'
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_helitron_path + ' -o ' + confident_helitron_cons + ' -T 0 -M 0'
     os.system(cd_hit_command)
-    rename_fasta(confident_helitron_cons, confident_helitron_path, 'Helitron')
+    rename_fasta(confident_helitron_cons, final_confident_helitron_path, 'Helitron')
 
     #删除包含LTR的TIR元素
-    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads)
+    remove_ltr_from_tir(confident_ltr_cut_path, final_confident_tir_path, threads)
 
     # 合并所有的TE（TIR+Helitron+Other）
     confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    os.system('cat ' + confident_tir_path + ' > ' + confident_TE_path)
-    os.system('cat ' + confident_helitron_path + ' >> ' + confident_TE_path)
+    os.system('cat ' + final_confident_tir_path + ' > ' + confident_TE_path)
+    os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
