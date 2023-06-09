@@ -41,7 +41,7 @@ if __name__ == '__main__':
     default_miu = str(1.3e-8)
     default_remove_nested = 1
 
-    version_num = '2.0.3'
+    version_num = '2.0.4'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \

@@ -31,7 +31,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
-singularity pull HiTE.sif docker://kanghu/hite:2.0.3
+singularity pull HiTE.sif docker://kanghu/hite:2.0.4
 
 # run HiTE
 singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python main.py \
@@ -49,16 +49,16 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python ma
 ### <a name="install_docker"></a>Option 2. Run with Docker
 ```sh
 # pull docker image (once for all).
-docker pull docker://kanghu/hite:2.0.3
+docker pull docker://kanghu/hite:2.0.4
 
 # run HiTE
-docker run -v ${host_path}:${container_path} kanghu/hite:2.0.3 python main.py \
+docker run -v ${host_path}:${container_path} kanghu/hite:2.0.4 python main.py \
  --genome ${genome} \
  --thread ${thread} \
  --outdir ${output_dir} \
  [other parameters]
  
- #e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:2.0.3 python main.py 
+ #e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:2.0.4 python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -247,7 +247,7 @@ usage: main.py [-h] [--genome genome] [--thread thread_num]
                [--max_repeat_len max_repeat_len]
                [--chrom_seg_length chrom_seg_length]
 
-########################## HiTE, version 2.0.3 ##########################
+########################## HiTE, version 2.0.4 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
