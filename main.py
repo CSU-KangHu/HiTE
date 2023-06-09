@@ -429,6 +429,8 @@ if __name__ == '__main__':
     for ref_index, ref_rename_path in enumerate(cut_references):
         cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
+        rename_fasta(cur_confident_tir_path, cur_confident_tir_path, 'TIR_'+str(ref_index))
+        rename_fasta(cur_confident_helitron_path, cur_confident_helitron_path, 'Helitron_'+str(ref_index))
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
         os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')

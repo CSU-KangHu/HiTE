@@ -2914,6 +2914,14 @@ if __name__ == '__main__':
     # cur_itr_contigs = search_confident_tir_v4(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
     # print(cur_itr_contigs)
 
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
+    confident_tir_path = tmp_output_dir + '/confident_tir.fa'
+    os.system('rm -f ' + confident_tir_path)
+    for ref_index in range(5):
+        cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
+        os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
+    rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
+
     confident_ltr_cut_path = '/homeb/hukang/KmerRepFinder_test/library/tir_test/confident_ltr_cut.fa'
     confident_tir_path = '/homeb/hukang/KmerRepFinder_test/library/tir_test/confident_tir.fa.cons'
     remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads)
