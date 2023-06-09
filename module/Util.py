@@ -8489,8 +8489,6 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
             if len(parts) >= 15:
                 direct = parts[8]
                 query_name = parts[4]
-                if query_name == 'TIR_1088':
-                    print('here')
                 subject_name = parts[9]
                 if direct == '+':
                     subject_start = int(parts[11])
