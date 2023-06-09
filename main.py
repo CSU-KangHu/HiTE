@@ -434,7 +434,7 @@ if __name__ == '__main__':
         os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
         os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
-    rename_fasta(confident_helitron_path, confident_tir_path, 'Helitron')
+    rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
 
     starttime = time.time()
     log.logger.info('Start step3: generate non-redundant library')
