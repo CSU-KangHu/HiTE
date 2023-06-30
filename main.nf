@@ -146,6 +146,7 @@ process splitGenome {
     tag "${ref}"
 
     label 'process_low'
+    label 'error_retry'
 
     input:
     path ref
@@ -170,6 +171,7 @@ process coarseBoundary {
     tag "${cut_ref}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     path cut_ref
@@ -201,6 +203,7 @@ process TIR {
     tag "${cut_ref}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     tuple path(cut_ref), path(lrf)
@@ -233,6 +236,7 @@ process Helitron {
     tag "${cut_ref}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     tuple path(cut_ref), path(lrf)
@@ -260,6 +264,7 @@ process Helitron {
 
 process OtherTE {
     label 'process_high'
+    label 'error_retry'
 
     input:
     tuple path(cut_ref), path(lrf)
@@ -284,6 +289,7 @@ process LTR {
     tag "${ref}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     path ref
@@ -307,6 +313,7 @@ process UnwrapNested {
     tag "${ref}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     path ref
@@ -338,6 +345,7 @@ process UnwrapNested {
 
 process BuildLib {
     label 'process_high'
+    label 'error_retry'
 
     input:
     path ltr
@@ -366,6 +374,7 @@ process BuildLib {
 
 process ClassifyLib {
     label 'process_high'
+    label 'error_retry'
 
     input:
     path lib
@@ -388,6 +397,7 @@ process ClassifyLib {
 
 process CleanLib {
     label 'process_low'
+    label 'error_retry'
 
     input:
     path lib
@@ -408,6 +418,7 @@ process BM_RM2 {
     tag "${TE}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     path TE
@@ -432,6 +443,7 @@ process BM_EDTA {
     tag "${TE}"
 
     label 'process_high'
+    label 'error_retry'
 
     input:
     path TE
