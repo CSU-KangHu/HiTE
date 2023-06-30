@@ -13,7 +13,7 @@ from Util import read_fasta, read_fasta_v1, store_fasta, getReverseSequence, \
     Logger, calculate_max_min, get_copies, flanking_copies, \
     multi_process_tsd, multi_process_itr, filter_dup_itr, multi_process_align, flank_region_align_v1, multi_process_TRF, \
     multi_process_align_and_get_copies, rename_fasta, file_exist, flank_region_align_v2, \
-    flank_region_align_v3, run_itrsearch, get_short_tir_contigs, flank_region_align_v4
+    flank_region_align_v3, run_itrsearch, get_short_tir_contigs, flank_region_align_v4, flank_region_align_v5
 
 
 def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
@@ -27,7 +27,7 @@ def run_BM_RM2(TE_path, res_out, temp_dir, rm2_script, lib_path):
     os.system(rm2_res_command)
 
 
-def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir):
+def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, is_recover):
     log.logger.info('determine true TIR')
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
     starttime = time.time()
@@ -42,20 +42,15 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     for i in range(iter_num):
         result_type = 'cons'
         output_file = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
-        flank_region_align_v4(input_file, output_file, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads,
-                              ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
+        resut_file = output_file
+        if not is_recover or not file_exist(resut_file):
+            flank_region_align_v5(input_file, output_file, flanking_len, similar_ratio, reference, split_ref_dir, TE_type, tmp_output_dir, threads,
+                                  ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
         input_file = output_file
 
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
     tir_names, tir_contigs = read_fasta(confident_tir_path)
-    # 保存短tir的序列
-    short_itr_contigs = get_short_tir_contigs(tir_contigs, plant)
-
-    # 剩下的序列交由itrsearch去搜索TIR结构
-    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.no_short_tir.fa'
-    for name in short_itr_contigs.keys():
-        del tir_contigs[name]
-    for name in tir_contigs.keys():
+    for name in tir_names:
         seq = tir_contigs[name]
         # 去掉序列首尾的TA或AT
         while seq.startswith("TATA") or seq.startswith("ATAT"):
@@ -63,6 +58,15 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
         while seq.endswith("TATA") or seq.endswith("ATAT"):
             seq = seq[:-4]
         tir_contigs[name] = seq
+
+    # 保存短tir的序列
+    short_itr_contigs = get_short_tir_contigs(tir_contigs, plant)
+
+    # 剩下的序列交由itrsearch去搜索TIR结构
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.no_short_tir.fa'
+    for name in short_itr_contigs.keys():
+        del tir_contigs[name]
+
     store_fasta(tir_contigs, confident_tir_path)
     all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, confident_tir_path, tmp_output_dir)
     all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
@@ -214,6 +218,8 @@ if __name__ == '__main__':
                         help='e.g., 0')
     parser.add_argument('-r', metavar='Reference path',
                         help='input Reference path')
+    parser.add_argument('--split_ref_dir', metavar='Split Reference path',
+                        help='')
 
     args = parser.parse_args()
     genome = args.g
@@ -230,6 +236,7 @@ if __name__ == '__main__':
     recover = args.recover
     debug = args.debug
     reference = args.r
+    split_ref_dir = args.split_ref_dir
 
     # 将软链接路径转换绝对路径
     genome = os.path.realpath(genome)
@@ -288,6 +295,6 @@ if __name__ == '__main__':
         # ②.判断它的拷贝是否有相同长度的TSD。在通过比对获得拷贝边界时，经常由于不是整个序列的全比对，导致拷贝的准确边界无法识别。
         # 因此，我们在获得拷贝后，需要扩展50 bp范围，记录此时的边界s1, e1，并且在[0:s1, e1:]范围内搜索相同长度的TSD。
         # ③.判断以TSD为边界的TIR拷贝是否具有itr结构，记录下有TSD+TIR结构的拷贝及数量（robust of the evidence）。
-        is_transposons(tir_tsd_path, reference, threads, tmp_output_dir, ref_index, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir)
+        is_transposons(tir_tsd_path, reference, threads, tmp_output_dir, ref_index, log, member_script_path, subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, is_recover)
     else:
         log.logger.info(resut_file + ' exists, skip...')

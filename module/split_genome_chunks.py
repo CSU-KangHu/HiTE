@@ -8,7 +8,7 @@ import json
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, convertToUpperCase_v1, multi_line
+from Util import read_fasta, store_fasta, Logger, convertToUpperCase_v1, multi_line, split_dict_into_blocks
 
 if __name__ == '__main__':
     # 1.parse args
@@ -68,6 +68,19 @@ if __name__ == '__main__':
     f_r.close()
     #print(cut_references)
 
+    # 发现把整个genome传入的话，在获取TE拷贝时blastn比对会占用很大的内存，因此：
+    # 我们将genome按照染色体切成threads块，每块total/threads条，且每块的大小均匀，存在一个目录下，然后把路径当做参数传递给TIR和Helitron模块
+    # 同一时间，一个进程只对部分染色体进行blastn，这样不影响最后的结果，还能降低内存使用
+    ref_names, ref_contigs = read_fasta(reference)
+    split_ref_dir = tmp_output_dir + '/ref_chr'
+    os.system('rm -rf ' + split_ref_dir)
+    if not os.path.exists(split_ref_dir):
+        os.makedirs(split_ref_dir)
+    ref_blocks = split_dict_into_blocks(ref_contigs, 100)
+    for i, block in enumerate(ref_blocks):
+        chr_path = split_ref_dir + '/ref_block_' + str(i) + '.fa'
+        store_fasta(block, chr_path)
+        os.system('makeblastdb -in ' + chr_path + ' -dbtype nucl')
 
 
 

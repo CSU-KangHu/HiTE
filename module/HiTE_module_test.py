@@ -13,10 +13,13 @@ import math
 #import regex
 from fuzzysearch import find_near_matches
 import Levenshtein
-
+from numpy import median
 import numpy as np
 import matplotlib
-#matplotlib.use('pdf')
+
+from judge_TIR_transposons import is_transposons
+
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -40,7 +43,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
     flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, \
-    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, flank_region_align_v4, search_confident_tir_v4
+    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, flank_region_align_v4, search_confident_tir_v4, \
+    multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5
 
 
 def filter_repbase_nonTE():
@@ -217,8 +221,8 @@ def generate_HiTE():
 
 def generate_EDTA():
     # 水稻
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/EDTA_lib/potato'
-    repbase_path = repbase_dir + '/C514.fa.mod.EDTA.TElib.fa'
+    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/EDTA_lib/potato_reference'
+    repbase_path = repbase_dir + '/GCF_000226075.1_SolTub_3.0_genomic.fna.mod.EDTA.TElib.fa'
     repbase_names, repbase_contigs = read_fasta(repbase_path)
     tags = set()
     for name in repbase_names:
@@ -248,13 +252,14 @@ def generate_EDTA():
     non_ltr_contigs = {}
     unknown_contigs = {}
     for name in repbase_names:
+        raw_name = name.split('#')[0]
         tag = name.split('#')[1]
         if tag in ltr_tags:
             ltr_contigs[name] = repbase_contigs[name]
         elif tag in tir_tags:
-            tir_contigs[name] = repbase_contigs[name]
+            tir_contigs[raw_name] = repbase_contigs[name]
         elif tag in helitron_tags:
-            helitron_contigs[name] = repbase_contigs[name]
+            helitron_contigs[raw_name] = repbase_contigs[name]
         elif tag in non_ltr_tags:
             non_ltr_contigs[name] = repbase_contigs[name]
         elif tag in unknown_tags:
@@ -602,7 +607,7 @@ def get_LTR_seqs():
 def identify_new_TIR(tmp_output_dir):
     # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/repbase/rice'
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase/rice'
     tir_repbase_path = repbase_dir + '/tir.repbase.ref'
 
     total_tir_path = tmp_output_dir + '/total_tir.fa'
@@ -661,7 +666,7 @@ def identify_new_TIR(tmp_output_dir):
     # print(len(exist_tir_names))
 
     # 1.用itrseach识别repbase_TIR以及新TIR中的TIRs
-    TRsearch_dir = '/public/home/hpc194701009/HiTE/tools'
+    TRsearch_dir = '/home/hukang/HiTE/tools'
     run_itrsearch(TRsearch_dir, tir_repbase_path, repbase_dir)
     tir_repbase_out = tir_repbase_path + '.itr'
     repbase_itr_names, repbase_itr_contigs = read_fasta_v1(tir_repbase_out)
@@ -1298,8 +1303,8 @@ def get_length_dist(paths, labels, my_pal, output_path):
             names, contigs = read_fasta(path)
             for name in names:
                 seq_len = len(contigs[name])
-                if seq_len >= 5000:
-                    continue
+                # if seq_len >= 5000:
+                #     continue
                 f_save.write(str(seq_len)+'\t'+str(label)+'\n')
     df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
     print(df)
@@ -1308,13 +1313,126 @@ def get_length_dist(paths, labels, my_pal, output_path):
     b.set_xlabel("", fontsize=20)
     b.set_ylabel("Length", fontsize=20)
     plt.tick_params(axis='x', which='major', labelsize=15)
-    plt.show()
+    #plt.show()
 
 
     # Calculate number of obs per group & median to position labels
     medians = df.groupby(['methods'])['length'].median().values
     print(medians)
 
+def get_length_dist_boxplot(paths, labels, my_pal, output_path, output_fig):
+    with open(output_path, 'w') as f_save:
+        f_save.write('length\tmethods\n')
+        for i, path in enumerate(paths):
+            label = labels[i]
+            names, contigs = read_fasta(path)
+            for name in names:
+                seq_len = len(contigs[name])
+                f_save.write(str(seq_len)+'\t'+str(label)+'\n')
+    df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
+    print(df)
+
+    # 自定义颜色列表
+    my_colors = ["#293991", "#9DCFEF"]
+    # 设置自定义颜色列表
+    sns.set_palette(my_colors)
+
+    # 创建子图布局
+    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    # 绘制 HiTE-TIR 方法的长度分布
+    sns.distplot(df[df['methods'] == labels[0]]['length'], kde=False, bins=5, ax=ax[0], rug=True, hist_kws={'edgecolor': 'black'})
+    ax[0].set_title(labels[0]+' Length Distribution')
+    ax[0].set_xlabel('Length')
+    ax[0].set_ylabel('Count')
+    # 绘制 Maize Library 方法的长度分布
+    sns.distplot(df[df['methods'] == labels[1]]['length'], kde=False, bins=5, ax=ax[1], rug=True, hist_kws={'edgecolor': 'black'})
+    ax[1].set_title(labels[1]+' Length Distribution')
+    ax[1].set_xlabel('Length')
+    ax[1].set_ylabel('Count')
+    # 调整子图之间的间距
+    plt.tight_layout()
+    # 显示图形
+    plt.savefig(output_fig, format='png')
+
+    # y = list(query_copy_num)
+    # x = pd.Series(y, name="copy number")
+    # sns.set_theme(style="ticks", font='Times New Roman', font_scale=1.4)
+    # sns.set_context("paper")
+    # ax = sns.distplot(x, kde=True, color='green')
+    # # ax.set_xlim(5, )
+    # plt.show()
+
+    # sns.set_context("paper", rc={"font.size":20,"axes.titlesize":8,"axes.labelsize":20})
+    # #b = sns.violinplot(x=df["methods"], y=df["length"], palette=my_pal)
+    # #b = sns.boxplot(x=df["methods"], y=df["length"], palette=my_pal)
+    # b = sns.barplot(x=df["methods"], y=df["length"])
+    # b.set_xlabel("", fontsize=20)
+    # b.set_ylabel("Length", fontsize=20)
+    # plt.tick_params(axis='x', which='major', labelsize=15)
+    # #plt.show()
+    # plt.tight_layout()
+    # plt.savefig(output_fig, format='png')
+
+    # Calculate number of obs per group & median to position labels
+    medians = df.groupby(['methods'])['length'].median().values
+    print(medians)
+
+def get_copies_dist_boxplot(paths, copies_dirs, labels, output_path, output_fig):
+    with open(output_path, 'w') as f_save:
+        f_save.write('copies\tmethods\n')
+        for i, path in enumerate(paths):
+            contigNames, contigs = read_fasta(path)
+            for file_name in contigNames:
+                file_path = copies_dirs[i] + '/' + file_name + '.blast.bed.fa'
+                names, contigs = read_fasta(file_path)
+                f_save.write(str(len(names))+'\t'+str(labels[i])+'\n')
+    df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
+    print(df)
+
+    # 创建子图布局
+    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    # 绘制 HiTE-TIR 方法的长度分布
+    sns.distplot(df[df['methods'] == labels[0]]['copies'], kde=False, bins=5, ax=ax[0], rug=True,
+                 hist_kws={'edgecolor': 'black'})
+    ax[0].set_title(labels[0] + ' Copies Distribution')
+    ax[0].set_xlabel('Copies')
+    ax[0].set_ylabel('Count')
+    # 绘制 Maize Library 方法的长度分布
+    sns.distplot(df[df['methods'] == labels[1]]['copies'], kde=False, bins=5, ax=ax[1], rug=True,
+                 hist_kws={'edgecolor': 'black'})
+    ax[1].set_title(labels[1] + ' Copies Distribution')
+    ax[1].set_xlabel('Copies')
+    ax[1].set_ylabel('Count')
+    # 调整子图之间的间距
+    plt.tight_layout()
+    # 显示图形
+    plt.savefig(output_fig, format='png')
+
+    # Calculate number of obs per group & median to position labels
+    medians = df.groupby(['methods'])['copies'].median().values
+    print(medians)
+
+def get_insert_time_dist_boxplot(output_path, output_fig):
+    df = pd.read_csv(output_path, sep='\t', encoding='utf-8')
+    print(df)
+
+    # 自定义颜色列表
+    my_colors = ["#293991", "#9DCFEF"]
+    # 设置自定义颜色列表
+    sns.set_palette(my_colors)
+
+    # 创建子图布局
+    #fig, ax = plt.subplots(1, 1, figsize=(10, 4))
+    # 绘制 HiTE-TIR 方法的长度分布
+    ax = sns.distplot(df[df['methods'] == 'HiTE-TIR']['insert_time'], kde=False, bins=50, rug=False,
+                 hist_kws={'edgecolor': 'black'})
+    ax.set_title('HiTE-TIR' + ' Insertion Time Distribution')
+    ax.set_xlabel('Mya (million years ago)')
+    ax.set_ylabel('Count')
+    # 调整子图之间的间距
+    #plt.tight_layout()
+    # 显示图形
+    plt.savefig(output_fig, format='png')
 
 def test_remove_copy1_tirs(tmp_output_dir):
     query_copy_num_path = tmp_output_dir + '/novel_tir_copies_num.csv'
@@ -2273,9 +2391,9 @@ def analyze_new_TIRs(tmp_output_dir):
 
     #获取novel TIR的拷贝数和多序列比对文件
     plant = 1
-    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
-    reference = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/rice/GCF_001433935.1_IRGSP-1.0_genomic.rename.fna'
+    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
+    reference = '/home/hukang/EDTA/krf_test/rice/GCF_001433935.1_IRGSP-1.0_genomic.rename.fna'
     threads = 40
     flanking_len = 50
     similar_ratio = 0.2
@@ -2294,7 +2412,7 @@ def analyze_new_TIRs(tmp_output_dir):
         os.makedirs(msa_dir)
 
     # 获取novel TIR的蛋白质结构组成
-    protein_path = '/public/home/hpc194701009/HiTE/library/RepeatPeps.lib'
+    protein_path = '/home/hukang/HiTE/library/RepeatPeps.lib'
     output_table = novel_tir_path + '.domain'
     domain_temp_dir = tmp_output_dir + '/domain'
     get_domain_info(novel_tir_path, protein_path, output_table, threads, domain_temp_dir)
@@ -2345,10 +2463,10 @@ def analyze_new_TIRs(tmp_output_dir):
             type = 'known_terminal'
             known_terminal_count += 1
         #获取TIR的拷贝数
-        member_file = temp_dir + '/' + name + '.fa.blast.bed.fa'
+        member_file = temp_dir + '/' + name + '.blast.bed.fa'
         member_names, member_contigs = read_fasta(member_file)
         #获取TIR的MSA文件
-        file_name = name + '.fa.maf.fa'
+        file_name = name + '.blast.bed.fa.maf.fa'
         file_path = temp_dir + '/' + file_name
         if not os.path.exists(file_path):
             print('mas not exist: ' + file_path)
@@ -2401,7 +2519,7 @@ def analyze_new_TIRs(tmp_output_dir):
     data['TE end'] = data_domain_TE_ends
     data['domain start'] = data_domain_starts
     data['domain end'] = data_domain_ends
-    print(data)
+    #print(data)
     print(novel_terminal_count, known_terminal_count)
 
     df = pd.DataFrame(data)
@@ -2638,6 +2756,853 @@ def split_module_test():
         multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_helitron_path, temp_dir, EAHelitron, threads)
 
 
+def maize_centromeres():
+    # 1.将玉米中心的区域抽取出来，形成maize_centromeres.fna
+    reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
+    refer_centromeres = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-centromeres.fa'
+    # os.system('makeblastdb -in ' + refer_centromeres + ' -dbtype nucl')
+    # centromeres_regions = [('chr1', 137230000, 138850000), ('chr2', 95730000, 98660000),
+    #                        ('chr3', 87930000, 89870000), ('chr4', 110310000, 112800000),
+    #                        ('chr5', 102910000, 105670000), ('chr6', 78590000, 80440000),
+    #                        ('chr7', 54930000, 57020000), ('chr8', 49960000, 52215000),
+    #                        ('chr9', 59700000, 61890000), ('chr10', 50280000, 52320000)]
+    # ref_names, ref_contigs = read_fasta(reference)
+    # centromeres_contigs = {}
+    # for cr in centromeres_regions:
+    #     centromeres_seq = ref_contigs[cr[0]][cr[1]-1: cr[2]]
+    #     name = cr[0] + ':' + str(cr[1]) + '-' + str(cr[2])
+    #     centromeres_contigs[name] = centromeres_seq
+    # store_fasta(centromeres_contigs, refer_centromeres)
+
+    # 2.获取HiTE TIR和Helitron在maize_centromeres.fna上的全长拷贝（通过我们的获取拷贝的方法）
+    # 3.收集在maize_centromeres.fna上具有全长拷贝的TIR和Helitron
+    HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7'
+    tir_path = HiTE_lib + '/confident_tir.fa'
+    tir_names, tir_contigs = read_fasta(tir_path)
+    blastn2Results_path = tir_path + '.blast.out'
+    repeats_path = (tir_path, refer_centromeres, blastn2Results_path)
+    all_copies = multiple_alignment_blast_and_get_copies(repeats_path)
+    print(all_copies)
+    keep_tir_names = []
+    for tir_name in all_copies.keys():
+        if len(all_copies[tir_name]) > 0:
+            keep_tir_names.append(tir_name)
+    keep_tir_path = HiTE_lib + '/centromeres_tir.fa'
+    with open(keep_tir_path, 'w') as f_save:
+        for tir_name in keep_tir_names:
+            tir_seq = tir_contigs[tir_name]
+            f_save.write('>'+tir_name+'\n'+tir_seq+'\n')
+
+    # 4.用cd-hit-est判断有多少新的TIR和Helitron
+    # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
+    repbase_path = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/only_TE/repbase/maize.ref'
+    repeatmaseker_path = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/maize_repeatmasker.ref'
+    rm2_path = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/maize_mol7/maize_mol7-families.fa'
+    maize_lib_path = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/maize_mol7/maizeTE02052020.fa'
+    total_tir_path = HiTE_lib + '/total_tir.fa'
+    total_tir_consensus = HiTE_lib + '/total_tir.cons.fa'
+    os.system('cat ' + repbase_path + ' ' + repeatmaseker_path + ' ' + rm2_path + ' ' + maize_lib_path + ' ' + keep_tir_path + ' > ' + total_tir_path)
+
+    confident_tir_names, confident_tir_contigs = read_fasta(keep_tir_path)
+
+    tools_dir = os.getcwd() + '/../tools'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + total_tir_path + ' -o ' + total_tir_consensus + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+
+    cluster_file = total_tir_consensus + '.clstr'
+    cluster_idx = -1
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                cur_cluster.append(name)
+                if line.endswith('*'):
+                    clusters['rep_' + str(cluster_idx)] = name
+    # print(clusters)
+    new_tir_contigs = {}
+    exist_tir_names = set()
+    for key in clusters.keys():
+        if not key.startswith('rep_'):
+            cluster = clusters[key]
+            has_repbase = False
+            for name in cluster:
+                if not name.startswith('TIR_') and not name.startswith('Helitron_'):
+                    has_repbase = True
+                    break
+            # 没有repbase序列，代表这是我们新识别的TIR
+            if not has_repbase:
+                represent_name = clusters['rep_' + str(key)]
+                new_tir_contigs[represent_name] = confident_tir_contigs[represent_name]
+            else:
+                exist_tir_names.add(clusters['rep_' + str(key)])
+    print('novel TIR:')
+    print(len(new_tir_contigs))
+    novel_tir_consensus = HiTE_lib + '/novel_tir.fa'
+    store_fasta(new_tir_contigs, novel_tir_consensus)
+
+    #将novel_tir的拷贝存成excel文件
+    data = {}
+    data_tir_names = []
+    data_chr_name = []
+    data_chr_start = []
+    date_chr_end = []
+    data_length = []
+    for name in new_tir_contigs.keys():
+        copies = all_copies[name]
+        for i,copy in enumerate(copies):
+            chr_info = copy[0]
+            chr_parts = chr_info.split(':')
+            chr_name = chr_parts[0]
+            chr_start_base = int(chr_parts[1].split('-')[0])
+            chr_start = chr_start_base + int(copy[1])
+            chr_end = chr_start_base + int(copy[2])
+            length = abs(chr_end-chr_start)
+            if i==0:
+                data_tir_names.append(name)
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+            else:
+                data_tir_names.append('')
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+    data['TIR Name'] = data_tir_names
+    data['Chr'] = data_chr_name
+    data['Start (bp)'] = data_chr_start
+    data['End (bp)'] = date_chr_end
+    data['Size (bp)'] = data_length
+    df = pd.DataFrame(data)
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(HiTE_lib + '/centromeres_tir.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'Centromeres novel TIRs')
+
+
+    helitron_path = HiTE_lib + '/confident_helitron.fa'
+    helitron_names, helitron_contigs = read_fasta(helitron_path)
+    blastn2Results_path = helitron_path + '.blast.out'
+    repeats_path = (helitron_path, refer_centromeres, blastn2Results_path)
+    all_copies = multiple_alignment_blast_and_get_copies(repeats_path)
+    print(all_copies)
+    keep_helitron_names = []
+    for helitron_name in all_copies.keys():
+        if len(all_copies[helitron_name]) > 0:
+            keep_helitron_names.append(helitron_name)
+    keep_helitron_path = HiTE_lib + '/centromeres_helitron.fa'
+    with open(keep_helitron_path, 'w') as f_save:
+        for helitron_name in keep_helitron_names:
+            helitron_seq = helitron_contigs[helitron_name]
+            f_save.write('>' + helitron_name + '\n' + helitron_seq + '\n')
+    # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
+    total_helitron_path = HiTE_lib + '/total_helitron.fa'
+    total_helitron_consensus = HiTE_lib + '/total_helitron.cons.fa'
+    os.system('cat ' + repbase_path + ' ' + repeatmaseker_path + ' ' + rm2_path + ' ' + maize_lib_path + ' ' + keep_helitron_path + ' > ' + total_helitron_path)
+
+    confident_helitron_names, confident_helitron_contigs = read_fasta(keep_helitron_path)
+
+    tools_dir = os.getcwd() + '/../tools'
+    cd_hit_command = tools_dir + '/cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + total_helitron_path + ' -o ' + total_helitron_consensus + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+
+    cluster_file = total_helitron_consensus + '.clstr'
+    cluster_idx = -1
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                cur_cluster.append(name)
+                if line.endswith('*'):
+                    clusters['rep_' + str(cluster_idx)] = name
+    # print(clusters)
+    new_helitron_contigs = {}
+    exist_helitron_names = set()
+    for key in clusters.keys():
+        if not key.startswith('rep_'):
+            cluster = clusters[key]
+            has_repbase = False
+            for name in cluster:
+                if not name.startswith('TIR_') and not name.startswith('Helitron_'):
+                    has_repbase = True
+                    break
+            # 没有repbase序列，代表这是我们新识别的TIR
+            if not has_repbase:
+                represent_name = clusters['rep_' + str(key)]
+                new_helitron_contigs[represent_name] = confident_helitron_contigs[represent_name]
+            else:
+                exist_helitron_names.add(clusters['rep_' + str(key)])
+    print('novel Helitron:')
+    print(len(new_helitron_contigs))
+    novel_helitron_consensus = HiTE_lib + '/novel_helitron.fa'
+    store_fasta(new_helitron_contigs, novel_helitron_consensus)
+
+    # 将novel_helitron的拷贝存成excel文件
+    data = {}
+    data_helitron_names = []
+    data_chr_name = []
+    data_chr_start = []
+    date_chr_end = []
+    data_length = []
+    for name in new_helitron_contigs.keys():
+        copies = all_copies[name]
+        for i, copy in enumerate(copies):
+            chr_info = copy[0]
+            chr_parts = chr_info.split(':')
+            chr_name = chr_parts[0]
+            chr_start_base = int(chr_parts[1].split('-')[0])
+            chr_start = chr_start_base + int(copy[1])
+            chr_end = chr_start_base + int(copy[2])
+            length = abs(chr_end - chr_start)
+            if i == 0:
+                data_helitron_names.append(name)
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+            else:
+                data_helitron_names.append('')
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+    data['Helitron Name'] = data_helitron_names
+    data['Chr'] = data_chr_name
+    data['Start (bp)'] = data_chr_start
+    data['End (bp)'] = date_chr_end
+    data['Size (bp)'] = data_length
+    df = pd.DataFrame(data)
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(HiTE_lib + '/centromeres_helitron.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'Centromeres novel Helitrons')
+
+
+def get_full_length_TE(tir_path, refer_centromeres):
+    tir_names, tir_contigs = read_fasta(tir_path)
+    blastn2Results_path = tir_path + '.blast.out'
+    repeats_path = (tir_path, refer_centromeres, blastn2Results_path)
+    all_copies = multiple_alignment_blast_and_get_copies(repeats_path)
+    print(all_copies)
+    keep_tir_names = []
+    for tir_name in all_copies.keys():
+        if len(all_copies[tir_name]) > 0:
+            keep_tir_names.append(tir_name)
+    keep_tir_path = tir_path + '_centromeres_tir.fa'
+    with open(keep_tir_path, 'w') as f_save:
+        for tir_name in keep_tir_names:
+            tir_seq = tir_contigs[tir_name]
+            f_save.write('>' + tir_name + '\n' + tir_seq + '\n')
+    return keep_tir_path, all_copies
+
+
+def get_overlap_library(HiTE_keep_tir_path, maize_lib_keep_tir_path, total_tir_path):
+    total_tir_consensus = total_tir_path + '.cons.fa'
+    os.system('cat ' + HiTE_keep_tir_path + ' ' + maize_lib_keep_tir_path + ' > ' + total_tir_path)
+
+    HiTE_tir_names, HiTE_tir_contigs = read_fasta(HiTE_keep_tir_path)
+    maize_lib_tir_names, maize_lib_contigs = read_fasta(maize_lib_keep_tir_path)
+
+    tools_dir = os.getcwd() + '/../tools'
+    cd_hit_command = tools_dir + '/cd-hit-est -d 0 -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + total_tir_path + ' -o ' + total_tir_consensus + ' -T 0 -M 0'
+    os.system(cd_hit_command)
+
+    cluster_file = total_tir_consensus + '.clstr'
+    cluster_idx = -1
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                cur_cluster.append(name)
+                if line.endswith('*'):
+                    clusters['rep_' + str(cluster_idx)] = name
+    # print(clusters)
+    new_tir_contigs = {}
+    share_tir_contigs = {}
+    repbase_tir_contigs = {}
+    for key in clusters.keys():
+        if not key.startswith('rep_'):
+            cluster = clusters[key]
+            has_repbase = False
+            has_HiTE = False
+            for name in cluster:
+                if not name.startswith('TIR_') and not name.startswith('Helitron_'):
+                    has_repbase = True
+                else:
+                    has_HiTE = True
+            represent_name = clusters['rep_' + str(key)]
+            # 没有repbase序列，代表这是我们新识别的TIR
+            if not has_repbase:
+                new_tir_contigs[represent_name] = HiTE_tir_contigs[represent_name]
+            elif has_HiTE:
+                if HiTE_tir_contigs.__contains__(represent_name):
+                    seq = HiTE_tir_contigs[represent_name]
+                elif maize_lib_contigs.__contains__(represent_name):
+                    seq = maize_lib_contigs[represent_name]
+                share_tir_contigs[represent_name] = seq
+            else:
+                repbase_tir_contigs[represent_name] = maize_lib_contigs[represent_name]
+    print('HiTE unique:' + str(len(new_tir_contigs)) + ', Library unique:' + str(len(repbase_tir_contigs)) + ', share:' + str(len(share_tir_contigs)))
+    return new_tir_contigs, repbase_tir_contigs, share_tir_contigs
+
+
+def maize_centromeres_v1():
+    #我们分析在中心粒区域，玉米注释库与HiTE TIR独有，共享的数量分别有多少
+
+    # 1.将玉米中心的区域抽取出来，形成maize_centromeres.fna
+    reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
+    refer_centromeres = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-centromeres.fa'
+    # os.system('makeblastdb -in ' + refer_centromeres + ' -dbtype nucl')
+    # centromeres_regions = [('chr1', 137230000, 138850000), ('chr2', 95730000, 98660000),
+    #                        ('chr3', 87930000, 89870000), ('chr4', 110310000, 112800000),
+    #                        ('chr5', 102910000, 105670000), ('chr6', 78590000, 80440000),
+    #                        ('chr7', 54930000, 57020000), ('chr8', 49960000, 52215000),
+    #                        ('chr9', 59700000, 61890000), ('chr10', 50280000, 52320000)]
+    # ref_names, ref_contigs = read_fasta(reference)
+    # centromeres_contigs = {}
+    # for cr in centromeres_regions:
+    #     centromeres_seq = ref_contigs[cr[0]][cr[1]-1: cr[2]]
+    #     name = cr[0] + ':' + str(cr[1]) + '-' + str(cr[2])
+    #     centromeres_contigs[name] = centromeres_seq
+    # store_fasta(centromeres_contigs, refer_centromeres)
+
+
+    #我们将maize_lib中的不同类型的转座子区分开
+    maize_lib_path = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/maize_mol7/maizeTE02052020.fa'
+    maize_lib_dir = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/maize_mol7/maize_lib'
+    if not os.path.exists(maize_lib_dir):
+        os.makedirs(maize_lib_dir)
+    ltr_path = maize_lib_dir + '/ltr.fa'
+    tir_path = maize_lib_dir + '/tir.fa'
+    helitron_path = maize_lib_dir + '/helitron.fa'
+    non_ltr_path = maize_lib_dir + '/non_ltr.fa'
+    satellite_path = maize_lib_dir + '/satellite_path.fa'
+    # contigNames, contigs = read_fasta(maize_lib_path)
+    # class_set = set()
+    # ltr_contigs = {}
+    # tir_contigs = {}
+    # helitron_contigs = {}
+    # non_ltr_contigs = {}
+    # satellite_contigs = {}
+    # for name in contigNames:
+    #     class_name = name.split('#')[1]
+    #     if class_name.__contains__('LTR'):
+    #         ltr_contigs[name] = contigs[name]
+    #     elif class_name.__contains__('Helitron'):
+    #         helitron_contigs[name] = contigs[name]
+    #     elif class_name.__contains__('MITE') or class_name.__contains__('DNA'):
+    #         tir_contigs[name] = contigs[name]
+    #     elif class_name.__contains__('LINE'):
+    #         non_ltr_contigs[name] = contigs[name]
+    #     else:
+    #         satellite_contigs[name] = contigs[name]
+    #     class_set.add(class_name)
+    # print(class_set)
+    # #根据class_name将注释库进行分类
+    # store_fasta(ltr_contigs, ltr_path)
+    # store_fasta(tir_contigs, tir_path)
+    # store_fasta(helitron_contigs, helitron_path)
+    # store_fasta(non_ltr_contigs, non_ltr_path)
+    # store_fasta(satellite_contigs, satellite_path)
+
+
+    # 2.获取HiTE TIR和Helitron在maize_centromeres.fna上的全长拷贝（通过我们的获取拷贝的方法）
+    # 3.收集在maize_centromeres.fna上具有全长拷贝的TIR和Helitron
+    HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7'
+    HiTE_tir_path = HiTE_lib + '/confident_tir.fa'
+    HiTE_keep_tir_path, HiTE_all_copies = get_full_length_TE(HiTE_tir_path, refer_centromeres)
+
+    maize_lib_keep_tir_path, maize_lib_all_copies = get_full_length_TE(tir_path, refer_centromeres)
+
+    # 4.用cd-hit-est判断HiTE, maize lib分别独有，共享的有多少
+    # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
+    total_tir_path = HiTE_lib + '/total_tir.fa'
+    new_tir_contigs, repbase_tir_contigs, share_tir_contigs = get_overlap_library(HiTE_keep_tir_path, maize_lib_keep_tir_path, total_tir_path)
+
+    HiTE_novel_tir_consensus = HiTE_lib + '/HiTE_novel_tir.fa'
+    store_fasta(new_tir_contigs, HiTE_novel_tir_consensus)
+    Lib_novel_tir_consensus = HiTE_lib + '/library_novel_tir.fa'
+    store_fasta(repbase_tir_contigs, Lib_novel_tir_consensus)
+    share_tir_consensus = HiTE_lib + '/share_tir.fa'
+    store_fasta(share_tir_contigs, share_tir_consensus)
+
+    # 将novel_tir的拷贝存成excel文件
+    data = {}
+    data_tir_names = []
+    data_chr_name = []
+    data_chr_start = []
+    date_chr_end = []
+    data_length = []
+    for name in new_tir_contigs.keys():
+        copies = HiTE_all_copies[name]
+        for i, copy in enumerate(copies):
+            chr_info = copy[0]
+            chr_parts = chr_info.split(':')
+            chr_name = chr_parts[0]
+            chr_start_base = int(chr_parts[1].split('-')[0])
+            chr_start = chr_start_base + int(copy[1])
+            chr_end = chr_start_base + int(copy[2])
+            length = abs(chr_end - chr_start)
+            if i == 0:
+                data_tir_names.append(name)
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+            else:
+                data_tir_names.append('')
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+    data['TIR Name'] = data_tir_names
+    data['Chr'] = data_chr_name
+    data['Start (bp)'] = data_chr_start
+    data['End (bp)'] = date_chr_end
+    data['Size (bp)'] = data_length
+    df = pd.DataFrame(data)
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(HiTE_lib + '/centromeres_tir.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'Centromeres novel TIRs')
+
+
+    HiTE_helitron_path = HiTE_lib + '/confident_helitron.fa'
+
+    HiTE_keep_helitron_path, HiTE_all_copies = get_full_length_TE(HiTE_helitron_path, refer_centromeres)
+
+    maize_lib_keep_helitron_path, maize_lib_all_copies = get_full_length_TE(helitron_path, refer_centromeres)
+
+    total_helitron_path = HiTE_lib + '/total_helitron.fa'
+    # 4.用cd-hit-est判断HiTE, maize lib分别独有，共享的有多少
+    # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
+    new_helitron_contigs, repbase_helitron_contigs, share_helitron_contigs = get_overlap_library(HiTE_keep_helitron_path,
+                                                                                                 maize_lib_keep_helitron_path,
+                                                                                                 total_helitron_path)
+    HiTE_novel_helitron_consensus = HiTE_lib + '/HiTE_novel_helitron.fa'
+    store_fasta(new_helitron_contigs, HiTE_novel_helitron_consensus)
+    Lib_novel_helitron_consensus = HiTE_lib + '/library_novel_helitron.fa'
+    store_fasta(repbase_helitron_contigs, Lib_novel_helitron_consensus)
+    share_helitron_consensus = HiTE_lib + '/share_helitron.fa'
+    store_fasta(share_helitron_contigs, share_helitron_consensus)
+
+    # 将novel_helitron的拷贝存成excel文件
+    data = {}
+    data_helitron_names = []
+    data_chr_name = []
+    data_chr_start = []
+    date_chr_end = []
+    data_length = []
+    for name in new_helitron_contigs.keys():
+        copies = HiTE_all_copies[name]
+        for i, copy in enumerate(copies):
+            chr_info = copy[0]
+            chr_parts = chr_info.split(':')
+            chr_name = chr_parts[0]
+            chr_start_base = int(chr_parts[1].split('-')[0])
+            chr_start = chr_start_base + int(copy[1])
+            chr_end = chr_start_base + int(copy[2])
+            length = abs(chr_end - chr_start)
+            if i == 0:
+                data_helitron_names.append(name)
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+            else:
+                data_helitron_names.append('')
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+    data['Helitron Name'] = data_helitron_names
+    data['Chr'] = data_chr_name
+    data['Start (bp)'] = data_chr_start
+    data['End (bp)'] = date_chr_end
+    data['Size (bp)'] = data_length
+    df = pd.DataFrame(data)
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(HiTE_lib + '/centromeres_helitron.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'Centromeres novel Helitrons')
+
+
+def maize_Mol7():
+    #我们分析整个基因组，玉米注释库与HiTE TIR独有，共享的数量分别有多少
+    # 1.将玉米中心的区域抽取出来，形成maize_centromeres.fna
+    reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
+    blast_db_command = 'makeblastdb -dbtype nucl -in ' + reference + ' > /dev/null 2>&1'
+    os.system(blast_db_command)
+
+    #我们将maize_lib中的不同类型的转座子区分开
+    maize_lib_dir = '/public/home/hpc194701009/repeat_detect_tools/EDTA-master/genome_test/maize_mol7/maize_lib'
+    tir_path = maize_lib_dir + '/tir.fa'
+    helitron_path = maize_lib_dir + '/helitron.fa'
+
+    # 2.获取HiTE TIR和Helitron在maize_centromeres.fna上的全长拷贝（通过我们的获取拷贝的方法）
+    # 3.收集在maize_centromeres.fna上具有全长拷贝的TIR和Helitron
+    HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7'
+    HiTE_tir_path = HiTE_lib + '/confident_tir.fa'
+    HiTE_keep_tir_path, HiTE_all_copies = get_full_length_TE(HiTE_tir_path, reference)
+
+    maize_lib_keep_tir_path, maize_lib_all_copies = get_full_length_TE(tir_path, reference)
+
+    # 4.用cd-hit-est判断HiTE, maize lib分别独有，共享的有多少
+    # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
+    total_tir_path = HiTE_lib + '/total_tir.fa'
+    new_tir_contigs, repbase_tir_contigs, share_tir_contigs = get_overlap_library(HiTE_keep_tir_path, maize_lib_keep_tir_path, total_tir_path)
+
+    HiTE_novel_tir_consensus = HiTE_lib + '/HiTE_novel_tir.fa'
+    store_fasta(new_tir_contigs, HiTE_novel_tir_consensus)
+    Lib_novel_tir_consensus = HiTE_lib + '/library_novel_tir.fa'
+    store_fasta(repbase_tir_contigs, Lib_novel_tir_consensus)
+    share_tir_consensus = HiTE_lib + '/share_tir.fa'
+    store_fasta(share_tir_contigs, share_tir_consensus)
+
+    # 将novel_tir的拷贝存成excel文件
+    data = {}
+    data_tir_names = []
+    data_chr_name = []
+    data_chr_start = []
+    date_chr_end = []
+    data_length = []
+    for name in new_tir_contigs.keys():
+        copies = HiTE_all_copies[name]
+        for i, copy in enumerate(copies):
+            chr_name = copy[0]
+            chr_start = int(copy[1])
+            chr_end = int(copy[2])
+            length = abs(chr_end - chr_start)
+            if i == 0:
+                data_tir_names.append(name)
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+            else:
+                data_tir_names.append('')
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+    data['TIR Name'] = data_tir_names
+    data['Chr'] = data_chr_name
+    data['Start (bp)'] = data_chr_start
+    data['End (bp)'] = date_chr_end
+    data['Size (bp)'] = data_length
+    df = pd.DataFrame(data)
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(HiTE_lib + '/genome_tir.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'Genome novel TIRs')
+
+
+    HiTE_helitron_path = HiTE_lib + '/confident_helitron.fa'
+
+    HiTE_keep_helitron_path, HiTE_all_copies = get_full_length_TE(HiTE_helitron_path, reference)
+
+    maize_lib_keep_helitron_path, maize_lib_all_copies = get_full_length_TE(helitron_path, reference)
+
+    total_helitron_path = HiTE_lib + '/total_helitron.fa'
+    # 4.用cd-hit-est判断HiTE, maize lib分别独有，共享的有多少
+    # 用cd-hit-est，使用-aS 0.8 –aL 0.8 –c 0.8进行聚类，然后分析类中没有curated library出现的转座子为新的TIR。
+    new_helitron_contigs, repbase_helitron_contigs, share_helitron_contigs = get_overlap_library(HiTE_keep_helitron_path,
+                                                                                                 maize_lib_keep_helitron_path,
+                                                                                                 total_helitron_path)
+    HiTE_novel_helitron_consensus = HiTE_lib + '/HiTE_novel_helitron.fa'
+    store_fasta(new_helitron_contigs, HiTE_novel_helitron_consensus)
+    Lib_novel_helitron_consensus = HiTE_lib + '/library_novel_helitron.fa'
+    store_fasta(repbase_helitron_contigs, Lib_novel_helitron_consensus)
+    share_helitron_consensus = HiTE_lib + '/share_helitron.fa'
+    store_fasta(share_helitron_contigs, share_helitron_consensus)
+
+    # 将novel_helitron的拷贝存成excel文件
+    data = {}
+    data_helitron_names = []
+    data_chr_name = []
+    data_chr_start = []
+    date_chr_end = []
+    data_length = []
+    for name in new_helitron_contigs.keys():
+        copies = HiTE_all_copies[name]
+        for i, copy in enumerate(copies):
+            chr_name = copy[0]
+            chr_start = int(copy[1])
+            chr_end = int(copy[2])
+            length = abs(chr_end - chr_start)
+            if i == 0:
+                data_helitron_names.append(name)
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+            else:
+                data_helitron_names.append('')
+                data_chr_name.append(chr_name)
+                data_chr_start.append(chr_start)
+                date_chr_end.append(chr_end)
+                data_length.append(length)
+    data['Helitron Name'] = data_helitron_names
+    data['Chr'] = data_chr_name
+    data['Start (bp)'] = data_chr_start
+    data['End (bp)'] = date_chr_end
+    data['Size (bp)'] = data_length
+    df = pd.DataFrame(data)
+    # 将 DataFrame 存储到 Excel 文件中
+    with pd.ExcelWriter(HiTE_lib + '/genome_helitron.xlsx', engine="openpyxl") as writer:
+        to_excel_auto_column_weight(df, writer, f'Genome novel Helitrons')
+
+
+def maize_length_compare():
+    HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7/genome'
+    #HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7/centromeres'
+    # paths = [HiTE_lib + '/HiTE_novel_tir.fa', HiTE_lib + '/library_novel_tir.fa']
+    # labels = ['HiTE-TIR', 'Maize Library']
+
+    # paths = [HiTE_lib + '/HiTE_novel_tir.internal.fa', HiTE_lib + '/library_novel_tir.internal.fa']
+    # labels = ['HiTE-TIR-internal', 'Maize Library-internal']
+
+    HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
+    paths = [HiTE_lib + '/real_tir.fa', HiTE_lib + '/real_helitron.fa']
+    labels = ['Maize Library TIR', 'Maize Library Helitron']
+
+    my_pal = {"Maize Library TIR": "#4497B1", "Maize Library Helitron": "#F7B92E"}
+    output_path = HiTE_lib + '/tir_length_dist.txt'
+    output_fig = HiTE_lib + '/tir_length_dist.png'
+
+    # paths = [HiTE_lib + '/HiTE_novel_helitron.fa', HiTE_lib + '/library_novel_helitron.fa']
+    # labels = ['HiTE-Helitron', 'Maize Library']
+    #
+    # my_pal = {"HiTE-TIR": "#4497B1", "Maize Library": "#F7B92E"}
+    # output_path = HiTE_lib + '/helitron_length_dist.txt'
+    # output_fig = HiTE_lib + '/helitron_length_dist.png'
+    get_length_dist_boxplot(paths, labels, my_pal, output_path, output_fig)
+
+
+def get_TIR_internal():
+    # 1. 获取itr文件，解析itr长度，获取Internal序列，并存成文件
+    HiTE_lib = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7/genome'
+    paths = [HiTE_lib + '/HiTE_novel_tir.fa.itr', HiTE_lib + '/library_novel_tir.fa.itr']
+    internal_paths = [HiTE_lib + '/HiTE_novel_tir.internal.fa', HiTE_lib + '/library_novel_tir.internal.fa']
+
+    for i, path in enumerate(paths):
+        internal_contigs = {}
+        contigNames, contigs = read_fasta_v1(path)
+        for name in contigNames:
+            itr_len = int(name.split('Length itr=')[1])
+            seq = contigs[name]
+            internal_seq = seq[itr_len: len(seq)-itr_len]
+            internal_contigs[name.split(' ')[0]] = internal_seq
+        store_fasta(internal_contigs, internal_paths[i])
+
+def merge_overlapping_intervals(intervals):
+    # 按照起始位置对基因组位置数组进行排序
+    sorted_intervals = sorted(intervals, key=lambda x: x[0])
+
+    merged_intervals = []
+    current_interval = sorted_intervals[0]
+
+    # 遍历排序后的基因组位置数组
+    for interval in sorted_intervals[1:]:
+        # 如果当前基因组位置与下一个基因组位置有重叠
+        if current_interval[1] >= interval[0]:
+            # 更新当前基因组位置的结束位置
+            current_interval = (current_interval[0], max(current_interval[1], interval[1]))
+        else:
+            # 如果没有重叠，则将当前基因组位置添加到结果数组中，并更新当前基因组位置为下一个基因组位置
+            merged_intervals.append(current_interval)
+            current_interval = interval
+
+    # 将最后一个基因组位置添加到结果数组中
+    merged_intervals.append(current_interval)
+
+    return merged_intervals
+
+def analyze_EDTA_false_positives():
+    # 1.将EDTA.out转换成可分析格式，读取文件EDTA.gff
+    # 2、获取每个element对应的染色体以及染色体上的起始、终止位置，位置可能会有overlap，合并有overlap的坐标，此时得到每个element对应的不重叠的位置
+    # 3.对所有分类为DNA且不是DNA/Helitron的元素的坐标进行合并，此时得到所有DNA转座子的不重叠的位置
+    work_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/EDTA_lib/potato_reference'
+    edta_gff_path = work_dir + '/EDTA.gff'
+    # te_chrs -> {te_name: {chr_name: []}}
+    te_chrs = {}
+    #class_chrs = -> {class_name: {chr_name: []}}
+    class_chrs = {}
+    # main_class_chrs = -> {class_name: {chr_name: []}}
+    main_class_chrs = {}
+
+    te_class_dict = {}
+
+    #保存每个te对应的碱基数量
+    te_bases = {}
+    #保存每个 class 对应的碱基数量
+    class_bases = {}
+    # 保存每个 main_class 对应的碱基数量
+    main_class_bases = {}
+    with open(edta_gff_path, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            parts = line.split('\t')
+            chr_name = parts[0]
+            chr_start = int(parts[3])
+            chr_end = int(parts[4])
+            info = parts[8]
+            info_parts = info.split(';')
+            te_name = info_parts[1].split('=')[1]
+            te_class = info_parts[2].split('=')[1]
+            if not te_chrs.__contains__(te_name):
+                te_chrs[te_name] = {}
+            chr_dict = te_chrs[te_name]
+            if not chr_dict.__contains__(chr_name):
+                chr_dict[chr_name] = []
+            chr_pos = chr_dict[chr_name]
+            chr_pos.append((chr_start, chr_end))
+
+            if not class_chrs.__contains__(te_class):
+                class_chrs[te_class] = {}
+            chr_dict = class_chrs[te_class]
+            if not chr_dict.__contains__(chr_name):
+                chr_dict[chr_name] = []
+            chr_pos = chr_dict[chr_name]
+            chr_pos.append((chr_start, chr_end))
+
+            if te_class.__contains__('LTR'):
+                main_class = 'LTR'
+            elif te_class.__contains__('Helitron'):
+                main_class = 'Helitron'
+            elif te_class.__contains__('DNA'):
+                main_class = 'DNA'
+            elif te_class.__contains__('MITE'):
+                main_class = 'MITE'
+
+            if not main_class_chrs.__contains__(main_class):
+                main_class_chrs[main_class] = {}
+            chr_dict = main_class_chrs[main_class]
+            if not chr_dict.__contains__(chr_name):
+                chr_dict[chr_name] = []
+            chr_pos = chr_dict[chr_name]
+            chr_pos.append((chr_start, chr_end))
+
+            te_class_dict[te_name] = te_class
+            #print(chr_name, chr_start, chr_end, te_name, te_class)
+            # if len(te_chrs) > 50:
+            #     break
+    for te_name in te_chrs.keys():
+        chr_dict = te_chrs[te_name]
+        total_bases = 0
+        for chr_name in chr_dict.keys():
+            chr_pos = chr_dict[chr_name]
+            merged_intervals = merge_overlapping_intervals(chr_pos)
+            for segment in merged_intervals:
+                total_bases += abs(segment[1] - segment[0])
+        te_bases[te_name] = total_bases
+    #print(te_bases)
+
+    #统计占比最高的前10个DNA转座子
+    te_base_list = list(te_bases.items())
+    te_base_list.sort(key=lambda x: -x[1])
+    top_dna = []
+    for item in te_base_list:
+        te_name = item[0]
+        class_name = te_class_dict[te_name]
+        if not class_name.__contains__('Helitron') and (class_name.__contains__('DNA') or class_name.__contains__('MITE')):
+            top_dna.append((te_name, class_name, item[1]))
+
+    for class_name in class_chrs.keys():
+        chr_dict = class_chrs[class_name]
+        total_bases = 0
+        for chr_name in chr_dict.keys():
+            chr_pos = chr_dict[chr_name]
+            merged_intervals = merge_overlapping_intervals(chr_pos)
+            for segment in merged_intervals:
+                total_bases += abs(segment[1] - segment[0])
+        class_bases[class_name] = total_bases
+    #print(class_bases)
+
+    for class_name in main_class_chrs.keys():
+        chr_dict = main_class_chrs[class_name]
+        total_bases = 0
+        for chr_name in chr_dict.keys():
+            chr_pos = chr_dict[chr_name]
+            merged_intervals = merge_overlapping_intervals(chr_pos)
+            for segment in merged_intervals:
+                total_bases += abs(segment[1] - segment[0])
+        main_class_bases[class_name] = total_bases
+
+    # store for testing
+    te_base_file = work_dir + '/te_base.json'
+    with codecs.open(te_base_file, 'w', encoding='utf-8') as f:
+        json.dump(te_bases, f)
+    class_base_file = work_dir + '/class_base.json'
+    with codecs.open(class_base_file, 'w', encoding='utf-8') as f:
+        json.dump(class_bases, f)
+    main_class_base_file = work_dir + '/main_class_base.json'
+    with codecs.open(main_class_base_file, 'w', encoding='utf-8') as f:
+        json.dump(main_class_bases, f)
+    top_dna_file = work_dir + '/top_dna.json'
+    with codecs.open(top_dna_file, 'w', encoding='utf-8') as f:
+        json.dump(top_dna, f)
+
+def estimate_insert_time(identity, miu):
+    # 估计序列的插入时间
+    d = 1 - identity
+    K=  -3/4*math.log(1-d*4/3)
+    T = K/(2*miu)
+    return T
+
+def analyz_maize_TIR_insert_time():
+    work_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/maize_mol7'
+    tir_path = work_dir + '/confident_tir.fa'
+    log_path = tir_path + '.log'
+    identity_list = []
+    with open(log_path, 'r') as f_r:
+        for line in f_r:
+            if line.__contains__('Identity percentage'):
+                identity = float(line.split(':')[1].strip())
+                identity_list.append(identity)
+
+    zero_count = 0
+    miu = 3.3e-8
+    insert_time_list = []
+    for identity in identity_list:
+        T = estimate_insert_time(identity, miu)
+        if T == 0:
+            zero_count += 1
+        insert_time_list.append(T/1000000)
+    print(zero_count)
+    output_path = work_dir + '/tir_insert_time.txt'
+    output_fig = work_dir + '/tir_insert_time.png'
+    with open(output_path, 'w') as f_save:
+        f_save.write('insert_time\tmethods\n')
+        for insert_time in insert_time_list:
+            f_save.write(str(insert_time)+'\t'+'HiTE-TIR'+'\n')
+    get_insert_time_dist_boxplot(output_path, output_fig)
+
+
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
     tmp_out_dir = repbase_dir + '/rice'
@@ -2648,21 +3613,26 @@ if __name__ == '__main__':
     #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
     plant = 1
     #TE_type = 'TIR'
-    tmp_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
+    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
     #raw_input = tmp_dir + '/tir.repbase.ref'
     #output = tmp_dir + '/real_lost_tirs.fa'
-    output = tmp_dir + '/real_test.fa'
+    output = tmp_dir + '/real_tir.fa'
+    #output = tmp_dir + '/real_helitron.fa'
     # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
     # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
-    member_script_path = '/home/hukang/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/home/hukang/HiTE/tools/ready_for_MSA.sh'
-    reference = '/home/hukang/EDTA/krf_test/drerio/GCF_000002035.6_GRCz11_genomic.rename.fna'
+    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
+    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
+    #reference = '/home/hukang/EDTA/krf_test/dmel/dmel-all-chromosome-r5.43.rename.fasta'
+    #reference = '/home/hukang/EDTA/krf_test/drerio/GCF_000002035.6_GRCz11_genomic.rename.fna'
     #reference = '/home/hukang/EDTA/krf_test/maize/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
     #reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/GCF_001433935.1_IRGSP-1.0_genomic.fna'
     #reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice_v7/all.chrs.con'
     #reference = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
     #reference = '/home/hukang/HiTE/demo/genome.fa'
+    #reference = '/home/hukang/EDTA/krf_test/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
+    #reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
+    reference = '/public/home/hpc194701009/KmerRepFinder_test/genome/GCF_000226075.1_SolTub_3.0_genomic.fna'
     temp_dir = tmp_dir + '/copies'
     threads = 40
     # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
@@ -2674,7 +3644,18 @@ if __name__ == '__main__':
     raw_input = tmp_dir + '/test.fa'
     #raw_input = tmp_dir + '/test_helitron.fa'
     #raw_input = tmp_dir + '/helitron.repbase.ref'
-    #raw_input = tmp_dir + '/candidate_helitron_0.cons.fa'
+    #raw_input = tmp_dir + '/tir.repbase.ref'
+    #raw_input = tmp_dir + '/novel_tir_repbase.fa'
+    #raw_input = tmp_dir + '/library_novel_tir.fa.itr'
+    #raw_input = tmp_dir + '/library_novel_helitron.fa'
+    # #去掉其中的分类
+    # rename_contigs = {}
+    # contigNames, contigs = read_fasta(raw_input)
+    # for name in contigNames:
+    #     new_name = name.split('#')[0]
+    #     rename_contigs[new_name] = contigs[name]
+    # store_fasta(rename_contigs, raw_input)
+
     flanking_len = 50
     similar_ratio = 0.2
     TE_type = 'tir'
@@ -2689,8 +3670,25 @@ if __name__ == '__main__':
     result_type = 'cons'
     #flank_region_align_v4(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
 
+
     # confident_helitron_path = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/candidate_helitron_0.cons.fa'
     # rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
+
+    # #从present.all.families和perfect.families中，提取非perfect序列，然后看这些序列是否是真的未找到。
+    # work_dir = '/homeb/hukang/KmerRepFinder_test/library/get_family_summary_test'
+    # all_present = '/homeb/hukang/KmerRepFinder_test/library/tir_test/real_test.fa.itr'
+    # perfect = work_dir + '/perfect.families'
+    #
+    # perfect_set = set()
+    # contignames, contigs = read_fasta(all_present)
+    # all_present_set = set(contignames)
+    # with open(perfect, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         perfect_set.add(line)
+    # lost_tirs = all_present_set.difference(perfect_set)
+    # print(lost_tirs)
+    # print(len(lost_tirs))
 
 
     # #读取novel TIR的拷贝数列，统计拷贝数分布
@@ -2712,7 +3710,7 @@ if __name__ == '__main__':
     # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
 
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
-    tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/HiTE_lib/module_test/rice/novel_tir'
+    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test4/rice'
     #analyze_new_TIRs(tmp_output_dir)
 
 
@@ -2777,10 +3775,10 @@ if __name__ == '__main__':
     #generate_zebrafish_repbases()
     #generate_repbases()
     #generate_rm2()
-    # generate_EDTA()
+    #generate_EDTA()
     # generate_HiTE()
-    # input = '/homeb/hukang/KmerRepFinder_test/library/WebTE_Lib/Arabidopsis_thaliana_3702/GCF_000001735.4_TAIR10.1_genomic.fna'
-    # output = '/home/hukang/EDTA/krf_test/ath/GCF_000001735.4_TAIR10.1_genomic.rename.fna'
+    # input = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Solanum_tuberosum/GCF_000226075.1_SolTub_3.0_genomic.fna'
+    # output = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Solanum_tuberosum/GCF_000226075.1_SolTub_3.0_genomic.rename.fna'
     # rename_reference(input, output)
 
     #测试LTR_finder结果
@@ -2914,16 +3912,138 @@ if __name__ == '__main__':
     # cur_itr_contigs = search_confident_tir_v4(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
     # print(cur_itr_contigs)
 
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/tir_test'
-    confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-    os.system('rm -f ' + confident_tir_path)
-    for ref_index in range(5):
-        cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
-        rename_fasta(cur_confident_tir_path, cur_confident_tir_path, 'TIR_' + str(ref_index))
-        print('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
-        os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
-    rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
+    #Maize Mol7 centromeres experiment
+    #maize_centromeres()
+    #maize_centromeres_v1()
 
-    confident_ltr_cut_path = '/homeb/hukang/KmerRepFinder_test/library/tir_test/confident_ltr_cut.fa'
-    confident_tir_path = '/homeb/hukang/KmerRepFinder_test/library/tir_test/confident_tir.fa'
-    remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads)
+    #maize_Mol7()
+    #get_TIR_internal()
+    maize_length_compare()
+
+    # #获取拷贝目录下，每条序列的拷贝数量分布
+    # work_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
+    # paths = [work_dir + '/real_tir.fa', work_dir + '/real_helitron.fa']
+    #
+    # copies_dirs = [work_dir + '/tir_copies_0_0', work_dir+'/helitron_copies_0_0']
+    # labels = ['Maize Library Confident TIR', 'Maize Library Confident Helitron']
+    # output_path = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test/tir_copies.txt'
+    # output_fig = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test/tir_copies.png'
+    # get_copies_dist_boxplot(paths, copies_dirs, labels, output_path, output_fig)
+
+    # # 估计序列的插入时间
+    # tir_identity = 0.9
+    # miu = 3.3e-8
+    # d = 1 - tir_identity
+    # K=  -3/4*math.log(1-d*4/3)
+    # T = K/(2*miu)
+    # print(d, K, T)
+
+
+    # reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
+    # refer_centromeres = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm00014ba364380.fa'
+    # centromeres_regions = [('chr8', 51478257, 51481204)]
+    # ref_names, ref_contigs = read_fasta(reference)
+    # centromeres_contigs = {}
+    # for cr in centromeres_regions:
+    #     centromeres_seq = ref_contigs[cr[0]][cr[1]-1: cr[2]]
+    #     name = cr[0] + ':' + str(cr[1]) + '-' + str(cr[2])
+    #     centromeres_contigs[name] = centromeres_seq
+    # store_fasta(centromeres_contigs, refer_centromeres)
+
+
+    # #分析EDTA中的TIR假阳性
+    # #analyze_EDTA_false_positives()
+    # #用我们的过滤方法，看去掉假阳性后，是否能获得一个接近HiTE和Repbase的比例
+    # #tir_tsd_path = tmp_dir + '/tir.EDTA.ref'
+    # candidate_helitron_path = tmp_dir + '/helitron.EDTA.ref'
+    # TRsearch_dir = '/public/home/hpc194701009/HiTE/tools'
+    # ref_names, ref_contigs = read_fasta(reference)
+    # split_ref_dir = tmp_dir + '/ref_chr'
+    # os.system('rm -rf ' + split_ref_dir)
+    # if not os.path.exists(split_ref_dir):
+    #     os.makedirs(split_ref_dir)
+    # ref_blocks = split_dict_into_blocks(ref_contigs, 100)
+    # for i, block in enumerate(ref_blocks):
+    #     chr_path = split_ref_dir + '/ref_block_' + str(i) + '.fa'
+    #     store_fasta(block, chr_path)
+    #     os.system('makeblastdb -in ' + chr_path + ' -dbtype nucl')
+    is_recover = 1
+    # flanking_len = 50
+    # similar_ratio = 0.2
+    # TE_type = 'tir'
+    #
+    # # 使用多比对序列+滑动窗口模式过滤掉假阳性序列
+    # # 多轮迭代是为了找到更加准确的边界
+    # iter_num = 3
+    # input_file = tir_tsd_path
+    # for i in range(iter_num):
+    #     result_type = 'cons'
+    #     output_file = tmp_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
+    #     resut_file = output_file
+    #     if not is_recover or not file_exist(resut_file):
+    #         flank_region_align_v5(input_file, output_file, flanking_len, similar_ratio, reference, split_ref_dir,
+    #                               TE_type, tmp_dir, threads,
+    #                               ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
+    #     input_file = output_file
+    #
+    # confident_tir_path = tmp_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.fa'
+    # tir_names, tir_contigs = read_fasta(confident_tir_path)
+    # for name in tir_names:
+    #     seq = tir_contigs[name]
+    #     # 去掉序列首尾的TA或AT
+    #     while seq.startswith("TATA") or seq.startswith("ATAT"):
+    #         seq = seq[4:]
+    #     while seq.endswith("TATA") or seq.endswith("ATAT"):
+    #         seq = seq[:-4]
+    #     tir_contigs[name] = seq
+    #
+    # store_fasta(tir_contigs, confident_tir_path)
+    # all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, confident_tir_path, tmp_dir)
+    # all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    # confident_tir_path = tmp_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.all_tir.fa'
+    # store_fasta(all_copies_out_contigs, confident_tir_path)
+    # rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
+    #
+    # confident_tir_cons = confident_tir_path + '.cons.fa'
+    # # 生成一致性序列
+    # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                  + ' -G 0 -g 1 -A 80 -i ' + confident_tir_path + ' -o ' + confident_tir_cons + ' -T 0 -M 0'
+    # os.system(cd_hit_command)
+    #
+    # confident_tir_path = tmp_dir + '/confident_tir_' + str(ref_index) + '.fa'
+    # rename_fasta(confident_tir_cons, confident_tir_path, 'TIR')
+
+    # # 对HelitronScanner识别的结果使用同源性过滤方法过滤
+    # confident_helitron_path = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
+    # resut_file = confident_helitron_path
+    # if not is_recover or not file_exist(resut_file):
+    #     flanking_len = 50
+    #     similar_ratio = 0.2
+    #     TE_type = 'helitron'
+    #     # 多轮迭代是为了找到更加准确的边界
+    #     iter_num = 3
+    #     input_file = candidate_helitron_path
+    #     for i in range(iter_num):
+    #         result_type = 'cons'
+    #         output_file = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
+    #         resut_file = output_file
+    #         if not is_recover or not file_exist(resut_file):
+    #             flank_region_align_v5(input_file, output_file, flanking_len, similar_ratio, reference, split_ref_dir,
+    #                                   TE_type,
+    #                                   tmp_dir, threads,
+    #                                   ref_index, log, member_script_path, subset_script_path, 1, debug, i, result_type)
+    #         input_file = output_file
+    #     cur_confident_helitron_path = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(
+    #         iter_num - 1) + '.fa'
+    #     cur_confident_helitron_cons = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(
+    #         iter_num - 1) + '.cons.fa'
+    #     # 生成一致性序列
+    #     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+    #                      + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0'
+    #     os.system(cd_hit_command)
+    #     rename_fasta(cur_confident_helitron_cons, confident_helitron_path, 'Helitron')
+
+
+    #统计玉米中所有TIR转座子的插入时间
+    #analyz_maize_TIR_insert_time()
+

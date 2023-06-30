@@ -95,6 +95,7 @@ subset_script_path = "${projectDir}/tools/ready_for_MSA.sh"
 lib_module = "${projectDir}/library"
 ch_EAHelitron = "${projectDir}/bin/EAHelitron-master"
 ch_ltrfinder = "${projectDir}/bin/LTR_FINDER_parallel-master"
+ch_ltrharvest = "${projectDir}/bin/LTR_HARVEST_parallel"
 ch_protein = "${projectDir}/library/RepeatPeps.lib"
 genome_name = file(params.genome).getName()
 out_genome = "${params.outdir}/${genome_name}"
@@ -221,7 +222,7 @@ process TIR {
     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
     --ref_index ${ref_index} --member_script_path ${member_script_path} \
     --subset_script_path ${subset_script_path} \
-    --plant ${plant} --recover ${recover} --debug ${debug} -r ${ref}
+    --plant ${plant} --recover ${recover} --debug ${debug} -r ${ref} --split_ref_dir ${tmp_output_dir}/ref_chr
 
     cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
     """
@@ -251,7 +252,7 @@ process Helitron {
     --HSDIR ${HSDIR} --HSJAR ${HSJAR} --sh_dir ${sh_dir} \
     --member_script_path ${member_script_path} --subset_script_path ${subset_script_path} \
     --flanking_len ${flanking_len} --debug ${debug} \
-    --ref_index ${ref_index} --recover ${recover} \
+    --ref_index ${ref_index} --recover ${recover} --split_ref_dir ${tmp_output_dir}/ref_chr \
 
     cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
     """
@@ -294,7 +295,7 @@ process LTR {
     cores = task.cpus
     """
     python3 ${ch_module}/judge_LTR_transposons.py \
-     -g ${ref} --ltrfinder_home ${ch_ltrfinder} \
+     -g ${ref} --ltrharvest_home ${ch_ltrharvest} --ltrfinder_home ${ch_ltrfinder} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --recover ${recover} --miu ${miu}
 

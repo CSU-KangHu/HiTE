@@ -20,8 +20,7 @@ from module.Util import read_fasta, Logger, store_fasta, \
     determine_repeat_boundary_v1, multi_process_TRF, multi_process_align, get_copies, flanking_copies, store_copies_v1, \
     generate_candidate_ltrs, rename_reference, store_LTR_seq_v1, store_LTR_seq, multi_process_align_and_get_copies, \
     remove_ltr_from_tir, flanking_seq, rename_fasta, run_LTR_retriever, flank_region_align_v1, \
-    determine_repeat_boundary_v2, determine_repeat_boundary_v3
-
+    determine_repeat_boundary_v2, determine_repeat_boundary_v3, split_dict_into_blocks
 
 #from module.judge_TIR_transposons import is_transposons
 
@@ -348,6 +347,7 @@ if __name__ == '__main__':
         if re.match(reg_str, filename) is not None:
             cut_references.append(tmp_output_dir + '/' + filename)
 
+    split_ref_dir = tmp_output_dir + '/ref_chr'
     for ref_index, cut_reference in enumerate(cut_references):
         log.logger.info('Round of chunk: ' + str(ref_index))
 
@@ -389,7 +389,7 @@ if __name__ == '__main__':
                                          + ' --member_script_path ' + str(member_script_path) \
                                          + ' --subset_script_path ' + str(subset_script_path) \
                                          + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover) \
-                                         + ' --debug ' + str(debug) + ' -r ' + reference
+                                         + ' --debug ' + str(debug) + ' -r ' + reference + ' --split_ref_dir ' + split_ref_dir
             log.logger.debug(tir_identification_command)
             os.system(tir_identification_command)
             endtime = time.time()
@@ -409,7 +409,7 @@ if __name__ == '__main__':
                                               + ' --sh_dir ' + sh_dir + ' --member_script_path ' + member_script_path \
                                               + ' --subset_script_path ' + subset_script_path \
                                               + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
-                                              + ' --recover ' + str(recover) + ' --debug ' + str(debug)
+                                              + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir
 
             log.logger.info(helitron_identification_command)
             os.system(helitron_identification_command)
