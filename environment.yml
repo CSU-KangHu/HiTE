@@ -7,7 +7,7 @@ channels:
 dependencies:
   - python=3.6.15
   - java-jdk
-  - genometools-genometools=1.6.1
+#  - genometools-genometools=1.6.1
   - ltr_retriever=2.9.0
   - repeatmasker=4.1.1
   - rmblast=2.10.0
@@ -15,7 +15,7 @@ dependencies:
   - bedtools=2.30.0
   - cd-hit=4.8.1
 #  - emboss
-  - cialign
+#  - cialign
   - samtools
   - python-levenshtein
   - pip
