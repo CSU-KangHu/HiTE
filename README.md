@@ -18,10 +18,8 @@
 
 ## <a name="install"></a>Installation
 ### Recommended Hardware requirements
-40 CPU processors, 128 GB RAM. The runtime of the program is dependent on the complexity of the input genome's repetitive regions. 
-If the program takes too long to run, you may want to check out [Issues with installation and usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage).
+40 CPU processors, 128 GB RAM. 
 
-HiTE is still in the development stage, and we are continuously working to improve the performance and fix any bugs that are discovered.
 
 ### Dowload project
 ```sh
@@ -149,7 +147,7 @@ python configure.py
 to validate all configurations.
 -->
 
-## <a name="start"></a>Quick start (conda mode)
+## <a name="start"></a>Quick start (Conda mode)
 ```
 conda activate HiTE
 cd /your_path_to/HiTE
@@ -169,7 +167,7 @@ demo/test/
 
 Note:
 1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE** directory.
-2. To avoid automatic deletion of files, set the output path parameter ```--outdir``` to a new directory.
+2. To avoid automatic deletion of files, set the output path parameter ```--outdir``` to an empty directory.
 
 ### Predicting conserved protein domains in TEs
 To predict conserved protein domains in TEs, you need to add `--domain 1` parameter.
@@ -222,7 +220,7 @@ in the IGV (Integrative Genomics Viewer). Additionally, **HiTE.tbl** offers stat
 on the proportion of each transposon type within the genome.
 
 
-## <a name="classified"></a>Replace the Dfam library in RepeatMasker
+## <a name="classified"></a>Replace the Dfam library in RepeatMasker (Only for Conda)
 Since the Dfam library included in RepeatMasker by default is not complete, it will seriously affect the classification effect.
 We recommend updating RepeatMasker with the complete Dfam 3.6 library as described at http://www.repeatmasker.org/RepeatMasker/, including download, unpack, and reconfiguration.
 We also provide an optional method to avoid the big Dfam.h5.gz (15 GB) download and reconfiguration, as follows:
