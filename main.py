@@ -32,6 +32,7 @@ if __name__ == '__main__':
     default_max_single_repeat_len = 30000
     default_plant = 1
     default_recover = 0
+    default_annotate = 0
     default_flanking_len = 50
     default_debug = 0
     default_chrom_seg_length = 100000
@@ -63,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--remove_nested', metavar='is_remove_nested',help='Whether to remove nested TE, 1: true, 0: false. default = [ ' + str(default_remove_nested) + ' ]')
     parser.add_argument('--domain', metavar='is_domain', help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false. default = [ ' + str(default_domain) + ' ]')
     parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
+    parser.add_argument('--annotate', metavar='is_annotate', help='Whether to annotate the genome using the TE library generated, 1: true, 0: false. default = [ ' + str(default_annotate) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
     parser.add_argument('--outdir', metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
 
@@ -90,6 +92,7 @@ if __name__ == '__main__':
     domain = args.domain
     miu = args.miu
     recover = args.recover
+    annotate = args.annotate
     debug = args.debug
 
     i = datetime.datetime.now()
@@ -167,6 +170,11 @@ if __name__ == '__main__':
         recover = default_recover
     else:
         recover = int(recover)
+
+    if annotate is None:
+        annotate = default_annotate
+    else:
+        annotate = int(annotate)
 
     if debug is None:
         debug = default_debug
@@ -268,6 +276,7 @@ if __name__ == '__main__':
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
                     '  [Setting] recover = [ ' + str(recover) + ' ]  Default( ' + str(default_recover) + ' )\n'
+                    '  [Setting] annotate = [ ' + str(annotate) + ' ]  Default( ' + str(default_annotate) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
                     '  [Setting] Output Directory = [' + str(output_dir) + ']\n'
                                                                                                                                                                                                            
@@ -468,7 +477,23 @@ if __name__ == '__main__':
     log.logger.info("Running time of step4: %.8s s" % (dtime))
 
     starttime = time.time()
-    log.logger.info('Start step5: clean library')
+    log.logger.info('Start step5: annotate genome')
+    TEClass_home = os.getcwd() + '/classification'
+    classified_TE_path = confident_TE_consensus + '.classified'
+    annotate_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/annotate_genome.py' \
+                        + ' -t ' + str(threads) + ' --classified_TE_consensus ' + classified_TE_path \
+                        + ' --annotate ' + str(annotate) \
+                        + ' -r ' + reference \
+                        + ' --tmp_output_dir ' + tmp_output_dir
+    log.logger.info(annotate_genome_command)
+    os.system(annotate_genome_command)
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.info("Running time of step5: %.8s s" % (dtime))
+
+    starttime = time.time()
+    log.logger.info('Start step6: clean library')
     clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --debug ' + str(debug)
@@ -476,7 +501,7 @@ if __name__ == '__main__':
     os.system(clean_lib_command)
     endtime = time.time()
     dtime = endtime - starttime
-    log.logger.info("Running time of step5: %.8s s" % (dtime))
+    log.logger.info("Running time of step6: %.8s s" % (dtime))
 
 
     pipeline_endtime = time.time()

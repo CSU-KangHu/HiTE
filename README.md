@@ -183,7 +183,7 @@ N_111   Gypsy-50_SB_1p#LTR/Gypsy        164     4387    1       1410
 ```
 
 ## <a name="inputs"></a>Inputs
-HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using `--genome`.
+HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using parameter `--genome`.
 
 
 For other optional parameters, please refer to [Usage](#cmd).
@@ -192,7 +192,7 @@ For other optional parameters, please refer to [Usage](#cmd).
 HiTE outputs many temporary files, which allow you to quickly restore the previous 
 running state in case of any interruption during the running process. If
 the pipeline completes successfully, the output directory should look like the following:
-```text
+```shell
 output_dir/
 ├── longest_repeats_*.fa
 ├── longest_repeats_*.flanked.fa
@@ -201,7 +201,10 @@ output_dir/
 ├── confident_other_*.fa
 ├── confident_ltr_cut.fa
 ├── confident_TE.cons.fa
-└── confident_TE.cons.fa.classified
+├── confident_TE.cons.fa.classified
+├── HiTE.out (require `--annotate 1`)
+├── HiTE.gff (require `--annotate 1`)
+└── HiTE.tbl (require `--annotate 1`)
 ```
 
 1. **confident_TE.cons.fa** and **confident_TE.cons.fa.classified** are the 
@@ -213,6 +216,11 @@ RepeatModeler2, which depends on the Dfam library in RepeatMasker.
 For example, if the genome input is 400 MB and the chunk size input is set to 100,
 then * is equal to 4 (400/100), and you can find 4 files: repeats_0.fa, repeats_1.fa,
 repeats_2.fa, and repeats_3.fa in your output directory.
+5. The **HiTE.out**, **HiTE.gff**, and **HiTE.tbl** files are generated using parameter `--annotate 1`. 
+The **HiTE.out** and **HiTE.gff**, function as genome annotation files, with **HiTE.gff** being visualizable 
+in the IGV (Integrative Genomics Viewer). Additionally, **HiTE.tbl** offers statistical information 
+on the proportion of each transposon type within the genome.
+
 
 ## <a name="classified"></a>Replace the Dfam library in RepeatMasker
 Since the Dfam library included in RepeatMasker by default is not complete, it will seriously affect the classification effect.

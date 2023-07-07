@@ -41,7 +41,10 @@ if __name__ == '__main__':
                     'longest_repeats(_\d+)?\.fa',
                     'confident_tir(_\d+)?\.fa',
                     'confident_helitron(_\d+)?\.fa', 
-                    'confident_other(_\d+)?\.fa']
+                    'confident_other(_\d+)?\.fa',
+                    'HiTE.out',
+                    'HiTE.tbl',
+                    'HiTE.gff']
 
         all_files = os.listdir(tmp_output_dir)
         for filename in all_files:

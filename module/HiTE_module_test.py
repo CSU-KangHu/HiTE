@@ -3661,7 +3661,7 @@ if __name__ == '__main__':
     TE_type = 'tir'
     #TE_type = 'helitron'
     ref_index = 0
-    log = Logger(tmp_dir+'/HiTE.log', level='debug')
+    #log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
     debug = 1
     #output = tmp_dir + '/real_tir_'+str(ref_index)+'.fa'
@@ -3918,7 +3918,7 @@ if __name__ == '__main__':
 
     #maize_Mol7()
     #get_TIR_internal()
-    maize_length_compare()
+    #maize_length_compare()
 
     # #获取拷贝目录下，每条序列的拷贝数量分布
     # work_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
@@ -3930,13 +3930,13 @@ if __name__ == '__main__':
     # output_fig = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test/tir_copies.png'
     # get_copies_dist_boxplot(paths, copies_dirs, labels, output_path, output_fig)
 
-    # # 估计序列的插入时间
-    # tir_identity = 0.9
-    # miu = 3.3e-8
-    # d = 1 - tir_identity
-    # K=  -3/4*math.log(1-d*4/3)
-    # T = K/(2*miu)
-    # print(d, K, T)
+    # 估计序列的插入时间
+    tir_identity = 0.79
+    miu = 1.3e-8
+    d = 1 - tir_identity
+    K=  -3/4*math.log(1-d*4/3)
+    T = K/(2*miu)
+    print(d, K, T)
 
 
     # reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'

@@ -115,6 +115,7 @@ recover = "${params.recover}"
 plant = "${params.plant}"
 classified = "${params.classified}"
 domain = "${params.domain}"
+annotate = "${params.annotate}"
 debug = "${params.debug}"
 miu = "${params.miu}"
 ref = "${params.genome}"
@@ -395,6 +396,30 @@ process ClassifyLib {
     """
 }
 
+process annotate_genome {
+    label 'process_high'
+    label 'error_retry'
+
+    input:
+    path lib
+    path ref
+
+    output:
+    path "HiTE.out"
+
+    script:
+    cores = task.cpus
+    """
+    python3 ${ch_module}/annotate_genome.py \
+     -t ${cores} --classified_TE_consensus ${lib} \
+     --tmp_output_dir ${tmp_output_dir} \
+     --annotate ${annotate} \
+      -r ${ref}
+
+    cp ${tmp_output_dir}/HiTE.out ./
+    """
+}
+
 process CleanLib {
     label 'process_low'
     label 'error_retry'
@@ -551,8 +576,10 @@ workflow {
             ch_final = ch_classified_lib.collectFile(name: "${params.outdir}/confident_TE.cons.fa.classified")
             //test(ch_lib) | view { "$it" }
 
+            ch_out = annotate_genome(ch_final, ch_g)
+
             //Clean TE library
-            CleanLib(ch_final)
+            CleanLib(ch_out)
     }
         
     
