@@ -44,7 +44,9 @@ if __name__ == '__main__':
                     'confident_other(_\d+)?\.fa',
                     'HiTE.out',
                     'HiTE.tbl',
-                    'HiTE.gff']
+                    'HiTE.gff',
+                    'BM_RM2.log',
+                    'BM_EDTA.log']
 
         all_files = os.listdir(tmp_output_dir)
         for filename in all_files:

@@ -576,10 +576,14 @@ workflow {
             ch_final = ch_classified_lib.collectFile(name: "${params.outdir}/confident_TE.cons.fa.classified")
             //test(ch_lib) | view { "$it" }
 
-            ch_out = annotate_genome(ch_final, ch_g)
-
-            //Clean TE library
-            CleanLib(ch_out)
+            if (params.annotate == 1){
+                ch_out = annotate_genome(ch_final, ch_g)
+                //Clean TE library
+                CleanLib(ch_out)
+            } else {
+                //Clean TE library
+                CleanLib(ch_final)
+            }
     }
         
     
@@ -600,6 +604,8 @@ workflow {
             lib_path = "${lib_module}/zebrep.ref"
         } else if (params.species == "maize"){
             lib_path = "${lib_module}/maize.ref"
+        } else if (params.species == "ath"){
+            lib_path = "${lib_module}/athrep.ref"
         } else{
             lib_path = "${lib_module}/test.ref"
         }
