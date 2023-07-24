@@ -1,6 +1,15 @@
 # HiTE: a fast and accurate dynamic boundary adjustment approach for full-length Transposable Elements detection and annotation in Genome Assemblies
+
+# HiTE
+
 [![GitHub](https://img.shields.io/badge/python-3-blue)](https://www.python.org/)
 [![GitHub](https://img.shields.io/badge/license-GPL--3.0-green)](https://github.com/CSU-KangHu/HiTE/blob/master/LICENSE)
+[![DockerHub](https://img.shields.io/badge/Singularity-support-blue)](https://hub.docker.com/repository/docker/kanghu/hite/general)
+[![DockerHub](https://img.shields.io/badge/Docker-support-orange)](https://hub.docker.com/repository/docker/kanghu/hite/general)
+[![Conda](https://img.shields.io/badge/Conda-support-yellow)](https://docs.conda.io/en/latest/)
+[![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://docs.conda.io/en/latest/)
+
+`HiTE` is a Python software that employs a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies.
 
 ## Table of Contents
 - [Installation](#install)
@@ -9,17 +18,18 @@
   - [Run with Conda](#install_conda)
   - [Run with nextflow](#install_nextflow)
   <!-- - [Step-by-step installation](#step-step) -->
-- [Quick start](#start)
+- [Demo data](#demo)
 - [Usage](#cmd)
 - [Input](#inputs)
 - [Output](#outputs)
 - [Replace the Dfam library in RepeatMasker](#classified)
+- [Experiment reproduction](#ER)
 - [More tutorials](#QA)
 
 ## <a name="install"></a>Installation
-### Recommended Hardware requirements
-40 CPU processors, 128 GB RAM. 
+Recommended Hardware requirements: 40 CPU processors, 128 GB RAM. 
 
+Recommended OS: (Ubuntu 16.04, CentOS 7, etc.)
 
 ### Dowload project
 ```sh
@@ -147,11 +157,19 @@ python configure.py
 to validate all configurations.
 -->
 
-## <a name="start"></a>Quick start (Conda mode)
-```
-conda activate HiTE
-cd /your_path_to/HiTE
-python main.py --genome ./demo/genome.fa --thread 48 --outdir ./demo/test
+## <a name="demo"></a>Demo data
+
+Check `HiTE/demo/genome.fa` for demo genome assembly, and run HiTE with demo data (e.g., Singularity mode):
+```sh
+singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python main.py \
+ --genome pathTo/genome.fa \
+ --thread 40 \
+ --outdir ${outdir}
+
+ #e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
+ # --genome /home/hukang/HiTE/demo/genome.fa 
+ # --thread 40 
+ # --outdir /home/hukang/HiTE/demo/test/
 ```
 
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
@@ -166,8 +184,7 @@ demo/test/
 ```
 
 Note:
-1. Please make sure you execute the **main.py** script under the **/your_path_to/HiTE** directory.
-2. To avoid automatic deletion of files, set the output path parameter ```--outdir``` to an empty directory.
+To avoid automatic deletion of files, set the output path parameter ```--outdir``` to an empty directory.
 
 ### Predicting conserved protein domains in TEs
 To predict conserved protein domains in TEs, you need to add `--domain 1` parameter.
@@ -298,9 +315,12 @@ optional arguments:
                         The length of genome segments, default = [ 100000 ]
 ```
 
+## <a name="ER"></a>Experiment reproduction
+
+The quantitative experimental results from the HiTE paper, such as Fig. 2 and Supplementary Table 2, can be reproduced following the [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction).
+
 ## <a name="QA"></a>More tutorials
 You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) page for more tutorials.
 * [Issues with installation and usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
 * [How to make HiTE into a Docker image](https://github.com/CSU-KangHu/HiTE/wiki/How-to-make-HiTE-into-a-Docker-image)
 * [Run HiTE with Nextflow](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow)
-* [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction)
