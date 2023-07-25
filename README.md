@@ -86,7 +86,7 @@ python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
-  #e.g., my command: python main.py 
+ #e.g., my command: python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -264,7 +264,9 @@ usage: main.py [-h] [--genome genome] [--thread thread_num]
                [--chunk_size chunk_size] [--miu miu] [--plant is_plant]
                [--classified is_classified] [--remove_nested is_remove_nested]
                [--domain is_domain] [--recover is_recover]
-               [--annotate is_annotate] [--debug is_debug]
+               [--annotate is_annotate] [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA]
+               [--EDTA_home EDTA_home] [--species species]
+               [--skip_HiTE skip_HiTE] [--debug is_debug]
                [--outdir output_dir] [--flanking_len flanking_len]
                [--fixed_extend_base_threshold fixed_extend_base_threshold]
                [--tandem_region_cutoff tandem_region_cutoff]
@@ -279,14 +281,17 @@ optional arguments:
   --thread thread_num   Input thread num, default = [ 40 ]
   --chunk_size chunk_size
                         The chunk size of large genome, default = [ 400 MB ]
-  --miu miu             The neutral mutation rate (per bp per ya), default = [1.3e-08 ]
-  --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1 ]
+  --miu miu             The neutral mutation rate (per bp per ya), default = [
+                        1.3e-08 ]
+  --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1
+                        ]
   --classified is_classified
                         Whether to classify TE models, HiTE uses
                         RepeatClassifier from RepeatModeler to classify TEs,
                         1: true, 0: false. default = [ 1 ]
   --remove_nested is_remove_nested
-                        Whether to remove nested TE, 1: true, 0: false. default = [ 1 ]
+                        Whether to remove nested TE, 1: true, 0: false.
+                        default = [ 1 ]
   --domain is_domain    Whether to obtain TE domains, HiTE uses RepeatPeps.lib
                         from RepeatMasker to obtain TE domains, 1: true, 0:
                         false. default = [ 0 ]
@@ -295,10 +300,22 @@ optional arguments:
   --annotate is_annotate
                         Whether to annotate the genome using the TE library
                         generated, 1: true, 0: false. default = [ 0 ]
+  --BM_RM2 BM_RM2       Whether to conduct benchmarking of RepeatModeler2, 1:
+                        true, 0: false. default = [ 0 ]
+  --BM_EDTA BM_EDTA     Whether to conduct benchmarking of EDTA, 1: true, 0:
+                        false. default = [ 0 ]
+  --EDTA_home EDTA_home
+                        When conducting benchmarking of EDTA, you will be
+                        asked to input EDTA home path.
+  --species species     Which species you want to conduct benchmarking, six
+                        species support (dmel, rice, cb, zebrafish, maize,
+                        ath).
+  --skip_HiTE skip_HiTE
+                        Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1:
                         true, 0: false. default = [ 0 ]
   --outdir output_dir   The path of output directory; It is recommended to use
-                        an empty directory to avoid automatic deletion of
+                        a new directory to avoid automatic deletion of
                         important files.
   --flanking_len flanking_len
                         The flanking length of candidates to find the true
