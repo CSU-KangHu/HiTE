@@ -556,6 +556,8 @@ if __name__ == '__main__':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
         if species is None or species.strip() == '':
             benchmarking_command += ' --species test'
+        else:
+            benchmarking_command += ' --species ' + str(species)
         os.system(benchmarking_command)
         endtime = time.time()
         dtime = endtime - starttime
