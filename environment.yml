@@ -10,7 +10,7 @@ dependencies:
 #  - genometools-genometools=1.6.1
   - ltr_retriever=2.9.0
   - repeatmasker=4.1.1
-  - rmblast=2.10.0
+#  - rmblast=2.10.0
   - repeatmodeler=2.0.1
   - bedtools=2.30.0
   - cd-hit=4.8.1
