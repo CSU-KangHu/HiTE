@@ -7,7 +7,7 @@ LABEL description="HiTE: An accurate dynamic boundary adjustment approach for fu
 
 ARG DNAME="HiTE"
 
-RUN apt-get update && apt-get install unzip --yes
+RUN apt-get update && apt-get install unzip --yes && apt-get install less
 
 # Command 'RUN' during docker build
 #download RepeatMasker libraries
