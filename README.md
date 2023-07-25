@@ -175,12 +175,12 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python ma
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
 ```text
 demo/test/
-├── confident_helitron.fa (1.4K)
-├── confident_other.fa (14K)
-├── confident_tir.fa (34K)
-├── confident_ltr_cut.fa (47K)
-├── confident_TE.cons.fa (92K)
-└── confident_TE.cons.fa.classified (93K)
+├── confident_helitron.fa (1K)
+├── confident_other.fa (8K)
+├── confident_tir.fa (45K)
+├── confident_ltr_cut.fa (46K)
+├── confident_TE.cons.fa (99K)
+└── confident_TE.cons.fa.classified (100K)
 ```
 
 Note:

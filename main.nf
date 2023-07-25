@@ -120,7 +120,11 @@ debug = "${params.debug}"
 miu = "${params.miu}"
 ref = "${params.genome}"
 //parameters of Evaluation
-
+BM_RM2 = "${params.BM_RM2}"
+BM_EDTA = "${params.BM_EDTA}"
+rm2_script = "${projectDir}/bin/get_family_summary_paper.sh"
+EDTA_home = "${params.EDTA_home}"
+species = "${params.species}"
 
 // Check all tools work well
 process EnvCheck {
@@ -147,7 +151,6 @@ process splitGenome {
     tag "${ref}"
 
     label 'process_low'
-    label 'error_retry'
 
     input:
     path ref
@@ -172,7 +175,6 @@ process coarseBoundary {
     tag "${cut_ref}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     path cut_ref
@@ -204,7 +206,6 @@ process TIR {
     tag "${cut_ref}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     tuple path(cut_ref), path(lrf)
@@ -237,7 +238,6 @@ process Helitron {
     tag "${cut_ref}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     tuple path(cut_ref), path(lrf)
@@ -265,7 +265,6 @@ process Helitron {
 
 process OtherTE {
     label 'process_high'
-    label 'error_retry'
 
     input:
     tuple path(cut_ref), path(lrf)
@@ -290,7 +289,6 @@ process LTR {
     tag "${ref}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     path ref
@@ -314,7 +312,6 @@ process UnwrapNested {
     tag "${ref}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     path ref
@@ -346,7 +343,6 @@ process UnwrapNested {
 
 process BuildLib {
     label 'process_high'
-    label 'error_retry'
 
     input:
     path ltr
@@ -375,7 +371,6 @@ process BuildLib {
 
 process ClassifyLib {
     label 'process_high'
-    label 'error_retry'
 
     input:
     path lib
@@ -398,14 +393,13 @@ process ClassifyLib {
 
 process annotate_genome {
     label 'process_high'
-    label 'error_retry'
 
     input:
     path lib
     path ref
 
     output:
-    path "HiTE.out"
+    file "output.txt"
 
     script:
     cores = task.cpus
@@ -416,13 +410,37 @@ process annotate_genome {
      --annotate ${annotate} \
       -r ${ref}
 
-    cp ${tmp_output_dir}/HiTE.out ./
+    echo "annotate_genome_finished" > output.txt
+    """
+}
+
+process benchmarking {
+    label 'process_high'
+
+    input:
+    path TE_lib
+    path ref
+    path annotate_dout
+
+    output:
+    file "output.txt"
+
+    script:
+    cores = task.cpus
+    """
+    python3 ${ch_module}/benchmarking.py \
+     --tmp_output_dir ${tmp_output_dir} \
+     --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} \
+     -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
+     --rm2_script ${rm2_script} \
+     -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
+
+    echo "benchmarking_finished" > output.txt
     """
 }
 
 process CleanLib {
     label 'process_low'
-    label 'error_retry'
 
     input:
     path lib
@@ -443,7 +461,6 @@ process BM_RM2 {
     tag "${TE}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     path TE
@@ -468,7 +485,6 @@ process BM_EDTA {
     tag "${TE}"
 
     label 'process_high'
-    label 'error_retry'
 
     input:
     path TE
@@ -575,18 +591,15 @@ workflow {
             ch_classified_lib = ClassifyLib(ch_fasta)
             ch_final = ch_classified_lib.collectFile(name: "${params.outdir}/confident_TE.cons.fa.classified")
             //test(ch_lib) | view { "$it" }
-
-            if (params.annotate == 1){
-                ch_out = annotate_genome(ch_final, ch_g)
-                //Clean TE library
-                CleanLib(ch_out)
-            } else {
-                //Clean TE library
-                CleanLib(ch_final)
-            }
+            annotate_out = annotate_genome(ch_final, ch_g)
     }
-        
-    
+    if (params.skip_HiTE)
+        Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_final }
+    bm_out = benchmarking(ch_final, ch_g, annotate_out)
+    CleanLib(bm_out)
+
+
+    /*
     if (params.BM_RM2){
         if (!params.species)
             exit 1, "--BM_RM2 is set as true, but there is no --species specified! Choose from test, dmel, rice, cb, zebrafish, and maize."
@@ -646,7 +659,7 @@ workflow {
         (ch_rep_out,ch_hi_out,ch_report) = BM_EDTA(ch_final, curatedLib, out_genome_rename, params.EDTA_home)
         ch_report.collectFile(name: "${params.outdir}/BM_EDTA.log")
     }
-       
+     */
 
 }
 
