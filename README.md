@@ -9,7 +9,7 @@
 [![Conda](https://img.shields.io/badge/Conda-support-yellow)](https://docs.conda.io/en/latest/)
 [![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://docs.conda.io/en/latest/)
 
-`HiTE` is a Python software that employs a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies.
+`HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies.
 
 ## Table of Contents
 - [Installation](#install)
@@ -52,7 +52,7 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
  # (2) The option "-B" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
- # (3) "-pwd /HiTE" and "python main.py" do not need to be changed.
+ # (3) "--pwd /HiTE" and "python main.py" do not need to be changed.
  
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE /home/hukang/HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
@@ -184,7 +184,7 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
  # (2) The option "-B" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
- # (3) "-pwd /HiTE" and "python main.py" do not need to be changed.
+ # (3) "--pwd /HiTE" and "python main.py" do not need to be changed.
 
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
@@ -225,7 +225,7 @@ For other optional parameters, please refer to [Usage](#cmd).
 
 ## <a name="outputs"></a>Outputs
 HiTE outputs many temporary files, which allow you to quickly restore the previous 
-running state in case of any interruption during the running process. If
+running state (use `--recover 1`) in case of any interruption during the running process. If
 the pipeline completes successfully, the output directory should look like the following:
 ```shell
 output_dir/
