@@ -48,8 +48,13 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
  --outdir ${output_dir} \
  [other parameters]
  
+ # The options "--genome" and "--outdir" need to be specified as absolute paths.
+ 
+ # The option "-B" is used to specify directories to be mounted.
  # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  # that all input and output files are located within the user directory.
+ 
+ # "-pwd /HiTE" does not need to be changed.
  
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE /home/hukang/HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
@@ -70,6 +75,9 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.4 python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
+ # The options "--genome" and "--outdir" need to be specified as absolute paths.
+ 
+ # The option "-B" is used to specify directories to be mounted.
  # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  # that all input and output files are located within the user directory.
  
@@ -93,7 +101,9 @@ python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- #e.g., my command: python main.py 
+ # Please enter the HiTE project directory before executing "python main.py".
+ 
+ # e.g., my command: python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -173,7 +183,15 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python ma
  --thread 40 \
  --outdir ${outdir}
 
- #e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
+ # The options "--genome" and "--outdir" need to be specified as absolute paths.
+ 
+ # The option "-B" is used to specify directories to be mounted.
+ # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
+ # that all input and output files are located within the user directory.
+ 
+ # "-pwd /HiTE" does not need to be changed.
+
+ # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
