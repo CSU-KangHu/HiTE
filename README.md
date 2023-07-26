@@ -54,7 +54,7 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
  # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  # that all input and output files are located within the user directory.
  
- # "-pwd /HiTE" does not need to be changed.
+ # "-pwd /HiTE" and "python main.py" do not need to be changed.
  
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE /home/hukang/HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
@@ -189,7 +189,7 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python ma
  # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  # that all input and output files are located within the user directory.
  
- # "-pwd /HiTE" does not need to be changed.
+ # "-pwd /HiTE" and "python main.py" do not need to be changed.
 
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
