@@ -48,13 +48,11 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
  --outdir ${output_dir} \
  [other parameters]
  
- # The options "--genome" and "--outdir" need to be specified as absolute paths.
- 
- # The option "-B" is used to specify directories to be mounted.
- # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
- # that all input and output files are located within the user directory.
- 
- # "-pwd /HiTE" and "python main.py" do not need to be changed.
+ # (1) The options "--genome" and "--outdir" need to be specified as absolute paths.
+ # (2) The option "-B" is used to specify directories to be mounted.
+ #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
+ #     that all input and output files are located within the user directory.
+ # (3) "-pwd /HiTE" and "python main.py" do not need to be changed.
  
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE /home/hukang/HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
@@ -75,11 +73,10 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.4 python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- # The options "--genome" and "--outdir" need to be specified as absolute paths.
- 
- # The option "-B" is used to specify directories to be mounted.
- # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
- # that all input and output files are located within the user directory.
+ # (1) The options "--genome" and "--outdir" need to be specified as absolute paths.
+ # (2) The option "-v" is used to specify directories to be mounted.
+ #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
+ #     that all input and output files are located within the user directory.
  
  # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:2.0.4 python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
@@ -178,18 +175,16 @@ to validate all configurations.
 
 Check `HiTE/demo/genome.fa` for demo genome assembly, and run HiTE with demo data (e.g., Singularity mode):
 ```sh
-singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python main.py \
+singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif} python main.py \
  --genome ${pathTo/genome.fa} \
  --thread 40 \
  --outdir ${outdir}
 
- # The options "--genome" and "--outdir" need to be specified as absolute paths.
- 
- # The option "-B" is used to specify directories to be mounted.
- # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
- # that all input and output files are located within the user directory.
- 
- # "-pwd /HiTE" and "python main.py" do not need to be changed.
+ # (1) The options "--genome" and "--outdir" need to be specified as absolute paths.
+ # (2) The option "-B" is used to specify directories to be mounted.
+ #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
+ #     that all input and output files are located within the user directory.
+ # (3) "-pwd /HiTE" and "python main.py" do not need to be changed.
 
  # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
