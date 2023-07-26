@@ -42,22 +42,26 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 singularity pull HiTE.sif docker://kanghu/hite:2.0.4
 
 # run HiTE
-singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python main.py \
+singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif} python main.py \
  --genome ${genome} \
  --thread ${thread} \
  --outdir ${output_dir} \
  [other parameters]
  
- #e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE HiTE.sif python main.py 
+ # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
+ # that all input and output files are located within the user directory.
+ 
+ # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE /home/hukang/HiTE.sif python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
+ 
 ```
 
 ### <a name="install_docker"></a>Option 2. Run with Docker
 ```sh
 # pull docker image (once for all).
-docker pull docker://kanghu/hite:2.0.4
+docker pull kanghu/hite:2.0.4
 
 # run HiTE
 docker run -v ${host_path}:${container_path} kanghu/hite:2.0.4 python main.py \
@@ -66,7 +70,10 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.4 python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- #e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:2.0.4 python main.py 
+ # It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
+ # that all input and output files are located within the user directory.
+ 
+ # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:2.0.4 python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -162,7 +169,7 @@ to validate all configurations.
 Check `HiTE/demo/genome.fa` for demo genome assembly, and run HiTE with demo data (e.g., Singularity mode):
 ```sh
 singularity run -B ${host_path}:${container_path} --pwd /HiTE HiTE.sif python main.py \
- --genome pathTo/genome.fa \
+ --genome ${pathTo/genome.fa} \
  --thread 40 \
  --outdir ${outdir}
 

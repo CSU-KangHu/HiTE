@@ -427,16 +427,29 @@ process benchmarking {
 
     script:
     cores = task.cpus
-    """
-    python3 ${ch_module}/benchmarking.py \
-     --tmp_output_dir ${tmp_output_dir} \
-     --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} \
-     -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
-     --rm2_script ${rm2_script} \
-     -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
+    if (file("${EDTA_home}/lib-test.pl").exists()) {
+        """
+        python3 ${ch_module}/benchmarking.py \
+         --tmp_output_dir ${tmp_output_dir} \
+         --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} \
+         -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
+         --rm2_script ${rm2_script} \
+         -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
 
-    echo "benchmarking_finished" > output.txt
-    """
+        echo "benchmarking_finished" > output.txt
+        """
+    } else {
+        """
+        python3 ${ch_module}/benchmarking.py \
+         --tmp_output_dir ${tmp_output_dir} \
+         --BM_RM2 ${BM_RM2} \
+         -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
+         --rm2_script ${rm2_script} \
+         -r ${ref} --species ${species}
+
+        echo "benchmarking_finished" > output.txt
+        """
+    }
 }
 
 process CleanLib {
