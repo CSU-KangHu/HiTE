@@ -395,7 +395,7 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step2.0: %.8s s" % (dtime))
 
-        reg_str = 'genome.cut(\d).fa$'
+        reg_str = 'genome.cut(\d+).fa$'
         cut_references = []
         for filename in os.listdir(tmp_output_dir):
             if re.match(reg_str, filename) is not None:
