@@ -398,12 +398,16 @@ if __name__ == '__main__':
         reg_str = 'genome.cut(\d+).fa$'
         cut_references = []
         for filename in os.listdir(tmp_output_dir):
-            if re.match(reg_str, filename) is not None:
-                cut_references.append(tmp_output_dir + '/' + filename)
-
+            match = re.search(reg_str, filename)
+            if match:
+                ref_index = match.group(1)
+                cut_references.append((ref_index, tmp_output_dir + '/' + filename))
+ 
         split_ref_dir = tmp_output_dir + '/ref_chr'
-        for ref_index, cut_reference in enumerate(cut_references):
-            log.logger.info('Round of chunk: ' + str(ref_index))
+        for cut_reference_item in cut_references:
+            ref_index = cut_reference_item[0]
+            cut_reference = cut_reference_item[1]
+            log.logger.info('Current chunk: ' + str(ref_index))
 
             longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
             longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
