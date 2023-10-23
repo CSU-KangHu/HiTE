@@ -26,6 +26,7 @@ HiTE has been successfully applied to multiple practical applications, and you c
   - [Run with nextflow](#install_nextflow)
   <!-- - [Step-by-step installation](#step-step) -->
 - [Demo data](#demo)
+- [Code Structure](#code)
 - [Usage](#cmd)
 - [Input](#inputs)
 - [Output](#outputs)
@@ -279,8 +280,7 @@ We also provide an optional method to avoid the big Dfam.h5.gz (15 GB) download 
 5. `unzip RepeatMasker_Lib.zip && mv RepeatMasker_Lib/* ./`
 
 ## <a name="code"></a>Code Structure
-HiTE performs recognition of LTR, Non-LTR, TIR, and Helitron transposons. 
-The organizational structure of HiTE is as follows:
+The code structure of HiTE is organized as follows:
 ```shell
 Pipeline:
     ├──LTR: judge_LTR_transposons.py
