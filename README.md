@@ -99,7 +99,16 @@ cd HiTE
 chmod +x tools/*
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
+```
 
+#### Updating the Dfam library in RepeatMasker (optional)
+* HiTE is ready to go!
+* use `--classified 0` if you do not need classified TE models.
+* If you require the TE library to be **comprehensively classified**, you need to configure RepeatMasker with the complete Dfam library.
+[The simplest way to update the Dfam library](#classified)
+* If you installed HiTE with Singularity or Docker, you can skip this step.
+
+```sh
 # run HiTE
 python main.py \
  --genome ${genome} \
@@ -114,13 +123,6 @@ python main.py \
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
 ```
-
-#### Updating the Dfam library in RepeatMasker (optional)
-* HiTE is ready to go!
-* use `--classified 0` if you do not need classified TE models.
-* If you require the TE library to be **comprehensively classified**, you need to configure RepeatMasker with the complete Dfam library.
-[The simplest way to update the Dfam library](#classified)
-* If you installed HiTE with Singularity or Docker, you can skip this step.
 
 ### <a name="install_nextflow"></a>Option 4. Run with nextflow
 Nextflow is built on top of the popular programming language, Groovy, and supports the execution of workflows 
