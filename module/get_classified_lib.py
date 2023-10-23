@@ -1,33 +1,31 @@
 import argparse
 import os
-import re
 import sys
 
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, rename_fasta, multi_process_align_and_get_copies, remove_ltr_from_tir, \
-    get_domain_info
+from Util import read_fasta, Logger, get_domain_info
 
 if __name__ == '__main__':
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='run HiTE classify TE library...')
     parser.add_argument('-t', metavar='threads number',
-                        help='input threads number')
+                        help='Input threads number.')
     parser.add_argument('--confident_TE_consensus', metavar='confident_TE_consensus',
-                        help='e.g., ')
+                        help='The path of TE library to be classified')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
+                        help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--classified', metavar='classified',
-                        help='e.g., 1')
+                        help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false.')
     parser.add_argument('--domain', metavar='domain',
-                        help='e.g., 1')
+                        help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
     parser.add_argument('--TEClass_home', metavar='TEClass_home',
-                        help='e.g., ')
+                        help='The root directory of TEClass')
     parser.add_argument('--protein_path', metavar='protein_path',
-                        help='e.g., ')
-    parser.add_argument('--debug', metavar='debug',
-                        help='e.g., 1')
+                        help='The path of protein domain')
+    parser.add_argument('--debug', metavar='recover',
+                        help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
 
     args = parser.parse_args()
     threads = int(args.t)
@@ -46,18 +44,12 @@ if __name__ == '__main__':
     sample_name = 'test'
     # 1.classify
     if classified is not None and int(classified) == 1:
-        # # use RepeatClassifier to classify TE models
-        # command = 'cd ' + tmp_output_dir + ' && ' + RepeatModeler_Home + '/RepeatClassifier -pa ' + str(threads) + ' -consensi ' + confident_TE_consensus
-        # log.logger.debug(command)
-        # os.system(command + ' > /dev/null 2>&1')
-
         TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
                           + ' --consensus ' + confident_TE_consensus + ' --genome 1' \
                           + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
         log.logger.debug(TEClass_command)
         os.system(TEClass_command)
 
-        # 把unknown的序列放在最后
         classified_TE_path = confident_TE_consensus + '.classified'
         names, contigs = read_fasta(classified_TE_path)
         names.sort(key=lambda x: x.split('#')[1])

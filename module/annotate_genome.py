@@ -12,17 +12,17 @@ from Util import Logger
 
 if __name__ == '__main__':
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='run HiTE annotating genome...')
     parser.add_argument('-t', metavar='threads number',
-                        help='input threads number')
+                        help='Input threads number.')
     parser.add_argument('--classified_TE_consensus', metavar='classified_TE_consensus',
-                        help='e.g., ')
+                        help='The path of classified TE library')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
+                        help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--annotate', metavar='annotate',
-                        help='e.g., 1')
+                        help='Whether to annotate the genome using the TE library generated, 1: true, 0: false.')
     parser.add_argument('-r', metavar='reference',
-                        help='e.g., Reference Path')
+                        help='Input reference Path')
 
     args = parser.parse_args()
     threads = int(args.t)
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_annotate_genome.log', level='debug')
 
-    # 3.annotate the genome
+    # annotate the genome
     if annotate is not None and int(annotate) == 1:
         RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
                                + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + classified_TE_consensus + ' -cutoff 225 ' \

@@ -14,9 +14,9 @@ if __name__ == '__main__':
     # 1.parse args
     parser = argparse.ArgumentParser(description='run HiTE...')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
-    parser.add_argument('--debug', metavar='debug',
-                        help='e.g., 1')
+                        help='Please enter the directory for output. Use an absolute path.')
+    parser.add_argument('--debug', metavar='recover',
+                        help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
 
     args = parser.parse_args()
 
@@ -35,12 +35,13 @@ if __name__ == '__main__':
                     'genome\.rename\.fa\.LTRlib\.fa', 
                     'confident_TE\.cons\.fa',
                     'confident_TE\.cons\.fa\.domain',
-                    'confident_ltr_cut\.fa',
+                    'confident_ltr_cut\.fa\.cons',
                     'confident_TE\.cons\.fa\.classified', 
                     'longest_repeats(_\d+)?\.flanked\.fa', 
                     'longest_repeats(_\d+)?\.fa',
                     'confident_tir(_\d+)?\.fa',
-                    'confident_helitron(_\d+)?\.fa', 
+                    'confident_helitron(_\d+)?\.fa',
+                    'confident_non_ltr(_\d+)?\.fa',
                     'confident_other(_\d+)?\.fa',
                     'HiTE.out',
                     'HiTE.tbl',

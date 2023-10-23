@@ -1,36 +1,31 @@
 #-- coding: UTF-8 --
 import argparse
-import codecs
-import multiprocessing
 import os
 import sys
-
-import json
 import time
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
-    rename_fasta
+from Util import rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
+    rename_fasta, deredundant_for_LTR
 
 if __name__ == '__main__':
-    #preprocess()
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='run HiTE LTR module...')
     parser.add_argument('-g', metavar='Genome assembly',
-                        help='input genome assembly path')
+                        help='Input genome assembly path')
     parser.add_argument('--ltrharvest_home', metavar='ltrharvest_home',
-                        help='e.g., ')
+                        help='Please enter the root directory for ltr_harvest. Use an absolute path.')
     parser.add_argument('--ltrfinder_home', metavar='ltrfinder_home',
-                        help='e.g., ')
+                        help='Please enter the root directory for ltr_finder. Use an absolute path.')
     parser.add_argument('-t', metavar='threads number',
-                        help='input threads number')
+                        help='Input threads number')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/dmel')
+                        help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--recover', metavar='recover',
-                        help='e.g., 0')
+                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
     parser.add_argument('--miu', metavar='miu',
-                        help='e.g., ')
+                        help='The neutral mutation rate (per bp per ya)')
 
 
     args = parser.parse_args()
@@ -51,21 +46,23 @@ if __name__ == '__main__':
     if recover == 1:
         is_recover = True
 
-    # 1.重命名reference文件
+    # rename reference
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     rename_reference(reference, ref_rename_path)
 
     ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
     ltrfinder_output = ref_rename_path + '.finder.combine.scn'
     if not is_recover or not file_exist(ltrharvest_output) or not file_exist(ltrfinder_output):
-        log.logger.info('Start step2.1: Running LTR_harvest_parallel and LTR_finder_parallel')
+        starttime = time.time()
+        log.logger.info('Start step0.1: Running LTR_harvest_parallel and LTR_finder_parallel')
         run_LTR_detection(ref_rename_path, tmp_output_dir, threads, LTR_harvest_parallel_Home, LTR_finder_parallel_Home, log)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step0.1: %.8s s" % (dtime))
     else:
         log.logger.info(ltrharvest_output + ' exists, skip...')
         log.logger.info(ltrfinder_output + ' exists, skip...')
 
-
-    # 合并LTR_harvest+LTR_finder结果，输入到LTR_retriever
     ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
     ltrfinder_output = ref_rename_path + '.finder.combine.scn'
     ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
@@ -74,17 +71,29 @@ if __name__ == '__main__':
     resut_file = ref_rename_path + '.LTRlib.fa'
     if not is_recover or not file_exist(resut_file):
         starttime = time.time()
-        log.logger.info('Start step2.3: run LTR_retriever to get confident LTR')
+        log.logger.info('Start step0.2: run LTR_retriever to get confident LTR')
         run_LTR_retriever(ref_rename_path, tmp_output_dir, threads, miu, log)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step2.3: %.8s s" % (dtime))
+        log.logger.info("Running time of step0.2: %.8s s" % (dtime))
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
     rename_fasta(resut_file, confident_ltr_cut_path, 'LTR')
-    #os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+
+    # Remove redundancy from the LTR results.
+    ltr_cons_path = confident_ltr_cut_path + '.cons'
+    resut_file = ltr_cons_path
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        log.logger.info('Start step0.3: Remove LTR redundancy')
+        deredundant_for_LTR(confident_ltr_cut_path, tmp_output_dir, threads)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step0.3: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
 
 

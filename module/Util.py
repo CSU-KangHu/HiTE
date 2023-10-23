@@ -1,3 +1,5 @@
+# The Util.py file contains many useful functions during development.
+# Some of them are no longer in use, but they are kept for future reference and convenience.
 import codecs
 import json
 import multiprocessing
@@ -10,6 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
 from logging import handlers
 from fuzzysearch import find_near_matches
+from collections import Counter
 import Levenshtein
 
 import subprocess
@@ -100,7 +103,6 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
         raw_start = flanking_len + 1
         raw_end = len(seq) - flanking_len
 
-        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if seq.__contains__('NNNNNNNNNN'):
             continue
         new_query_name = query_name + '-rawstart_' + str(raw_start) + '-rawend_' + str(raw_end)
@@ -112,7 +114,7 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
 
     all_EAHelitron_res = temp_dir + '/' + str(partition_index) + '.5.fa'
     all_copies_out_names, all_copies_out_contigs = read_fasta_v1(all_EAHelitron_res)
-    # 对all_copies_out_contigs按照name进行分组
+    # group
     # group_copies_contigs -> {query_name: {name: seq}}
     group_copies_contigs = {}
     for cur_name in all_copies_out_contigs.keys():
@@ -127,10 +129,9 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
     candidate_Helitrons = {}
     for query_name in group_copies_contigs.keys():
         cur_copies_out_contigs = group_copies_contigs[query_name]
-        #记录同一个query_name下不同的copy_index对应的值
         copies_candidate = {}
-        # 2. 合并，选择distance最小（相同则取最长）的那条序列,当做这条拷贝的代表序列
-        # 根据name中的copy_index进行分组，copy_index = name.split('-C_')[1].split('-')[0]。
+        # 2. Merge, select the sequence with the smallest distance (if same, get the longest)
+        # as the representative sequence of this copy.
         # copies_candidate -> {copy_index: (min_distance_seq_name, min_distance, seq_len, first_6bp)}
         for name in cur_copies_out_contigs.keys():
             raw_name = name.split(' ')[1]
@@ -144,7 +145,7 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
                 cur_start = cur_end
                 cur_end = tmp
             cur_seq = cur_copies_out_contigs[name]
-            # 取原始边界
+            # get the original boundary
             raw_start = int(raw_name.split('-rawstart_')[1].split('-')[0]) + 1
             raw_end = int(raw_name.split('-rawend_')[1])
             cur_distance = abs(cur_start - raw_start) + abs(cur_end - raw_end)
@@ -522,11 +523,7 @@ def store_LTR_seq_v1(ltrharvest_output, longest_repeats_path, confident_ltr_path
     store_fasta(LTR_intact_seqs, confident_ltr_path)
 
 def run_LTR_detection(reference, tmp_output_dir, threads, LTR_harvest_parallel_Home, LTR_finder_parallel_Home, log):
-    starttime = time.time()
-    log.logger.debug('start LTR detection...')
-
-    # 运行LTR_harvest_parallel来获取候选的LTR序列
-    # 1.运行LTR_harvest_parallel
+    # 1.run LTR_harvest_parallel
     ltrharvest_output = reference + '.harvest.combine.scn'
     if os.path.isfile(ltrharvest_output):
         os.remove(ltrharvest_output)
@@ -535,8 +532,7 @@ def run_LTR_detection(reference, tmp_output_dir, threads, LTR_harvest_parallel_H
     log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_harvest_parallel_command + ' > /dev/null 2>&1')
     os.system('cd ' + tmp_output_dir + ' && ' + LTR_harvest_parallel_command + ' > /dev/null 2>&1')
 
-    # 运行LTR_finder_parallel来获取候选的LTR序列
-    # 1.运行LTR_finder_parallel
+    # 1.run LTR_finder_parallel
     ltrfinder_output = reference + '.finder.combine.scn'
     if os.path.isfile(ltrfinder_output):
         os.remove(ltrfinder_output)
@@ -544,19 +540,14 @@ def run_LTR_detection(reference, tmp_output_dir, threads, LTR_harvest_parallel_H
     log.logger.debug('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
     os.system('cd ' + tmp_output_dir + ' && ' + LTR_finder_parallel_command + ' > /dev/null 2>&1')
 
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("LTR detection running time: %.8s s" % (dtime))
-
 def run_LTR_harvest(reference, tmp_output_dir, threads, LTR_finder_parallel_Home, log):
-    starttime = time.time()
-    log.logger.debug('start LTR_harvest detection...')
+    # starttime = time.time()
+    # log.logger.debug('start LTR_harvest detection...')
     cut_references = []
 
-    # 如果基因组超过了4G，将基因组分别切成1G
-    # 获取文件大小（以字节为单位）
+    # If the genome exceeds 4G, cut the genome into 1G
+    # to obtain the file size (in bytes).
     file_size = os.path.getsize(reference)
-    # 将文件大小转换为GB
     one_g = 1024 ** 3
     file_size_gb = file_size / one_g
     if file_size_gb > 4:
@@ -604,8 +595,7 @@ def run_LTR_harvest(reference, tmp_output_dir, threads, LTR_finder_parallel_Home
         cur_output = job.result()
         os.system('cat ' + cur_output + ' >> ' + output)
 
-    # 运行LTR_finder_parallel来获取候选的LTR序列
-    # 1.运行LTR_finder_parallel
+    # run LTR_finder_parallel
     ltrfinder_output = reference + '.finder.combine.scn'
     if os.path.isfile(ltrfinder_output):
         os.remove(ltrfinder_output)
@@ -617,9 +607,9 @@ def run_LTR_harvest(reference, tmp_output_dir, threads, LTR_finder_parallel_Home
             cur_ltrfinder_output = cut_reference + '.finder.combine.scn'
             os.system('cat ' + cur_ltrfinder_output + ' | grep -Ev \'^$|#\' >> ' + ltrfinder_output)
 
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
+    # endtime = time.time()
+    # dtime = endtime - starttime
+    # log.logger.debug("LTR_harvest running time: %.8s s" % (dtime))
 
 def run_LTR_harvest_single(reference, tmp_output_dir, ref_index):
     output = tmp_output_dir + '/genome_'+str(ref_index)+'.fa.harvest.scn'
@@ -632,7 +622,7 @@ def run_LTR_harvest_single(reference, tmp_output_dir, ref_index):
     os.system(ltrharvest_command1)
     os.system(ltrharvest_command2)
 
-    #修改最后一列为染色体名称
+    # Change the last column to chromosome name
     ref_names, ref_contigs = read_fasta(reference)
     new_lines = []
     with open(output, 'r') as f_r:
@@ -931,7 +921,7 @@ def get_LINE_candidate(LINE_out, protein_path, orig_contigs):
                             longest_pol_item = protein_item
 
         if len(candidate_protein_items) > 0:
-            #判断最后一个protein的比对方向
+            # Judge the direction of the last protein
             if longest_pol_item is None:
                 continue
             last_query_start = longest_pol_item[0]
@@ -955,7 +945,7 @@ def get_LINE_candidate(LINE_out, protein_path, orig_contigs):
                 if query_start > query_end:
                     direct = '-'
 
-                #如果序列已经反向互补了，那么原本的位置也应该互换
+                # If the sequences have been reversely complementary, the original positions should also be interchanged.
                 if last_direct == '-':
                     query_start = len(query_seq) - query_start + 1
                     query_end = len(query_seq) - query_end + 1
@@ -978,7 +968,7 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
     os.system(align_command)
     
     fixed_extend_base_threshold = merge_distance
-    #将分段的blastx比对合并起来
+    # Combine the segmented blastx alignments.
     query_names, query_contigs = read_fasta(split_repeats_path)
 
     # parse blastn output, determine the repeat boundary
@@ -1178,14 +1168,12 @@ def multiple_alignment_blastx_v1(repeats_path, merge_distance):
         longest_queries.sort(key=lambda x: -x[2])
         keep_longest_query[query_name] = longest_queries
     #print(keep_longest_query)
-    #记录存成table,去掉冗余记录（后一条序列的50%以上的区域在前一条内）
     with open(cur_table, 'w') as f_save:
         for query_name in keep_longest_query.keys():
             domain_array = keep_longest_query[query_name]
             # for domain_info in domain_array:
             #     f_save.write(query_name+'\t'+str(domain_info[6])+'\t'+str(domain_info[0])+'\t'+str(domain_info[1])+'\t'+str(domain_info[3])+'\t'+str(domain_info[4])+'\n')
             merge_domains = []
-            #对domain_array进行合并
             domain_array.sort(key=lambda x: -x[2])
             for domain_info in domain_array:
                 if len(merge_domains) == 0:
@@ -1239,10 +1227,10 @@ def multiple_alignment_blastx(repeats_path, tools_dir):
                     + str(1) + ' -query ' + split_repeats_path + ' -word_size 7 -outfmt 6 > ' + blastx2Results_path
     os.system(align_command)
 
-    # 1.首先把longest_repeats.fa比对到LINERep.fa上识别完整的pol。
-    # 2.判断方向，正向就去尾部寻找polyA，反向就头部寻找polyT。
-    # 3.确定尾巴之后，取尾巴后的30-3bp一共28个kmer，然后再延伸头部（指的是最开始domain，如果只有pol就是pol位置，如果是gag就是gag位置）500bp，
-    # 4.再将这28个kmer比对到延伸的序列，从长到短取最佳匹配的位置当做头部的TSD起始位置。
+    # 1. First, align longest_repeats.fa to LINERep.fa to identify the complete pol.
+    # 2. Determine the direction, if it's forward, search for polyA at the tail; if it's reverse, search for polyT at the head.
+    # 3. After determining the tail, take a total of 28 kmers from 30-3bp after the tail. Then, extend the head (referring to the initial domain, if it's only pol, it's the pol position, if it's gag, it's the gag position) by 500bp.
+    # 4. Then, align these 28 kmers to the extended sequence. From longest to shortest, take the best-matched position as the starting position of the TSD at the head.
     candidate_LINE = get_LINE_candidate(blastx2Results_path, protein_db_path, split_repeats_path)
     cur_line_path = temp_dir + '/LINE.fa'
     store_fasta(candidate_LINE, cur_line_path)
@@ -1599,59 +1587,6 @@ def generate_candidate_repeats_v2(contigs, k_num, unique_kmer_map, partiton_inde
         repeat_dict[ref_name] = repeat_list
     return repeat_dict
 
-# def cut_repeat_v2(sam_path_bwa, repeats_path, cut_repeats_path):
-#     query_records = {}
-#     samfile = pysam.AlignmentFile(sam_path_bwa, "rb")
-#     for read in samfile.fetch():
-#         if read.is_unmapped:
-#             continue
-#         query_name = read.query_name
-#         reference_name = read.reference_name
-#         cigar = read.cigartuples
-#         cigarstr = read.cigarstring
-#         NM_tag = 0
-#         try:
-#             NM_tag = read.get_tag('NM')
-#         except KeyError:
-#             NM_tag = -1
-#         identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-#         identity = float(identity) * 100
-#         is_reverse = read.is_reverse
-#         alignment_len = read.query_alignment_length
-#         # pos start from 1, change to 0
-#         q_start = int(read.query_alignment_start)  # [q_start, q_end)
-#         q_end = int(read.query_alignment_end)
-#         if q_start > q_end:
-#             tmp = q_start
-#             q_start = q_end
-#             q_end = tmp
-#         if not query_records.__contains__(query_name):
-#             query_records[query_name] = []
-#         records = query_records[query_name]
-#         records.append((reference_name, alignment_len, identity, q_start, q_end))
-#         query_records[query_name] = records
-#
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_path)
-#     cut_repeats = {}
-#     for query_name in query_records.keys():
-#         query_seq = repeat_contigs[query_name]
-#         query_len = len(query_seq)
-#         records = query_records[query_name]
-#         for i, record in enumerate(records):
-#             # filter first alignment
-#             if i == 0:
-#                 continue
-#             identity = record[2]
-#             q_start = record[3]
-#             q_end = record[4]
-#             if identity < 95:
-#                 continue
-#             # get repeats boundary by getting all alignment sequences
-#             new_seq = query_seq[q_start: q_end]
-#             new_query_name = query_name + '-p_' + str(i) + '-len_' + str(len(new_seq))
-#             cut_repeats[new_query_name] = new_seq
-#     store_fasta(cut_repeats, cut_repeats_path)
-
 def getReverseSequence(sequence):
     base_map = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
     res = ''
@@ -1918,594 +1853,6 @@ def filter_not_multi_mapping(cur_records, not_multi_mapping_repeatIds_dict, part
             continue
         multi_mapping_records.append(record)
     blast_records[partiton_index] = multi_mapping_records
-
-# remove one perfect match record, exclude a situation
-# that sequence has only one perfect match position,
-# and many clips position
-# def generate_blastlike_output(sam_paths, blastnResults_path, not_multi_mapping_repeatIds):
-#     not_multi_mapping_repeatIds_dict = {}
-#     for repeat_id in not_multi_mapping_repeatIds:
-#         not_multi_mapping_repeatIds_dict[repeat_id] = 1
-#     query_names = {}
-#     with open(blastnResults_path, 'w') as f_save:
-#         for item in sam_paths:
-#             sam_path = item[0]
-#             repeats_path = item[1]
-#             contignames, contigs = read_fasta(repeats_path)
-#             samfile = pysam.AlignmentFile(sam_path, "rb")
-#             for read in samfile.fetch():
-#                 if read.is_unmapped:
-#                     continue
-#                 query_name = read.query_name
-#                 # filter not multiple mapping repeat
-#                 if not_multi_mapping_repeatIds_dict.__contains__(query_name):
-#                     continue
-#                 target_name = read.reference_name
-#                 cigar = read.cigarstring
-#                 NM_tag = 0
-#                 try:
-#                     NM_tag = read.get_tag('NM')
-#                 except KeyError:
-#                     NM_tag = -1
-#                 identity = compute_identity(cigar, NM_tag, 'BLAST')
-#                 identity = float(identity) * 100
-#                 match_base = int(read.query_alignment_length)
-#                 q_start = int(read.query_alignment_start)
-#                 q_end = int(read.query_alignment_end)
-#                 t_start = int(read.reference_start)
-#                 t_end = int(read.reference_end)
-#                 query_length = int(len(contigs[query_name]))
-#
-#                 if not query_names.__contains__(query_name) and (identity > 95 and float(match_base)/query_length > 0.95):
-#                     query_names[query_name] = 1
-#                     continue
-#
-#                 if read.is_reverse:
-#                     temp = t_start
-#                     t_start = t_end
-#                     t_end = temp
-#                     strand = '+' if t_end >= t_start else '-'
-#
-#                 f_save.write(str(query_name) + '\t' + str(target_name) + '\t' + str(identity) + '\t' + str(match_base)
-#                              + '\t' + str('X') + '\t' + str('X') + '\t' + str(q_start) + '\t' + str(q_end)
-#                              + '\t' + str(t_start) + '\t' + str(t_end) + '\n')
-#
-# def generate_blastlike_output_parallel(sam_paths, blastnResults_path, not_multi_mapping_repeatIds, partitions_num):
-#     not_multi_mapping_repeatIds_dict = {}
-#     for repeat_id in not_multi_mapping_repeatIds:
-#         not_multi_mapping_repeatIds_dict[repeat_id] = 1
-#
-#     parse_records = []
-#     for sam_path in sam_paths:
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             if read.is_unmapped:
-#                 continue
-#             query_name = read.query_name
-#             target_name = read.reference_name
-#             cigar = read.cigarstring
-#             try:
-#                 NM_tag = read.get_tag('NM')
-#             except KeyError:
-#                 NM_tag = -1
-#             identity = compute_identity(cigar, NM_tag, 'BLAST')
-#             identity = float(identity) * 100
-#             match_base = int(read.query_alignment_length)
-#             q_start = int(read.query_alignment_start)
-#             q_end = int(read.query_alignment_end)
-#             t_start = int(read.reference_start)
-#             t_end = int(read.reference_end)
-#
-#             if read.is_reverse:
-#                 temp = t_start
-#                 t_start = t_end
-#                 t_end = temp
-#                 strand = '+' if t_end >= t_start else '-'
-#             parse_records.append((query_name, target_name, identity, match_base, q_start, q_end, t_start, t_end))
-#
-#     records_cluster = split2cluster(parse_records, partitions_num)
-#
-#     blast_records = multiprocessing.Manager().dict()
-#     pool = multiprocessing.Pool(processes=partitions_num)
-#     for partiton_index in records_cluster.keys():
-#         cur_records = records_cluster[partiton_index]
-#         pool.apply_async(filter_not_multi_mapping, (cur_records, not_multi_mapping_repeatIds_dict, partiton_index, blast_records,))
-#     pool.close()
-#     pool.join()
-#
-#     with open(blastnResults_path, 'w') as f_save:
-#         for partiton_index in blast_records.keys():
-#             for record in blast_records[partiton_index]:
-#                 f_save.write(str(record[0]) + '\t' + str(record[1]) + '\t' + str(record[2]) + '\t' + str(record[3])
-#                              + '\t' + str('X') + '\t' + str('X') + '\t' + str(record[4]) + '\t' + str(record[5])
-#                              + '\t' + str(record[6]) + '\t' + str(record[7]) + '\n')
-#
-# def cut_repeat_v1(sam_paths, HS_gap, ID_gap, repeats_file, raw_cut_file):
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-#     all_fragments = {}
-#
-#     # if a repeat can only align to a position complete,
-#     # and other records contain large H/S or I/D, it should be spliced
-#     query_records = {}
-#     for sam_path in sam_paths:
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             if read.is_unmapped:
-#                 continue
-#             query_name = read.query_name
-#             reference_name = read.reference_name
-#             cigar = read.cigartuples
-#             cigarstr = read.cigarstring
-#             is_reverse = read.is_reverse
-#
-#             if not query_records.__contains__(query_name):
-#                 query_records[query_name] = []
-#             records = query_records[query_name]
-#             records.append((query_name, reference_name, cigar, cigarstr, is_reverse))
-#             query_records[query_name] = records
-#
-#     # delete Chimerism to avoid fragments
-#     # for query_name in query_records.keys():
-#     #     is_chimerism = False
-#     #     for record in query_records[query_name]:
-#     #         query_seq = repeat_contigs[query_name]
-#     #         query_len = len(query_seq)
-#     #         float(record.query_alignment_length)/query_len > 90
-#     #     if is_chimerism:
-#     #         del query_records['query_name']
-#
-#     pattern = r'[0-9]\d+M'
-#     repeats_tobe_spliced = {}
-#     for query_name in query_records.keys():
-#         complete_alignment_num = 0
-#         for record in query_records[query_name]:
-#             cigar = record[2]
-#             cigarstr = str(record[3])
-#             # complete Match in cigar
-#             if re.match(pattern, cigarstr) is not None:
-#                 complete_alignment_num += 1
-#             else:
-#                 # if cigar contains small I/D or small H/S, it can be seen as a complete record
-#                 query_seq = repeat_contigs[query_name]
-#                 query_len = len(query_seq)
-#                 is_complete = True
-#                 for c in cigar:
-#                     if (c[0] == 4 and c[1] >= HS_gap * query_len) \
-#                             or (c[0] == 5 and c[1] >= HS_gap * query_len) \
-#                             or (c[0] == 1 and c[1] >= ID_gap * query_len) \
-#                             or (c[0] == 2 and c[1] >= ID_gap * query_len):
-#                         is_complete = False
-#                         break
-#                 if is_complete:
-#                     complete_alignment_num += 1
-#         if complete_alignment_num == 1:
-#             repeats_tobe_spliced[query_name] = 1
-#
-#     #print(repeats_tobe_spliced)
-#
-#     for query_name in repeats_tobe_spliced.keys():
-#         for record in query_records[query_name]:
-#             reference_name = record[1]
-#             cigar = record[2]
-#             cigarstr = record[3]
-#             is_reverse = record[4]
-#             query_seq = repeat_contigs[query_name]
-#             query_len = len(query_seq)
-#             if is_reverse:
-#                 query_seq = getReverseSequence(query_seq)
-#             if not all_fragments.__contains__(query_name):
-#                 all_fragments[query_name] = []
-#             fragments = []
-#
-#             # parse cigar
-#             repeat_index = 0
-#             last_cigar = -1
-#             frag = ''
-#             frag_start_pos = 0
-#             is_split = False
-#             for c in cigar:
-#                 if last_cigar != c[0]:
-#                     last_cigar = c[0]
-#                     # large gap, split repeat
-#                     if ((c[0] == 4 and c[1] >= HS_gap * query_len)
-#                                        or (c[0] == 5 and c[1] >= HS_gap * query_len)
-#                                        or (c[0] == 1 and c[1] >= ID_gap * query_len)
-#                                        or (c[0] == 2 and c[1] >= ID_gap * query_len)):
-#                         is_split = True
-#                         if frag != '':
-#                             fragments.append((frag_start_pos, len(frag), frag))
-#                             frag_start_pos += len(frag)
-#                             if c[0] != 2:
-#                                 frag_start_pos += c[1]
-#                             frag = ''
-#
-#                 if (c[0] == 4 or c[0] == 5) and c[1] >= HS_gap * query_len:
-#                     # if cigar is large H/S, repeat index increment
-#                     repeat_index += c[1]
-#                     continue
-#                 elif c[0] == 2 or c[0] == 3:
-#                     # if cigar is D/N, repeat index should stay
-#                     continue
-#                 elif c[0] == 1 and c[1] >= ID_gap * query_len:
-#                     # if cigar is large I, repeat index increment
-#                     repeat_index += c[1]
-#                     continue
-#                 else:
-#                     # if cigar is M or small I/D or small H/S, store sequence and repeat index increment
-#                     frag += query_seq[repeat_index:repeat_index+c[1]]
-#                     repeat_index += c[1]
-#             if frag != '':
-#                 fragments.append((frag_start_pos, len(frag), frag))
-#             old_fragments = all_fragments[query_name]
-#             all_fragments[query_name] = old_fragments + fragments
-#
-#     # if keep original repeat
-#     # de-duplicate reverse-complementarty repeat
-#     all_unique_fragments = {}
-#     for query_name in all_fragments.keys():
-#         frag_seq_set = []
-#         frag_set = []
-#
-#         for frag in all_fragments[query_name]:
-#             if frag[2] not in frag_seq_set and getReverseSequence(frag[2]) not in frag_seq_set:
-#                 frag_seq_set.append(frag[2])
-#             frag_set.append(frag)
-#         all_unique_fragments[query_name] = frag_set
-#
-#     node_index = 0
-#     with open(raw_cut_file, 'w') as f_save:
-#         for query_name in all_unique_fragments.keys():
-#             for unique_frag in all_unique_fragments[query_name]:
-#                 f_save.write('>Node_' + str(node_index) + '-len_' + str(len(unique_frag[2]))
-#                              + '\n' + unique_frag[2] + '\n')
-#                 node_index += 1
-#
-#         for query_name in query_records.keys():
-#             if not repeats_tobe_spliced.__contains__(query_name):
-#                 seq = repeat_contigs[query_name]
-#                 f_save.write('>Node_' + str(node_index) + '-len_' + str(len(seq))
-#                              + '\n' + seq + '\n')
-#                 node_index += 1
-#
-#
-# def cut_repeat(sam_paths, HS_gap, ID_gap, repeats_file):
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-#     all_fragments = {}
-#     #original_repeat_occurrences = {}
-#     for sam_path in sam_paths:
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             if read.is_unmapped:
-#                 continue
-#             query_name = read.query_name
-#             reference_name = read.reference_name
-#             cigar = read.cigartuples
-#             cigarstr = read.cigarstring
-#             is_reverse = read.is_reverse
-#             query_seq = repeat_contigs[query_name]
-#             query_len = len(query_seq)
-#             if is_reverse:
-#                 query_seq = getReverseSequence(query_seq)
-#             if not all_fragments.__contains__(query_name):
-#                 all_fragments[query_name] = []
-#             fragments = []
-#
-#             # parse cigar
-#             repeat_index = 0
-#             last_cigar = -1
-#             frag = ''
-#             frag_start_pos = 0
-#             is_split = False
-#             for c in cigar:
-#                 if last_cigar != c[0]:
-#                     last_cigar = c[0]
-#                     # large gap, split repeat
-#                     if ((c[0] == 4 and c[1] >= HS_gap)
-#                                        or (c[0] == 5 and c[1] >= HS_gap)
-#                                        or (c[0] == 1 and c[1] >= ID_gap * query_len)
-#                                        or (c[0] == 2 and c[1] >= ID_gap * query_len)):
-#                         is_split = True
-#                         if frag != '':
-#                             fragments.append((frag_start_pos, len(frag), frag))
-#                             frag_start_pos += len(frag)
-#                             if c[0] != 2:
-#                                 frag_start_pos += c[1]
-#                             frag = ''
-#
-#                 if (c[0] == 4 or c[0] == 5) and c[1] >= HS_gap:
-#                     # if cigar is large H/S, repeat index increment
-#                     repeat_index += c[1]
-#                     continue
-#                 elif c[0] == 2 or c[0] == 3:
-#                     # if cigar is D/N, repeat index should stay
-#                     continue
-#                 elif c[0] == 1 and c[1] >= ID_gap * query_len:
-#                     # if cigar is large I, repeat index increment
-#                     repeat_index += c[1]
-#                     continue
-#                 else:
-#                     # if cigar is M or small I/D or small H/S, store sequence and repeat index increment
-#                     frag += query_seq[repeat_index:repeat_index+c[1]]
-#                     repeat_index += c[1]
-#             if frag != '':
-#                 fragments.append((frag_start_pos, len(frag), frag))
-#             old_fragments = all_fragments[query_name]
-#             all_fragments[query_name] = old_fragments + fragments
-#         samfile.close()
-#
-#     # if keep original repeat
-#     # de-duplicate reverse-complementarty repeat
-#     all_unique_fragments = {}
-#     for query_name in all_fragments.keys():
-#         frag_seq_set = []
-#         frag_set = []
-#
-#         for frag in all_fragments[query_name]:
-#             if frag[2] not in frag_seq_set and getReverseSequence(frag[2]) not in frag_seq_set:
-#                 frag_seq_set.append(frag[2])
-#             frag_set.append(frag)
-#         all_unique_fragments[query_name] = frag_set
-#
-#     return all_unique_fragments
-#
-# def get_multiple_alignment_repeat(sam_paths):
-#     not_multi_mapping_repeatIds = []
-#     multi_mapping_repeatIds = []
-#     mapping_repeatIds = {}
-#     for item in sam_paths:
-#         sam_path = item[0]
-#         repeats_path = item[1]
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             query_name = read.query_name
-#             if not mapping_repeatIds.__contains__(query_name):
-#                 mapping_repeatIds[query_name] = 0
-#
-#             if read.is_unmapped:
-#                 continue
-#             else:
-#                 count = mapping_repeatIds[query_name]
-#                 count += 1
-#                 mapping_repeatIds[query_name] = count
-#
-#     for query_name in mapping_repeatIds.keys():
-#         count = mapping_repeatIds[query_name]
-#         if count > 1:
-#             multi_mapping_repeatIds.append(query_name)
-#         else:
-#             not_multi_mapping_repeatIds.append(query_name)
-#
-#     return multi_mapping_repeatIds, not_multi_mapping_repeatIds
-
-# def judgeReduceThreads(unique_kmer_path, threads, log):
-#     file_size = os.path.getsize(unique_kmer_path) / (1024 * 1024 * 1024)
-#     mem = psutil.virtual_memory()
-#     free_memory = float(mem.free) / (1024 * 1024 * 1024)
-#
-#     if free_memory / 4 < file_size * threads:
-#         reduce_threads = int(free_memory / (4 * file_size))
-#         log.logger.debug('----Warning:\nDetect the free memory of your machine is %f GB.\n'
-#               'The kmer.txt file is %f GB, which will be used in each thread.\n'
-#               'The number of thread you set is %d. According to our experience,\n'
-#               'To avoid the risk of out of memory, free memory should be more than 4 times\n'
-#               'higher than thread_num*kmer_size. Thus, reduce the number of thread to %d.\n' % (
-#               free_memory, file_size, threads, reduce_threads))
-#         return reduce_threads
-#     else:
-#         return threads
-
-# def get_alignment_info(sam_paths):
-#     unmapped_repeatIds = []
-#     single_mapped_repeatIds = []
-#     multi_mapping_repeatIds = []
-#     mapping_repeatIds = {}
-#
-#     for item in sam_paths:
-#         sam_path = item[0]
-#         repeats_path = item[1]
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             query_name = read.query_name
-#             if not mapping_repeatIds.__contains__(query_name):
-#                 mapping_repeatIds[query_name] = 0
-#
-#             if read.is_unmapped:
-#                 continue
-#             else:
-#                 count = mapping_repeatIds[query_name]
-#                 count += 1
-#                 mapping_repeatIds[query_name] = count
-#
-#     for query_name in mapping_repeatIds.keys():
-#         count = mapping_repeatIds[query_name]
-#         if count <= 0:
-#             unmapped_repeatIds.append(query_name)
-#         elif count == 1:
-#             single_mapped_repeatIds.append(query_name)
-#         else:
-#             multi_mapping_repeatIds.append(query_name)
-#
-#     return unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds
-#
-#
-# def get_alignment_info_v4(sam_paths, repeats_file):
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-#
-#     unmapped_repeatIds = []
-#     single_mapped_repeatIds = []
-#     multi_mapping_repeatIds = []
-#     segmental_duplication_repeatIds = []
-#
-#     query_records = {}
-#     for sam_path in sam_paths:
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             if read.is_unmapped:
-#                 continue
-#             query_name = read.query_name
-#             reference_name = read.reference_name
-#             cigar = read.cigartuples
-#             cigarstr = read.cigarstring
-#             NM_tag = 0
-#             try:
-#                 NM_tag = read.get_tag('NM')
-#             except KeyError:
-#                 NM_tag = -1
-#             identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-#             identity = float(identity) * 100
-#             is_reverse = read.is_reverse
-#             alignment_len = read.query_alignment_length
-#
-#             if not query_records.__contains__(query_name):
-#                 query_records[query_name] = []
-#             records = query_records[query_name]
-#             records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity))
-#             query_records[query_name] = records
-#
-#     for query_name in query_records.keys():
-#         records = query_records[query_name]
-#         freq = len(records)
-#         if freq == 1:
-#             single_mapped_repeatIds.append(query_name)
-#         elif freq <= 4:
-#             segmental_duplication_repeatIds.append(query_name)
-#         else:
-#             multi_mapping_repeatIds.append((query_name, freq))
-#     return single_mapped_repeatIds, multi_mapping_repeatIds, segmental_duplication_repeatIds
-#
-# def get_alignment_info_v1(sam_paths, repeats_file):
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-#
-#     unmapped_repeatIds = []
-#     single_mapped_repeatIds = []
-#     multi_mapping_repeatIds = []
-#     segmental_duplication_repeatIds = []
-#
-#     query_records = {}
-#     for sam_path in sam_paths:
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             if read.is_unmapped:
-#                 continue
-#             query_name = read.query_name
-#             reference_name = read.reference_name
-#             cigar = read.cigartuples
-#             cigarstr = read.cigarstring
-#             NM_tag = 0
-#             try:
-#                 NM_tag = read.get_tag('NM')
-#             except KeyError:
-#                 NM_tag = -1
-#             identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-#             identity = float(identity) * 100
-#             is_reverse = read.is_reverse
-#             alignment_len = read.query_alignment_length
-#
-#             if not query_records.__contains__(query_name):
-#                 query_records[query_name] = []
-#             records = query_records[query_name]
-#             records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity))
-#             query_records[query_name] = records
-#
-#     for query_name in query_records.keys():
-#         complete_alignment_num = 0
-#         high_identity_num = 0
-#         # other cigars all the same (except first one) are regarded as segmental duplication(LCR)
-#         # is_special_lcr = True
-#         # last_cigarstr = ''
-#         # first_cigarstr = ''
-#         for i, record in enumerate(query_records[query_name]):
-#             if i == 0:
-#                 continue
-#             cigar = record[2]
-#             cigarstr = str(record[3])
-#             alignment_len = record[5]
-#             identity = record[6]
-#             query_seq = repeat_contigs[query_name]
-#             query_len = len(query_seq)
-#             if float(alignment_len) / query_len >= 0.9 and identity >= 80:
-#                 complete_alignment_num += 1
-#                 if identity >= 90:
-#                     high_identity_num += 1
-#
-#         if complete_alignment_num == 0:
-#             single_mapped_repeatIds.append(query_name)
-#         elif complete_alignment_num > 0:
-#             # low copy number and all of them are high identicial, they are LCR
-#             # if complete_alignment_num < 4 and (high_identity_num >= len(query_records[query_name])-1):
-#             if complete_alignment_num < 5 and high_identity_num >= 1:
-#                 segmental_duplication_repeatIds.append(query_name)
-#             else:
-#                 multi_mapping_repeatIds.append(query_name)
-#         else:
-#             unmapped_repeatIds.append(query_name)
-#
-#     return unmapped_repeatIds, single_mapped_repeatIds, multi_mapping_repeatIds, segmental_duplication_repeatIds
-#
-# def get_alignment_info_v3(sam_paths, repeats_file):
-#     repeat_contignames, repeat_contigs = read_fasta(repeats_file)
-#     mapping_repeatIds = {}
-#     query_records = {}
-#     for sam_path in sam_paths:
-#         samfile = pysam.AlignmentFile(sam_path, "rb")
-#         for read in samfile.fetch():
-#             if read.is_unmapped:
-#                 continue
-#             query_name = read.query_name
-#             reference_name = read.reference_name
-#             cigar = read.cigartuples
-#             cigarstr = read.cigarstring
-#             NM_tag = 0
-#             try:
-#                 NM_tag = read.get_tag('NM')
-#             except KeyError:
-#                 NM_tag = -1
-#             identity = compute_identity(cigarstr, NM_tag, 'BLAST')
-#             identity = float(identity) * 100
-#             is_reverse = read.is_reverse
-#             alignment_len = read.query_alignment_length
-#             q_start = int(read.query_alignment_start)
-#             q_end = int(read.query_alignment_end)
-#             t_start = int(read.reference_start)
-#             t_end = int(read.reference_end)
-#
-#             if not query_records.__contains__(query_name):
-#                 query_records[query_name] = []
-#             records = query_records[query_name]
-#             records.append((query_name, reference_name, cigar, cigarstr, is_reverse, alignment_len, identity, t_start, t_end))
-#             query_records[query_name] = records
-#
-#     query_position = {}
-#     for query_name in query_records.keys():
-#         complete_alignment_num = 0
-#         high_identity_num = 0
-#         query_seq = repeat_contigs[query_name]
-#         query_len = len(query_seq)
-#         for i, record in enumerate(query_records[query_name]):
-#             reference_name = record[1]
-#             cigar = record[2]
-#             cigarstr = str(record[3])
-#             alignment_len = record[5]
-#             identity = record[6]
-#             t_start = record[7]
-#             t_end = record[8]
-#             if float(alignment_len) / query_len >= 0.8 and identity >= 80:
-#                 complete_alignment_num += 1
-#                 if identity >= 90:
-#                     high_identity_num += 1
-#             if t_start > t_end:
-#                 tmp = t_end
-#                 t_end = t_start
-#                 t_start = tmp
-#             if not query_position.__contains__(reference_name):
-#                 query_position[reference_name] = []
-#             same_chr_seq = query_position[reference_name]
-#             same_chr_seq.append((query_name, t_start, t_end))
-#             query_position[reference_name] = same_chr_seq
-#         mapping_repeatIds[query_name] = (complete_alignment_num, query_len)
-#     new_mapping_repeatIds = {k: v for k, v in sorted(mapping_repeatIds.items(), key=lambda item: (-item[1][1], -item[1][0]))}
-#
-#     return new_mapping_repeatIds, query_position
 
 def get_alignment_info_v2(blastn_output):
     unmapped_repeatIds = []
@@ -2781,32 +2128,6 @@ def get_candidate_repeats(reference, k_num, reduce_partitions_num, unique_kmer_m
                 new_repeat_item = (start_pos + repeat_item[0], start_pos + repeat_item[1], repeat_item[2])
                 new_repeat_list.append(new_repeat_item)
 
-    # jobs = []
-    # pool = multiprocessing.Pool(processes=reduce_partitions_num)
-    # for partiton_index in segments_cluster.keys():
-    #     cur_segments = segments_cluster[partiton_index]
-    #     #future = pool.map_async(generate_candidate_repeats_v2, iterable=args)
-    #     res = pool.apply_async(generate_candidate_repeats_v2, (cur_segments, k_num, unique_kmer_map, partiton_index, fault_tolerant_bases,))
-    #     jobs.append(res)
-    # pool.close()
-    # pool.join()
-    #
-    # repeat_dict = {}
-    # for res in jobs:
-    #     cur_repeat_dict = res.get()
-    #     for ref_name in cur_repeat_dict.keys():
-    #         parts = ref_name.split('$')
-    #         true_ref_name = parts[0]
-    #         start_pos = int(parts[1])
-    #         if not repeat_dict.__contains__(true_ref_name):
-    #             repeat_dict[true_ref_name] = []
-    #         new_repeat_list = repeat_dict[true_ref_name]
-    #         cur_repeat_list = cur_repeat_dict[ref_name]
-    #         for repeat_item in cur_repeat_list:
-    #             new_repeat_item = (start_pos + repeat_item[0], start_pos + repeat_item[1], repeat_item[2])
-    #             new_repeat_list.append(new_repeat_item)
-
-
     # store connected_repeats for testing
     repeat_dict_file = tmp_output_dir + '/repeat_dict.csv'
     with codecs.open(repeat_dict_file, 'w', encoding='utf-8') as f:
@@ -2979,8 +2300,9 @@ def TSDsearch_v3(orig_seq, tir_start, tir_end, tsd, plant):
 
 def TSDsearch_v2_bak(orig_seq, tir_start, tir_end, TSD_set, plant):
     plant = int(plant)
-    # 2->TA或者animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3' 或者是 （TAA或TTA）, 4-> TTAA,
-        # 2->TA或者animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3' 或者是 任意3bp(PIF-harbinger), 4-> TTAA,
+    # 2->TA or 5'-CCC...GGG-3' in animal/fungi, 3-> 5'-CACT(A/G)...(C/T)AGTG-3' in plants or (TAA or TTA), 4-> TTAA,
+    # 2->TA or 5'-CCC...GGG-3' in animal/fungi, 3-> 5'-CACT(A/G)...(C/T)AGTG-3' in plants or any 3bp (PIF-harbinger), 4-> TTAA,
+
     TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
     #TIR_seq = orig_seq[tir_start-1: tir_end]
     first_5bp = orig_seq[tir_start-1: tir_start+4]
@@ -3011,7 +2333,7 @@ def TSDsearch_v2_bak(orig_seq, tir_start, tir_end, TSD_set, plant):
 
 def TSDsearch_v2(orig_seq, tir_start, tir_end, TSD_set, plant):
     plant = int(plant)
-    # 2->TA或者animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3' 或者是 任意3bp(PIF-harbinger), 4-> TTAA,
+    # 2->TA or in animal/fungi 5'-CCC...GGG-3', 3-> in plants 5'-CACT(A/G)...(C/T)AGTG-3' or any 3bp (PIF-harbinger), 4-> TTAA,
     TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
     #TIR_seq = orig_seq[tir_start-1: tir_end]
     first_5bp = orig_seq[tir_start-1: tir_start+4]
@@ -3062,12 +2384,10 @@ def get_boundary_ungap_str(raw_align_seq, boundary_pos, search_len, direct):
     return ungap_str
 
 def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
-    # 根据多序列比对文件中的序列，判断其是否具有TSD，需要考虑'-'
     plant = int(plant)
-    # 2->TA或者animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3' 或者是 （TAA或TTA）, 4-> TTAA,
+    # 2->TA or animal/fungi 5'-CCC...GGG-3', 3-> plant 5'-CACT(A/G)...(C/T)AGTG-3' or （TAA或TTA）, 4-> TTAA,
     TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
 
-    # 取first 5bp
     direct = 'right'
     first_5bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_start, 5, direct)
     first_3bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_start, 3, direct)
@@ -3084,7 +2404,6 @@ def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
         right_tsd = get_boundary_ungap_str(raw_align_seq, cur_boundary_end+1, tsd_len, 'right')
         if len(left_tsd) != len(right_tsd) or len(left_tsd) != tsd_len:
             continue
-        #print(left_tsd, right_tsd)
         if left_tsd == right_tsd:
             if (tsd_len != 2 and tsd_len != 3 and tsd_len != 4) or (tsd_len == 4 and left_tsd == 'TTAA') \
                     or (tsd_len == 2 and (left_tsd == 'TA' or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG'))) \
@@ -3101,7 +2420,7 @@ def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
 
 
 def TSDsearch_ltr(orig_seq, ltr_start, ltr_end, TSD_set):
-    LTR_TSDs = [6, 5, 4]  # LTR:绝大部分是 5-'TG...CA-3'
+    LTR_TSDs = [6, 5, 4]  # LTR:most of them is 5-'TG...CA-3'
     #LTR_seq = orig_seq[ltr_start-1: ltr_end]
     first_2bp = orig_seq[ltr_start-1: ltr_start+1]
     last_2bp = orig_seq[ltr_end-2: ltr_end]
@@ -3115,7 +2434,6 @@ def TSDsearch_ltr(orig_seq, ltr_start, ltr_end, TSD_set):
                 right_tsd_seq = right_tsd
                 TSD_set.add((ltr_start - tsd_len, ltr_start - 1, left_tsd_seq, ltr_end + 1, ltr_end + tsd_len, right_tsd_seq,
                             ltr_start, ltr_end, ltr_end - ltr_start + 1))
-            #如果是TG..CA，允许TSD有1bp误差
             elif first_2bp == 'TG' and last_2bp == 'CA' and allow_mismatch(left_tsd, right_tsd, allow_mismatch_num):
                 left_tsd_seq = left_tsd
                 right_tsd_seq = right_tsd
@@ -3134,7 +2452,6 @@ def TSDsearch_ltr_v1(orig_seq, ltr_start, ltr_end, tsd_len):
         if left_tsd == right_tsd:
             left_tsd_seq = left_tsd
             right_tsd_seq = right_tsd
-        # 如果是TG..CA，允许TSD有1bp误差
         elif first_2bp == 'TG' and last_2bp == 'CA' and allow_mismatch(left_tsd, right_tsd, allow_mismatch_num):
             left_tsd_seq = left_tsd
             right_tsd_seq = right_tsd
@@ -3290,7 +2607,7 @@ def get_score_ltr(confident_LTR):
     return max_info
 
 def filter_dup_ltr(ltr_out, filter_dup_path):
-    # 综合考虑TSD len, tir len, TE len等多个因素
+    # Consideration is given to multiple factors such as TSD length, TIR length, and TE length.
     contignames, contigs = read_fasta_v1(ltr_out)
     filtered_contigs = {}
     for name in contignames:
@@ -3327,7 +2644,7 @@ def filter_dup_ltr(ltr_out, filter_dup_path):
     f_save.close()
 
 def filter_dup_itr(tir_out, filter_dup_path):
-    # 综合考虑TSD len, tir len, TE len等多个因素
+    # Consideration is given to multiple factors such as TSD length, TIR length, and TE length.
     contignames, contigs = read_fasta_v1(tir_out)
     filtered_contigs = {}
     for name in contignames:
@@ -3354,7 +2671,6 @@ def filter_dup_itr(tir_out, filter_dup_path):
     f_save.close()
 
 def filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum):
-    # 综合考虑拷贝数, TSD len等多个因素,占比(6/4)
     filtered_contigs = {}
     for name in cur_copies_out_contigs.keys():
         if seq_copynum.__contains__(name):
@@ -3377,7 +2693,6 @@ def filter_dup_itr_v1(cur_copies_out_contigs, seq_copynum):
     return res_contigs
 
 def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
-    # 综合考虑TSD TIR len等多个因素,占比(7/3)
     res_contigs = {}
     filtered_contigs = {}
     for name in cur_copies_out_contigs.keys():
@@ -3402,7 +2717,6 @@ def filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict):
 
 
 def filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict):
-    # 综合考虑TSD TIR len等多个因素,占比(7/3)
     res_contigs = {}
     min_distance = 100000
     min_distance_name = ''
@@ -3420,6 +2734,23 @@ def filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict):
     else:
         tir_len = TIR_len_dict[min_distance_name]
     new_name = orig_query_name + '-tir_' + str(tir_len) + '-tsd_' + str(tsd)
+    res_contigs[new_name] = cur_copies_out_contigs[min_distance_name]
+    return res_contigs
+
+def filter_dup_itr_v4(cur_copies_out_contigs):
+    res_contigs = {}
+    min_distance = 100000
+    min_distance_name = ''
+    for name in cur_copies_out_contigs.keys():
+        distance = int(name.split('-distance_')[1])
+        if distance < min_distance:
+            min_distance = distance
+            min_distance_name = name
+
+    parts = min_distance_name.split('-C_')
+    orig_query_name = parts[0]
+    tsd = parts[1].split('-tsd_')[1].split('-')[0]
+    new_name = orig_query_name + '-tsd_' + str(tsd)
     res_contigs[new_name] = cur_copies_out_contigs[min_distance_name]
     return res_contigs
 
@@ -3449,13 +2780,13 @@ def file_exist(resut_file):
 def run_remove_TR(target_file, trf_dir):
     if not os.path.exists(trf_dir):
         os.makedirs(trf_dir)
-    # 1. 对target file进行trf寻找串联重复
+    # 1. Use TRF to search for tandem repeats in the target file.
     trf_command = 'cd ' + trf_dir + ' && trf ' + target_file + ' 2 7 7 80 10 50 500 -f -d -m'
     os.system(trf_command + ' > /dev/null 2>&1')
 
     (repeat_dir, repeat_filename) = os.path.split(target_file)
     trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-    # 2. 去掉全N的序列
+    # 2. Remove sequences that consist entirely of 'N's.
     trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
     filter_contigs = {}
     for name in trf_contigNames:
@@ -3487,12 +2818,12 @@ def run_TRF(input, input_dir, tandem_region_cutoff, TE_type):
             if TE_type == 'ltr':
                 ltr_type = name.split('-')[1]
                 if ltr_type == 'LTR':
-                    # 提取序列的5'的100bp，然后判断是否是串联重复
+                    # Extract the 5' end of the sequence for 100bp, then determine if it is a tandem repeat.
                     start_seq = seq[0:100]
                     if float(start_seq.count('N')) / len(start_seq) >= tandem_region_cutoff:
                         continue
             elif TE_type == 'tir':
-                #提取序列的5'和3'的20bp，然后判断是否是串联重复
+                # Extract 20bp from both the 5' and 3' ends of the sequence, then determine if it is a tandem repeat.
                 start_seq = seq[0:20]
                 end_seq = seq[-20:]
                 if float(start_seq.count('N')) / len(start_seq) >= tandem_region_cutoff \
@@ -3786,13 +3117,12 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
         is_flank = False
         query_seq = query_contigs[query_name]
 
-        # 计算所有片段的支持拷贝数，边界只保留最长边界
+        # Calculate the number of supported copies of all fragments, and keep only the longest boundary.
         copies = []
         for query in longest_queries:
             is_copy = False
             for i in range(len(copies)-1, -1, -1):
                 copy = copies[i]
-                #计算overlap
                 if copy[0] <= query[1] and copy[0] >= query[0]:
                     overlap = query[1] - copy[0]
                 elif query[0] >= copy[0] and query[1] <= copy[1]:
@@ -3818,15 +3148,15 @@ def get_longest_repeats_v1(repeats_path, blast_program_dir, fixed_extend_base_th
 
         copies.sort(key=lambda x: -(x[1]-x[0]))
 
-        #合并序列片段TE
+        # Merge sequence fragments of TE.
         pure_copies = []
         for cur_copy in copies:
-            # 去掉copy[2] < 2 且不是全长拷贝的copies，没有其余的拷贝支持它是一个重复。
+            # Remove copies where copy[2] < 2 and it is not a full-length duplicate, without other copies supporting it as a repeat.
             if cur_copy[2] < 2 and float(cur_copy[1] - cur_copy[0]) / query_len < 0.95:
                 continue
             is_seg = False
             for i, pure_copy in enumerate(pure_copies):
-                # 因为真实的TE两端不会是重复，因此尽量取最长的边界
+                # Since the true TE ends are not repeats, try to take the longest boundary.
                 if cur_copy[0] >= pure_copy[0] and abs(cur_copy[1]-pure_copy[1]) < 50:
                     pure_copies[i] = (pure_copy[0], max(cur_copy[1], pure_copy[1]), pure_copy[2])
                     is_seg = True
@@ -4083,13 +3413,11 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
 
         query_seq = query_contigs[query_name]
 
-        # 计算所有片段的支持拷贝数，边界只保留最长边界
         copies = []
         for query in longest_queries:
             is_copy = False
             for i in range(len(copies)-1, -1, -1):
                 copy = copies[i]
-                #计算overlap
                 if copy[0] <= query[1] and copy[0] >= query[0]:
                     overlap = query[1] - copy[0]
                 elif query[0] >= copy[0] and query[1] <= copy[1]:
@@ -4115,15 +3443,12 @@ def get_longest_repeats_v2(repeat_file, merged_output, fixed_extend_base_thresho
 
         copies.sort(key=lambda x: -(x[1]-x[0]))
 
-        #合并序列片段TE
         pure_copies = []
         for cur_copy in copies:
-            # 去掉copy[2] < 2 且不是全长拷贝的copies，没有其余的拷贝支持它是一个重复。
             if cur_copy[2] < 2 and float(cur_copy[1] - cur_copy[0]) / query_len < 0.95:
                 continue
             is_seg = False
             for i, pure_copy in enumerate(pure_copies):
-                # 因为真实的TE两端不会是重复，因此尽量取最长的边界
                 if cur_copy[0] >= pure_copy[0] and abs(cur_copy[1]-pure_copy[1]) < 50:
                     pure_copies[i] = (pure_copy[0], max(cur_copy[1], pure_copy[1]), pure_copy[2])
                     is_seg = True
@@ -4424,15 +3749,12 @@ def get_longest_repeats_v3(repeats_path, fixed_extend_base_threshold, max_single
 
         copies.sort(key=lambda x: -(x[1]-x[0]))
 
-        #合并序列片段TE
         pure_copies = []
         for cur_copy in copies:
-            # 去掉copy[2] < 2 且不是全长拷贝的copies，没有其余的拷贝支持它是一个重复。
             # if cur_copy[2] < 2 and float(cur_copy[1] - cur_copy[0]) / query_len < 0.95:
             #     continue
             is_seg = False
             for i, pure_copy in enumerate(pure_copies):
-                # 因为真实的TE两端不会是重复，因此尽量取最长的边界
                 if cur_copy[0] >= pure_copy[0] and abs(cur_copy[1]-pure_copy[1]) < 50:
                     pure_copies[i] = (pure_copy[0], max(cur_copy[1], pure_copy[1]), pure_copy[2])
                     is_seg = True
@@ -4486,7 +3808,8 @@ def get_alignment_records(repeats_path):
     return blastn2Results_path
 
 def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_single_repeat_len, chr_pos_candidates, debug):
-    # 这个函数的目的，其实是根据比对信息，找到可能的候选重复序列
+    # The purpose of this function is actually to find possible
+    # candidate repeat sequences according to the comparison information.
     # longest_repeats -> {'chr1:100-1000': seq, }
     longest_repeats = {}
     for idx, query_name in enumerate(query_records.keys()):
@@ -4494,11 +3817,10 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
 
         longest_queries = []
         for subject_name in subject_dict.keys():
-            #我们判断每个subject上的比对是否可以合并
+            #judge whether the alignments on each subject can be merged.
             subject_pos = subject_dict[subject_name]
             # subject_pos.sort(key=lambda x: (x[2], x[3]))
 
-            # 下面的代码是把所有临近的比对位置都聚合成簇
             # cluster all closed fragments, split forward and reverse records
             forward_pos = []
             reverse_pos = []
@@ -4555,7 +3877,6 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
                         cur_cluster = clusters[cluster_index]
                         cur_cluster.append(frag)
 
-            # 在聚集起来的簇中，对相邻的比对进行扩增
             for cluster_index in clusters.keys():
                 cur_cluster = clusters[cluster_index]
                 cur_cluster.sort(key=lambda x: (x[0], x[1]))
@@ -4631,8 +3952,6 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
                                                 cur_longest_query_len, longest_subject_start,
                                                 longest_subject_end, longest_subject_end - longest_subject_start, subject_name, cur_extend_num))
 
-        # 取所有可能的重复区，按照（染色体：start-end）进行编号，并记录下来，对于再次重复的序列，不再保存以减少后续计算量。
-        # 即每个重复片段只保留一次
         parts = query_name.split('$')
         query_chr_name = parts[0]
         query_chr_start = int(parts[1])
@@ -4640,7 +3959,6 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
         query_repeatNames = []
         query_repeats = {}
         for repeat in longest_queries:
-            # Subject序列处理流程
             subject_name = repeat[6]
             parts = subject_name.split('$')
             subject_chr_name = parts[0]
@@ -4650,10 +3968,8 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
             old_subject_end_pos = repeat[4]
             subject_start_pos = subject_chr_start + old_subject_start_pos
             subject_end_pos = subject_chr_start + old_subject_end_pos
-            # 记录下这个片段对应的染色体坐标
             subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
 
-            # Query序列处理流程
             old_query_start_pos = repeat[0] - 1
             old_query_end_pos = repeat[1]
 
@@ -4669,7 +3985,6 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
                 chr_pos_candidates[query_pos] = 1
                 chr_pos_candidates[subject_pos] = 1
 
-        # 对query_repeats进行合并,overlap超过95%，则丢弃
         merge_contigNames = process_all_seqs(query_repeatNames)
         for query_pos in merge_contigNames:
             longest_repeats[query_pos] = query_repeats[query_pos]
@@ -4679,7 +3994,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
     split_repeats_path = repeats_path[0]
     target_files = repeats_path[1]
     blastn2Results_path = repeats_path[2]
-    tmp_blast_dir = repeats_path[3]
 
     subject_contigs = {}
     for i, cur_target in enumerate(target_files):
@@ -4692,9 +4006,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
         os.system(align_command)
         cur_subject_names, cur_subject_contigs = read_fasta(cur_target)
         subject_contigs.update(cur_subject_contigs)
-
-
-    query_names, query_contigs = read_fasta(split_repeats_path)
 
     # parse blastn output, determine the repeat boundary
     # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
@@ -4711,7 +4022,7 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
             q_end = int(parts[7])
             s_start = int(parts[8])
             s_end = int(parts[9])
-            if identity < 80 or (query_name==subject_name and q_start==s_start and q_end==s_end):
+            if (query_name==subject_name and q_start==s_start and q_end==s_end):
                 continue
             if not query_records.__contains__(query_name):
                 query_records[query_name] = {}
@@ -4723,10 +4034,11 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
             subject_pos.append((q_start, q_end, s_start, s_end))
     f_r.close()
 
+    skip_gap = fixed_extend_base_threshold
     keep_longest_query = {}
     # longest_repeats -> {'chr1:100-1000': seq, }
     longest_repeats = {}
-    # 记录所有可能的整数位置，例如chr1, start:98, end: 995，会得到下面这四种位置坐标
+    # Recording all possible integer positions, for example, chr1, start: 98, end: 995, will yield the following four coordinate sets:
     # chr_pos_candidates -> {'chr1:90-990': 1, 'chr1:90-1000': 1, 'chr1:100-990': 1, 'chr1:100-1000': 1}
     chr_pos_candidates = {}
     for idx, query_name in enumerate(query_records.keys()):
@@ -4760,7 +4072,11 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                 else:
                     is_closed = False
                     for exist_frag in reversed(cur_cluster):
-                        if (frag[2] - exist_frag[3] < fixed_extend_base_threshold and frag[1] > exist_frag[1]):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (cur_subject_start - prev_subject_end < skip_gap and cur_query_end > prev_query_end):
                             is_closed = True
                             break
                     if is_closed:
@@ -4782,7 +4098,11 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                 else:
                     is_closed = False
                     for exist_frag in reversed(cur_cluster):
-                        if (exist_frag[3] - frag[2] < fixed_extend_base_threshold and frag[1] > exist_frag[1]):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (prev_subject_end - cur_subject_start < skip_gap and cur_query_end > prev_query_end):
                             is_closed = True
                             break
                     if is_closed:
@@ -4803,125 +4123,138 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                 visited_frag = {}
                 for i in range(len(cur_cluster)):
                     # keep a longest query start from each fragment
-                    origin_frag = cur_cluster[i]
-                    if visited_frag.__contains__(origin_frag):
+                    prev_frag = cur_cluster[i]
+                    if visited_frag.__contains__(prev_frag):
                         continue
-                    cur_frag_len = origin_frag[1] - origin_frag[0]
-                    cur_longest_query_len = cur_frag_len
-                    longest_query_start = origin_frag[0]
-                    longest_query_end = origin_frag[1]
-                    longest_subject_start = origin_frag[2]
-                    longest_subject_end = origin_frag[3]
+                    prev_query_start = prev_frag[0]
+                    prev_query_end = prev_frag[1]
+                    prev_subject_start = prev_frag[2]
+                    prev_subject_end = prev_frag[3]
+                    prev_query_seq = (min(prev_query_start, prev_query_end), max(prev_query_start, prev_query_end))
+                    prev_subject_seq = (
+                    min(prev_subject_start, prev_subject_end), max(prev_subject_start, prev_subject_end))
+                    prev_query_len = abs(prev_query_end - prev_query_start)
+                    prev_subject_len = abs(prev_subject_end - prev_subject_start)
+                    cur_longest_query_len = prev_query_len
 
                     cur_extend_num = 0
-
-                    visited_frag[origin_frag] = 1
+                    visited_frag[prev_frag] = 1
                     # try to extend query
                     for j in range(i + 1, len(cur_cluster)):
-                        ext_frag = cur_cluster[j]
-                        if visited_frag.__contains__(ext_frag):
+                        cur_frag = cur_cluster[j]
+                        if visited_frag.__contains__(cur_frag):
                             continue
+                        cur_query_start = cur_frag[0]
+                        cur_query_end = cur_frag[1]
+                        cur_subject_start = cur_frag[2]
+                        cur_subject_end = cur_frag[3]
+                        cur_query_seq = (min(cur_query_start, cur_query_end), max(cur_query_start, cur_query_end))
+                        cur_subject_seq = (
+                        min(cur_subject_start, cur_subject_end), max(cur_subject_start, cur_subject_end))
+                        cur_query_len = abs(cur_query_end - cur_query_start)
+                        cur_subject_len = abs(cur_subject_end - cur_subject_start)
+
+                        query_overlap_len = get_overlap_len(cur_query_seq, prev_query_seq)
+                        is_same_query = float(query_overlap_len) / cur_query_len >= 0.5 or float(
+                            query_overlap_len) / prev_query_len >= 0.5
+                        subject_overlap_len = get_overlap_len(prev_subject_seq, cur_subject_seq)
+                        is_same_subject = float(subject_overlap_len) / cur_subject_len >= 0.5 or float(
+                            subject_overlap_len) / prev_subject_len >= 0.5
 
                         # could extend
                         # extend right
-                        if ext_frag[1] > longest_query_end:
+                        if cur_query_end > prev_query_end:
                             # judge subject direction
-                            if longest_subject_start < longest_subject_end and ext_frag[2] < ext_frag[3]:
+                            if prev_subject_start < prev_subject_end and cur_subject_start < cur_subject_end:
                                 # +
-                                if ext_frag[3] > longest_subject_end:
+                                if cur_subject_end > prev_subject_end:
                                     # forward extend
-                                    if ext_frag[0] - longest_query_end < fixed_extend_base_threshold and ext_frag[
-                                        2] - longest_subject_end < fixed_extend_base_threshold:
+                                    if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and cur_subject_start - prev_subject_end < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
                                         # update the longest path
-                                        longest_query_start = longest_query_start
-                                        longest_query_end = ext_frag[1]
-                                        longest_subject_start = longest_subject_start if longest_subject_start < \
-                                                                                         ext_frag[
-                                                                                             2] else ext_frag[2]
-                                        longest_subject_end = ext_frag[3]
-                                        cur_longest_query_len = longest_query_end - longest_query_start
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start < cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
                                         cur_extend_num += 1
-                                        visited_frag[ext_frag] = 1
-                                    elif ext_frag[0] - longest_query_end >= fixed_extend_base_threshold:
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
                                         break
-                            elif longest_subject_start > longest_subject_end and ext_frag[2] > ext_frag[3]:
+                            elif prev_subject_start > prev_subject_end and cur_subject_start > cur_subject_end:
                                 # reverse
-                                if ext_frag[3] < longest_subject_end:
+                                if cur_subject_end < prev_subject_end:
                                     # reverse extend
-                                    if ext_frag[
-                                        0] - longest_query_end < fixed_extend_base_threshold and longest_subject_end - \
-                                            ext_frag[2] < fixed_extend_base_threshold:
+                                    if cur_query_end - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and prev_subject_end - cur_subject_start < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
                                         # update the longest path
-                                        longest_query_start = longest_query_start
-                                        longest_query_end = ext_frag[1]
-                                        longest_subject_start = longest_subject_start if longest_subject_start > \
-                                                                                         ext_frag[
-                                                                                             2] else ext_frag[2]
-                                        longest_subject_end = ext_frag[3]
-                                        cur_longest_query_len = longest_query_end - longest_query_start
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start > cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
                                         cur_extend_num += 1
-                                        visited_frag[ext_frag] = 1
-                                    elif ext_frag[0] - longest_query_end >= fixed_extend_base_threshold:
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
                                         break
                     # keep this longest query
                     if cur_longest_query_len != -1:
-                        longest_queries.append((longest_query_start, longest_query_end,
-                                                cur_longest_query_len, longest_subject_start,
-                                                longest_subject_end, longest_subject_end - longest_subject_start, subject_name, cur_extend_num))
+                        longest_queries.append(
+                            (prev_query_start, prev_query_end, cur_longest_query_len, prev_subject_start,
+                             prev_subject_end, abs(prev_subject_end - prev_subject_start), subject_name,
+                             cur_extend_num))
 
-
-        # 取所有可能得重复区，按照（染色体：start-end）进行编号，并记录下来，对于再次重复的序列，不再保存以减少后续计算量。
-        # 即每个重复片段只保留一次
+        # Retrieve all possible repetitive regions, label them by (chromosome:start-end), and record them.
+        # For sequences that are repeated again, refrain from saving them again to reduce subsequent computational load.
+        # In other words, each repetitive segment is kept only once.
         parts = query_name.split('$')
         query_chr_name = parts[0]
         query_chr_start = int(parts[1])
 
-        query_seq = query_contigs[query_name]
-
         query_repeatNames = []
         query_repeats = {}
         for repeat in longest_queries:
-            # Subject序列处理流程
+            # Subject
             subject_name = repeat[6]
-            #subject_seq = subject_contigs[subject_name]
             parts = subject_name.split('$')
             subject_chr_name = parts[0]
             subject_chr_start = int(parts[1])
 
             old_subject_start_pos = repeat[3] - 1
             old_subject_end_pos = repeat[4]
-            #cur_subject_seq = subject_seq[old_subject_start_pos: old_subject_end_pos]
             subject_start_pos = subject_chr_start + old_subject_start_pos
             subject_end_pos = subject_chr_start + old_subject_end_pos
 
-            # 对位置坐标取10的整数，例如567，我们得到两个数560和570.
+            # Rounding the positional coordinates to the nearest multiple of 10,
+            # for example, 567, we obtain two numbers: 560 and 570.
             subject_start_pos1, subject_start_pos2 = get_integer_pos(subject_start_pos)
             subject_end_pos1, subject_end_pos2 = get_integer_pos(subject_end_pos)
-            # 记录下这个片段对应的染色体坐标
+            # Record the chromosomal coordinates corresponding to this segment.
             subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
             subject_pos1 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos1)
             subject_pos2 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos2)
             subject_pos3 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos1)
             subject_pos4 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos2)
 
-            # Query序列处理流程
+            # Query
             old_query_start_pos = repeat[0] - 1
             old_query_end_pos = repeat[1]
-            cur_query_seq = query_seq[old_query_start_pos: old_query_end_pos]
             query_start_pos = query_chr_start + old_query_start_pos
             query_end_pos = query_chr_start + old_query_end_pos
+            cur_query_seq_len = abs(old_query_end_pos - old_query_start_pos)
 
-            # 对位置坐标取10的整数，例如567，我们得到两个数560和570.
             query_start_pos1, query_start_pos2 = get_integer_pos(query_start_pos)
             query_end_pos1, query_end_pos2 = get_integer_pos(query_end_pos)
-            # 记录下这个片段对应的染色体坐标
+
             query_pos = query_chr_name + ':' + str(query_start_pos) + '-' + str(query_end_pos)
             query_pos1 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos1)
             query_pos2 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos2)
             query_pos3 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos1)
             query_pos4 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos2)
 
-            # 判断这条序列是否已经存下了，如果没有，则记录下这个subject片段的序列
+            # Determine if this sequence has already been saved. If not, record the sequence of this subject segment.
             if not chr_pos_candidates.__contains__(subject_pos1) \
                     and not chr_pos_candidates.__contains__(subject_pos2) \
                     and not chr_pos_candidates.__contains__(subject_pos3) \
@@ -4931,9 +4264,9 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
                     and not chr_pos_candidates.__contains__(query_pos3) \
                     and not chr_pos_candidates.__contains__(query_pos4):
 
-                if len(cur_query_seq) >= 80 and len(cur_query_seq) < max_single_repeat_len:
+                if cur_query_seq_len >= 80 and cur_query_seq_len < max_single_repeat_len:
                     query_repeatNames.append(query_pos)
-                    query_repeats[query_pos] = cur_query_seq
+                    query_repeats[query_pos] = 1
 
             chr_pos_candidates[subject_pos1] = 1
             chr_pos_candidates[subject_pos2] = 1
@@ -4944,33 +4277,155 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
             chr_pos_candidates[query_pos3] = 1
             chr_pos_candidates[query_pos4] = 1
 
-        # 对query_repeats进行合并,overlap超过95%，则丢弃
+        # Merging query repeats, if the overlap exceeds 95%, then discard.
         merge_contigNames = process_all_seqs(query_repeatNames)
         for name in merge_contigNames:
             longest_repeats[name] = query_repeats[name]
     return longest_repeats, keep_longest_query, blastn2Results_path
 
 def get_overlap_len(seq1, seq2):
-    """计算两个序列的重叠长度"""
+    """Calculate the overlap length between two sequences."""
     overlap_len = min(seq1[1], seq2[1]) - max(seq1[0], seq2[0])
     return overlap_len if overlap_len > 0 else 0
 
+def get_gap_len(seq1, seq2):
+    """Calculate the gap length between two sequences."""
+    gap_len = max(seq1[0], seq2[0]) - min(seq1[1], seq2[1])
+    return gap_len if gap_len > 0 else 0
+
+def get_chr_pos(query_name, subject_name, query_frag, subject_frag):
+    parts = query_name.split('$')
+    query_chr_name = parts[0]
+    query_chr_start = int(parts[1])
+    old_query_start_pos = query_frag[0] - 1
+    old_query_end_pos = query_frag[1]
+    query_start_pos = query_chr_start + old_query_start_pos
+    query_end_pos = query_chr_start + old_query_end_pos
+    query_pos = query_chr_name + ':' + str(query_start_pos) + '-' + str(query_end_pos)
+    # Record the chromosomal coordinates corresponding to the subject segment.
+    parts = subject_name.split('$')
+    subject_chr_name = parts[0]
+    subject_chr_start = int(parts[1])
+    old_subject_start_pos = subject_frag[0] - 1
+    old_subject_end_pos = subject_frag[1]
+    subject_start_pos = subject_chr_start + old_subject_start_pos
+    subject_end_pos = subject_chr_start + old_subject_end_pos
+    subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+    return query_pos, subject_pos
+
+def merge_same_fragments(all_fragments):
+    combine_repeats = {}
+    longest_repeats = {}
+    merged_fragments = {}
+    for query_name in all_fragments.keys():
+        if not combine_repeats.__contains__(query_name):
+            combine_repeats[query_name] = []
+        cur_combine_repeats = combine_repeats[query_name]
+
+        if not longest_repeats.__contains__(query_name):
+            longest_repeats[query_name] = []
+        cur_longest_repeats = longest_repeats[query_name]
+
+        if not merged_fragments.__contains__(query_name):
+            merged_fragments[query_name] = []
+        cur_merge_fragments = merged_fragments[query_name]
+
+        cur_query_fragments = list(all_fragments[query_name])
+
+        cur_query_fragments.sort(key=lambda x: (x[0], x[1]))
+
+        keep_fragments_clusters = []
+        # Maintain the maximum end of a keep fragments.
+        # If the start of the current fragment is greater than the current maximum end,
+        # it means that the current fragment cannot overlap with the reserved fragment, so skip.
+        keep_frag_max_end = 0
+        for i, cur_frag in enumerate(cur_query_fragments):
+            is_merge = False
+            for j, cluster in reversed(list(enumerate(keep_fragments_clusters))):
+                for prev_frag in cluster:
+                    # judge the max end of the current fragment and the saved fragment,
+                    # and when the start of the current fragment > max end, there is no overlap.
+                    if cur_frag[0] > keep_frag_max_end:
+                        break
+                    overlap_len = get_overlap_len(prev_frag, cur_frag)
+                    if overlap_len / abs(prev_frag[1] - prev_frag[0]) >= 0.95 or overlap_len / abs(cur_frag[1] - cur_frag[0]) >= 0.95:
+                        is_merge = True
+                        # Update the max end corresponding to the currently saved fragment.
+                        if cur_frag[1] > keep_frag_max_end:
+                            keep_frag_max_end = cur_frag[1]
+                        break
+                if is_merge:
+                    # update the overlap_sum of all fragments in current cluster
+                    total_consensus_score = 0
+                    total_count = 0
+                    for prev_frag in cluster:
+                        overlap_len = get_overlap_len(prev_frag, cur_frag)
+                        coverage_prev_frag = float(overlap_len) / abs(prev_frag[1] - prev_frag[0])
+                        coverage_cur_frag = float(overlap_len) / abs(cur_frag[1] - cur_frag[0])
+                        if coverage_prev_frag >= 0.95 and coverage_cur_frag >= 0.95:
+                            consensus_score = 1 - abs(coverage_cur_frag - coverage_prev_frag)
+                            prev_frag[2] += consensus_score
+                            prev_frag[3] += 1
+                            total_count += 1
+                        else:
+                            consensus_score = 0
+                        total_consensus_score += consensus_score
+                    # add into current cluster
+                    cluster.append([cur_frag[0], cur_frag[1], total_consensus_score, total_count])
+                    break
+            if not is_merge:
+                # Add the current fragment to the new cluster and set overlap_sum to 0.
+                keep_fragments_clusters.append([[cur_frag[0], cur_frag[1], 0, 0]])
+                # Save the max end corresponding to the current saved fragment.
+                if cur_frag[1] > keep_frag_max_end:
+                    keep_frag_max_end = cur_frag[1]
+        # Since we cannot determine if the highest scoring sequence represents the true boundary or
+        # if the longest sequence represents the true boundary, we retain both.
+        for cluster in keep_fragments_clusters:
+            #print(cluster)
+            max_longest_length = -1
+            longest_repeat_frag = None
+            max_consensus_score = -1
+            max_consensus_frag = None
+            for frag in cluster:
+                if frag[2] > max_consensus_score:
+                    max_consensus_frag = frag
+                    max_consensus_score = frag[2]
+                frag_len = abs(frag[1]-frag[0])
+                if frag_len > max_longest_length:
+                    longest_repeat_frag = frag
+                    max_longest_length = frag_len
+            if max_consensus_frag is not None:
+                cur_merge_fragments.append(max_consensus_frag)
+            if longest_repeat_frag is not None:
+                cur_longest_repeats.append(longest_repeat_frag)
+            # If the coverage between max_consensus_frag and longest_repeat_frag does not exceed 95%, both are kept.
+            overlap_len = get_overlap_len(max_consensus_frag, longest_repeat_frag)
+            max_consensus_frag_coverage = float(overlap_len) / abs(max_consensus_frag[1] - max_consensus_frag[0])
+            longest_repeat_frag_coverage = float(overlap_len) / abs(longest_repeat_frag[1] - longest_repeat_frag[0])
+            if max_consensus_frag_coverage >= 0.95 and longest_repeat_frag_coverage >= 0.95:
+                cur_combine_repeats.append(max_consensus_frag)
+            else:
+                cur_combine_repeats.append(max_consensus_frag)
+                cur_combine_repeats.append(longest_repeat_frag)
+    return merged_fragments, longest_repeats, combine_repeats
+
 def process_seq_group(seq_group):
-    seq_group.sort(key=lambda x: x[1] - x[0], reverse=True) # 按照长度排序
-    keep_seq = [True] * len(seq_group)  # 存储每条序列是否应该被保留的布尔值列表
+    seq_group.sort(key=lambda x: x[1] - x[0], reverse=True) # Sort by length.
+    keep_seq = [True] * len(seq_group)  # Store a boolean list indicating whether each sequence should be retained.
     for i in range(len(seq_group)):
-        if not keep_seq[i]:  # 如果当前序列已经被判定为需要被删除，跳过
+        if not keep_seq[i]:  # If the current sequence has been marked for deletion, skip it.
             continue
         seq1 = seq_group[i]
         for j in range(i + 1, len(seq_group)):
-            if not keep_seq[j]:  # 如果下一条序列已经被判定为需要被删除，跳过
+            if not keep_seq[j]:  # If the next sequence has been marked for deletion, skip it.
                 continue
             seq2 = seq_group[j]
-            # 判断当前序列是否与下一条序列有95%以上的Overlap
+            # Check if the current sequence has over 95% overlap with the next sequence.
             overlap_len = get_overlap_len(seq2, seq1)
             if overlap_len / (seq2[1] - seq2[0]) >= 0.95:
-                keep_seq[j] = False  # 将下一条序列标记为需要被删除
-    # 返回被保留的序列
+                keep_seq[j] = False  # Mark the next sequence for deletion.
+    # Return the retained sequences.
     # filter_res = [seq for i, seq in enumerate(seq_group) if keep_seq[i]]
     # filter_res.sort(key=lambda x: (x[0], x[1]))
     # res = [seq[2] for i, seq in enumerate(filter_res)]
@@ -4978,7 +4433,6 @@ def process_seq_group(seq_group):
     return res
 
 def process_all_seqs(seq_list):
-    """对所有序列进行处理"""
     seq_dict = {}
     for seq in seq_list:
         chrom, pos = seq.split(":")
@@ -4992,16 +4446,16 @@ def process_all_seqs(seq_list):
         result.extend(process_seq_group(seq_group))
     return result
 
-#对位置坐标取10的整数，例如567，我们得到两个数560和570.
+# Take the position coordinate as an integer of 10, such as 567, and we get two numbers 560 and 570.
 def get_integer_pos(x):
-    y = (x // 10) * 10  # 取整到10的整数倍
+    y = (x // 10) * 10
     z = y + 10
     return y, z
 
 def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
-    # 1. 将cons进行划分，每一块利用blastx -num_threads 1 -evalue 1e-20 进行cons与domain进行比对
+    # 1. blastx -num_threads 1 -evalue 1e-20
     partitions_num = int(threads)
     consensus_contignames, consensus_contigs = read_fasta(cons)
     data_partitions = PET(consensus_contigs.items(), partitions_num)
@@ -5021,7 +4475,7 @@ def get_domain_info(cons, lib, output_table, threads, temp_dir):
         jobs.append(job)
     ex.shutdown(wait=True)
 
-    # 2. 生成一个query与domain的最佳比对表
+    # 2. generate table of query and domain
     os.system("echo 'TE_name\tdomain_name\tTE_start\tTE_end\tdomain_start\tdomain_end\n' > " + output_table)
     for job in as_completed(jobs):
         cur_table = job.result()
@@ -5033,8 +4487,6 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
     flanked_contigs = {}
     node_index = 0
     for name in seq_names:
-        # if name.__contains__('ref_chr_0-15195596-15461482'):
-        #     print('here')
         # chr_0:10023581-10023756
         ref_info = name.split(':')
         ref_name = ref_info[0]
@@ -5051,504 +4503,86 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
         flanked_contigs[new_name] = flanked_seq
     store_fasta(flanked_contigs, longest_repeats_flanked_path)
 
-def determine_repeat_boundary_v1(repeats_path, longest_repeats_path, blast_program_dir,
-                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads):
+def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold,
+                                 max_single_repeat_len, tmp_output_dir, threads, ref_index, reference, is_prev_mask, debug):
     repeatNames, repeatContigs = read_fasta(repeats_path)
-    # parallel
-    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
+    tmp_blast_dir = tmp_output_dir + '/trf_filter_'+str(ref_index)
     os.system('rm -rf ' + tmp_blast_dir)
     if not os.path.exists(tmp_blast_dir):
         os.makedirs(tmp_blast_dir)
 
-    #(repeat_dir, repeat_filename) = os.path.split(repeats_path)
-
-    # makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + repeats_path + ' > /dev/null 2>&1'
-    # os.system(makedb_command)
-
-    ## before method
-    # repeat_files = []
-    # data_partitions = PET(list(repeatContigs.items()), threads)
-    # for partition_index, data_partition in enumerate(data_partitions):
-    #     single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
-    #     if not os.path.exists(single_tmp_dir):
-    #         os.makedirs(single_tmp_dir)
-    #     split_repeat_file = single_tmp_dir + '/repeats_split.fa'
-    #     store2file(data_partition, split_repeat_file)
-    #     repeat_files.append((split_repeat_file, repeats_path,
-    #                          single_tmp_dir + '/repeat.pairwise.out'))
-
-    # 2022-12-22 method
-    # repeats.fa通常会有几十上百M，只对query切割进行比对还是会有某个query的输出占据几个G的情况，有可能会导致内存溢出。
-    # 因此我们对query和subject同时进行切分比对，完成后将query对应的output合并
-    data_partitions = PET(list(repeatContigs.items()), threads)
-    for partition_index, data_partition in enumerate(data_partitions):
-        subject_tmp_dir = tmp_blast_dir + '/subject'
-        if not os.path.exists(subject_tmp_dir):
-            os.makedirs(subject_tmp_dir)
-        split_subject_file = subject_tmp_dir + '/' + str(partition_index) + '.fa'
-        store2file(data_partition, split_subject_file)
-
-        makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + split_subject_file + ' > /dev/null 2>&1'
-        os.system(makedb_command)
-
-
-    repeat_files = []
+    # We found that the main reason for the memory spike in blastn alignment is the presence of numerous short tandem repeats, leading to complex alignments.
+    # Since STRs are not our target, we should preprocess and filter out this part of the data.
+    # Use TRF to remove tandem repeats from target files.
+    # Sequence alignment consumes a significant amount of memory and disk space. Therefore, we also split the target sequences into individual sequences to reduce the memory required for each alignment, avoiding out of memory errors.
+    # It is important to calculate the total number of bases in the sequences, and it must meet a sufficient threshold to increase CPU utilization.
+    # 1. Split the sequences into 1Mb files to reduce TRF execution time.
+    base_threshold = 1000000 #1Mb
+    all_files = []
     file_index = 0
-    cur_seq_index = 0
+    base_count = 0
     cur_contigs = {}
     for name in repeatNames:
-        cur_contigs[name] = repeatContigs[name]
-        cur_seq_index += 1
-        # 获取query_name中包含的染色体名称
-        # parts = name.split('-s_')[1].split('-')
-        # chr_name = parts[0]
-
-        if cur_seq_index >= 10:
-            split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-            store_fasta(cur_contigs, split_repeat_file)
-            output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
+        cur_seq = repeatContigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
+            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+            cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
+            store_fasta(cur_contigs, cur_target)
+            all_files.append((cur_target, cur_trf))
             cur_contigs = {}
             file_index += 1
-            cur_seq_index = 0
+            base_count = 0
     if len(cur_contigs) > 0:
-        split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-        store_fasta(cur_contigs, split_repeat_file)
-        output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, repeats_path, output_file, tmp_blast_dir))
+        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+        cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
+        store_fasta(cur_contigs, cur_target)
+        all_files.append((cur_target, cur_trf))
 
     ex = ProcessPoolExecutor(threads)
-    longest_repeats = {}
-    keep_longest_query = {}
     jobs = []
-    for file in repeat_files:
-        #为了减少内存，只传递需要的reference sequence
-        job = ex.submit(get_longest_repeats_v1, file, blast_program_dir, fixed_extend_base_threshold,
-                        max_single_repeat_len, threads)
+    for file in all_files:
+        cur_target = file[0]
+        cur_trf = file[1]
+        job = ex.submit(run_remove_TR, cur_target, cur_trf)
         jobs.append(job)
     ex.shutdown(wait=True)
 
+    filter_tandem_file = tmp_output_dir + '/filter_tandem_' + str(ref_index) + '.fa'
+    if os.path.exists(filter_tandem_file):
+        os.system('rm -f ' + filter_tandem_file)
     for job in as_completed(jobs):
-        cur_longest_repeats, cur_keep_longest_query = job.result()
-        for query_name in cur_longest_repeats.keys():
-            longest_repeats[query_name] = cur_longest_repeats[query_name]
-        for query_name in cur_keep_longest_query.keys():
-            keep_longest_query[query_name] = cur_keep_longest_query[query_name]
+        cur_target_file = job.result()
+        os.system('cat ' + cur_target_file + ' >> ' + filter_tandem_file)
 
-    # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
-    # with open(longest_repeats_file, 'w') as f_save:
-    #     for query_name in keep_longest_query.keys():
-    #         longest_queries = keep_longest_query[query_name]
-    #         for query in longest_queries:
-    #             f_save.write(query_name+'\t'+str(query[0])+'\t'+str(query[1])+'\t'+str(query[2])+'\t'+str(query[3])+'\t'+str(query[4])+'\n')
-
-    # # store longest_repeats for testing
-    # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
-    # with codecs.open(longest_repeats_file, 'w', encoding='utf-8') as f:
-    #     json.dump(longest_repeats, f)
-
-    node_index = 0
-    with open(longest_repeats_path, 'w') as f_save:
-        for query_name in longest_repeats.keys():
-            seqs_tuples = longest_repeats[query_name]
-            for longest_seq in seqs_tuples:
-                # orig_start_pos = longest_seq[0]
-                # orig_end_pos = longest_seq[1]
-                # chr_name = longest_seq[2]
-                # seq_ref_start = longest_seq[3]
-                # seq_ref_end = longest_seq[4]
-                seq = longest_seq[5]
-                # 如果有连续10个以上的N过滤掉
-                if len(seq) >= 100 and not seq.__contains__('NNNNNNNNNN'):
-                    f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) + '\n' + seq + '\n')
-                    # f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
-                    #              '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
-                    node_index += 1
-    f_save.close()
-    return longest_repeats_path
-
-def determine_repeat_boundary_v2(repeats_path, longest_repeats_path, blast_program_dir,
-                                 fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads):
-    repeatNames, repeatContigs = read_fasta(repeats_path)
-    # parallel
-    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast'
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
-
-    # 2022-12-22 method
-    # repeats.fa通常会有几十上百M，只对query切割进行比对还是会有某个query的输出占据几个G的情况，有可能会导致内存溢出。
-    # 因此我们对query和subject同时进行切分比对，完成后将query对应的output合并
-    subject_list = []
-    subject_tmp_dir = tmp_blast_dir + '/subject'
-    if not os.path.exists(subject_tmp_dir):
-        os.makedirs(subject_tmp_dir)
-    data_partitions = PET(list(repeatContigs.items()), threads)
-    for partition_index, data_partition in enumerate(data_partitions):
-        split_subject_file = subject_tmp_dir + '/' + str(partition_index) + '.fa'
-        store2file(data_partition, split_subject_file)
-        subject_list.append(split_subject_file)
-        makedb_command = blast_program_dir + '/bin/makeblastdb -dbtype nucl -in ' + split_subject_file + ' > /dev/null 2>&1'
-        os.system(makedb_command)
-
-
-    repeat_files = []
-    file_index = 0
-    cur_seq_index = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_contigs[name] = repeatContigs[name]
-        cur_seq_index += 1
-
-        if cur_seq_index >= 10:
-            split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-            store_fasta(cur_contigs, split_repeat_file)
-            repeat_files.append(split_repeat_file)
-            #output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            #repeat_files.append((split_repeat_file, subject_list, output_file, tmp_blast_dir))
-            cur_contigs = {}
-            file_index += 1
-            cur_seq_index = 0
-    if len(cur_contigs) > 0:
-        split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-        store_fasta(cur_contigs, split_repeat_file)
-        repeat_files.append(split_repeat_file)
-        #output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        #repeat_files.append((split_repeat_file, subject_list, output_file, tmp_blast_dir))
-
-    #记录repeat_file对应的所有输出文件.out,比对完之后需要合并然后分析
-    output_tmp_dir = tmp_blast_dir + '/out'
-    if not os.path.exists(output_tmp_dir):
-        os.makedirs(output_tmp_dir)
-    out_file_index = 0
-    repeat_outs = {}
-    repeat_combination = []
-    for repeat_file in repeat_files:
-        if not repeat_outs.__contains__(repeat_file):
-            repeat_outs[repeat_file] = []
-        repeat_out_list = repeat_outs[repeat_file]
-        for split_subject_file in subject_list:
-            output_file = output_tmp_dir + '/' + str(out_file_index) + '.out'
-            repeat_combination.append(repeat_file, split_subject_file, output_file)
-            repeat_out_list.append(output_file)
-
-    #进行pairwise比对
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for file in repeat_combination:
-        # 为了减少内存，只传递需要的reference sequence
-        job = ex.submit(pairwise_alignment, file, blast_program_dir)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-    finished_outs = []
-    for job in as_completed(jobs):
-        cur_blastn2Results_path = job.result()
-        finished_outs.append(cur_blastn2Results_path)
-
-    #合并repeat对应的out文件
-    merged_outputs = {}
-    for repeat_file in repeat_outs.keys():
-        repeat_out_list = repeat_outs[repeat_file]
-        merged_output = repeat_file + '.out'
-        for repeat_out in repeat_out_list:
-            if not os.path.exists(repeat_out):
+    if is_prev_mask == 1:
+        # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
+        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -q -no_is -norna -nolow -div 20 -gff -lib ' + prev_TE + ' -cutoff 225 ' \
+                               + filter_tandem_file
+        os.system(RepeatMasker_command)
+        masked_file_path = filter_tandem_file + '.masked'
+        # 2.1. Remove sequences consisting entirely of 'N'.
+        filter_tandem_file = tmp_output_dir + '/filter_TE_' + str(ref_index) + '.fa'
+        masked_contigNames, masked_contigs = read_fasta(masked_file_path)
+        filter_contigs = {}
+        for name in masked_contigNames:
+            seq = masked_contigs[name]
+            if all(c == "N" for c in seq):
                 continue
-            os.system('cat '+repeat_out+' >> '+merged_output)
-        merged_outputs[repeat_file] = merged_output
+            filter_contigs[name] = seq
+        store_fasta(filter_contigs, filter_tandem_file)
 
-    #将合并的output交给get_longest_repeats_v2函数处理
-    ex = ProcessPoolExecutor(threads)
-    longest_repeats = {}
-    keep_longest_query = {}
-    jobs = []
-    for repeat_file in merged_outputs.keys():
-        merged_output = merged_outputs[repeat_file]
-        job = ex.submit(get_longest_repeats_v2, repeat_file, merged_output, fixed_extend_base_threshold,
-                        max_single_repeat_len)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    for job in as_completed(jobs):
-        cur_longest_repeats, cur_keep_longest_query = job.result()
-        for query_name in cur_longest_repeats.keys():
-            longest_repeats[query_name] = cur_longest_repeats[query_name]
-        for query_name in cur_keep_longest_query.keys():
-            keep_longest_query[query_name] = cur_keep_longest_query[query_name]
-
-    # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
-    # with open(longest_repeats_file, 'w') as f_save:
-    #     for query_name in keep_longest_query.keys():
-    #         longest_queries = keep_longest_query[query_name]
-    #         for query in longest_queries:
-    #             f_save.write(query_name+'\t'+str(query[0])+'\t'+str(query[1])+'\t'+str(query[2])+'\t'+str(query[3])+'\t'+str(query[4])+'\n')
-
-    # # store longest_repeats for testing
-    # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
-    # with codecs.open(longest_repeats_file, 'w', encoding='utf-8') as f:
-    #     json.dump(longest_repeats, f)
-
-    node_index = 0
-    with open(longest_repeats_path, 'w') as f_save:
-        for query_name in longest_repeats.keys():
-            seqs_tuples = longest_repeats[query_name]
-            for longest_seq in seqs_tuples:
-                orig_start_pos = longest_seq[0]
-                orig_end_pos = longest_seq[1]
-                chr_name = longest_seq[2]
-                seq_ref_start = longest_seq[3]
-                seq_ref_end = longest_seq[4]
-                seq = longest_seq[5]
-                # 如果有连续10个以上的N过滤掉
-                if len(seq) >= 100 and not seq.__contains__('NNNNNNNNNN'):
-                    f_save.write('>N_' + str(node_index) + '-len_' + str(len(seq)) +
-                                 '-ref_' + chr_name + '-' + str(seq_ref_start) + '-' + str(seq_ref_end) + '\n' + seq + '\n')
-                    node_index += 1
-    f_save.close()
-    return longest_repeats_path
-
-def determine_repeat_boundary_v4(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, debug):
-    repeatNames, repeatContigs = read_fasta(repeats_path)
-    # parallel
-    tmp_blast_dir = tmp_output_dir + '/trf_filter_'+str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
-
-    # 我们发现导致blastn比对内存飙升的主要原因是：数据序列中存在大量的短串联重复，导致出现复杂的比对
-    # 因为STR不是我们的目标，因此我们应该预处理过滤掉这一部分数据
-    # 使用TRF去掉target_files中的串联重复
-    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
-    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
-    #1.将序列切成1Mb的文件，减少TRF运行时间
-    base_threshold = 1000000 #1Mb
-    all_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-            cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
-            store_fasta(cur_contigs, cur_target)
-            all_files.append((cur_target, cur_trf))
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-        cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
-        store_fasta(cur_contigs, cur_target)
-        all_files.append((cur_target, cur_trf))
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for file in all_files:
-        cur_target = file[0]
-        cur_trf = file[1]
-        job = ex.submit(run_remove_TR,cur_target, cur_trf)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    filter_tandem_file = tmp_output_dir + '/filter_tandem_' + str(ref_index) + '.fa'
-    if os.path.exists(filter_tandem_file):
-        os.system('rm -f ' + filter_tandem_file)
-    for job in as_completed(jobs):
-        cur_target_file = job.result()
-        os.system('cat ' + cur_target_file + ' >> ' + filter_tandem_file)
-
-    # 2.将过滤串联后的序列收集，并且划分成10Mb的文件，增加blastn cpu利用率
+    # 3.Collect the filtered concatenated sequences and divide them into 10Mb files to enhance blastn CPU utilization.
     repeatNames, repeatContigs = read_fasta(filter_tandem_file)
-    # parallel
     tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_' + str(ref_index)
     os.system('rm -rf ' + tmp_blast_dir)
     if not os.path.exists(tmp_blast_dir):
         os.makedirs(tmp_blast_dir)
 
-    base_threshold = 10000000  # 10Mb
-    query_files = []
-    target_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            cur_query = tmp_blast_dir + '/' + str(file_index) + '_query.fa'
-            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-            cur_output = tmp_blast_dir + '/' + str(file_index) + '.out'
-            store_fasta(cur_contigs, cur_query)
-            store_fasta(cur_contigs, cur_target)
-            target_files.append(cur_target)
-            query_files.append((cur_query, cur_output))
-            makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
-            os.system(makedb_command)
-
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        cur_query = tmp_blast_dir + '/' + str(file_index) + '_query.fa'
-        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-        cur_output = tmp_blast_dir + '/' + str(file_index) + '.out'
-        store_fasta(cur_contigs, cur_query)
-        store_fasta(cur_contigs, cur_target)
-        target_files.append(cur_target)
-        query_files.append((cur_query, cur_output))
-
-        makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
-        os.system(makedb_command)
-
-
-    repeat_files = []
-    for query_file in query_files:
-        repeat_files.append((query_file[0], target_files, query_file[1]))
-
-    #2. 在这一步的多线程并行时，我们只进行blastn比对，不去操作文件，避免内存占用过多
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for file in repeat_files:
-        job = ex.submit(get_alignment_records, file)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    total_out = tmp_output_dir + '/total_blast_' + str(ref_index) + '.out'
-    os.system('rm -f ' + total_out)
-    total_blastn2Results_path = []
-    for job in as_completed(jobs):
-        cur_blastn2Results_path = job.result()
-        total_blastn2Results_path.append(cur_blastn2Results_path)
-        if debug == 1:
-            os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
-
-    #3. 我们串行读取比对文件，将其输入到内存dict中，当dict达到10000条时，进行分析并返回结果，结果会落盘存在文件中
-    batch_size = 100
-    manager = Manager()
-    chr_pos_candidates = manager.dict()
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    query_records = {}
-    for cur_blastn2Results_path in total_blastn2Results_path:
-        # parse blastn output, determine the repeat boundary
-        # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
-        with open(cur_blastn2Results_path, 'r') as f_r:
-            for idx, line in enumerate(f_r):
-                # print('current line idx: %d' % (idx))
-                parts = line.split('\t')
-                query_name = parts[0]
-                subject_name = parts[1]
-                identity = float(parts[2])
-                alignment_len = int(parts[3])
-                q_start = int(parts[6])
-                q_end = int(parts[7])
-                s_start = int(parts[8])
-                s_end = int(parts[9])
-                if identity < 80 or (query_name == subject_name and q_start == s_start and q_end == s_end):
-                    continue
-                if not query_records.__contains__(query_name):
-                    query_records[query_name] = {}
-                subject_dict = query_records[query_name]
-
-                if not subject_dict.__contains__(subject_name):
-                    subject_dict[subject_name] = []
-                subject_pos = subject_dict[subject_name]
-                subject_pos.append((q_start, q_end, s_start, s_end))
-
-                if len(query_records) == batch_size:
-                    # 处理当前批次的数据
-                    job = ex.submit(get_longest_repeats_v5, query_records, fixed_extend_base_threshold,
-                                    max_single_repeat_len, chr_pos_candidates, debug)
-                    jobs.append(job)
-                    query_records = {}
-        f_r.close()
-    # 处理剩余的数据（如果文件行数不是batch_size的整数倍）
-    if len(query_records) > 0:
-        job = ex.submit(get_longest_repeats_v5, query_records, fixed_extend_base_threshold,
-                        max_single_repeat_len, chr_pos_candidates, debug)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    # 上面的函数已经获得了所有可能的候选重复片段
-    longest_repeats = {}
-    for job in as_completed(jobs):
-        cur_longest_repeats = job.result()
-        for query_pos in cur_longest_repeats.keys():
-            (query_name, old_query_start_pos, old_query_end_pos) = cur_longest_repeats[query_pos]
-            query_seq = repeatContigs[query_name]
-            cur_query_seq = query_seq[old_query_start_pos: old_query_end_pos]
-            longest_repeats[query_pos] = cur_query_seq
-    store_fasta(longest_repeats, longest_repeats_path)
-    if debug != 1: 
-        os.system('rm -rf ' + tmp_blast_dir)
-    return longest_repeats_path
-
-def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, debug):
-    repeatNames, repeatContigs = read_fasta(repeats_path)
-    # parallel
-    tmp_blast_dir = tmp_output_dir + '/trf_filter_'+str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
-
-    # 我们发现导致blastn比对内存飙升的主要原因是：数据序列中存在大量的短串联重复，导致出现复杂的比对
-    # 因为STR不是我们的目标，因此我们应该预处理过滤掉这一部分数据
-    # 使用TRF去掉target_files中的串联重复
-    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
-    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
-    #1.将序列切成1Mb的文件，减少TRF运行时间
-    base_threshold = 1000000 #1Mb
-    all_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-            cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
-            store_fasta(cur_contigs, cur_target)
-            all_files.append((cur_target, cur_trf))
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-        cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
-        store_fasta(cur_contigs, cur_target)
-        all_files.append((cur_target, cur_trf))
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for file in all_files:
-        cur_target = file[0]
-        cur_trf = file[1]
-        job = ex.submit(run_remove_TR,cur_target, cur_trf)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    filter_tandem_file = tmp_output_dir + '/filter_tandem_' + str(ref_index) + '.fa'
-    if os.path.exists(filter_tandem_file):
-        os.system('rm -f ' + filter_tandem_file)
-    for job in as_completed(jobs):
-        cur_target_file = job.result()
-        os.system('cat ' + cur_target_file + ' >> ' + filter_tandem_file)
-
-    # 2.将过滤串联后的序列收集，并且划分成10Mb的文件，增加blastn cpu利用率
-    repeatNames, repeatContigs = read_fasta(filter_tandem_file)
-    # parallel
-    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_' + str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
-
-    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
-    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
+    # Sequence alignment consumes a significant amount of memory and disk space. Therefore, we also split the target sequences into individual sequences to reduce the memory required for each alignment, avoiding out of memory errors.
+    # It is important to calculate the total number of bases in the sequences, and it must meet a sufficient threshold to increase CPU utilization.
     base_threshold = 10000000  # 10Mb
     target_files = []
     file_index = 0
@@ -5586,7 +4620,7 @@ def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, fixed_exten
             split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
             store_fasta(cur_contigs, split_repeat_file)
             output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
+            repeat_files.append((split_repeat_file, target_files, output_file))
             cur_contigs = {}
             file_index += 1
             base_count = 0
@@ -5594,7 +4628,7 @@ def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, fixed_exten
         split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
         store_fasta(cur_contigs, split_repeat_file)
         output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
+        repeat_files.append((split_repeat_file, target_files, output_file))
 
     ex = ProcessPoolExecutor(threads)
 
@@ -5615,104 +4649,21 @@ def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, fixed_exten
         if debug == 1:
             os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
 
+    # Currently, it is still in coordinate form. Convert it into a nucleotide sequence and store it.
+    ref_contigNames, ref_contigs = read_fasta(reference)
+    for frag_name in longest_repeats.keys():
+        parts = frag_name.split(':')
+        chr_name = parts[0]
+        pos_info = parts[1].split('-')
+        chr_start = int(pos_info[0])
+        chr_end = int(pos_info[1])
+        frag_seq = ref_contigs[chr_name][chr_start: chr_end]
+        longest_repeats[frag_name] = frag_seq
     store_fasta(longest_repeats, longest_repeats_path)
     if debug != 1:
         os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
 
-def determine_repeat_boundary_v3(repeats_path, longest_repeats_path, fixed_extend_base_threshold, max_single_repeat_len, tmp_output_dir, threads, ref_index, debug):
-    repeatNames, repeatContigs = read_fasta(repeats_path)
-    # parallel
-    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_'+str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
-
-    # 序列比对需要消耗大量的内存和磁盘，因此我们将target序列也切分成一条条序列，以减少单次比对需要的内存，避免out of memory
-    # 应该统计总序列碱基数量，必须要达到足够的阈值，以增加cpu利用率
-    base_threshold = 1000000 #1Mb
-    target_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-            store_fasta(cur_contigs, cur_target)
-            target_files.append(cur_target)
-            makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
-            os.system(makedb_command)
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-        store_fasta(cur_contigs, cur_target)
-        target_files.append(cur_target)
-        makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
-        os.system(makedb_command)
-
-    repeat_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-            store_fasta(cur_contigs, split_repeat_file)
-            output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-        store_fasta(cur_contigs, split_repeat_file)
-        output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, target_files, output_file, tmp_blast_dir))
-
-    #log.logger.debug('coarse alignment -- total file size:'+str(len(repeat_files)))
-    ex = ProcessPoolExecutor(threads)
-
-    jobs = []
-    for file in repeat_files:
-        job = ex.submit(get_longest_repeats_v4, file, fixed_extend_base_threshold,
-                        max_single_repeat_len, debug)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    total_out = tmp_output_dir + '/total_blast_' + str(ref_index) + '.out'
-    os.system('rm -f ' + total_out)
-    longest_repeats = {}
-    for job in as_completed(jobs):
-        cur_longest_repeats, cur_keep_longest_query, cur_blastn2Results_path = job.result()
-        longest_repeats.update(cur_longest_repeats)
-
-        if debug == 1:
-            os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
-
-    # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
-    # with open(longest_repeats_file, 'w') as f_save:
-    #     for query_name in keep_longest_query.keys():
-    #         longest_queries = keep_longest_query[query_name]
-    #         for query in longest_queries:
-    #             f_save.write(query_name+'\t'+str(query[0])+'\t'+str(query[1])+'\t'+str(query[2])+'\t'+str(query[3])+'\t'+str(query[4])+'\n')
-
-    # # store longest_repeats for testing
-    # longest_repeats_file = tmp_output_dir + '/longest_repeats.csv'
-    # with codecs.open(longest_repeats_file, 'w', encoding='utf-8') as f:
-    #     json.dump(longest_repeats, f)
-
-    store_fasta(longest_repeats, longest_repeats_path)
-    if debug != 1:
-        os.system('rm -rf ' + tmp_blast_dir)
-    return longest_repeats_path
 
 def get_TSD(all_copies, flanking_len):
     # tsd_info = {query_name: {copy1: tsd+','+seq}, {copy2: tsd+','+seq}, {total_copy_num:}, {tsd_copy_num:}}
@@ -5727,7 +4678,7 @@ def get_TSD(all_copies, flanking_len):
             orig_seq = copy[4]
             total_copy_len += len(orig_seq)
 
-            tir_start = flanking_len + 1  # (坐标都是以1开始的，start和end都是取到的)
+            tir_start = flanking_len + 1
             tir_end = len(orig_seq)-flanking_len
             left_tsd_seq, right_tsd_seq = TSDsearch_v4(orig_seq, tir_start, tir_end)
             if left_tsd_seq != '':
@@ -5813,13 +4764,12 @@ def split_fasta(fasta_file, subfile_size, output_dir):
         # Close the last subfile
         current_subfile.close()
 
-def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
+def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant):
     os.system('rm -rf '+tir_tsd_dir)
     if not os.path.exists(tir_tsd_dir):
         os.makedirs(tir_tsd_dir)
 
-    # 应该直接将数据划分成更小的块，交给48个线程去计算，块更小了，那么内存溢出的问题应该也解决了
-    # 直接定义每个块的大小，然后确定要划分的块数
+    # After partitioning the files, perform parallel computations using multiple processes.
     fasta_file = longest_repeats_flanked_path
     subfile_size = 10000 #10K
     output_dir = tir_tsd_dir
@@ -5843,35 +4793,6 @@ def multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, f
         candidate_TIRs.update(cur_candidate_TIRs)
     store_fasta(candidate_TIRs, tir_tsd_path)
     os.system('rm -rf ' + tir_tsd_dir)
-
-def multi_process_tsd_v3(longest_repeats_flanked_path, tir_tsd_path, all_tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant, reference):
-    os.system('rm -rf '+tir_tsd_dir)
-    if not os.path.exists(tir_tsd_dir):
-        os.makedirs(tir_tsd_dir)
-
-    seq_names, seq_contigs = read_fasta(longest_repeats_flanked_path)
-
-    # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
-    segments_cluster = divided_array(list(seq_contigs.items()), threads)
-
-    job_id = 0
-    ex = ProcessPoolExecutor(threads)
-    objs = []
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(search_confident_tir_batch_v3, cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant)
-        objs.append(obj)
-        job_id += 1
-    ex.shutdown(wait=True)
-    longest_TE_boundary_contigs = {}
-    all_boundary_contigs = {}
-    for obj in as_completed(objs):
-        cur_longest_TE_boundary_contigs, cur_all_boundary_contigs = obj.result()
-        longest_TE_boundary_contigs.update(cur_longest_TE_boundary_contigs)
-        all_boundary_contigs.update(cur_all_boundary_contigs)
-    store_fasta(longest_TE_boundary_contigs, tir_tsd_path)
-
-    with codecs.open(all_tir_tsd_path, 'w', encoding='utf-8') as f:
-        json.dump(all_boundary_contigs, f)
 
 
 def multi_process_ltr_tsd(raw_candidate_ltrs, ltr_tsd_path, cut_ltr_tsd_path, ltr_tsd_dir, flanking_len, threads, TRsearch_dir, plant):
@@ -5926,197 +4847,6 @@ def multi_process_ltr_tsd(raw_candidate_ltrs, ltr_tsd_path, cut_ltr_tsd_path, lt
     store_fasta(candidate_LTRs, ltr_tsd_path)
     store_fasta(candidate_cut_LTRs, cut_ltr_tsd_path)
 
-def multi_process_tsd_v1(all_copies, flanking_len, threads, plant):
-    # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
-    segments_cluster = divided_array(list(all_copies.items()), threads)
-
-    job_id = 0
-    ex = ProcessPoolExecutor(threads)
-    objs = []
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(search_confident_tir_batch_v1, cur_segments, flanking_len, plant)
-        objs.append(obj)
-        job_id += 1
-    ex.shutdown(wait=True)
-    confident_copies = {}
-    for obj in as_completed(objs):
-        cur_confident_copies = obj.result()
-        confident_copies.update(cur_confident_copies)
-    return confident_copies
-
-def search_confident_tir_batch_v1(cur_segments, flanking_len, plant):
-    tsd_search_distance = flanking_len
-    confident_copies = {}
-    for item in cur_segments:
-        query_name = item[0]
-        copies = item[1]
-        for i, copy in enumerate(copies):
-            orig_seq = copy[4]
-            tsd = copy[5]
-            tir_start = flanking_len + 1
-            tir_end = flanking_len + copy[3]
-            copy_ref_name = copy[0]
-            copy_ref_start = copy[1]
-            copy_ref_end = copy[2]
-            copy_ref_info = str(copy_ref_name) + ':' + str(copy_ref_start) + '_' + str(copy_ref_end)
-            new_copy = search_confident_tir_v1(orig_seq, tir_start, tir_end, copy_ref_name, copy_ref_start, copy_ref_end, tsd_search_distance, tsd, plant)
-            # copy -> (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd)
-            if new_copy is not None:
-                if not confident_copies.__contains__(query_name):
-                    confident_copies[query_name] = []
-                copy_list = confident_copies[query_name]
-                copy_list.append(new_copy)
-    return confident_copies
-
-def multi_process_tsd_v2(all_copies, flanking_len, threads, plant):
-    # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
-    segments_cluster = divided_array(list(all_copies.items()), threads)
-
-    job_id = 0
-    ex = ProcessPoolExecutor(threads)
-    objs = []
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(search_confident_tir_batch_v2, cur_segments, flanking_len, plant)
-        objs.append(obj)
-        job_id += 1
-    ex.shutdown(wait=True)
-    confident_copies = {}
-    for obj in as_completed(objs):
-        cur_confident_copies = obj.result()
-        confident_copies.update(cur_confident_copies)
-    return confident_copies
-
-def search_confident_tir_batch_v2(cur_segments, flanking_len, plant):
-    tsd_search_distance = flanking_len
-    confident_copies = {}
-    new_confident_copies = {}
-    for item in cur_segments:
-        query_name = item[0]
-        copies = item[1]
-        #记录TSD长度出现的次数
-        TSD_len_count = {}
-        for i, copy in enumerate(copies):
-            orig_seq = copy[4]
-            tsd = copy[5]
-            tir_start = flanking_len + 1
-            tir_end = flanking_len + copy[3]
-            copy_ref_name = copy[0]
-            copy_ref_start = copy[1]
-            copy_ref_end = copy[2]
-            copy_ref_info = str(copy_ref_name) + ':' + str(copy_ref_start) + '_' + str(copy_ref_end)
-
-            new_copy = search_confident_tir_v2(orig_seq, tir_start, tir_end, copy_ref_name, copy_ref_start, copy_ref_end, tsd_search_distance, tsd, plant)
-            # copy -> (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd)
-            if new_copy is not None:
-                if not confident_copies.__contains__(query_name):
-                    confident_copies[query_name] = []
-                copy_list = confident_copies[query_name]
-                copy_list.append(new_copy)
-                new_copy_tsd_len = len(new_copy[5])
-                if not TSD_len_count.__contains__(new_copy_tsd_len):
-                    TSD_len_count[new_copy_tsd_len] = 0
-                count = TSD_len_count[new_copy_tsd_len]
-                count += 1
-                TSD_len_count[new_copy_tsd_len] = count
-
-        # 判断当前拷贝中哪一个长度的TSD出现次数最多，那么该TSD对应的拷贝，最有可能是真实的TIR
-        max_count = 0
-        max_count_tsd_len = -1
-        for tsd_len in TSD_len_count.keys():
-            count = TSD_len_count[tsd_len]
-            if count > max_count:
-                max_count = count
-                max_count_tsd_len = tsd_len
-        # 只取具有最多次数TSD长度的拷贝
-        if max_count_tsd_len != -1:
-            copy_list = confident_copies[query_name]
-            for copy in copy_list:
-                cur_tsd_len = len(copy[5])
-                #如果最高次数TSD长度是2，则要求拷贝中的TSD
-
-                if cur_tsd_len == max_count_tsd_len:
-                    if not new_confident_copies.__contains__(query_name):
-                        new_confident_copies[query_name] = []
-                    copy_list = new_confident_copies[query_name]
-                    copy_list.append(copy)
-    return new_confident_copies
-
-def search_confident_tir_v1(orig_seq, raw_tir_start, raw_tir_end, copy_ref_name, copy_ref_start, copy_ref_end, tsd_search_distance, tsd, plant):
-    orig_seq_len = len(orig_seq)
-    tir_starts = []
-    tir_ends = []
-
-    for i in range(raw_tir_start - tsd_search_distance, raw_tir_start + tsd_search_distance + 1):
-        if i >= 1 and i <= orig_seq_len:
-            tir_starts.append(i)
-
-    for i in range(raw_tir_end - tsd_search_distance, raw_tir_end + tsd_search_distance + 1):
-        if i >= 1 and i <= orig_seq_len:
-            tir_ends.append(i)
-
-    boundary_set = set()
-    for tir_start in tir_starts:
-        for tir_end in tir_ends:
-            left_tsd_seq, right_tsd_seq = TSDsearch_v3(orig_seq, tir_start, tir_end, tsd, plant)
-            if left_tsd_seq != '':
-                boundary_set.add((tir_start, tir_end, left_tsd_seq))
-
-    #取最靠近原始边界，且具有相同长度TSD的拷贝当做可靠拷贝
-    boundary_set = sorted(boundary_set, key=lambda x: abs(x[0] - raw_tir_start) + abs(x[1] - raw_tir_end))
-    new_copy = None
-    if len(boundary_set) > 0:
-        new_boundary = boundary_set[0]
-        tsd = new_boundary[2]
-        tir_start = new_boundary[0]
-        tir_end = new_boundary[1]
-        copy_len = tir_end - tir_start + 1
-        copy_seq = orig_seq[tir_start-1: tir_end]
-        copy_ref_start += tir_start - raw_tir_start
-        copy_ref_end += tir_end - raw_tir_end
-        new_copy = (copy_ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd)
-
-    return new_copy
-
-def search_confident_tir_v2(orig_seq, raw_tir_start, raw_tir_end, copy_ref_name, copy_ref_start, copy_ref_end, tsd_search_distance, tsd, plant):
-    orig_seq_len = len(orig_seq)
-    tir_starts = []
-    tir_ends = []
-
-    for i in range(raw_tir_start - tsd_search_distance, raw_tir_start + tsd_search_distance + 1):
-        if i >= 1 and i <= orig_seq_len:
-            tir_starts.append(i)
-
-    for i in range(raw_tir_end - tsd_search_distance, raw_tir_end + tsd_search_distance + 1):
-        if i >= 1 and i <= orig_seq_len:
-            tir_ends.append(i)
-
-    TSD_set = set()
-    #boundary_set = set()
-    for tir_start in tir_starts:
-        for tir_end in tir_ends:
-            TSDsearch_v2(orig_seq, tir_start, tir_end, TSD_set, plant)
-            # left_tsd_seq, right_tsd_seq = TSDsearch_v3(orig_seq, tir_start, tir_end, tsd, plant)
-            # if left_tsd_seq != '':
-            #     boundary_set.add((tir_start, tir_end, left_tsd_seq))
-
-    #取最靠近原始边界，且具有TSD的拷贝
-    # (left_tsd_start, left_tsd_end, left_tsd_seq, right_tsd_start, right_tsd_end, right_tsd_seq, tir_start, tir_end, tir_len)
-    # 按照tir_start, tir_end与原始边界的距离进行排序，越近的排在前面
-    TSD_set = sorted(TSD_set, key=lambda x: abs(x[6] - raw_tir_start) + abs(x[7] - raw_tir_end))
-    # boundary_set = sorted(boundary_set, key=lambda x: abs(x[0] - raw_tir_start) + abs(x[1] - raw_tir_end))
-    new_copy = None
-    if len(TSD_set) > 0:
-        new_boundary = TSD_set[0]
-        tsd = new_boundary[2]
-        tir_start = new_boundary[6]
-        tir_end = new_boundary[7]
-        copy_len = tir_end - tir_start + 1
-        copy_seq = orig_seq[tir_start-1: tir_end]
-        copy_ref_start += tir_start - raw_tir_start
-        copy_ref_end += tir_end - raw_tir_end
-        new_copy = (copy_ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd)
-
-    return new_copy
 
 def flanking_copies(all_copies, query_path, reference, flanking_len, copy_num=10, query_coverage=0.99):
     new_all_copies = {}
@@ -6143,7 +4873,8 @@ def flanking_copies(all_copies, query_path, reference, flanking_len, copy_num=10
             ref_seq = ref_contigs[ref_name]
             orig_copy_seq = ref_seq[copy_ref_start-1: copy_ref_end]
             copy_seq = ref_seq[copy_ref_start-1-flanking_len: copy_ref_end+flanking_len]
-            #如果是取全长拷贝，则需要判断拷贝的前5bp和后5bp是否与原始序列高度相似，只允许1 bp mismatch
+            # If full-length copy is taken, it is necessary to judge whether the first 5bp and the last 5bp
+            # of the copy are highly similar to the original sequence, and only 1-bp mismatch is allowed.
             if query_coverage != 0.99 or \
                     (allow_mismatch(query_seq[0:5], orig_copy_seq[0:5], 1)
                      and allow_mismatch(query_seq[-5:], orig_copy_seq[-5:], 1)):
@@ -6160,7 +4891,7 @@ def flanking_copies_v2(all_copies, query_path, reference, flanking_len, copy_num
         query_seq = query_contigs[query_name]
         copies = all_copies[query_name]
         new_copies = []
-        # 取最多copy_num条
+        # get at most copy_num copies
         for i, copy in enumerate(copies):
             if copy_num != -1 and i >= copy_num:
                 break
@@ -6481,13 +5212,13 @@ def get_copies(blastnResults_path, query_path, subject_path, query_coverage=0.99
     return all_copies
 
 def generate_candidate_ltrs(all_copies, reference, flanking_len):
-    # 将同一个query_name对应的相邻拷贝聚在一起，然后生成候选LTR序列
+    # Gather adjacent copies corresponding to the same query_name together, and then generate candidate LTR sequences.
     # copy_cluster -> {ref_name: [(left_ltr_ref_start, left_ltr_ref_end, right_ltr_ref_start, right_ltr_ref_end), ..., ]}
     copy_cluster = {}
     ref_names, ref_contigs = read_fasta(reference)
     for query_name in all_copies.keys():
         copies = list(all_copies[query_name])
-        # 将copies按照ref_name, ref_start, ref_end排序
+        # Sort the replicas by ref_name, ref_start and ref_end.
         # copy -> (subject_name, subject_start, subject_end, query[2], direct)
         copies.sort(key=lambda x: (x[0], x[1], x[2]))
 
@@ -6505,9 +5236,9 @@ def generate_candidate_ltrs(all_copies, reference, flanking_len):
             copy = (ref_name, copy_ref_start, copy_ref_end, copy_len, direct)
 
             if last_copy is not None and ref_name == last_copy[0] and direct == last_copy[4]:
-                # 序列的长度范围（100-7000），定义同一个序列的两个拷贝之间的起始位置距离（ 1000，15000）
+                # The length range of the sequence (100-7000) defines the starting position distance (1000,15000) between two copies of the same sequence.
                 if (last_copy[3] >= 100 and last_copy[3] <= 7000) and (copy_len >= 100 and copy_len <= 7000):
-                    # 当前拷贝与前一个拷贝是没有Overlap的，且之间的距离满足1000<= x <= 15000，则可能是一个LTR element
+                    # There is no Overlap between the current copy and the previous copy, and the distance between them satisfies 1000<= x <= 15000, so it may be an LTR element.
                     if copy_ref_start > last_copy[2] and (copy_ref_start - last_copy[1] >= 1000) and (
                             copy_ref_start - last_copy[1] <= 15000):
                         if not copy_cluster.__contains__(ref_name):
@@ -6518,10 +5249,10 @@ def generate_candidate_ltrs(all_copies, reference, flanking_len):
 
     flanked_ltr_candidates = {}
     # flanked_ltr_candidates -> {ref_name: [(left_ltr_ref_start, left_ltr_ref_end, right_ltr_ref_start, right_ltr_ref_end, flanked_seq), ..., ]}
-    # 将所有的candidate_ltr扩展100bp，以确保能搜索到TSD
+    # Expand all candidate_ltr by 100bp to ensure that TSD can be searched.
     for ref_name in copy_cluster.keys():
         candidate_ltrs = copy_cluster[ref_name]
-        # 按照ltr_start, ltr_end进行排序，过滤掉重复（与上一个ltr的起始位置均小于10）的LTR。
+        # Sort by LTR_start, ltr_end, and filter out the repeated ltrs (with the starting position of the last ltr less than 10).
         candidate_ltrs.sort(key=lambda x: (x[0], x[3]))
         last_candidate_ltr = None
         for candidate_ltr in candidate_ltrs:
@@ -6584,44 +5315,21 @@ def multiple_alignment_blast_and_get_copies(repeats_path):
         all_copies = get_copies_v1(blastn2Results_path, split_repeats_path, '')
     return all_copies
 
-def run_blast_align(query_path, subject_path, output, flanking_len, flanking_region_distance, flank_align_dir):
-    if file_exist(query_path) and file_exist(subject_path):
-        blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
-        align_command = 'blastn -db ' + subject_path + ' -num_threads ' \
-                        + str(1) + ' -query ' + query_path + ' -outfmt 6 > ' + output
-        os.system(blast_db_command)
-        os.system(align_command)
-
-    delete_names, appeared_names = judge_flank_align(flanking_region_distance, output, flanking_len, flank_align_dir)
-    return delete_names, appeared_names
-
-def run_blast_align_v1(query_path, subject_path, output, flanking_len, flanking_region_distance, flank_align_dir):
-    if file_exist(query_path) and file_exist(subject_path):
-        blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
-        align_command = 'blastn -db ' + subject_path + ' -num_threads ' \
-                        + str(1) + ' -query ' + query_path + ' -outfmt 6 > ' + output
-        os.system(blast_db_command)
-        os.system(align_command)
-
-    delete_names, appeared_names = judge_flank_align_v1(flanking_region_distance, output, flanking_len, flank_align_dir)
-    return delete_names, appeared_names
 
 def judge_itr_structure(TSD_set, orig_seq, name, raw_tir_start, raw_tir_end, cur_candidate_TIRs_path, TRsearch_dir, tir_tsd_dir, plant):
-    # 具有短tir的TIR有：(hAT, 5-27bp tir, 8bp tsd, len<4kb), (Mutator, long/short tir, 9-11bp tsd, ), (CACTA, 5bp tir, 2-3bp tsd, )
+    # TIR with short tir：(hAT, 5-27bp tir, 8bp tsd, len<4kb), (Mutator, long/short tir, 9-11bp tsd, ), (CACTA, 5bp tir, 2-3bp tsd, )
 
     # (left_tsd_start, left_tsd_end, left_tsd_seq, right_tsd_start, right_tsd_end, right_tsd_seq, tir_start, tir_end, tir_len)
-    # 按照tir_start, tir_end与原始边界的距离进行排序，越近的排在前面
+    # Sort according to the distance between TIR_start and TIR_end and the original boundary, and the nearest one comes first.
     TSD_set = sorted(TSD_set, key=lambda x: abs(x[6] - raw_tir_start) + abs(x[7] - raw_tir_end))
 
     itr_contigs = {}
     cur_tsd_seq = ''
-    # 遍历所有的候选TSD，只取一条
     for i, tsd_info in enumerate(TSD_set):
         left_tsd_start = tsd_info[0]
         left_tsd_end = tsd_info[1]
         left_tsd = tsd_info[2]
         cur_tsd_seq = left_tsd
-        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if left_tsd.__contains__('NN'):
             continue
 
@@ -6637,7 +5345,6 @@ def judge_itr_structure(TSD_set, orig_seq, name, raw_tir_start, raw_tir_end, cur
         if len(tir_seq) < 100:
             continue
 
-        # 判断这条tir_seq是否具有TIR终端结构
         tir_start = 1
         tir_end = len(tir_seq)
         first_5bp = tir_seq[tir_start - 1: tir_start + 4]
@@ -6667,8 +5374,8 @@ def judge_itr_structure(TSD_set, orig_seq, name, raw_tir_start, raw_tir_end, cur
             itr_contigs[name] = tir_seq
             break
         else:
-            # 通过itrsearch判断是否有TIR结构
-            # 搜索 cur_candidate_TIRs 中是否存在tir结构，如果存在就可以跳过判断其他拷贝了
+            # Determine if there is a TIR structure using itrsearch.
+            # Search if there is a TIR structure in cur_candidate_TIRs. If it exists, we can skip evaluating other copies.
             output = run_itrsearch(TRsearch_dir, tir_seq)
             output = str(output)
             if output != '':
@@ -6679,12 +5386,12 @@ def judge_itr_structure(TSD_set, orig_seq, name, raw_tir_start, raw_tir_end, cur
 
 
 def get_short_tir_contigs(cur_itr_contigs, plant):
-    # 保存那些具有短tir结构的序列
+    # Save sequences with short TIR structures.
     short_itr_contigs = {}
     for name in cur_itr_contigs.keys():
         tir_seq = cur_itr_contigs[name]
-        # 具有短tir的TIR有：(hAT, 5-27bp tir, 8bp tsd, len<4kb), (Mutator, long/short tir, 9-11bp tsd, ), (CACTA, 5bp tir, 2-3bp tsd, )
-        # 判断这条tir_seq是否具有TIR终端结构
+        # TIRs with short TIRs include: (hAT, 5-27bp TIR, 8bp TSD, length < 4kb), (Mutator, long/short TIR, 9-11bp TSD), (CACTA, 5bp TIR, 2-3bp TSD).
+        # Determine if this TIR sequence has a TIR terminal structure.
         tir_start = 1
         tir_end = len(tir_seq)
         first_5bp = tir_seq[tir_start - 1: tir_start + 4]
@@ -6742,32 +5449,33 @@ def search_confident_tir_batch(split_file, flanking_len, tir_tsd_dir, TRsearch_d
     for query_name in cur_contignames:
         seq = cur_contigs[query_name]
 
-        #如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if seq.__contains__('NNNNNNNNNN'):
             continue
 
         tir_start = flanking_len + 1
         tir_end = len(seq) - flanking_len
-        # 寻找所有可能的TSD序列，计算每条序列的边界与原始边界的距离，并存到header里
+        # Find all possible TSD sequences, calculate the distance between each sequence boundary
+        # and the original boundary, and store it in the header
         tsd_search_distance = flanking_len
         cur_itr_contigs = search_confident_tir_v4(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
         all_copies_itr_contigs.update(cur_itr_contigs)
 
-    #保存短tir的序列，交由itrsearch确定TIR长度
+    # Save the sequence of short TIR and submit it toitrsearch to determine the length of TIR
     short_itr_contigs = get_short_tir_contigs(all_copies_itr_contigs, plant)
     store_fasta(short_itr_contigs, short_candidate_TIRs_path)
     short_copies_out, short_copies_log = run_itrsearch(TRsearch_dir, short_candidate_TIRs_path, tir_tsd_dir)
     raw_short_copies_out_name, raw_short_copies_out_contigs = read_fasta_v1(short_copies_out)
 
-    #剩下的序列交由itrsearch去搜索TIR结构
+    # The remaining sequences are handed over to itrsearch to search for TIR structures
     for name in short_itr_contigs.keys():
         del all_copies_itr_contigs[name]
     store_fasta(all_copies_itr_contigs, all_candidate_TIRs_path)
     all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, all_candidate_TIRs_path, tir_tsd_dir)
-    # 过滤掉终端TIR长度差距过大的序列
+
+    # Filter out sequences with excessive differences in terminal TIR length
     # filter_large_gap_tirs(all_copies_out, all_copies_out)
 
-    #记录下每个query对应的TIR长度
+    # Record the TIR length corresponding to each query
     TIR_len_dict = {}
     raw_all_copies_out_name, raw_all_copies_out_contigs = read_fasta_v1(all_copies_out)
     all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
@@ -6780,17 +5488,18 @@ def search_confident_tir_batch(split_file, flanking_len, tir_tsd_dir, TRsearch_d
         tir_len = int(name.split('Length itr=')[1])
         TIR_len_dict[query_name] = tir_len
 
-    # 解析itrsearch log文件，提取比对偏移的序列名称
+    # Analyze theitrsearch log file and extract the sequence names of alignment offsets
     fake_tirs = get_fake_tirs(all_copies_log)
-    #过滤掉可能是fake tir的序列
     for name in all_copies_out_name:
         if name in fake_tirs:
             del all_copies_out_contigs[name]
     all_copies_out_contigs.update(short_itr_contigs)
 
-    #为了减少后续计算量，我们在这里就进行分组，每一组选择TIR和TSD最长的序列
-    # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
-    # 对all_copies_out_contigs按照query_name进行分组
+    # To reduce the amount of subsequent computation, we will perform grouping here,
+    # selecting the sequences with the longest TIR and TSD for each group.
+    # Group by query_name, and only select one sequence for each group,
+    # which is the one with the best combined copy number and TSD.
+    # Group all_copies_out_contigs by query_name.
     # group_copies_contigs -> {query_name: {name: seq}}
     group_copies_contigs = {}
     for cur_name in all_copies_out_contigs.keys():
@@ -6803,95 +5512,10 @@ def search_confident_tir_batch(split_file, flanking_len, tir_tsd_dir, TRsearch_d
     filter_dup_itr_contigs = {}
     for query_name in group_copies_contigs.keys():
         cur_copies_out_contigs = group_copies_contigs[query_name]
-        # 选择TIR长度(权重30%)和TSD(权重70%)综合最优的那一条
-        #cur_contigs = filter_dup_itr_v2(cur_copies_out_contigs, TIR_len_dict)
-        # 选择distance最小的那一个
+        # Select the one with the smallest distance
         cur_contigs = filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict)
         filter_dup_itr_contigs.update(cur_contigs)
-
     return filter_dup_itr_contigs
-
-def search_confident_tir_batch_v3(cur_segments, flanking_len, tir_tsd_dir, TRsearch_dir, partition_index, plant):
-    all_copies_itr_contigs = {}
-    all_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '.fa'
-    short_candidate_TIRs_path = tir_tsd_dir + '/' + str(partition_index) + '_s.fa'
-    for item in cur_segments:
-        query_name = item[0]
-        seq = item[1]
-
-        #如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
-        if seq.__contains__('NNNNNNNNNN'):
-            continue
-
-        tir_start = flanking_len + 1
-        tir_end = len(seq) - flanking_len
-        # 寻找所有可能的TSD序列，计算每条序列的边界与原始边界的距离，并存到header里
-        tsd_search_distance = flanking_len
-        cur_itr_contigs = search_confident_tir_v3(seq, tir_start, tir_end, tsd_search_distance, query_name, plant)
-        all_copies_itr_contigs.update(cur_itr_contigs)
-
-    #保存短tir的序列，交由itrsearch确定TIR长度
-    short_itr_contigs = get_short_tir_contigs(all_copies_itr_contigs, plant)
-    store_fasta(short_itr_contigs, short_candidate_TIRs_path)
-    short_copies_out, short_copies_log = run_itrsearch(TRsearch_dir, short_candidate_TIRs_path, tir_tsd_dir)
-    raw_short_copies_out_name, raw_short_copies_out_contigs = read_fasta_v1(short_copies_out)
-
-    #剩下的序列交由itrsearch去搜索TIR结构
-    for name in short_itr_contigs.keys():
-        del all_copies_itr_contigs[name]
-    store_fasta(all_copies_itr_contigs, all_candidate_TIRs_path)
-    all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, all_candidate_TIRs_path, tir_tsd_dir)
-    # 过滤掉终端TIR长度差距过大的序列
-    # filter_large_gap_tirs(all_copies_out, all_copies_out)
-
-    #记录下每个query对应的TIR长度
-    TIR_len_dict = {}
-    raw_all_copies_out_name, raw_all_copies_out_contigs = read_fasta_v1(all_copies_out)
-    all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
-    for name in raw_all_copies_out_name:
-        query_name = name.split(' ')[0]
-        tir_len = int(name.split('Length itr=')[1])
-        TIR_len_dict[query_name] = tir_len
-    for name in raw_short_copies_out_name:
-        query_name = name.split(' ')[0]
-        tir_len = int(name.split('Length itr=')[1])
-        TIR_len_dict[query_name] = tir_len
-
-    # 解析itrsearch log文件，提取比对偏移的序列名称
-    fake_tirs = get_fake_tirs(all_copies_log)
-    #过滤掉可能是fake tir的序列
-    for name in all_copies_out_name:
-        if name in fake_tirs:
-            del all_copies_out_contigs[name]
-    all_copies_out_contigs.update(short_itr_contigs)
-
-    #为了减少后续计算量，我们在这里就进行分组，每一组选择TIR和TSD最长的序列
-    # 按照query_name进行分组，同一组里只取一条序列，即拷贝数和TSD综合最优的那一条
-    # 对all_copies_out_contigs按照query_name进行分组
-    # group_copies_contigs -> {query_name: {name: seq}}
-    group_copies_contigs = {}
-    for cur_name in all_copies_out_contigs.keys():
-        query_name = cur_name.split('-C_')[0]
-        if not group_copies_contigs.__contains__(query_name):
-            group_copies_contigs[query_name] = {}
-        cur_copies_out_contigs = group_copies_contigs[query_name]
-        cur_copies_out_contigs[cur_name] = all_copies_out_contigs[cur_name]
-
-    longest_TE_boundary_contigs = {}
-    all_boundary_contigs = {}
-    for query_name in group_copies_contigs.keys():
-        cur_copies_out_contigs = group_copies_contigs[query_name]
-        sorted_fasta = sorted(cur_copies_out_contigs.items(), key=lambda x: len(x[1]), reverse=True)
-        for i, item in enumerate(sorted_fasta):
-            if i == 0:
-                longest_TE_boundary_contigs[query_name] = item[1]
-            else:
-                if not all_boundary_contigs.__contains__(query_name):
-                    all_boundary_contigs[query_name] = []
-                all_list = all_boundary_contigs[query_name]
-                all_list.append(item[1])
-
-    return longest_TE_boundary_contigs, all_boundary_contigs
 
 def get_fake_tirs(itrsearch_log):
     fake_tirs = set()
@@ -6922,7 +5546,6 @@ def get_fake_tirs(itrsearch_log):
         query_seq = details[0]
         align_seq = details[1]
         target_seq = details[2]
-        #print(query_name)
         query_parts = query_seq.split(' ')
         target_parts = target_seq.split(' ')
         if len(query_parts) > 7 and len(target_parts) > 7:
@@ -6940,14 +5563,13 @@ def search_tsd_batch(cur_segments, flanking_len):
         for copy_index, copy in enumerate(cur_candidate_LTRs):
             orig_seq = str(copy[4])
 
-            #如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
             if orig_seq.__contains__('NNNNNNNNNN'):
                 continue
 
             ltr_len = copy[3]-copy[0]+1
             ltr_start = flanking_len + 1
             ltr_end = flanking_len + ltr_len
-            # 寻找所有可能的TSD序列，计算每条序列的边界与原始边界的距离，并存到header里
+
             tsd_search_distance = 50
             cur_ltr_contigs = search_confident_ltr(orig_seq, ltr_start, ltr_end, tsd_search_distance, ref_name, copy_index)
             all_copies_ltr_contigs.update(cur_ltr_contigs)
@@ -6955,7 +5577,6 @@ def search_tsd_batch(cur_segments, flanking_len):
 
 def search_tsd_ltr_batch(all_copies_ltr_contigs, ltr_tsd_dir, partition_index, TRsearch_dir):
     all_candidate_LTRs_path = ltr_tsd_dir + '/' + str(partition_index) + '.fa'
-    #序列交由ltrsearch去搜索TIR结构
     store_fasta(all_copies_ltr_contigs, all_candidate_LTRs_path)
     run_ltrsearch(TRsearch_dir, all_candidate_LTRs_path, ltr_tsd_dir)
     all_copies_out = all_candidate_LTRs_path + '.ltr'
@@ -6964,6 +5585,8 @@ def search_tsd_ltr_batch(all_copies_ltr_contigs, ltr_tsd_dir, partition_index, T
 
 def rename_fasta(input, output, header='N'):
     names, contigs = read_fasta(input)
+    print(input)
+    print(contigs)
     node_index = 0
     with open(output, 'w') as f_save:
         for name in names:
@@ -6984,7 +5607,6 @@ def rename_reference(input, output):
     f_save.close()
 
 def search_candidate_ltr(copies_out_contigs):
-    #对all_copies_out_contigs进行rename
     all_copies_out_contigs = {}
     for name in copies_out_contigs.keys():
         seq = copies_out_contigs[name]
@@ -7007,7 +5629,7 @@ def search_candidate_ltr(copies_out_contigs):
 
     candidate_LTRs = {}
     candidate_cut_LTRs = {}
-    #对all_copies_out_contigs按照query_name进行分组
+    # group
     # group_copies_contigs -> {query_name: {name: seq}}
     group_copies_contigs = {}
     for cur_name in all_copies_out_contigs.keys():
@@ -7019,7 +5641,8 @@ def search_candidate_ltr(copies_out_contigs):
 
     for query_name in group_copies_contigs.keys():
         cur_copies_out_contigs = group_copies_contigs[query_name]
-        # 1. 合并，选择distance最小（相同则取最长）的那条序列,当做这条拷贝的代表序列
+        # 1. Merge and select the sequence with the smallest distance (choose the longest in case of tie)
+        # as the representative sequence for this copy.
         # copies_candidate -> {copy_index: (min_distance_seq_name, min_distance, tsd)}
         min_distance = 10000000
         min_distance_seq_len = 0
@@ -7084,7 +5707,6 @@ def search_confident_ltr(orig_seq, raw_ltr_start, raw_ltr_end, tsd_search_distan
     # ltr_start, ltr_end与原始边界的距离进行排序，越近的排在前面
     TSD_set = sorted(TSD_set, key=lambda x: abs(x[6] - raw_ltr_start) + abs(x[7] - raw_ltr_end))
 
-    # 遍历所有的候选TSD，控制只选择前20条序列
     for i, tsd_info in enumerate(TSD_set):
         if i >= 20:
             break
@@ -7092,7 +5714,6 @@ def search_confident_ltr(orig_seq, raw_ltr_start, raw_ltr_end, tsd_search_distan
         left_tsd_end = tsd_info[1]
         left_tsd = tsd_info[2]
 
-        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if left_tsd.__contains__('NN'):
             continue
 
@@ -7104,7 +5725,7 @@ def search_confident_ltr(orig_seq, raw_ltr_start, raw_ltr_end, tsd_search_distan
         ltr_end = tsd_info[7]
         # tir_contig = {}
         ltr_seq = orig_seq[ltr_start - 1: ltr_end]
-        #计算与原始边界的距离
+
         distance = abs(ltr_start - raw_ltr_start) + abs(ltr_end - raw_ltr_end)
 
         if len(ltr_seq) < 100:
@@ -7134,17 +5755,14 @@ def search_confident_tir(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distan
             TSDsearch_v2(orig_seq, tir_start, tir_end, TSD_set, plant)
 
     # (left_tsd_start, left_tsd_end, left_tsd_seq, right_tsd_start, right_tsd_end, right_tsd_seq, tir_start, tir_end, tir_len)
-    # 按照tir_start, tir_end与原始边界的距离进行排序，越近的排在前面
     TSD_set = sorted(TSD_set, key=lambda x: abs(x[6] - raw_tir_start) + abs(x[7] - raw_tir_end))
 
     query_dist = []
-    # 遍历所有的候选TSD，控制只选择前20条序列
     for i, tsd_info in enumerate(TSD_set):
         left_tsd_start = tsd_info[0]
         left_tsd_end = tsd_info[1]
         left_tsd = tsd_info[2]
 
-        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if left_tsd.__contains__('NN'):
             continue
 
@@ -7157,7 +5775,6 @@ def search_confident_tir(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distan
 
         # tir_contig = {}
         tir_seq = orig_seq[tir_start - 1: tir_end]
-        #计算与原始边界的距离
         distance = abs(tir_start - raw_tir_start) + abs(tir_end - raw_tir_end)
 
         if len(tir_seq) < 100:
@@ -7166,15 +5783,12 @@ def search_confident_tir(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distan
         # new_query_name = query_name + '-C_' + str(copy_index) + '_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
         # itr_contigs[new_query_name] = tir_seq
 
-        #过滤掉具有TG..CA motif的TIR序列，绝大多数应该是假阳性
         if tir_seq[0:2] == 'TG' and tir_seq[-2:] == 'CA':
             continue
 
-        # 过滤掉以TATATATA开头和结束的TIR
         if str(tir_seq).startswith('TATATATA') or str(tir_seq).startswith('ATATATAT'):
             continue
 
-        # 如果以候选TSD定位边界，且tir的起始和结束5bp满足高相似性，则大概率这是一条真实的具有TSD+TIR结构的序列
         tir_start_5base = orig_seq[tir_start - 1: tir_start + 4]
         tir_end_5base = orig_seq[tir_end - 5: tir_end]
         if allow_mismatch(getReverseSequence(tir_start_5base), tir_end_5base, 1):
@@ -7182,12 +5796,6 @@ def search_confident_tir(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distan
             itr_contigs[new_query_name] = tir_seq
             query_dist.append((new_query_name, distance))
 
-        # # 我们使用itrsearch的比对信息排除了比对偏移的情况，所以不需要5bp限制
-        # new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
-        # itr_contigs[new_query_name] = tir_seq
-        # query_dist.append((new_query_name, distance))
-
-    #取distance最小的top 10
     max_top_num = 10
     query_dist.sort(key=lambda x: x[1])
     top_itr_contigs = {}
@@ -7198,116 +5806,33 @@ def search_confident_tir(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distan
         top_itr_contigs[query_name] = itr_contigs[query_name]
     return top_itr_contigs
 
-def search_confident_tir_v3(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distance, query_name, plant):
-    itr_contigs = {}
-    orig_seq_len = len(orig_seq)
-    tir_starts = []
-    tir_ends = []
-
-    for i in range(raw_tir_start - tsd_search_distance, raw_tir_start + tsd_search_distance + 1):
-        if i >= 1 and i <= orig_seq_len:
-            tir_starts.append(i)
-
-    for i in range(raw_tir_end - tsd_search_distance, raw_tir_end + tsd_search_distance + 1):
-        if i >= 1 and i <= orig_seq_len:
-            tir_ends.append(i)
-
-    TSD_set = set()
-    for tir_start in tir_starts:
-        for tir_end in tir_ends:
-            TSDsearch_v2(orig_seq, tir_start, tir_end, TSD_set, plant)
-
-    # (left_tsd_start, left_tsd_end, left_tsd_seq, right_tsd_start, right_tsd_end, right_tsd_seq, tir_start, tir_end, tir_len)
-    # 按照tir_start, tir_end与原始边界的距离进行排序，越近的排在前面
-    TSD_set = sorted(TSD_set, key=lambda x: abs(x[6] - raw_tir_start) + abs(x[7] - raw_tir_end))
-
-    query_dist = []
-    # 遍历所有的候选TSD，控制只选择前20条序列
-    for i, tsd_info in enumerate(TSD_set):
-        left_tsd_start = tsd_info[0]
-        left_tsd_end = tsd_info[1]
-        left_tsd = tsd_info[2]
-
-        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
-        if left_tsd.__contains__('NN'):
-            continue
-
-        right_tsd_start = tsd_info[3]
-        right_tsd_end = tsd_info[4]
-        right_tsd = tsd_info[5]
-
-        tir_start = tsd_info[6]
-        tir_end = tsd_info[7]
-
-        # tir_contig = {}
-        tir_seq = orig_seq[tir_start - 1: tir_end]
-        #计算与原始边界的距离
-        distance = abs(tir_start - raw_tir_start) + abs(tir_end - raw_tir_end)
-
-        if len(tir_seq) < 100:
-            continue
-
-        # new_query_name = query_name + '-C_' + str(copy_index) + '_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
-        # itr_contigs[new_query_name] = tir_seq
-
-        #过滤掉具有TG..CA motif的TIR序列，绝大多数应该是假阳性
-        if tir_seq[0:2] == 'TG' and tir_seq[-2:] == 'CA':
-            continue
-
-        # 过滤掉以TATATATA开头和结束的TIR
-        if str(tir_seq).startswith('TATATATA') or str(tir_seq).startswith('ATATATAT'):
-            continue
-
-        # # 如果以候选TSD定位边界，且tir的起始和结束5bp满足高相似性，则大概率这是一条真实的具有TSD+TIR结构的序列
-        # tir_start_5base = orig_seq[tir_start - 1: tir_start + 4]
-        # tir_end_5base = orig_seq[tir_end - 5: tir_end]
-        # if allow_mismatch(getReverseSequence(tir_start_5base), tir_end_5base, 1):
-        #     new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_'+ str(distance)
-        #     itr_contigs[new_query_name] = tir_seq
-        #     query_dist.append((new_query_name, distance))
-
-        #起始和结束5bp一致并不是TIR的充要条件，因为我们现在使用多序列比对的同源性去寻找真实的边界，因此我们无须要求
-        new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
-        itr_contigs[new_query_name] = tir_seq
-        query_dist.append((new_query_name, distance))
-
-    top_itr_contigs = {}
-    for i, item in enumerate(query_dist):
-        query_name = item[0]
-        top_itr_contigs[query_name] = itr_contigs[query_name]
-    return top_itr_contigs
-
-
 def search_confident_tir_v4(orig_seq, raw_tir_start, raw_tir_end, tsd_search_distance, query_name, plant):
-    #将坐标都换成以0开始的
+    # Change the coordinates to start with 0
     raw_tir_start -= 1
     raw_tir_end -= 1
 
-    #我们之前的方法时间复杂度是100*100*9=90000
-    #我现在希望通过切kmer的方法将时间复杂度降为9*（100-k）*2=1800
-    #节省的时间为50倍
     itr_contigs = {}
     orig_seq_len = len(orig_seq)
     TSD_set = set()
-    # 1.先取起始、结束位置附近的2*tsd_search_distance序列
+    # 1. take the sequence near the starting and ending positions
     left_start = raw_tir_start - tsd_search_distance
     if left_start < 0:
         left_start = 0
     left_end = raw_tir_start + tsd_search_distance + 1
     left_round_seq = orig_seq[left_start: left_end]
-    #获取left_round_seq相对于整条序列的位置偏移，用来校正后面的TSD边界位置
+    # Get the position offset relative to the entire sequence, which is used to correct the position of the TSD boundary later
     left_offset = left_start
     right_start = raw_tir_end - tsd_search_distance
     if right_start < 0:
         right_start = 0
     right_end = raw_tir_end + tsd_search_distance + 1
     right_round_seq = orig_seq[right_start: right_end]
-    #获取right_round_seq相对于整条序列的位置偏移，用来校正后面的TSD边界位置
     right_offset = right_start
 
-    # 2.将左右两边的序列切成k-mer，用一个dict存起左边的k-mer，然后遍历右边k-mer时，判断是不是和左边k-mer一致，如果一致，则为一个候选的TSD，记录下位置信息
-    TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
-    # 记录的位置应该是离原始边界最近的位置
+    # 2.Cut the sequences on the left and right into k-mers, store the k-mers on the left in a dict,
+    # and then iterate through the k-mers on the right, determining whether they match the k-mers on the left.
+    # If they match, they are a candidate TSD, and the position information is recorded.
+    TIR_TSDs = [2, 3, 4, 5, 6, 8, 9, 10, 11]
     # exist_tsd -> {'TAA': {'left_pos': 100, 'right_pos': 200}}
     exist_tsd = {}
     for k_num in TIR_TSDs:
@@ -7323,7 +5848,6 @@ def search_confident_tir_v4(orig_seq, raw_tir_start, raw_tir_end, tsd_search_dis
                 pos_dict['left_pos'] = cur_pos
             else:
                 prev_pos = pos_dict['left_pos']
-                #判断谁的位置离原始边界更近
                 if abs(cur_pos-raw_tir_start) < abs(prev_pos-raw_tir_start):
                     pos_dict['left_pos'] = cur_pos
             exist_tsd[left_kmer] = pos_dict
@@ -7334,17 +5858,17 @@ def search_confident_tir_v4(orig_seq, raw_tir_start, raw_tir_end, tsd_search_dis
             if cur_pos < 0 or cur_pos > orig_seq_len - 1:
                 continue
             if exist_tsd.__contains__(right_kmer):
-                #这是一个TSD
+                # This is TSD
                 pos_dict = exist_tsd[right_kmer]
                 if not pos_dict.__contains__('right_pos'):
                     pos_dict['right_pos'] = cur_pos
                 else:
                     prev_pos = pos_dict['right_pos']
-                    # 判断谁的位置离原始边界更近
+                    # Determine who is closer to the original boundary
                     if abs(cur_pos - raw_tir_end) < abs(prev_pos - raw_tir_end):
                         pos_dict['right_pos'] = cur_pos
                 exist_tsd[right_kmer] = pos_dict
-                #判断这个TSD是否满足一些基本要求
+                # Determine whether this TSD meets some basic requirements.
                 tir_start = pos_dict['left_pos']
                 tir_end = pos_dict['right_pos']
                 first_3bp = orig_seq[tir_start: tir_start + 3]
@@ -7354,14 +5878,13 @@ def search_confident_tir_v4(orig_seq, raw_tir_start, raw_tir_end, tsd_search_dis
                         or (k_num == 2 and (right_kmer == 'TA' or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG'))):
                     TSD_set.add((right_kmer, tir_start, tir_end))
 
-    # 按照tir_start, tir_end与原始边界的距离进行排序，越近的排在前面
+    # sort by distance
     TSD_set = sorted(TSD_set, key=lambda x: abs(x[1] - raw_tir_start) + abs(x[2] - raw_tir_end))
 
     query_dist = []
     for i, tsd_info in enumerate(TSD_set):
         left_tsd = tsd_info[0]
 
-        # 如果有连续10个以上的N或者搜索的TSD有连续>=2个N，就过滤掉
         if left_tsd.__contains__('NN'):
             continue
 
@@ -7369,21 +5892,19 @@ def search_confident_tir_v4(orig_seq, raw_tir_start, raw_tir_end, tsd_search_dis
         tir_end = tsd_info[2]
 
         tir_seq = orig_seq[tir_start: tir_end+1]
-        #计算与原始边界的距离
         distance = abs(tir_start - raw_tir_start) + abs(tir_end - raw_tir_end)
 
         if len(tir_seq) < 100:
             continue
 
-        #过滤掉具有TG..CA motif的TIR序列，绝大多数应该是假阳性
+        # Filter out TIR sequences with the "TG..CA" motif, most of which should be false positives
         if tir_seq[0:2] == 'TG' and tir_seq[-2:] == 'CA':
             continue
 
-        # 过滤掉以TATATATA开头和结束的TIR
+        # Filter out TIR that starts and ends with "TATATATA"
         if str(tir_seq).startswith('TATATATA') or str(tir_seq).startswith('ATATATAT'):
             continue
 
-        #起始和结束5bp一致并不是TIR的充要条件，因为我们现在使用多序列比对的同源性去寻找真实的边界，因此我们无须要求
         new_query_name = query_name + '-C_' + str(i) + '-tsd_' + left_tsd + '-distance_' + str(distance)
         itr_contigs[new_query_name] = tir_seq
         query_dist.append((new_query_name, distance))
@@ -7480,660 +6001,7 @@ def store_flank_align_groups_v1(groups, flank_align_dir):
                         f_save.write(query_name+'\t'+subject_name+'\t'+str(q_start)+'\t'+str(q_end)+'\t'+str(s_start)+'\t'+str(s_end)+'\t'+str(direct)+'\n')
             f_save.close()
 
-def judge_flank_align(flanking_region_distance, output, flanking_len, flank_align_dir):
-    # 按照 orig_query_name 进行分组，每个 orig_query_name 为一个单独的单元
-    # query_groups -> {query_name: {subject_name: []}}
-    query_groups = {}
-    with open(output, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            parts = line.split('\t')
-            query_name = parts[0]
-            subject_name = parts[1]
-
-            orig_query_name = query_name.split('-c_')[0]
-            orig_subject_name = subject_name.split('-c_')[0]
-
-            if orig_query_name != orig_subject_name:
-                continue
-
-            # 按照subject_name进行分组；按照分组去确定该subject_name是否该过滤。
-            if not query_groups.__contains__(orig_query_name):
-                query_groups[orig_query_name] = {}
-            subject_groups = query_groups[orig_query_name]
-
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            s_start = int(parts[8])
-            s_end = int(parts[9])
-            direct = '+'
-            if s_start > s_end:
-                direct = '-'
-            if query_name == subject_name or not query_name.__contains__('-c_0'):
-                continue
-
-            query_parts = query_name.split('-c_')
-            orig_query_len = int(query_parts[1].split('-')[1])
-
-            subject_parts = subject_name.split('-c_')
-            orig_subject_len = int(subject_parts[1].split('-')[1])
-
-            if not subject_groups.__contains__(subject_name):
-                subject_groups[subject_name] = []
-            group = subject_groups[subject_name]
-            group.append((q_start, q_end, orig_query_len, s_start, s_end, orig_subject_len, flanking_len, flanking_region_distance, direct, query_name, subject_name))
-    f_r.close()
-
-            # # 判断C0与C1,C2...等拷贝的比对情况，如果有flanking区域包含在比对区域内，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
-            # if direct == '+' and ((q_start < (flanking_len + 1 - flanking_region_distance) and s_start < (flanking_len + 1 - flanking_region_distance))
-            #                       or (q_end > (orig_query_len + flanking_len + flanking_region_distance) and s_end > (orig_subject_len + flanking_len + flanking_region_distance))):
-            #     deleted_subject_names.add(subject_name)
-            # elif direct == '-' and ((q_start < (flanking_len + 1 - flanking_region_distance) and s_start > (orig_subject_len + flanking_len + flanking_region_distance))
-            #                       or (q_end > (orig_query_len + flanking_len + flanking_region_distance) and s_end < (flanking_len + 1 - flanking_region_distance))):
-            #     deleted_subject_names.add(subject_name)
-
-    #存储query_groups中的比对情况，方便我们后期调试
-    store_flank_align_groups(query_groups, flank_align_dir)
-
-
-    delete_names = set()
-    appeared_names = set()
-    for query_name in query_groups.keys():
-        # if query_name.__contains__('N_54503-len_5175-ref_NC_029264.1-11302200-11307375-C_27-tsd_TAA-distance_9'):
-        #     print('here')
-
-        # 统计整个flanking区域都能比对的次数，超过1次就过滤掉
-        complete_false_num = 0
-        # 统计明显超过边界的次数，超过5次就过滤掉
-        obvious_false_num = 0
-        appeared_names.add(query_name)
-        subject_groups = query_groups[query_name]
-        if len(subject_groups) == 0:
-            delete_names.add(query_name)
-        total_subject_names = set()
-        deleted_subject_names = set()
-        for subject_name in subject_groups.keys():
-            total_subject_names.add(subject_name)
-            group = subject_groups[subject_name]
-            is_query_start_covered = False
-            is_query_end_covered = False
-            is_subject_start_covered = False
-            is_subject_end_covered = False
-            for item in group:
-                q_start = item[0]
-                q_end = item[1]
-                orig_query_len = item[2]
-                s_start = item[3]
-                s_end = item[4]
-                orig_subject_len = item[5]
-                flanking_len = item[6]
-                flanking_region_distance = item[7]
-                direct = item[8]
-
-
-                query_start_covered, query_end_covered, \
-                subject_start_covered, subject_end_covered = overlap_with_boundary(q_start, q_end, s_start, s_end,
-                                                                                         flanking_len,
-                                                                                         flanking_region_distance,
-                                                                                         orig_query_len, orig_subject_len)
-                is_query_start_covered = is_query_start_covered or query_start_covered
-                is_query_end_covered = is_query_end_covered or query_end_covered
-                is_subject_start_covered = is_subject_start_covered or subject_start_covered
-                is_subject_end_covered = is_subject_end_covered or subject_end_covered
-
-                #如果边界位置向里向外各(20/40)bp的序列具有同源性，说明边界周围的序列具有同源性
-                if direct == '+' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20)) or
-                                      (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20)) or
-                                      (s_start < (flanking_len+1-20) and s_end > (flanking_len+1+20)) or
-                                      (s_start < (orig_subject_len+flanking_len-20) and s_end > (orig_subject_len+flanking_len+20))):
-                    obvious_false_num += 1
-                elif direct == '-' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20)) or
-                                        (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20)) or
-                                        (s_start > (flanking_len+1+20) and s_end < (flanking_len+1-20)) or
-                                        (s_start > (orig_subject_len+flanking_len+20) and s_end < (orig_subject_len+flanking_len-20))):
-                    obvious_false_num += 1
-
-                if direct == '+' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40)) or
-                                      (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40)) or
-                                      (s_start < (flanking_len+1-40) and s_end > (flanking_len+1+40)) or
-                                      (s_start < (orig_subject_len+flanking_len-40) and s_end > (orig_subject_len+flanking_len+40))):
-                    complete_false_num += 1
-                elif direct == '-' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40)) or
-                                        (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40)) or
-                                        (s_start > (flanking_len+1+40) and s_end < (flanking_len+1-40)) or
-                                        (s_start > (orig_subject_len+flanking_len+40) and s_end < (orig_subject_len+flanking_len-40))):
-                    complete_false_num += 1
-
-
-
-                # 判断C0与C1,C2...等拷贝的比对情况，如果有边界外的区域能和拷贝高同源性，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
-                if direct == '+' and \
-                        (q_start < (flanking_len + 1 - flanking_region_distance) and q_end > (flanking_len + 1)) or \
-                        (q_start < (orig_query_len + flanking_len) and q_end > (orig_query_len + flanking_len + flanking_region_distance)) or \
-                        (s_start < (flanking_len + 1 - flanking_region_distance) and s_end > (flanking_len + 1)) or \
-                        (s_start < (orig_subject_len + flanking_len) and s_end > (orig_subject_len + flanking_len + flanking_region_distance)):
-                    deleted_subject_names.add(subject_name)
-                    break
-                elif direct == '-' and \
-                        (q_start < (flanking_len + 1 - flanking_region_distance) and q_end > (flanking_len + 1)) or \
-                        (q_start < (orig_query_len + flanking_len) and q_end > (orig_query_len + flanking_len + flanking_region_distance)) or \
-                        (s_end < (flanking_len + 1 - flanking_region_distance) and s_start > (flanking_len + 1)) or \
-                        (s_end < (orig_subject_len + flanking_len) and s_start > (orig_subject_len + flanking_len + flanking_region_distance)):
-                    deleted_subject_names.add(subject_name)
-                    break
-
-            if not is_query_start_covered or not is_query_end_covered or\
-                    not is_subject_start_covered or not is_subject_end_covered:
-                deleted_subject_names.add(subject_name)
-
-        # 如果50%拷贝的subject都有flanking区域能够比对，则这条序列应该被丢弃
-        if complete_false_num >= 1 or obvious_false_num >= 5 or (len(total_subject_names) > 0 and float(len(deleted_subject_names))/len(total_subject_names) >= 0.5):
-            delete_names.add(query_name)
-    return delete_names, appeared_names
-
-    # 如果有3条以上拷贝的subject都有flanking区域能够比对，则这条序列应该被丢弃
-    # if len(total_subject_names) > 0 and len(deleted_subject_names) >= 3:
-    #     return cur_orig_query_name
-    # else:
-    #     return ''
-
-def judge_flank_align_v1(flanking_region_distance, output, flanking_len, flank_align_dir):
-    # 按照 orig_query_name 进行分组，每个 orig_query_name 为一个单独的单元
-    # groups -> {
-    # orig_query_name: {
-    #   query_name : {subject_name: []}
-    #   }
-    # }
-    groups = {}
-    with open(output, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            parts = line.split('\t')
-            query_name = parts[0]
-            subject_name = parts[1]
-            if query_name == subject_name:
-                continue
-
-            match = re.search(r'chr_(\d+):(\d+)_(\d+)\(.+\)', query_name)
-            if not match:
-                continue
-            query_chrom = match.group(1)
-            query_start = match.group(2)
-            query_end = match.group(3)
-
-            match = re.search(r'chr_(\d+):(\d+)_(\d+)\(.+\)', subject_name)
-            if not match:
-                continue
-            sub_chrom = match.group(1)
-            sub_start = match.group(2)
-            sub_end = match.group(3)
-
-            if query_chrom == sub_chrom and (query_start == sub_start or query_end == sub_end):
-                continue
-           
-
-            orig_query_name = query_name.split('-c_')[0]
-            orig_subject_name = subject_name.split('-c_')[0]
-
-            # if orig_query_name == 'STOWAWAY16_OS':
-            #     print(output)
-
-            if orig_query_name != orig_subject_name:
-                continue
-            
-            # 按照orig_query_name进行分组,内部再按照query_name进行分组。
-            if not groups.__contains__(orig_query_name):
-                groups[orig_query_name] = {}
-            query_groups = groups[orig_query_name]
-
-            # 按照subject_name进行分组；按照分组去确定该subject_name是否该过滤。
-            if not query_groups.__contains__(query_name):
-                query_groups[query_name] = {}
-            subject_groups = query_groups[query_name]
-
-            q_start = int(parts[6])
-            q_end = int(parts[7])
-            s_start = int(parts[8])
-            s_end = int(parts[9])
-            direct = '+'
-            if s_start > s_end:
-                direct = '-'
-            if query_name == subject_name:
-                continue
-
-            query_parts = query_name.split('-c_')
-            orig_query_len = int(query_parts[1].split('-')[1])
-
-            subject_parts = subject_name.split('-c_')
-            orig_subject_len = int(subject_parts[1].split('-')[1])
-
-            if not subject_groups.__contains__(subject_name):
-                subject_groups[subject_name] = []
-            subject_list = subject_groups[subject_name]
-            subject_list.append((q_start, q_end, orig_query_len, s_start, s_end, orig_subject_len, flanking_len, flanking_region_distance, direct, query_name, subject_name))
-    f_r.close()
-
-    #存储groups中的比对情况，方便我们后期调试
-    store_flank_align_groups_v1(groups, flank_align_dir)
-
-    delete_names = set()
-    appeared_names = set()
-    for orig_query_name in groups.keys():
-        is_fake = False
-        query_groups = groups[orig_query_name]
-        for query_name in query_groups.keys():
-            if is_fake:
-                break
-            # 统计整个flanking区域都能比对的次数，超过1次就过滤掉
-            complete_false_num = 0
-            # 统计明显超过边界的次数，超过5次就过滤掉
-            obvious_false_num = 0
-            appeared_names.add(orig_query_name)
-            subject_groups = query_groups[query_name]
-            if len(subject_groups) == 0:
-                delete_names.add(orig_query_name)
-                #print(query_name)
-            total_subject_names = set()
-            deleted_subject_names = set()
-            # full_subject_names = set()
-            # 可靠的支持数量应该超过1
-            # 可靠支持：一个真实的TE应满足它的首部边界比对到subject的首部边界，尾部边界比对到subject的尾部边界
-            # confident_support = 0
-            for subject_name in subject_groups.keys():
-                total_subject_names.add(subject_name)
-                group = subject_groups[subject_name]
-                # is_query_start_covered = False
-                # is_query_end_covered = False
-                # is_subject_start_covered = False
-                # is_subject_end_covered = False
-
-                # is_start_support = False
-                # is_end_support = False
-                for item in group:
-                    q_start = item[0]
-                    q_end = item[1]
-                    orig_query_len = item[2]
-                    s_start = item[3]
-                    s_end = item[4]
-                    orig_subject_len = item[5]
-                    flanking_len = item[6]
-                    flanking_region_distance = item[7]
-                    direct = item[8]
-
-                    # query_start_covered, query_end_covered, \
-                    # subject_start_covered, subject_end_covered = overlap_with_boundary(q_start, q_end, s_start, s_end,
-                    #                                                                         flanking_len,
-                    #                                                                         flanking_region_distance,
-                    #                                                                         orig_query_len, orig_subject_len)
-                    # is_query_start_covered = is_query_start_covered or query_start_covered
-                    # is_query_end_covered = is_query_end_covered or query_end_covered
-                    # is_subject_start_covered = is_subject_start_covered or subject_start_covered
-                    # is_subject_end_covered = is_subject_end_covered or subject_end_covered
-
-                    # #判断首部和尾部是否支持
-                    # if direct == '+' and (q_start >= (flanking_len+1-flanking_region_distance) and q_start <= (flanking_len+1+flanking_region_distance) and q_end > (flanking_len+1) and (s_start >= (flanking_len+1-flanking_region_distance) and s_start <= (flanking_len+1+flanking_region_distance) and s_end > (flanking_len+1))):
-                    #     is_start_support = True
-                    # elif direct == '+' and (q_start < (orig_query_len+flanking_len) and q_end <= (orig_query_len+flanking_len+flanking_region_distance) and q_end >= (orig_query_len+flanking_len-flanking_region_distance) and (s_start < (orig_subject_len+flanking_len) and s_end <= (orig_subject_len+flanking_len+flanking_region_distance) and s_end >= (orig_subject_len+flanking_len-flanking_region_distance))):
-                    #     is_end_support = True
-                    # elif direct == '-' and (q_start >= (flanking_len+1-flanking_region_distance) and q_start <= (flanking_len+1+flanking_region_distance) and q_end > (flanking_len+1) and (s_start > (flanking_len+1) and s_end >= (flanking_len+1-flanking_region_distance) and s_end <= (flanking_len+1+flanking_region_distance))):
-                    #     is_start_support = True
-                    # elif direct == '-' and (q_start < (orig_query_len+flanking_len) and q_end <= (orig_query_len+flanking_len+flanking_region_distance) and q_end >= (orig_query_len+flanking_len-flanking_region_distance) and (s_start <= (orig_subject_len+flanking_len+flanking_region_distance) and s_start >= (orig_subject_len+flanking_len-flanking_region_distance) and s_end < (orig_subject_len+flanking_len))):
-                    #     is_end_support = True
-
-
-
-                    #如果边界位置向里向外各(20/40)bp的序列具有同源性，说明边界周围的序列具有同源性
-                    if direct == '+' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20) and (s_start < (flanking_len+1-20) and s_end > (flanking_len+1+20))) or
-                                        (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20) and (s_start < (orig_subject_len+flanking_len-20) and s_end > (orig_subject_len+flanking_len+20)))):
-                        obvious_false_num += 1
-                    elif direct == '-' and ((q_start < (flanking_len+1-20) and q_end > (flanking_len+1+20) and (s_start > (flanking_len+1+20) and s_end < (flanking_len+1-20))) or
-                                            (q_start < (orig_query_len+flanking_len-20) and q_end > (orig_query_len+flanking_len+20) and (s_start > (orig_subject_len+flanking_len+20) and s_end < (orig_subject_len+flanking_len-20)))):
-                        obvious_false_num += 1
-
-                    # 完全错误应该指的是query的边界比对到subject边界
-                    if direct == '+' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40) and (s_start < (flanking_len+1-40) and s_end > (flanking_len+1+40))) or
-                                        (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40) and (s_start < (orig_subject_len+flanking_len-40) and s_end > (orig_subject_len+flanking_len+40)))):
-                        complete_false_num += 1
-                    elif direct == '-' and ((q_start < (flanking_len+1-40) and q_end > (flanking_len+1+40) and (s_start > (flanking_len+1+40) and s_end < (flanking_len+1-40))) or
-                                            (q_start < (orig_query_len+flanking_len-40) and q_end > (orig_query_len+flanking_len+40) and (s_start > (orig_subject_len+flanking_len+40) and s_end < (orig_subject_len+flanking_len-40)))):
-                        complete_false_num += 1
-
-
-
-                    # 判断C0与C1,C2...等拷贝的比对情况，如果有边界外的区域能和拷贝高同源性，那么这条拷贝应该被抛弃，如果所有拷贝被抛弃，则该条序列应该是假阳性。
-                    if direct == '+' and ((q_start < (flanking_len+1-flanking_region_distance) and q_end > (flanking_len+1) and (s_start < (flanking_len+1-flanking_region_distance) and s_end > (flanking_len+1))) or
-                                        (q_start < (orig_query_len+flanking_len) and q_end > (orig_query_len+flanking_len+flanking_region_distance) and (s_start < (orig_subject_len+flanking_len) and s_end > (orig_subject_len+flanking_len+flanking_region_distance)))):
-                        deleted_subject_names.add(subject_name)
-                        break
-                    elif direct == '-' and ((q_start < (flanking_len+1-flanking_region_distance) and q_end > (flanking_len+1) and (s_start > (flanking_len+1) and s_end < (flanking_len+1-flanking_region_distance))) or
-                                            (q_start < (orig_query_len+flanking_len) and q_end > (orig_query_len+flanking_len+flanking_region_distance) and (s_start > (orig_subject_len+flanking_len+flanking_region_distance) and s_end < (orig_subject_len+flanking_len)))):
-                        deleted_subject_names.add(subject_name)
-                        break
-                
-                # #因为比对的问题，真实的TE总是首部支持就没有尾部支持，或者相反，因此我们取“或”
-                # if is_start_support or is_end_support:
-                #     confident_support += 1
-
-                # if not is_query_start_covered or not is_query_end_covered or\
-                #         not is_subject_start_covered or not is_subject_end_covered:
-                #     deleted_subject_names.add(subject_name)
-                
-                # if is_query_start_covered and is_query_end_covered and\
-                #         is_subject_start_covered and is_subject_end_covered:
-                #     full_subject_names.add(subject_name)
-
-            # 如果50%拷贝的subject都有flanking区域能够比对，则这条序列应该被丢弃
-            #if complete_false_num >= 3 or obvious_false_num >= 3 or confident_support <= 0 or \
-            #if confident_support <= 0 or \
-            if (len(total_subject_names) > 0 and float(len(deleted_subject_names))/len(total_subject_names) >= 0.5):
-                delete_names.add(orig_query_name)
-                print(query_name, complete_false_num, obvious_false_num, len(deleted_subject_names), len(total_subject_names))
-                #print(query_name, complete_false_num, obvious_false_num, len(deleted_subject_names), len(total_subject_names), confident_support)
-                #print(deleted_subject_names)
-                is_fake = True
-                break
-
-    return delete_names, appeared_names
-
-    # 如果有3条以上拷贝的subject都有flanking区域能够比对，则这条序列应该被丢弃
-    # if len(total_subject_names) > 0 and len(deleted_subject_names) >= 3:
-    #     return cur_orig_query_name
-    # else:
-    #     return ''
-
-def flank_region_align_v1(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log):
-    log.logger.info('------generating candidate ' + TE_type + ' copies')
-    starttime = time.time()
-    tir_tsd_temp_dir = tmp_output_dir + '/' + TE_type + '_blast_'+str(ref_index)
-    all_copies = multi_process_align_and_get_copies(candidate_sequence_path, reference, tir_tsd_temp_dir, TE_type, threads)
-
-    # 过滤掉拷贝数小于2, flanking copies
-    ref_names, ref_contigs = read_fasta(reference)
-    new_all_copies = {}
-    for query_name in all_copies.keys():
-        if TE_type == 'tir':
-            # tsd = query_name.split('-tsd_')[1]
-            tsd = ''
-        else:
-            tsd = ''
-        copies = all_copies[query_name]
-        if TE_type != 'ltr' and len(copies) < 2:
-            continue
-        for copy in copies:
-            ref_name = copy[0]
-            copy_ref_start = int(copy[1])
-            copy_ref_end = int(copy[2])
-            direct = copy[4]
-            copy_len = copy_ref_end - copy_ref_start + 1
-            if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
-                continue
-            copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
-            if direct == '-':
-                copy_seq = getReverseSequence(copy_seq)
-            if len(copy_seq) < 100:
-                continue
-            if not new_all_copies.__contains__(query_name):
-                new_all_copies[query_name] = []
-            copy_list = new_all_copies[query_name]
-            copy_list.append((ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd))
-
-    # # store confident_copies for testing
-    # confident_copies_file = tmp_output_dir + '/'+TE_type+'_copies.info'
-    # with open(confident_copies_file, 'w') as f_save:
-    #     f_save.write('# all copies have been flanked ' + str(flanking_len) +' bp at both ends\n')
-    #     for orig_query_name in new_all_copies.keys():
-    #         f_save.write(orig_query_name + '\n')
-    #         for copy in new_all_copies[orig_query_name]:
-    #             f_save.write('\tfrom:' + str(copy[0]) + '_' + str(copy[1]) + '_' + str(copy[2]) + '_' + str(
-    #                 copy[2] - copy[1] + 1) + '\n')
-    #             f_save.write(copy[4] + '\n')
-    # f_save.close()
-
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of generating candidate " + TE_type + " copies: %.8s s" % (dtime))
-
-    log.logger.info('------flanking ' + TE_type + ' alignment')
-    starttime = time.time()
-    if ref_index == -1:
-        flank_align_dir = tmp_output_dir + '/flank_' + TE_type + '_align'
-    else:
-        flank_align_dir = tmp_output_dir + '/flank_'+TE_type+'_align_' + str(ref_index)
-    os.system('rm -rf '+flank_align_dir)
-    if not os.path.exists(flank_align_dir):
-        os.makedirs(flank_align_dir)
-
-    # 保留单拷贝的LTR转座子
-    single_copy_LTR = set()
-
-    flanking_region_distance = int(flanking_len * similar_ratio)
-    #flanking_region_distance = 10
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    #一条orig_query_name调用一次比对，CPU利用率太低，我们尝试50条序列调用一次
-    batch_size = 50
-    cur_query_copies = {}
-    cur_subject_copies = {}
-    batch_num = 0
-    for index, orig_query_name in enumerate(new_all_copies.keys()):
-        if index % batch_size == 0 and len(cur_query_copies) > 0:
-            cur_query_copy_path = flank_align_dir + '/' + str(batch_num) + '_query.fa'
-            store_fasta(cur_query_copies, cur_query_copy_path)
-            cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
-            store_fasta(cur_subject_copies, cur_subject_copy_path)
-            output_path = flank_align_dir + '/' + str(batch_num) + '.out'
-            job = ex.submit(run_blast_align, cur_query_copy_path, cur_subject_copy_path, output_path,
-                            flanking_len, flanking_region_distance, flank_align_dir)
-            jobs.append(job)
-            batch_num += 1
-            cur_query_copies = {}
-            cur_subject_copies = {}
-
-        copy_list = new_all_copies[orig_query_name]
-
-        if TE_type == 'ltr' and len(copy_list) <= 1:
-            single_copy_LTR.add(orig_query_name)
-            continue
-
-        for i, copy in enumerate(copy_list):
-            # 最多取100条
-            if i > 100:
-                break
-            # copyt -> (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq, tsd)
-            ref_name = copy[0]
-            ref_start = int(copy[1])
-            ref_end = int(copy[2])
-            ref_flank_seq = copy[4]
-            if len(ref_flank_seq) < 100:
-                continue
-            if i == 0:
-                cur_query_copies[orig_query_name + '-c_' + str(i) + '-' + str(ref_end - ref_start + 1)] = ref_flank_seq
-            else:
-                cur_subject_copies[orig_query_name + '-c_' + str(i) + '-' + str(ref_end - ref_start + 1)] = ref_flank_seq
-
-    if len(cur_query_copies) > 0:
-        cur_query_copy_path = flank_align_dir + '/' + str(batch_num) + '_query.fa'
-        store_fasta(cur_query_copies, cur_query_copy_path)
-        cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
-        store_fasta(cur_subject_copies, cur_subject_copy_path)
-        output_path = flank_align_dir + '/' + str(batch_num) + '.out'
-        job = ex.submit(run_blast_align, cur_query_copy_path, cur_subject_copy_path, output_path,
-                        flanking_len, flanking_region_distance, flank_align_dir)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    deleted_names = set()
-    appeared_names = set()
-    for job in as_completed(jobs):
-        cur_delete_names, cur_appeared_names = job.result()
-        deleted_names.update(cur_delete_names)
-        appeared_names.update(cur_appeared_names)
-
-    for name in new_all_copies.keys():
-        if name not in appeared_names:
-            deleted_names.add(name)
-
-    for cur_delete_name in deleted_names:
-        if cur_delete_name != '' and cur_delete_name not in single_copy_LTR:
-            del new_all_copies[cur_delete_name]
-
-    print('deleted_names len: ' + str(len(deleted_names)))
-    # 用完了就将临时目录删了以减少磁盘空间占用
-    #os.system('rm -rf ' + flank_align_dir)
-    os.system('rm -rf ' + tir_tsd_temp_dir)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of flanking " + TE_type + " alignment: %.8s s" % (dtime))
-    return new_all_copies
-
-def flank_region_align_v2(candidate_sequence_path, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant):
-    log.logger.info('------generating candidate ' + TE_type + ' copies')
-    starttime = time.time()
-    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index)
-    os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    names, contigs = read_fasta(candidate_sequence_path)
-    split_files = []
-    for i, name in enumerate(names):
-        cur_file = temp_dir + '/' + str(name) + '.fa'
-        cur_contigs = {}
-        cur_contigs[name] = contigs[name]
-        store_fasta(cur_contigs, cur_file)
-        split_files.append(cur_file)
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for cur_file in split_files:
-        job = ex.submit(run_find_members_v5, cur_file, reference, temp_dir, member_script_path, subset_script_path,
-                        plant, TE_type, flanking_len)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    new_all_copies = {}
-    for job in as_completed(jobs):
-        cur_name, cur_copies = job.result()
-        if cur_name is not None:
-            new_all_copies[cur_name] = cur_copies
-
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of generating candidate " + TE_type + " copies: %.8s s" % (dtime))
-
-    log.logger.info('------flanking ' + TE_type + ' alignment')
-    starttime = time.time()
-    if ref_index == -1:
-        flank_align_dir = tmp_output_dir + '/flank_' + TE_type + '_align'
-    else:
-        flank_align_dir = tmp_output_dir + '/flank_'+TE_type+'_align_' + str(ref_index)
-    os.system('rm -rf '+flank_align_dir)
-    if not os.path.exists(flank_align_dir):
-        os.makedirs(flank_align_dir)
-
-    flanking_region_distance = int(flanking_len * similar_ratio)
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    #一条orig_query_name调用一次比对，CPU利用率太低，我们尝试50条序列调用一次
-    batch_size = 50
-    cur_query_copies = {}
-    cur_subject_copies = {}
-    batch_num = 0
-    for index, orig_query_name in enumerate(new_all_copies.keys()):
-        if index % batch_size == 0 and len(cur_query_copies) > 0:
-            cur_query_copy_path = flank_align_dir + '/' + str(batch_num) + '_query.fa'
-            store_fasta(cur_query_copies, cur_query_copy_path)
-            cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
-            store_fasta(cur_subject_copies, cur_subject_copy_path)
-            output_path = flank_align_dir + '/' + str(batch_num) + '.out'
-            job = ex.submit(run_blast_align_v1, cur_query_copy_path, cur_subject_copy_path, output_path,
-                            flanking_len, flanking_region_distance, flank_align_dir)
-            jobs.append(job)
-            batch_num += 1
-            cur_query_copies = {}
-            cur_subject_copies = {}
-
-        copy_list = new_all_copies[orig_query_name]
-
-        for i, copy in enumerate(copy_list):
-            # 最多取100条
-            if i > 100:
-                break
-            # copy -> (len, seq)
-            len_seq = int(copy[0])
-            chr_name = copy[1]
-            seq = copy[2]
-            if len_seq < 100:
-                continue
-            if i <= 2:
-                cur_query_copies[orig_query_name + '-c_' + str(i) + '-' + str(len_seq) + '-' + chr_name] = seq
-            cur_subject_copies[orig_query_name + '-c_' + str(i) + '-' + str(len_seq) + '-' + chr_name] = seq
-
-    if len(cur_query_copies) > 0:
-        cur_query_copy_path = flank_align_dir + '/' + str(batch_num) + '_query.fa'
-        store_fasta(cur_query_copies, cur_query_copy_path)
-        cur_subject_copy_path = flank_align_dir + '/' + str(batch_num) + '_subject.fa'
-        store_fasta(cur_subject_copies, cur_subject_copy_path)
-        output_path = flank_align_dir + '/' + str(batch_num) + '.out'
-        job = ex.submit(run_blast_align_v1, cur_query_copy_path, cur_subject_copy_path, output_path,
-                        flanking_len, flanking_region_distance, flank_align_dir)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    deleted_names = set()
-    appeared_names = set()
-    for job in as_completed(jobs):
-        cur_delete_names, cur_appeared_names = job.result()
-        deleted_names.update(cur_delete_names)
-        appeared_names.update(cur_appeared_names)
-
-    for name in new_all_copies.keys():
-        if name not in appeared_names:
-            deleted_names.add(name)
-
-    for cur_delete_name in deleted_names:
-        if cur_delete_name != '':
-            del new_all_copies[cur_delete_name]
-    #print(deleted_names)
-    print('deleted_names len: ' + str(len(deleted_names)))
-    # 用完了就将临时目录删了以减少磁盘空间占用
-    #os.system('rm -rf ' + flank_align_dir)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of flanking " + TE_type + " alignment: %.8s s" % (dtime))
-    return new_all_copies
-
-#输入：一个fasta序列文件, 参考基因组，输出目录, member_script_path, subset_script_path, flanking_len
-#输出：输出目录里面包含每条文件命名的拷贝序列；例如输入序列为N1，则输出拷贝文件为N1.fa.blast.bed.fa
-def get_seq_families(candidate_sequence_path, reference, member_script_path, subset_script_path, flanking_len, output_dir, threads):
-    temp_dir = output_dir + '/copies'
-    os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-
-    names, contigs = read_fasta(candidate_sequence_path)
-    split_files = []
-    for i, name in enumerate(names):
-        new_name = name.split('#')[0]
-        cur_file = temp_dir + '/' + str(new_name) + '.fa'
-        cur_contigs = {}
-        cur_contigs[new_name] = contigs[name]
-        store_fasta(cur_contigs, cur_file)
-        split_files.append((new_name, cur_file))
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for cur_file in split_files:
-        job = ex.submit(run_find_members, cur_file, reference, temp_dir, member_script_path, subset_script_path, flanking_len)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    copy_files = []
-    for job in as_completed(jobs):
-        new_name, member_file = job.result()
-        copy_files.append((new_name, member_file))
-    return copy_files
-
-def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, split_ref_dir, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, result_type='cons'):
+def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, reference, split_ref_dir, TE_type, tmp_output_dir, threads, ref_index, log, subset_script_path, plant, debug, iter_num, result_type='cons'):
     log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
     starttime = time.time()
     temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
@@ -8141,11 +6009,9 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, simil
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
-    #os.system('makeblastdb -in ' + reference + ' -dbtype nucl')
-
-    # 我们考虑现在的运行时间太长了，也许跟一条序列需要提交一次Blastn比对有关.
-    # 我们尝试一次将10条序列合在一起，运行一次Blastn
-    #为了增加CPU利用率，10条序列提交一个线程处理
+    # We are considering that the current running time is too long, maybe it is related to submitting one sequence for Blastn alignment at a time.
+    # We will try to combine 10 sequences together and run Blastn once.
+    # To increase CPU utilization, we will submit one thread to process 10 sequences.
     batch_size = 10
     batch_id = 0
     names, contigs = read_fasta(candidate_sequence_path)
@@ -8166,7 +6032,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, simil
         split_files.append(cur_file)
         batch_id += 1
 
-    # 这一步获取拷贝
     ref_names, ref_contigs = read_fasta(reference)
     ex = ProcessPoolExecutor(threads)
     jobs = []
@@ -8178,7 +6043,7 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, simil
     for job in as_completed(jobs):
         cur_all_copies = job.result()
         all_copies.update(cur_all_copies)
-    # 对拷贝进行扩展
+    # extend copies
     batch_member_files = []
     new_all_copies = {}
     for query_name in all_copies.keys():
@@ -8209,7 +6074,7 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, simil
         query_seq = contigs[query_name]
         batch_member_files.append((query_name, query_seq, cur_member_file))
 
-    # 接下来，将拷贝文件输入，判断每个拷贝文件的多序列比对是否满足同源性规则
+    # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for batch_member_file in batch_member_files:
@@ -8239,7 +6104,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, simil
             copy_nums[copy_num] = cur_copy_num
         if cur_name is not None:
             if TE_type == 'tir':
-                # 去掉TG...CA假阳性
                 if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
                     continue
             true_tes[cur_name] = cur_seq
@@ -8252,174 +6116,8 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, simil
         print('deleted_names len: ' + str(len(deleted_names)))
         print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
         print(copy_nums)
-    os.system('rm -rf ' + temp_dir)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of determination of homology in regions outside the boundaries of  " + TE_type + " copies: %.8s s" % (dtime))
-
-def flank_region_align_v4(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, result_type='cons'):
-    log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
-    starttime = time.time()
-    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
-    os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-
-    #os.system('makeblastdb -in ' + reference + ' -dbtype nucl')
-
-    # 我们考虑现在的运行时间太长了，也许跟一条序列需要提交一次Blastn比对有关.
-    # 我们尝试一次将10条序列合在一起，运行一次Blastn
-    #为了增加CPU利用率，10条序列提交一个线程处理
-    batch_size = 10
-    batch_id = 0
-    names, contigs = read_fasta(candidate_sequence_path)
-    total_names = set(names)
-    split_files = []
-    cur_contigs = {}
-    for i, name in enumerate(names):
-        cur_file = temp_dir + '/' + str(batch_id) + '.fa'
-        cur_contigs[name] = contigs[name]
-        if len(cur_contigs) == batch_size:
-            store_fasta(cur_contigs, cur_file)
-            split_files.append(cur_file)
-            cur_contigs = {}
-            batch_id += 1
-    if len(cur_contigs) > 0:
-        cur_file = temp_dir + '/' + str(batch_id) + '.fa'
-        store_fasta(cur_contigs, cur_file)
-        split_files.append(cur_file)
-        batch_id += 1
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for cur_split_files in split_files:
-        job = ex.submit(run_find_members_v7, cur_split_files, reference, temp_dir, subset_script_path,
-                        plant, TE_type, flanking_len, debug, result_type)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    not_found_boundary = 0
-    full_length1 = 0
-    copy_nums = {}
-    true_te_names = set()
-    true_tes = {}
-    for job in as_completed(jobs):
-        result_list = job.result()
-        for result_info in result_list:
-            cur_name, cur_seq, info = result_info
-            if info == 'nb':
-                not_found_boundary += 1
-            elif info == 'fl1':
-                full_length1 += 1
-            elif info.startswith('copy_num:'):
-                copy_num = int(info.split('copy_num:')[1])
-                if not copy_nums.__contains__(copy_num):
-                    copy_nums[copy_num] = 0
-                cur_copy_num = copy_nums[copy_num]
-                cur_copy_num += 1
-                copy_nums[copy_num] = cur_copy_num
-            if cur_name is not None:
-                if TE_type == 'tir':
-                    # 去掉TG...CA假阳性
-                    if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
-                        continue
-                true_tes[cur_name] = cur_seq
-                true_te_names.add(cur_name)
-    store_fasta(true_tes, real_TEs)
-
-    deleted_names = total_names.difference(true_te_names)
-    if debug:
-        print(deleted_names)
-        print('deleted_names len: ' + str(len(deleted_names)))
-        print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
-        print(copy_nums)
-    else:
+    if debug != 1:
         os.system('rm -rf ' + temp_dir)
-    endtime = time.time()
-    dtime = endtime - starttime
-    log.logger.info("Running time of determination of homology in regions outside the boundaries of  " + TE_type + " copies: %.8s s" % (dtime))
-
-
-def flank_region_align_v3(candidate_sequence_path, real_TEs, flanking_len, similar_ratio, reference, TE_type, tmp_output_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, iter_num, result_type='cons'):
-    log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
-    starttime = time.time()
-    temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
-    os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-
-    #由于在获取拷贝时，经常出现reference的索引问题，导致拷贝乱码或者全N的情况，因此决定在获取拷贝之前，重新生成reference索引
-    os.system('makeblastdb -in ' + reference + ' -dbtype nucl')
-    os.system('samtools faidx ' + reference)
-    os.system("awk '{OFS=\"\t\"; print $1,$2}' < " + reference + ".fai > " + reference + ".length")
-
-    #为了增加CPU利用率，100条序列提交一个线程处理
-    batch_size = 100
-    names, contigs = read_fasta(candidate_sequence_path)
-    total_names = set(names)
-    split_files = []
-    cur_split_files = []
-    for i, name in enumerate(names):
-        # 为了防止并行运行时出现混乱，将每条序列单独创建一个目录
-        cur_temp_dir = temp_dir
-        if not os.path.exists(cur_temp_dir):
-            os.makedirs(cur_temp_dir)
-        cur_file = cur_temp_dir + '/' + str(name) + '.fa'
-        cur_contigs = {}
-        cur_contigs[name] = contigs[name]
-        store_fasta(cur_contigs, cur_file)
-        cur_split_files.append((cur_temp_dir, cur_file))
-
-        if len(cur_split_files) == batch_size:
-            split_files.append(cur_split_files)
-            cur_split_files = []
-    if len(cur_split_files) > 0:
-        split_files.append(cur_split_files)
-        cur_split_files = []
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for cur_split_files in split_files:
-        job = ex.submit(run_find_members_v6, cur_split_files, reference, member_script_path, subset_script_path,
-                        plant, TE_type, flanking_len, debug, result_type)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    not_found_boundary = 0
-    full_length1 = 0
-    copy_nums = {}
-    true_te_names = set()
-    true_tes = {}
-    for job in as_completed(jobs):
-        result_list = job.result()
-        for result_info in result_list:
-            cur_name, cur_seq, info = result_info
-            if info == 'nb':
-                not_found_boundary += 1
-            elif info == 'fl1':
-                full_length1 += 1
-            elif info.startswith('copy_num:'):
-                copy_num = int(info.split('copy_num:')[1])
-                if not copy_nums.__contains__(copy_num):
-                    copy_nums[copy_num] = 0
-                cur_copy_num = copy_nums[copy_num]
-                cur_copy_num += 1
-                copy_nums[copy_num] = cur_copy_num
-            if cur_name is not None:
-                if TE_type == 'tir':
-                    # 去掉TG...CA假阳性
-                    if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
-                        continue
-                true_tes[cur_name] = cur_seq
-                true_te_names.add(cur_name)
-    store_fasta(true_tes, real_TEs)
-
-    deleted_names = total_names.difference(true_te_names)
-    if debug:
-        print(deleted_names)
-        print('deleted_names len: ' + str(len(deleted_names)))
-        print('not found boundary num: ' + str(not_found_boundary) + ', full length 1: ' + str(full_length1))
-        print(copy_nums)
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of determination of homology in regions outside the boundaries of  " + TE_type + " copies: %.8s s" % (dtime))
@@ -8517,7 +6215,6 @@ def multi_process_align_and_get_copies(query_path, subject_path, tmp_blast_dir, 
     blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
     os.system(blast_db_command)
 
-    #这里是不是可以考虑把序列划分的更细，以此来减少任务的不均衡
     longest_repeat_files = []
     file_index = 0
     cur_seq_index = 0
@@ -8538,22 +6235,6 @@ def multi_process_align_and_get_copies(query_path, subject_path, tmp_blast_dir, 
         store_fasta(cur_contigs, split_repeat_file)
         output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
         longest_repeat_files.append((split_repeat_file, subject_path, output_file))
-
-    # longest_repeat_files = []
-    # segments_cluster = divided_array(list(orig_contigs.items()), threads)
-    # for partition_index, cur_segments in enumerate(segments_cluster):
-    #     if len(cur_segments) <= 0:
-    #         continue
-    #     single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
-    #     if not os.path.exists(single_tmp_dir):
-    #         os.makedirs(single_tmp_dir)
-    #     split_repeat_file = single_tmp_dir + '/repeats_split.fa'
-    #     cur_contigs = {}
-    #     for item in cur_segments:
-    #         cur_contigs[item[0]] = item[1]
-    #     store_fasta(cur_contigs, split_repeat_file)
-    #     repeats_path = (split_repeat_file, subject_path, single_tmp_dir + '/temp.out')
-    #     longest_repeat_files.append(repeats_path)
 
     ex = ProcessPoolExecutor(threads)
     jobs = []
@@ -8614,13 +6295,11 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
         os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastnResults_path)
 
 def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
-    # 使用RepeatMasker, 去掉那些比对到LTR上的序列
     subject_path = confident_ltr_cut_path
     query_path = confident_tir_path
     out_path = query_path + '.out'
     align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path
     os.system(align_command)
-    #分析out文件，去除那些LTR能够完全比对上的序列
     delete_tir_names = set()
     query_names, query_contigs = read_fasta(query_path)
     subject_names, subject_contigs = read_fasta(subject_path)
@@ -8646,610 +6325,37 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
                     subject_end = int(parts[12])
                     subject_len = subject_end - subject_start + 1
                 total_subject_len = len(subject_contigs[subject_name])
-                if float(subject_len)/total_subject_len >= 0.8:
+                if float(subject_len)/total_subject_len >= 0.95:
                     delete_tir_names.add(query_name)
     f_r.close()
-    # print(delete_tir_names)
+    print(delete_tir_names)
     # print(len(delete_tir_names))
     # remain_names = set(query_names).difference(delete_tir_names)
     # print(remain_names)
     # print(len(remain_names))
-    #删除掉假阳性 query
     for tir_name in delete_tir_names:
         del query_contigs[tir_name]
     store_fasta(query_contigs, query_path)
 
 
-def search_boundary_homo_v2(valid_col_threshold, pos, matrix, row_num, col_num,
-                            out_homo_threshold, int_homo_threshold, type, homo_threshold, debug, TE_type, align_file, boundary_change):
-    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
-    # 需要定义的问题：
-    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
-    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
-    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
-
-    # 函数功能：
-    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
-    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
-    # 记录每一列的碱基组成
-    col_base_map = {}
-    for col_index in range(col_num):
-        if not col_base_map.__contains__(col_index):
-            col_base_map[col_index] = {}
-        base_map = col_base_map[col_index]
-        # 统计当前列的碱基占比
-        if len(base_map) == 0:
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-        if not base_map.__contains__('-'):
-            base_map['-'] = 0
-
-    candidate_homo_boundary_start = -1
-    candidate_homo_boundary_end = -1
-    tir_search_len = 3
-    search_len = 100
-    if type == 'start':
-
-        start_align_valid = True
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
-
-        col_index = pos
-        homo_cols = []
-        while valid_col_count < search_len and col_index < col_num/2:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            base_map = col_base_map[col_index]
-            no_gap_num = row_num - base_map['-']
-            max_homo_ratio = 0
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
-                    if cur_homo_ratio > max_homo_ratio:
-                        max_homo_ratio = cur_homo_ratio
-                    if cur_homo_ratio >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo,
-                     max_homo_ratio))
-            col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
-        if max_con_no_homo + 1 < int_homo_threshold:
-            start_align_valid &= True
-        else:
-            start_align_valid &= False
-
-        # 如果尾部边界发生了变化，则首先判断首部列是否是同源列，如果不是，则根据边界改遍的方向搜索第一个同源列
-        boundary_change_direct = ''
-        if boundary_change != 0:
-            if len(homo_cols) > 0 and homo_cols[0][0] == pos and homo_cols[0][1]:
-                if debug:
-                    print('cur col is homology')
-            else:
-                #因为保持和尾部边界相反的方向
-                if boundary_change == 1:
-                    boundary_change_direct = 'left'
-                else:
-                    boundary_change_direct = 'right'
-                if debug:
-                    print('cur col is not homology, boundary_change_direct: ' + boundary_change_direct)
-
-        if boundary_change_direct == '':
-            # 如果TE_type==tir
-            # 如果向右搜索是存在连续非同源碱基，说明边界没找准
-            # 那么反向遍历同源数组，找到第一个连续5bp的非同源列，把前一个同源列当做是边界。
-            if TE_type == 'tir':
-                if start_align_valid:
-                    #当前列不是同源列或者有效列，则向右搜索第一个同源列当做边界
-                    if len(homo_cols) > 0 and (homo_cols[0][0] != pos or not homo_cols[0][1]):
-                        find_homo_boundary = False
-                        for i, homo_col in enumerate(homo_cols):
-                            if homo_col[1]:
-                                candidate_homo_boundary_start = homo_col[0]
-                                if debug:
-                                    print('align start is non-homology, new boundary: ' + str(
-                                        candidate_homo_boundary_start))
-                                start_align_valid = True
-                                find_homo_boundary = True
-                                break
-                        if not find_homo_boundary:
-                            if debug:
-                                print('can not generate new boundary')
-                            return start_align_valid, -1
-                else:
-                    find_homo_boundary = False
-                    homo_cols.reverse()
-                    for i, homo_col in enumerate(homo_cols):
-                        if homo_col[4] + 1 >= tir_search_len:
-                            candidate_homo_boundary_start = homo_cols[i-1][0]
-                            #candidate_homo_boundary_start = homo_col[0] - (tir_search_len-1)
-                            if debug:
-                                print('align start right non-homology, new boundary: ' + str(candidate_homo_boundary_start))
-                            start_align_valid = True
-                            find_homo_boundary = True
-                            break
-                    if not find_homo_boundary:
-                        if debug:
-                            print('can not generate new boundary')
-                        return start_align_valid, -1
-        elif boundary_change_direct == 'right':
-            if not start_align_valid and TE_type == 'tir':
-                #找到第一个连续同源列
-                find_homo_boundary = False
-                homo_cols.reverse()
-                for i, homo_col in enumerate(homo_cols):
-                    if homo_col[4] + 1 >= tir_search_len:
-                        candidate_homo_boundary_start = homo_cols[i - 1][0]
-                        if debug:
-                            print('align start search right non-homology, new boundary: ' + str(candidate_homo_boundary_start))
-                        start_align_valid = True
-                        find_homo_boundary = True
-                        break
-                if not find_homo_boundary:
-                    if debug:
-                        print('can not generate new boundary')
-                    return start_align_valid, -1
-
-        if candidate_homo_boundary_start != -1:
-            col_index = candidate_homo_boundary_start - 1
-        else:
-            col_index = pos - 1
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
-
-        homo_cols = []
-        while valid_col_count < search_len and col_index >= 0:
-            # 从pos开始向左搜索15个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            base_map = col_base_map[col_index]
-            max_homo_ratio = 0
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
-                    if cur_homo_ratio > max_homo_ratio:
-                        max_homo_ratio = cur_homo_ratio
-                    if cur_homo_ratio >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
-            col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-
-        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
-        # if homo_col_count <= out_homo_threshold:
-        if max_con_homo + 1 < out_homo_threshold:
-            start_align_valid &= True
-        else:
-            start_align_valid &= False
-
-        # 判断边界是否改变
-        if boundary_change_direct == '':
-            # 如果TE_type==tir
-            # 如果向左搜索是存在连续同源碱基，说明边界没找准
-            # 那么反向遍历同源数组，找到第一个连续5bp的同源列，把第一个同源列当做是边界。
-            if TE_type == 'tir':
-                if not start_align_valid:
-                    find_homo_boundary = False
-                    for homo_col in reversed(homo_cols):
-                        if homo_col[2] + 1 >= tir_search_len:
-                            candidate_homo_boundary_start = homo_col[0]
-                            if debug:
-                                print('align start left homology, new boundary: ' + str(candidate_homo_boundary_start))
-                            start_align_valid = True
-                            find_homo_boundary = True
-                            break
-                    if not find_homo_boundary:
-                        if debug:
-                            print('can not generate new boundary')
-                        return start_align_valid, -1
-        elif boundary_change_direct == 'left':
-            if not start_align_valid and TE_type == 'tir':
-                # 找到第一个连续同源列
-                find_homo_boundary = False
-                for homo_col in reversed(homo_cols):
-                    if homo_col[2] + 1 >= tir_search_len:
-                        candidate_homo_boundary_start = homo_col[0]
-                        if debug:
-                            print('align start search left homology, new boundary: ' + str(candidate_homo_boundary_start))
-                        start_align_valid = True
-                        find_homo_boundary = True
-                        break
-                if not find_homo_boundary:
-                    if debug:
-                        print('can not generate new boundary')
-                    return start_align_valid, -1
-
-        if candidate_homo_boundary_start != -1:
-            return start_align_valid, candidate_homo_boundary_start
-        else:
-            return start_align_valid, pos
-    else:
-        end_align_valid = True
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
-
-        col_index = pos
-        homo_cols = []
-        while valid_col_count < search_len and col_index < col_num:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            base_map = col_base_map[col_index]
-            # 非空行的数量超过阈值，则是有效行
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if float(base_map[base]) / no_gap_num >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
-        # if homo_col_count <= out_homo_threshold:
-        if max_con_homo + 1 < out_homo_threshold:
-            end_align_valid &= True
-        else:
-            end_align_valid &= False
-
-        # 如果首部边界发生了变化，则首先判断尾部列是否是同源列，如果不是，则根据边界改遍的方向搜索第一个同源列
-        boundary_change_direct = ''
-        if boundary_change != 0:
-            if len(homo_cols) > 0 and homo_cols[0][0] == pos and homo_cols[0][1]:
-                if debug:
-                    print('cur col is homology')
-            else:
-                # 因为保持和尾部边界相反的方向
-                if boundary_change == 1:
-                    boundary_change_direct = 'left'
-                else:
-                    boundary_change_direct = 'right'
-                if debug:
-                    print('cur col is not homology, boundary_change_direct: ' + boundary_change_direct)
-
-        if boundary_change_direct == '':
-            # 如果TE_type==tir
-            # 如果向右搜索是存在连续同源碱基，说明边界没找准
-            # 那么反向遍历同源数组，找到第一个连续5bp的同源列，把第一个同源列当做是边界。
-            if TE_type == 'tir':
-                if not end_align_valid:
-                    find_homo_boundary = False
-                    for homo_col in reversed(homo_cols):
-                        if homo_col[2]+1 >= tir_search_len:
-                            candidate_homo_boundary_end = homo_col[0]
-                            if debug:
-                                print('align end search right homology, new boundary: ' + str(candidate_homo_boundary_end))
-                            end_align_valid = True
-                            find_homo_boundary = True
-                            break
-                    if not find_homo_boundary:
-                        if debug:
-                            print('can not generate new boundary')
-                        return end_align_valid, -1
-        elif boundary_change_direct == 'right':
-            if not end_align_valid and TE_type == 'tir':
-                # 找到第一个连续同源列
-                find_homo_boundary = False
-                for homo_col in reversed(homo_cols):
-                    if homo_col[2]+1 >= tir_search_len:
-                        candidate_homo_boundary_end = homo_col[0]
-                        if debug:
-                            print('align end search right homology, new boundary: ' + str(candidate_homo_boundary_end))
-                        end_align_valid = True
-                        find_homo_boundary = True
-                        break
-                if not find_homo_boundary:
-                    if debug:
-                        print('can not generate new boundary')
-                    return end_align_valid, -1
-
-        if candidate_homo_boundary_end != -1:
-            col_index = candidate_homo_boundary_end
-        else:
-            col_index = pos
-
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
-
-        homo_cols = []
-        while valid_col_count < search_len and col_index >= col_num/2:
-            # 从pos开始向左搜索20个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            base_map = col_base_map[col_index]
-            # 非空行的数量超过阈值，则是有效行
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                max_ratio = 0
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if base_map[base] / no_gap_num > max_ratio:
-                        max_ratio = base_map[base] / no_gap_num
-                    if float(base_map[base]) / no_gap_num >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
-        if max_con_no_homo + 1 < int_homo_threshold:
-            end_align_valid &= True
-        else:
-            end_align_valid &= False
-
-        # 判断边界是否改变
-        if boundary_change_direct == '':
-            # 如果TE_type==tir
-            # 如果向左搜索是存在连续非同源性碱基，说明边界没找准
-            # 那么反向遍历同源数组，找到第一个连续5bp的非同源列，把前一个同源列当做是边界。
-            if TE_type == 'tir':
-                if end_align_valid:
-                    # 当前列不是同源列或者有效列，则向左搜索第一个同源列作为边界
-                    if len(homo_cols) > 0 and (homo_cols[0][0] != pos or not homo_cols[0][1]):
-                        find_homo_boundary = False
-                        for i, homo_col in enumerate(homo_cols):
-                            if homo_col[1]:
-                                candidate_homo_boundary_end = homo_col[0]
-                                end_align_valid = True
-                                find_homo_boundary = True
-                                if debug:
-                                    print('align end is non-homology, new boundary: ' + str(
-                                        candidate_homo_boundary_end))
-                                break
-                        if not find_homo_boundary:
-                            if debug:
-                                print('can not generate new boundary')
-                            return end_align_valid, -1
-                else:
-                    find_homo_boundary = False
-                    homo_cols.reverse()
-                    for i, homo_col in enumerate(homo_cols):
-                        if homo_col[4] + 1 >= tir_search_len:
-                            candidate_homo_boundary_end = homo_cols[i - 1][0]
-                            #candidate_homo_boundary_end = homo_col[0] + (tir_search_len-1)
-                            end_align_valid = True
-                            find_homo_boundary = True
-                            if debug:
-                                print('align end left non-homology, new boundary: ' + str(candidate_homo_boundary_end))
-                            break
-                    if not find_homo_boundary:
-                        if debug:
-                            print('can not generate new boundary')
-                        return end_align_valid, -1
-        elif boundary_change_direct == 'left':
-            if TE_type == 'tir':
-                if end_align_valid:
-                    # 当前列不是同源列或者有效列，则向左搜索第一个同源列作为边界
-                    if len(homo_cols) > 0 and (homo_cols[0][0] != pos or not homo_cols[0][1]):
-                        find_homo_boundary = False
-                        for i, homo_col in enumerate(homo_cols):
-                            if homo_col[1]:
-                                candidate_homo_boundary_end = homo_col[0]
-                                end_align_valid = True
-                                find_homo_boundary = True
-                                if debug:
-                                    print('align end is non-homology, new boundary: ' + str(
-                                        candidate_homo_boundary_end))
-                                break
-                        if not find_homo_boundary:
-                            if debug:
-                                print('can not generate new boundary')
-                            return end_align_valid, -1
-                else:
-                    find_homo_boundary = False
-                    homo_cols.reverse()
-                    for i, homo_col in enumerate(homo_cols):
-                        if homo_col[4] + 1 >= tir_search_len:
-                            candidate_homo_boundary_end = homo_cols[i - 1][0]
-                            # candidate_homo_boundary_end = homo_col[0] + (tir_search_len-1)
-                            end_align_valid = True
-                            find_homo_boundary = True
-                            if debug:
-                                print('align end search left non-homology, new boundary: ' + str(candidate_homo_boundary_end))
-                            break
-                    if not find_homo_boundary:
-                        if debug:
-                            print('can not generate new boundary')
-                        return end_align_valid, -1
-
-        if candidate_homo_boundary_end != -1:
-            return end_align_valid, candidate_homo_boundary_end
-        else:
-            return end_align_valid, pos
-
 def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                             type, homo_threshold, int_homo_threshold, out_homo_threshold, debug, sliding_window_size):
-    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
-    # 需要定义的问题：
-    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
-    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
-    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
+    # We need a program that takes an alignment file 'align_file' and boundary positions 'start_pos' and 'end_pos' as inputs, and extracts effective 20 columns around the boundaries. It also checks if these 20 columns exhibit homology.
+    # Key Definitions:
+    # ① What is an effective column? A column that has at least half of the total copy count, i.e., at least total/2 non-empty bases.
+    # ② How is homology calculated? If consistent bases exceed 80% of the total sequence count, the column is considered homologous; otherwise, it is not.
+    # If there is homology in 10 out of 15bp outside the boundary, it is likely to be a false positive.
 
-    # 函数功能：
-    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
-    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
-    # 记录每一列的碱基组成
+    # Functionality:
+    # Given an alignment matrix and a starting column, search for effective columns, homologous columns (homologous columns are always effective columns) towards both ends, and count the number of homologous columns, continuous homologous columns, and continuous non-homologous columns.
+    # If there are consecutive non-homologous columns within the boundary or consecutive homologous columns outside the boundary beyond the threshold, it is considered a false positive.
+    # Record the base composition of each column.
     col_base_map = {}
     for col_index in range(col_num):
         if not col_base_map.__contains__(col_index):
             col_base_map[col_index] = {}
         base_map = col_base_map[col_index]
-        # 统计当前列的碱基占比
+        # Calculate the base composition ratio in the current column.
         if len(base_map) == 0:
             for row in range(row_num):
                 cur_base = matrix[row][col_index]
@@ -9277,17 +6383,17 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         col_index = pos
         homo_cols = []
         while valid_col_count < search_len and col_index < col_num / 2:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 15 effective columns to the right.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
             no_gap_num = row_num - base_map['-']
             max_homo_ratio = 0
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 no_gap_num = row_num - base_map['-']
                 for base in base_map.keys():
                     if base == '-':
@@ -9297,7 +6403,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9331,8 +6437,8 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         cur_boundary = pos
         new_boundary_start = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
@@ -9343,7 +6449,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
             if avg_homo_ratio >= homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_start = window[0][0]
                 break
         if new_boundary_start != pos and new_boundary_start != -1:
@@ -9351,7 +6457,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 print('align start right non-homology, new boundary: ' + str(new_boundary_start))
             cur_boundary = new_boundary_start
 
-        col_index = cur_boundary
+        col_index = cur_boundary - 1
         valid_col_count = 0
         homo_col_count = 0
 
@@ -9365,26 +6471,28 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
 
         homo_cols = []
         while valid_col_count < search_len and col_index >= 0:
-            # 从pos开始向左搜索15个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 15 effective columns to the left.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
+            max_homo_base = None
             max_homo_ratio = 0
             no_gap_num = row_num - base_map['-']
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 for base in base_map.keys():
                     if base == '-':
                         continue
                     cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
+                        max_homo_base = base
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9408,7 +6516,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                     con_no_homo = 0
                     is_no_homo_col = False
                 homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio, max_homo_base))
             col_index -= 1
         max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
         max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
@@ -9417,8 +6525,8 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         homo_cols.reverse()
         new_boundary_start = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
@@ -9428,8 +6536,9 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 cur_homo_ratio = item[5]
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio)/sliding_window_size
+
             if avg_homo_ratio >= homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_start = window[0][0]
                 break
         if new_boundary_start != pos and new_boundary_start != -1:
@@ -9450,30 +6559,32 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         con_no_homo = 0
         prev_non_homo = False
 
-        col_index = pos
+        col_index = pos + 1
         homo_cols = []
         while valid_col_count < search_len and col_index < col_num:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 15 effective columns to the right.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
-            # 非空行的数量超过阈值，则是有效行
+            # If the number of non-empty rows exceeds the threshold, then it is an effective row.
             no_gap_num = row_num - base_map['-']
+            max_homo_base = None
             max_homo_ratio = 0
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 for base in base_map.keys():
                     if base == '-':
                         continue
                     cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
+                        max_homo_base = base
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9497,7 +6608,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                     con_no_homo = 0
                     is_no_homo_col = False
                 homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio, max_homo_base))
             col_index += 1
         max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
         max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
@@ -9506,20 +6617,22 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从左边开始计算第一个10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，就不是真实Helitron
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
             if i != 0:
                 break
             window = homo_cols[i:i + sliding_window_size]
+
             avg_homo_ratio = 0
             for item in window:
                 cur_homo_ratio = item[5]
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+
             if avg_homo_ratio >= out_homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_end = window[len(window)-1][0]
                 break
         if new_boundary_end != pos and new_boundary_end != -1:
@@ -9541,18 +6654,18 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
 
         homo_cols = []
         while valid_col_count < search_len and col_index >= col_num / 2:
-            # 从pos开始向左搜索20个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 20 effective columns to the left.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
-            # 非空行的数量超过阈值，则是有效行
+            # If the number of non-empty rows exceeds the threshold, then it is an effective row.
             no_gap_num = row_num - base_map['-']
             max_homo_ratio = 0
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 for base in base_map.keys():
                     if base == '-':
                         continue
@@ -9561,7 +6674,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9594,8 +6707,8 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从右边开始计算连续10个碱基，计算这个窗口的平均同源性是否低于阈值。
-        # 如果低于阈值，则不是真实Helitron
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
             if i != 0:
@@ -9615,24 +6728,25 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             return False, -1
         return True, pos
 
-def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
-                            type, homo_threshold, debug, sliding_window_size):
-    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
-    # 需要定义的问题：
-    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
-    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
-    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
+def search_boundary_homo_v5(valid_col_threshold, pos, matrix, row_num, col_num,
+                            type, homo_threshold, int_homo_threshold, out_homo_threshold, debug, sliding_window_size):
+    # We need a program that takes an alignment file 'align_file' and boundary positions 'start_pos' and 'end_pos' as inputs, and extracts effective 20 columns around the boundaries. It also checks if these 20 columns exhibit homology.
+    # Key Definitions:
+    # ① What is an effective column? A column that has at least half of the total copy count, i.e., at least total/2 non-empty bases.
+    # ② How is homology calculated? If consistent bases exceed 80% of the total sequence count, the column is considered homologous; otherwise, it is not.
+    # If there is homology in 10 out of 15bp outside the boundary, it is likely to be a false positive.
 
-    # 函数功能：
-    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
-    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
-    # 记录每一列的碱基组成
+    # Functionality:
+    # Given an alignment matrix and a starting column, search for effective columns, homologous columns (homologous columns are always effective columns) towards both ends, and count the number of homologous columns, continuous homologous columns, and continuous non-homologous columns.
+    # If there are consecutive non-homologous columns within the boundary or consecutive homologous columns outside the boundary beyond the threshold, it is considered a false positive.
+    # Record the base composition of each column.
+
     col_base_map = {}
     for col_index in range(col_num):
         if not col_base_map.__contains__(col_index):
             col_base_map[col_index] = {}
         base_map = col_base_map[col_index]
-        # 统计当前列的碱基占比
+        # Calculate the base composition ratio in the current column.
         if len(base_map) == 0:
             for row in range(row_num):
                 cur_base = matrix[row][col_index]
@@ -9660,17 +6774,17 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         col_index = pos
         homo_cols = []
         while valid_col_count < search_len and col_index < col_num / 2:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 15 effective columns to the right.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
             no_gap_num = row_num - base_map['-']
             max_homo_ratio = 0
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 no_gap_num = row_num - base_map['-']
                 for base in base_map.keys():
                     if base == '-':
@@ -9680,7 +6794,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9714,8 +6828,400 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
+        cur_boundary = pos
+        new_boundary_start = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio >= homo_threshold:
+                # If homology in the sliding window exceeds the threshold, find the boundary.
+                new_boundary_start = window[0][0]
+                break
+        if new_boundary_start != pos and new_boundary_start != -1:
+            if debug:
+                print('align start right non-homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
+
+        col_index = cur_boundary - 1
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= 0:
+            # Starting from position 'pos', search for 15 effective columns to the left.
+            # Determine if the current column is effective.
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            max_homo_base = None
+            max_homo_ratio = 0
+            no_gap_num = row_num - base_map['-']
+            gap_num = base_map['-']
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # Determine if the effective column is homologous.
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                        max_homo_base = base
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # Check for consecutive homologous columns.
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio, max_homo_base))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
+        homo_cols.reverse()
+        new_boundary_start = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio)/sliding_window_size
+
+            if avg_homo_ratio >= homo_threshold:
+                # If homology in the sliding window exceeds the threshold, find the boundary.
+                new_boundary_start = window[0][0]
+                break
+        if new_boundary_start != pos and new_boundary_start != -1:
+            if debug:
+                print('align start left homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
+        return True, cur_boundary
+    else:
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos + 1
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num:
+            # Starting from position 'pos', search for 15 effective columns to the right.
+            # Determine if the current column is effective.
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # If the number of non-empty rows exceeds the threshold, then it is an effective row.
+            no_gap_num = row_num - base_map['-']
+            max_homo_base = None
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # Determine if the effective column is homologous.
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                        max_homo_base = base
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # Check for consecutive homologous columns.
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio, max_homo_base))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
+        cur_boundary = pos
+        homo_cols.reverse()
+        new_boundary_end = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            if i != 0:
+                break
+            window = homo_cols[i:i + sliding_window_size]
+
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+
+            if avg_homo_ratio >= out_homo_threshold:
+                # If homology in the sliding window exceeds the threshold, find the boundary.
+                new_boundary_end = window[0][0]
+                break
+        if new_boundary_end != pos and new_boundary_end != -1:
+            if debug:
+                print('align end right homology, new boundary: ' + str(new_boundary_end))
+            cur_boundary = new_boundary_end
+        return True, cur_boundary
+
+        col_index = pos
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        homo_cols = []
+        while valid_col_count < search_len and col_index >= col_num / 2:
+            # Starting from position 'pos', search for 20 effective columns to the left.
+            # Determine if the current column is effective.
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            # If the number of non-empty rows exceeds the threshold, then it is an effective row.
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # Determine if the effective column is homologous.
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # Check for consecutive homologous columns.
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+            col_index -= 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
+        new_boundary_end = -1
+        for i in range(len(homo_cols) - sliding_window_size + 1):
+            if i != 0:
+                break
+            window = homo_cols[i:i + sliding_window_size]
+            avg_homo_ratio = 0
+            for item in window:
+                cur_homo_ratio = item[5]
+                avg_homo_ratio += cur_homo_ratio
+            avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
+            if avg_homo_ratio < int_homo_threshold:
+                new_boundary_end = window[len(window)-1][0]
+                break
+        if new_boundary_end != pos and new_boundary_end != -1:
+            if debug:
+                print('align end left non-homology, new boundary: ' + str(new_boundary_end))
+            cur_boundary = new_boundary_end
+        return True, cur_boundary
+
+def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
+                            type, homo_threshold, debug, sliding_window_size):
+    # We need a program that takes an alignment file 'align_file' and boundary positions 'start_pos' and 'end_pos' as inputs, and extracts effective 20 columns around the boundaries. It also checks if these 20 columns exhibit homology.
+    # Key Definitions:
+    # ① What is an effective column? A column that has at least half of the total copy count, i.e., at least total/2 non-empty bases.
+    # ② How is homology calculated? If consistent bases exceed 80% of the total sequence count, the column is considered homologous; otherwise, it is not.
+    # If there is homology in 10 out of 15bp outside the boundary, it is likely to be a false positive.
+
+    # Functionality:
+    # Given an alignment matrix and a starting column, search for effective columns, homologous columns (homologous columns are always effective columns) towards both ends, and count the number of homologous columns, continuous homologous columns, and continuous non-homologous columns.
+    # If there are consecutive non-homologous columns within the boundary or consecutive homologous columns outside the boundary beyond the threshold, it is considered a false positive.
+    # Record the base composition of each column.
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # Calculate the base composition ratio in the current column.
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    search_len = 100
+    if type == 'start':
+        valid_col_count = 0
+        homo_col_count = 0
+
+        max_con_homo = 0
+        con_homo = 0
+        prev_homo = False
+
+        max_con_no_homo = 0
+        con_no_homo = 0
+        prev_non_homo = False
+
+        col_index = pos
+        homo_cols = []
+        while valid_col_count < search_len and col_index < col_num / 2:
+            # Starting from position 'pos', search for 15 effective columns to the right.
+            # Determine if the current column is effective.
+            is_homo_col = False
+            base_map = col_base_map[col_index]
+            no_gap_num = row_num - base_map['-']
+            max_homo_ratio = 0
+            gap_num = base_map['-']
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
+            if gap_num <= valid_col_threshold:
+                valid_col_count += 1
+                # Determine if the effective column is homologous.
+                no_gap_num = row_num - base_map['-']
+                for base in base_map.keys():
+                    if base == '-':
+                        continue
+                    cur_homo_ratio = float(base_map[base]) / row_num
+                    if cur_homo_ratio > max_homo_ratio:
+                        max_homo_ratio = cur_homo_ratio
+                    if cur_homo_ratio >= homo_threshold:
+                        homo_col_count += 1
+                        # Check for consecutive homologous columns.
+                        if prev_homo:
+                            con_homo += 1
+                        is_homo_col = True
+                        break
+                if not is_homo_col:
+                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+                    con_homo = 0
+
+                    if prev_non_homo:
+                        con_no_homo += 1
+                    else:
+                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                        con_no_homo = 0
+                    is_no_homo_col = True
+                    prev_non_homo = True
+                    prev_homo = False
+                else:
+                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+                    prev_homo = True
+                    prev_non_homo = False
+                    con_no_homo = 0
+                    is_no_homo_col = False
+                homo_cols.append(
+                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo,
+                     max_homo_ratio))
+            col_index += 1
+        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
+        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
+        # if debug:
+        #     print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
+        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
+        #     print(homo_cols)
+
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         cur_boundary = pos
         new_boundary_start = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
@@ -9729,7 +7235,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
             if avg_homo_ratio >= homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_start = first_candidate_boundary
                 break
         if new_boundary_start != cur_boundary and new_boundary_start != -1:
@@ -9751,17 +7257,17 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
 
         homo_cols = []
         while valid_col_count < search_len and col_index >= 0:
-            # 从pos开始向左搜索15个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 15 effective columns to the left.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
             max_homo_ratio = 0
             no_gap_num = row_num - base_map['-']
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 for base in base_map.keys():
                     if base == '-':
                         continue
@@ -9770,7 +7276,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9803,8 +7309,8 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从左边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         homo_cols.reverse()
         new_boundary_start = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
@@ -9818,7 +7324,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio)/sliding_window_size
             if avg_homo_ratio >= homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_start = first_candidate_boundary
                 break
         if new_boundary_start != cur_boundary and new_boundary_start != -1:
@@ -9842,18 +7348,18 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         col_index = pos
         homo_cols = []
         while valid_col_count < search_len and col_index < col_num:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 15 effective columns to the right.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
-            # 非空行的数量超过阈值，则是有效行
+            # If the number of non-empty rows exceeds the threshold, then it is an effective row.
             no_gap_num = row_num - base_map['-']
             max_homo_ratio = 0
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 for base in base_map.keys():
                     if base == '-':
                         continue
@@ -9862,7 +7368,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9895,8 +7401,8 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从右边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         cur_boundary = pos
         homo_cols.reverse()
         new_boundary_end = -1
@@ -9911,7 +7417,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
             if avg_homo_ratio >= homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_end = first_candidate_boundary
                 break
         if new_boundary_end != cur_boundary and new_boundary_end != -1:
@@ -9933,18 +7439,18 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
 
         homo_cols = []
         while valid_col_count < search_len and col_index >= col_num / 2:
-            # 从pos开始向左搜索20个有效列
-            # 判断当前列是否是有效列
+            # Starting from position 'pos', search for 20 effective columns to the left.
+            # Determine if the current column is effective.
             is_homo_col = False
             base_map = col_base_map[col_index]
-            # 非空行的数量超过阈值，则是有效行
+            # If the number of non-empty rows exceeds the threshold, then it is an effective row.
             no_gap_num = row_num - base_map['-']
             max_homo_ratio = 0
             gap_num = base_map['-']
-            # 如果当前列gap的数量<=拷贝数的一半，那么当前列是有效列
+            # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
-                # 判断有效列是否是同源列
+                # Determine if the effective column is homologous.
                 for base in base_map.keys():
                     if base == '-':
                         continue
@@ -9953,7 +7459,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # 是否连续同源列
+                        # Check for consecutive homologous columns.
                         if prev_homo:
                             con_homo += 1
                         is_homo_col = True
@@ -9986,8 +7492,8 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
         #     print(homo_cols)
 
-        # 使用一个滑动窗口，从右边开始计算连续10个碱基，计算这个窗口的平均同源性是否高于阈值。
-        # 如果高于阈值，获取10bp里面第一个高于阈值的列，当做同源边界
+        # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
+        # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
         for i in range(len(homo_cols) - sliding_window_size + 1):
             window = homo_cols[i:i + sliding_window_size]
@@ -10000,7 +7506,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / sliding_window_size
             if avg_homo_ratio >= homo_threshold:
-                # 滑动窗口的同源性高于阈值，找到边界
+                # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_end = first_candidate_boundary
                 break
         if new_boundary_end != cur_boundary and new_boundary_end != -1:
@@ -10010,1327 +7516,16 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
 
         return cur_boundary
 
-def search_boundary_homo_v1(col_base_map, valid_col_threshold, pos, matrix, row_num, col_num,
-                         out_homo_threshold, type, homo_threshold, debug):
-    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
-    # 需要定义的问题：
-    # ①什么是有效列。该列至少有总拷贝数量的一半以上，即取total/2的非空碱基。
-    # ②怎么算同源性。一致的碱基超过序列总数*0.8以上，如果存在则该列具有同源性，否则该列不具备同源性。
-    # 边界外部15bp如果有10bp的同源性，大概率是假阳性；
-
-    # 函数功能：
-    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
-    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
-    search_len = 15
-    if type == 'start':
-        start_align_valid = True
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        col_index = pos
-        homo_cols = []
-        while valid_col_count < search_len and col_index < col_num:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            # 非空行的数量超过阈值，则是有效行
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            no_gap_num = row_num - base_map['-']
-            max_homo_ratio = 0
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    cur_homo_ratio = float(base_map[base])/no_gap_num
-                    if cur_homo_ratio > max_homo_ratio:
-                        max_homo_ratio = cur_homo_ratio
-                    if cur_homo_ratio >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
-            col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
-        if max_con_no_homo + 1 <= out_homo_threshold:
-            start_align_valid &= True
-        else:
-            start_align_valid &= False
-
-        # 如果向右搜索是存在连续非同源碱基，说明边界没找准，那么搜索到
-        
-        col_index = pos - 1
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        homo_cols = []
-        while valid_col_count < search_len and col_index >= 0:
-            # 从pos开始向左搜索15个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            # 非空行的数量超过阈值，则是有效行
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if float(base_map[base])/no_gap_num >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
-        # if homo_col_count <= out_homo_threshold:
-        if max_con_homo + 1 <= out_homo_threshold:
-            start_align_valid &= True
-        else:
-            start_align_valid &= False
-        return start_align_valid
-    else:
-        end_align_valid = True
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        col_index = pos + 1
-        homo_cols = []
-        while valid_col_count < search_len and col_index < col_num:
-            # 从pos开始向右搜索15个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            # 非空行的数量超过阈值，则是有效行
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if float(base_map[base])/no_gap_num >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
-        # if homo_col_count <= out_homo_threshold:
-        if max_con_homo + 1 <= out_homo_threshold:
-            end_align_valid &= True
-        else:
-            end_align_valid &= False
-
-        col_index = pos
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        homo_cols = []
-        while valid_col_count < search_len and col_index >= 0:
-            # 从pos开始向左搜索20个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            # 非空行的数量超过阈值，则是有效行
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                max_ratio = 0
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if base_map[base] / no_gap_num > max_ratio:
-                        max_ratio = base_map[base] / no_gap_num
-                    if float(base_map[base])/no_gap_num >= homo_threshold:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
-        if max_con_no_homo + 1 <= out_homo_threshold:
-            end_align_valid &= True
-        else:
-            end_align_valid &= False
-
-        return end_align_valid
-
-def search_boundary_homo(col_base_map, valid_col_threshold, pos, matrix, row_num, col_num, internal_no_homo_threshold,
-                         out_homo_threshold, type, debug):
-    # 我们需要一个程序，输入比对文件align_file和边界位置start_pos, end_pos，能够得到有效的周边20列，并判断这20列是否具有同源性。
-    # 需要定义的问题：
-    # ①什么是有效列。该列至少有>=5个（或者超过总拷贝数量的一半以上，即取min(5, total/2)）的非空碱基。
-    # ②怎么算同源性。一致的碱基超过序列总数*0.6以上，如果存在则该列具有同源性，否则该列不具备同源性。
-    # 边界外部如果有连续超过5bp的同源性，大概率是假阳性；边界内如果有连续非同源性超过5bp，大概率是假阳性
-
-    # 函数功能：
-    # 给定一个比对矩阵和起始列，分别向两端搜索有效列、同源列（同源一定是有效列），并统计同源列、连续同源列、连续非同源列的个数。
-    # 如果边界内连续非同源列或边界外连续同源列超过阈值，则认定为假阳性
-    if type == 'start':
-        start_align_valid = True
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        col_index = pos
-        homo_cols = []
-        while valid_col_count < 20 and col_index < col_num:
-            # 从pos开始向右搜索20个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            # 非空行的数量超过阈值，则是有效行
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if base_map[base] * 10 >= no_gap_num * 6:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
-        if max_con_no_homo + 1 <= internal_no_homo_threshold:
-            start_align_valid &= True
-        else:
-            start_align_valid &= False
-
-        if start_align_valid == False:
-            return start_align_valid
-
-        col_index = pos - 1
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        homo_cols = []
-        while valid_col_count < 20 and col_index >= 0:
-            # 从pos开始向左搜索20个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            # 非空行的数量超过阈值，则是有效行
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if base_map[base] * 10 >= no_gap_num * 6:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
-        # if homo_col_count >= out_homo_threshold:
-        if max_con_homo + 1 <= out_homo_threshold:
-            start_align_valid &= True
-        else:
-            start_align_valid &= False
-
-        return start_align_valid
-    elif type == 'end':
-        end_align_valid = True
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        col_index = pos + 1
-        homo_cols = []
-        while valid_col_count < 20 and col_index < col_num:
-            # 从pos开始向右搜索20个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            # 非空行的数量超过阈值，则是有效行
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if base_map[base] * 10 >= no_gap_num * 6:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界外部连续的同源性碱基不超过阈值，则可认为是有效边界
-        # if homo_col_count >= out_homo_threshold:
-        if max_con_homo + 1 <= out_homo_threshold:
-            end_align_valid &= True
-        else:
-            end_align_valid &= False
-
-        if end_align_valid == False:
-            return end_align_valid
-
-        col_index = pos
-        valid_col_count = 0
-        homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo_col = -1
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_no_homo_col = -1
-
-        homo_cols = []
-        while valid_col_count < 20 and col_index >= 0:
-            # 从pos开始向左搜索20个有效列
-            # 判断当前列是否是有效列
-            is_homo_col = False
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            for row in range(row_num):
-                cur_base = matrix[row][col_index]
-                if not base_map.__contains__(cur_base):
-                    base_map[cur_base] = 0
-                cur_count = base_map[cur_base]
-                cur_count += 1
-                base_map[cur_base] = cur_count
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-            # 非空行的数量超过阈值，则是有效行
-            no_gap_num = row_num - base_map['-']
-            if no_gap_num > valid_col_threshold:
-                valid_col_count += 1
-                # 判断有效列是否是同源列
-                no_gap_num = row_num - base_map['-']
-                max_ratio = 0
-                for base in base_map.keys():
-                    if base == '-':
-                        continue
-                    if base_map[base]/no_gap_num > max_ratio:
-                        max_ratio = base_map[base]/no_gap_num
-                    if base_map[base] * 10 >= no_gap_num * 6:
-                        homo_col_count += 1
-                        # 是否连续同源列
-                        if prev_homo_col != -1 and abs(col_index - prev_homo_col) == 1:
-                            con_homo += 1
-                        is_homo_col = True
-                        break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_no_homo_col != -1 and abs(col_index - prev_no_homo_col) == 1:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_no_homo_col = col_index
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo_col = col_index
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (prev_homo_col, prev_no_homo_col, col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo))
-            col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        if debug:
-            print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-                  + ', max continous no-homology bases: ' + str(max_con_no_homo))
-            print(homo_cols)
-
-        # 边界内部连续的非同源性碱基不超过阈值，则可认为是有效边界
-        if max_con_no_homo + 1 <= internal_no_homo_threshold:
-            end_align_valid &= True
-        else:
-            end_align_valid &= False
-        return end_align_valid
-
-
-def judge_boundary(cur_seq, align_file, debug):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
-    anchor_len = 20
-    first_10bp = cur_seq[0:anchor_len]
-    last_10bp = cur_seq[-anchor_len:]
-    align_names, align_contigs = read_fasta(align_file)
-    align_start = -1
-    align_end = -1
-    for name in align_names:
-        raw_align_seq = align_contigs[name]
-        align_seq = ''
-        position_reflex = {}
-        cur_align_index = 0
-        for i, base in enumerate(raw_align_seq):
-            if base == '-':
-                continue
-            else:
-                align_seq += base
-                position_reflex[cur_align_index] = i
-                cur_align_index += 1
-
-        start_dist = 1
-        last_dist = 1
-        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
-        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
-        last_matches = last_matches[::-1]
-        if len(first_matches) > 0 and len(last_matches) > 0:
-            align_no_gap_start = first_matches[0].start
-            align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
-            align_start = position_reflex[align_no_gap_start]
-            align_end = position_reflex[align_no_gap_end]
-            break
-    if debug:
-        print(align_start, align_end)
-    if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
-        return False
-    else:
-        print(align_file)
-    align_names, align_contigs = read_fasta(align_file)
-    if len(align_names) <= 0:
-        return False
-
-    col_base_map = {}
-    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
-    # 在锚点位置上下2bp应该有碱基
-    start_member_names = []
-    start_member_contigs = {}
-    end_member_names = []
-    end_member_contigs = {}
-    for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
-        if len(start_member_contigs) > 100:
-            break
-        if len(end_member_contigs) > 100:
-            break
-        align_seq = align_contigs[name]
-        if align_start - 20 >= 0:
-            anchor_start = align_start - 20
-        else:
-            anchor_start = 0
-        anchor_start_seq = align_seq[anchor_start: align_start + 20]
-        if not all(c == '-' for c in list(anchor_start_seq)):
-            start_member_names.append(name)
-            start_member_contigs[name] = align_seq
-        if align_end + 20 < len(align_seq):
-            anchor_end = align_end + 20
-        else:
-            anchor_end = len(align_seq)
-        anchor_end_seq = align_seq[align_end - 20: anchor_end]
-        if not all(c == '-' for c in list(anchor_end_seq)):
-            end_member_names.append(name)
-            end_member_contigs[name] = align_seq
-
-    # 判断align start处的拷贝们是否满足定律。
-    if len(start_member_names) <= 0:
-        return False
-    elif len(start_member_names) == 1:
-        start_align_valid = True
-    else:
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = start_member_contigs[start_member_names[0]]
-        col_num = len(first_seq)
-        row_num = len(start_member_names)
-        matrix = [[''] * col_num for i in range(row_num)]
-        for row, name in enumerate(start_member_names):
-            seq = start_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-        # 从align_start列开始，向左向右搜索20个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        valid_col_threshold = int(row_num/2)
-        out_homo_threshold = 5
-        if row_num <= 2:
-            internal_no_homo_threshold = 5
-        else:
-            internal_no_homo_threshold = 2
-
-        start_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_start, matrix, row_num,
-                                                 col_num, internal_no_homo_threshold, out_homo_threshold, 'start',
-                                                 debug)
-    if not start_align_valid:
-        return False
-    # 判断align end处的拷贝们是否满足定律。
-    if len(end_member_names) <= 0:
-        return False
-    elif len(end_member_names) == 1:
-        end_align_valid = True
-    else:
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = end_member_contigs[end_member_names[0]]
-        col_num = len(first_seq)
-        row_num = len(end_member_names)
-        matrix = [[''] * col_num for i in range(row_num)]
-        for row, name in enumerate(end_member_names):
-            seq = end_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-        # 从align_end列开始，向左向右搜索20个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        valid_col_threshold = int(row_num/2)
-        out_homo_threshold = 5
-        if row_num <= 2:
-            internal_no_homo_threshold = 5
-        else:
-            internal_no_homo_threshold = 2
-
-        end_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_end, matrix, row_num, col_num,
-                                               internal_no_homo_threshold, out_homo_threshold, 'end', debug)
-        if debug:
-            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
-    if not end_align_valid:
-        return False
-    else:
-        return True
-    
-
-
-def judge_boundary_v2(cur_seq, align_file, debug):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
-    anchor_len = 20
-    first_10bp = cur_seq[0:anchor_len]
-    last_10bp = cur_seq[-anchor_len:]
-    align_names, align_contigs = read_fasta(align_file)
-    align_start = -1
-    align_end = -1
-    for name in align_names:
-        raw_align_seq = align_contigs[name]
-        align_seq = ''
-        position_reflex = {}
-        cur_align_index = 0
-        for i, base in enumerate(raw_align_seq):
-            if base == '-':
-                continue
-            else:
-                align_seq += base
-                position_reflex[cur_align_index] = i
-                cur_align_index += 1
-
-        start_dist = 1
-        last_dist = 1
-        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
-        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
-        last_matches = last_matches[::-1]
-        if len(first_matches) > 0 and len(last_matches) > 0:
-            align_no_gap_start = first_matches[0].start
-            align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
-            align_start = position_reflex[align_no_gap_start]
-            align_end = position_reflex[align_no_gap_end]
-            break
-    if debug:
-        print(align_start, align_end)
-    if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
-        return None
-    else:
-        print(align_file)
-    align_names, align_contigs = read_fasta(align_file)
-    if len(align_names) <= 0:
-        return None
-
-    col_base_map = {}
-    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝
-    # 在锚点位置上下20bp应该有碱基
-    full_length_member_names = []
-    full_length_member_contigs = {}
-    anchor_len = 5
-    for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
-        if len(full_length_member_names) > 100:
-            break
-        align_seq = align_contigs[name]
-        if align_start - anchor_len >= 0:
-            anchor_start = align_start - anchor_len
-        else:
-            anchor_start = 0
-        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
-        if align_end + anchor_len < len(align_seq):
-            anchor_end = align_end + anchor_len
-        else:
-            anchor_end = len(align_seq)
-        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
-
-        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
-            full_length_member_names.append(name)
-            full_length_member_contigs[name] = align_seq
-
-    return full_length_member_names
-
-def judge_boundary_v3(cur_seq, align_file, debug):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
-    anchor_len = 20
-    first_10bp = cur_seq[0:anchor_len]
-    last_10bp = cur_seq[-anchor_len:]
-    align_names, align_contigs = read_fasta(align_file)
-    align_start = -1
-    align_end = -1
-    for name in align_names:
-        raw_align_seq = align_contigs[name]
-        align_seq = ''
-        position_reflex = {}
-        cur_align_index = 0
-        for i, base in enumerate(raw_align_seq):
-            if base == '-':
-                continue
-            else:
-                align_seq += base
-                position_reflex[cur_align_index] = i
-                cur_align_index += 1
-
-        start_dist = 2
-        last_dist = 2
-        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
-        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
-        last_matches = last_matches[::-1]
-        if len(first_matches) > 0 and len(last_matches) > 0:
-            align_no_gap_start = first_matches[0].start
-            align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
-            align_start = position_reflex[align_no_gap_start]
-            align_end = position_reflex[align_no_gap_end]
-            break
-    if debug:
-        print(align_start, align_end)
-    if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
-        if debug:
-            print('not found boundary:' + align_file)
-        return False, 'nb'
-    else:
-        print(align_file)
-    align_names, align_contigs = read_fasta(align_file)
-    if len(align_names) <= 0:
-        if debug:
-            print('align file size = 0, ' + align_file)
-        return False, ''
-
-    col_base_map = {}
-    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝
-    # 在锚点位置上下1bp应该有碱基
-    full_length_member_names = []
-    full_length_member_contigs = {}
-    anchor_len = 1
-    for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
-        if len(full_length_member_names) > 100:
-            break
-        align_seq = align_contigs[name]
-        if align_start - anchor_len >= 0:
-            anchor_start = align_start - anchor_len
-        else:
-            anchor_start = 0
-        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
-        if align_end + anchor_len < len(align_seq):
-            anchor_end = align_end + anchor_len
-        else:
-            anchor_end = len(align_seq)
-        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
-
-        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
-            full_length_member_names.append(name)
-            full_length_member_contigs[name] = align_seq
-
-    #将全长多比对序列存成文件
-    full_align_file = align_file + '.full.fa'
-    store_fasta(full_length_member_contigs, full_align_file)
-
-    # 判断align start处的拷贝们是否满足定律。
-    if len(full_length_member_contigs) <= 1:
-        if debug:
-            print('full length number = 1, ' + align_file)
-        return False, 'fl1'
-    else:
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = full_length_member_contigs[full_length_member_names[0]]
-        col_num = len(first_seq)
-        row_num = len(full_length_member_names)
-        matrix = [[''] * col_num for i in range(row_num)]
-        for row, name in enumerate(full_length_member_names):
-            seq = full_length_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-        # 从align_start列开始，向左搜索15个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        valid_col_threshold = min(5, int(row_num/2))
-        #valid_col_threshold = 0
-        out_homo_threshold = 5
-        homo_threshold = 0.8
-        start_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_start, matrix, row_num,
-                                                 col_num, out_homo_threshold, 'start', homo_threshold, debug)
-
-        # 从align_end列开始，向右搜索15个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        end_align_valid = search_boundary_homo_v1(col_base_map, valid_col_threshold, align_end, matrix, row_num, 
-                                               col_num, out_homo_threshold, 'end', homo_threshold, debug)
-        if debug:
-            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
-        return start_align_valid & end_align_valid, ''
-
-def judge_boundary_v4(cur_seq, align_file, debug, TE_type, plant, result_type):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
-    anchor_len = 20
-    first_10bp = cur_seq[0:anchor_len]
-    last_10bp = cur_seq[-anchor_len:]
-    align_names, align_contigs = read_fasta(align_file)
-    align_start = -1
-    align_end = -1
-    for name in align_names:
-        raw_align_seq = align_contigs[name]
-        align_seq = ''
-        position_reflex = {}
-        cur_align_index = 0
-        for i, base in enumerate(raw_align_seq):
-            if base == '-':
-                continue
-            else:
-                align_seq += base
-                position_reflex[cur_align_index] = i
-                cur_align_index += 1
-
-        start_dist = 2
-        last_dist = 2
-        first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
-        last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
-        last_matches = last_matches[::-1]
-        if len(first_matches) > 0 and len(last_matches) > 0:
-            align_no_gap_start = first_matches[0].start
-            align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
-            align_start = position_reflex[align_no_gap_start]
-            align_end = position_reflex[align_no_gap_end]
-            break
-    if debug:
-        print(align_file, align_start, align_end)
-    if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
-        if debug:
-            print('not found boundary:' + align_file)
-        return False, 'nb', ''
-    align_names, align_contigs = read_fasta(align_file)
-    if len(align_names) <= 0:
-        if debug:
-            print('align file size = 0, ' + align_file)
-        return False, '', ''
-
-    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
-    # 在锚点位置上下2bp应该有碱基
-    start_member_names = []
-    start_member_contigs = {}
-    end_member_names = []
-    end_member_contigs = {}
-    search_len = 10
-    for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
-        if len(start_member_contigs) > 100:
-            break
-        if len(end_member_contigs) > 100:
-            break
-        align_seq = align_contigs[name]
-        if align_start - search_len >= 0:
-            anchor_start = align_start - search_len
-        else:
-            anchor_start = 0
-        anchor_start_seq = align_seq[anchor_start: align_start + search_len]
-        if not all(c == '-' for c in list(anchor_start_seq)):
-            start_member_names.append(name)
-            start_member_contigs[name] = align_seq
-        if align_end + search_len < len(align_seq):
-            anchor_end = align_end + search_len
-        else:
-            anchor_end = len(align_seq)
-        anchor_end_seq = align_seq[align_end - search_len: anchor_end]
-        if not all(c == '-' for c in list(anchor_end_seq)):
-            end_member_names.append(name)
-            end_member_contigs[name] = align_seq
-
-    # 3.取全长序列用来生成一致性序列
-    # 在锚点位置上下1bp应该有碱基
-    full_length_member_names = []
-    full_length_member_contigs = {}
-    anchor_len = 1
-    for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
-        if len(full_length_member_names) > 100:
-            break
-        align_seq = align_contigs[name]
-        if align_start - anchor_len >= 0:
-            anchor_start = align_start - anchor_len
-        else:
-            anchor_start = 0
-        anchor_start_seq = align_seq[anchor_start: align_start + anchor_len]
-        if align_end + anchor_len < len(align_seq):
-            anchor_end = align_end + anchor_len
-        else:
-            anchor_end = len(align_seq)
-        anchor_end_seq = align_seq[align_end - anchor_len: anchor_end]
-
-        if not all(c == '-' for c in list(anchor_start_seq)) and not all(c == '-' for c in list(anchor_end_seq)):
-            full_length_member_names.append(name)
-            full_length_member_contigs[name] = align_seq
-
-    # 判断align start处的拷贝们是否满足定律。
-    if len(align_names) <= 1:
-        if debug:
-            print('full length number = 1, ' + align_file)
-        return False, 'fl1', ''
-    else:
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = start_member_contigs[start_member_names[0]]
-        col_num = len(first_seq)
-        start_row_num = len(start_member_names)
-        matrix = [[''] * col_num for i in range(start_row_num)]
-        for row, name in enumerate(start_member_names):
-            seq = start_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-
-        # 从align_start列开始，向左搜索15个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        #valid_col_threshold = min(2, int(row_num/2))
-        sliding_window_size = 10
-        valid_col_threshold = int(start_row_num/2)
-        out_homo_threshold = 5
-        int_homo_threshold = 5
-        if start_row_num <= 2:
-            homo_threshold = 0.95
-        elif start_row_num <= 5:
-            homo_threshold = 0.9
-        else:
-            homo_threshold = 0.7
-        boundary_change = 0
-        homo_boundary_start = search_boundary_homo_v3(valid_col_threshold, align_start, matrix, start_row_num,
-                                                 col_num, 'start', homo_threshold, debug, sliding_window_size)
-        if homo_boundary_start == -1:
-            return False, '', ''
-
-        # 判断边界是否发生了改变，0未改变，1向右平移，2向左平移
-        if homo_boundary_start != align_start:
-            if homo_boundary_start > align_start:
-                boundary_change = 1
-            else:
-                boundary_change = 2
-        else:
-            boundary_change = 0
-
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = end_member_contigs[end_member_names[0]]
-        col_num = len(first_seq)
-        end_row_num = len(end_member_names)
-        matrix = [[''] * col_num for i in range(end_row_num)]
-        for row, name in enumerate(end_member_names):
-            seq = end_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-
-        # 从align_start列开始，向左搜索15个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        # valid_col_threshold = min(2, int(row_num/2))
-        valid_col_threshold = int(end_row_num / 2)
-        if end_row_num <= 2:
-            homo_threshold = 0.95
-        elif end_row_num <= 5:
-            homo_threshold = 0.9
-        else:
-            homo_threshold = 0.7
-        homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, end_row_num,
-                                               col_num, 'end', homo_threshold, debug, sliding_window_size)
-
-        if homo_boundary_end == -1:
-            return False, '', ''
-        # if debug:
-        #     print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
-
-        # 利用全长拷贝生成一致性序列
-        first_seq = full_length_member_contigs[full_length_member_names[0]]
-        col_num = len(first_seq)
-        row_num = len(full_length_member_names)
-        matrix = [[''] * col_num for i in range(row_num)]
-        for row, name in enumerate(full_length_member_names):
-            seq = full_length_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-        # 记录每一列的碱基组成
-        col_base_map = {}
-        for col_index in range(col_num):
-            if not col_base_map.__contains__(col_index):
-                col_base_map[col_index] = {}
-            base_map = col_base_map[col_index]
-            # 统计当前列的碱基占比
-            if len(base_map) == 0:
-                for row in range(row_num):
-                    cur_base = matrix[row][col_index]
-                    if not base_map.__contains__(cur_base):
-                        base_map[cur_base] = 0
-                    cur_count = base_map[cur_base]
-                    cur_count += 1
-                    base_map[cur_base] = cur_count
-            if not base_map.__contains__('-'):
-                base_map['-'] = 0
-        ## 生成一致性序列
-        model_seq = ''
-        if result_type == 'cons':
-            for col_index in range(homo_boundary_start, homo_boundary_end+1):
-                base_map = col_base_map[col_index]
-                #识别频次最多的碱基且超过阈值 valid_col_threshold
-                max_base_count = 0
-                max_base = ''
-                for cur_base in base_map.keys():
-                    # if cur_base == '-':
-                    #     continue
-                    cur_count = base_map[cur_base]
-                    if cur_count > max_base_count:
-                        max_base_count = cur_count
-                        max_base = cur_base
-                if max_base_count >= int(row_num/2):
-                    if max_base != '-':
-                        model_seq += max_base
-                    else:
-                        continue
-                else:
-                    model_seq += 'N'
-        else:
-            for col_index in range(homo_boundary_start, homo_boundary_end + 1):
-                cur_base = first_seq[col_index]
-                if cur_base != '-':
-                    model_seq += cur_base
-                else:
-                    continue
-
-        # (TA、TTA、TAA、TTAA)xxxxx...xxxxx(TA、TTA、TAA、TTAA)造成错误的同源边界
-        # 判断同源边界的起始碱基
-        final_cons_seq = ''
-        first_5bps = []
-        end_5bps = []
-        first_5bps.append((model_seq[0:5], 0))
-        end_5bps.append((model_seq[-5:], 0))
-
-        if model_seq.startswith('A'):
-            first_5bps.append((model_seq[1:6], 1))
-        if model_seq.startswith('AA') or model_seq.startswith('TA'):
-            first_5bps.append((model_seq[2:7], 2))
-        if model_seq.startswith('TAA') or model_seq.startswith('TTA'):
-            first_5bps.append((model_seq[3:8], 3))
-        if model_seq.startswith('TTAA'):
-            first_5bps.append((model_seq[4:9], 4))
-
-        if model_seq.endswith('T'):
-            end_5bps.append((model_seq[len(model_seq)-6:len(model_seq)-1], 1))
-        if model_seq.endswith('TT') or model_seq.endswith('TA'):
-            end_5bps.append((model_seq[len(model_seq)-7:len(model_seq)-2], 2))
-        if model_seq.endswith('TAA') or model_seq.endswith('TTA'):
-            end_5bps.append((model_seq[len(model_seq)-8:len(model_seq)-3], 3))
-        if model_seq.endswith('TTAA'):
-            end_5bps.append((model_seq[len(model_seq)-9:len(model_seq)-4], 4))
-
-        final_boundary_start = -1
-        final_boundary_end = -1
-        # 取所有合法的边界，然后根据first_5bp和end_5bp的距离+TSD个数进行排序，距离越小，TSD越多的越可能是真实边界
-        all_boundaries = []
-        for first_5bp in first_5bps:
-            for end_5bp in end_5bps:
-                # 根据边界确定align file中是否有两个以上的TSD
-                # 存在即真实的边界
-                cur_boundary_start = homo_boundary_start + first_5bp[1]
-                cur_boundary_end = homo_boundary_end - end_5bp[1]
-                tsd_count = 0
-                for name in align_names:
-                    # 1.确定边界处是否有碱基
-                    raw_align_seq = align_contigs[name]
-                    boundary_start_base = raw_align_seq[cur_boundary_start]
-                    boundary_end_base = raw_align_seq[cur_boundary_end]
-                    if boundary_start_base == '-' or boundary_end_base == '-':
-                        continue
-                    # 2.能否在边界处找到TSD
-                    left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
-                    if left_tsd_seq != '':
-                        tsd_count += 1
-                if tsd_count > 0:
-                    edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
-                    all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
-        all_boundaries.sort(key=lambda x: (x[0], -x[1]))
-        if len(all_boundaries) > 0:
-            boundary = all_boundaries[0]
-            final_boundary_start = boundary[2]
-            final_boundary_end = boundary[3]
-            if boundary[5] != 0:
-                final_cons_seq = model_seq[boundary[4]: -boundary[5]]
-            else:
-                final_cons_seq = model_seq[boundary[4]: ]
-
-        if final_cons_seq == '':
-            is_TE = False
-        else:
-            is_TE = True
-
-        if debug:
-            if boundary_change != 0:
-                if boundary_change == 1:
-                    boundary_change_direct = 'right'
-                else:
-                    boundary_change_direct = 'left'
-            else:
-                boundary_change_direct = 'no'
-            print(align_file, is_TE, final_boundary_start, final_boundary_end, 'boundary change: ' + str(boundary_change_direct))
-        return is_TE, '', final_cons_seq
-
 def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
+    #     # Extend 20bp on both sides from the anchor point, extract the effective columns, and determine their homology.
+    #     If it contradicts our rule, it is a false positive sequence.
+    #     # --First, locate the TIR boundary position of the first sequence in the alignment file as the anchor point.
+    #     # Take the first and last 20bp of the original sequence, and search on the aligned sequence without gaps.
     anchor_len = 20
     first_10bp = cur_seq[0:anchor_len]
     last_10bp = cur_seq[-anchor_len:]
     align_names, align_contigs = read_fasta(align_file)
-    # if TE_type == 'helitron':
-    #     return False, 'copy_num:'+str(len(align_names)), ''
 
     align_start = -1
     align_end = -1
@@ -11355,14 +7550,12 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
         if len(first_matches) > 0 and len(last_matches) > 0:
             align_no_gap_start = first_matches[0].start
             align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
             align_start = position_reflex[align_no_gap_start]
             align_end = position_reflex[align_no_gap_end]
             break
     if debug:
         print(align_file, align_start, align_end)
     if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
         if debug:
             print('not found boundary:' + align_file)
         return False, 'nb', ''
@@ -11372,8 +7565,8 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
             print('align file size = 0, ' + align_file)
         return False, '', ''
 
-    # 3.取全长序列用来生成一致性序列
-    # 在锚点位置上下10bp应该有碱基
+    # 3. Take the full-length sequence to generate a consensus sequence.
+    # There should be bases both up and down by 10bp at the anchor point.
     full_length_member_names = []
     full_length_member_contigs = {}
     anchor_len = 10
@@ -11397,7 +7590,6 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
             full_length_member_names.append(name)
             full_length_member_contigs[name] = align_seq
 
-    # 利用全长拷贝生成一致性序列
     first_seq = full_length_member_contigs[full_length_member_names[0]]
     col_num = len(first_seq)
     row_num = len(full_length_member_names)
@@ -11411,9 +7603,10 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
         for col in range(len(seq)):
             matrix[row][col] = seq[col]
 
-    # 从align_start列开始，向左搜索15个有效列
-    # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-    #valid_col_threshold = min(2, int(row_num/2))
+    # Starting from column 'align_start', search for 15 effective columns to the left.
+    # Count the base composition of each column, in the format of {40: {A: 10, T: 5, C: 7, G: 9, '-': 20}},
+    # which indicates the number of different bases in the current column.
+    # Based on this, it is easy to determine whether the current column is effective and whether it is a homologous column.
     sliding_window_size = 10
     valid_col_threshold = int(row_num/2)
 
@@ -11429,25 +7622,19 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     if homo_boundary_start == -1:
         return False, '', ''
 
-
-    # 从align_start列开始，向左搜索15个有效列
-    # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
     homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, row_num,
                                            col_num, 'end', homo_threshold, debug, sliding_window_size)
 
     if homo_boundary_end == -1:
         return False, '', ''
-    # if debug:
-    #     print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
 
-
-    # 记录每一列的碱基组成
+    # Record the base composition of each column.
     col_base_map = {}
     for col_index in range(col_num):
         if not col_base_map.__contains__(col_index):
             col_base_map[col_index] = {}
         base_map = col_base_map[col_index]
-        # 统计当前列的碱基占比
+        # Calculate the base composition ratio in the current column.
         if len(base_map) == 0:
             for row in range(row_num):
                 cur_base = matrix[row][col_index]
@@ -11458,17 +7645,15 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                 base_map[cur_base] = cur_count
         if not base_map.__contains__('-'):
             base_map['-'] = 0
-    ## 生成一致性序列
+    # Generate a consensus sequence.
     model_seq = ''
     if result_type == 'cons':
         for col_index in range(homo_boundary_start, homo_boundary_end+1):
             base_map = col_base_map[col_index]
-            #识别频次最多的碱基且超过阈值 valid_col_threshold
+            # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
             max_base_count = 0
             max_base = ''
             for cur_base in base_map.keys():
-                # if cur_base == '-':
-                #     continue
                 cur_count = base_map[cur_base]
                 if cur_count > max_base_count:
                     max_base_count = cur_count
@@ -11479,7 +7664,6 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                 else:
                     continue
             else:
-                #这里不用N，因为容易找不到边界，因此取非空的最大次数碱基
                 max_base_count = 0
                 max_base = ''
                 for cur_base in base_map.keys():
@@ -11498,12 +7682,12 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
             else:
                 continue
 
-    # 判断同源边界的起始碱基
+    # Determine the starting base of the homologous boundary.
     final_boundary_start = -1
     final_boundary_end = -1
     final_cons_seq = ''
     if TE_type == 'tir':
-        # (TA、TTA、TAA、TTAA)xxxxx...xxxxx(TA、TTA、TAA、TTAA)造成错误的同源边界
+        # (TA, TTA, TAA, TTAA)xxxxx...xxxxx(TA, TTA, TAA, TTAA) may lead to incorrect homologous boundaries.
         first_5bps = []
         end_5bps = []
         first_5bps.append((model_seq[0:5], 0))
@@ -11527,23 +7711,24 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
         if model_seq.endswith('TTAA'):
             end_5bps.append((model_seq[len(model_seq)-9:len(model_seq)-4], 4))
 
-        # 取所有合法的边界，然后根据first_5bp和end_5bp的距离+TSD个数进行排序，距离越小，TSD越多的越可能是真实边界
+        # Take all valid boundaries, then sort them based on the distance between 'first_5bp' and 'end_5bp' + the number of TSDs.
+        # Smaller distances and more TSDs make it more likely to be a true boundary.
         all_boundaries = []
         for first_5bp in first_5bps:
             for end_5bp in end_5bps:
-                # 根据边界确定align file中是否有两个以上的TSD
-                # 存在即真实的边界
+                # Determine if there are two or more TSDs in the align file based on the boundary.
+                # If yes, it is a genuine boundary.
                 cur_boundary_start = homo_boundary_start + first_5bp[1]
                 cur_boundary_end = homo_boundary_end - end_5bp[1]
                 tsd_count = 0
                 for name in align_names:
-                    # 1.确定边界处是否有碱基
+                    # 1. Verify if there are bases at the boundary.
                     raw_align_seq = align_contigs[name]
                     boundary_start_base = raw_align_seq[cur_boundary_start]
                     boundary_end_base = raw_align_seq[cur_boundary_end]
                     if boundary_start_base == '-' or boundary_end_base == '-':
                         continue
-                    # 2.能否在边界处找到TSD
+                    # 2. Can TSDs be found at the boundary?
                     left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
                     if left_tsd_seq != '':
                         tsd_count += 1
@@ -11558,82 +7743,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
             if boundary[5] != 0:
                 final_cons_seq = model_seq[boundary[4]: -boundary[5]]
             else:
-                final_cons_seq = model_seq[boundary[4]: ]
-    elif TE_type == 'helitron':
-        # helitron转座子的话需要去边界附近找ATC...CTRR(R=A/G)T
-        # 策略1：往边界的外面扩展1bp，如果在边界的10bp范围内能找到ATC或者CTRRT，就算做真实Helitron
-        model_seq = ''
-        for col_index in range(homo_boundary_start, homo_boundary_end + 1):
-            base_map = col_base_map[col_index]
-            # 识别频次最多的碱基且超过阈值 valid_col_threshold
-            max_base_count = 0
-            max_base = ''
-            for cur_base in base_map.keys():
-                cur_count = base_map[cur_base]
-                if cur_count > max_base_count:
-                    max_base_count = cur_count
-                    max_base = cur_base
-            if max_base_count >= int(row_num / 2):
-                if max_base != '-':
-                    model_seq += max_base
-                else:
-                    continue
-            else:
-                model_seq += 'N'
-        # 尝试往两端扩展1bp
-        ext_len = 1
-        col_index = homo_boundary_start - 1
-        ext_count = 0
-        while ext_count < ext_len and col_index >= 0:
-            base_map = col_base_map[col_index]
-            # 识别频次最多的碱基且超过阈值 valid_col_threshold
-            max_base_count = 0
-            max_base = ''
-            for cur_base in base_map.keys():
-                cur_count = base_map[cur_base]
-                if cur_count > max_base_count:
-                    max_base_count = cur_count
-                    max_base = cur_base
-            if max_base_count >= int(row_num / 2) and max_base != '-':
-                model_seq = max_base + model_seq
-                ext_count += 1
-            col_index -= 1
-
-        col_index = homo_boundary_end + 1
-        ext_count = 0
-        while ext_count < ext_len and col_index < col_num:
-            base_map = col_base_map[col_index]
-            # 识别频次最多的碱基且超过阈值 valid_col_threshold
-            max_base_count = 0
-            max_base = ''
-            for cur_base in base_map.keys():
-                cur_count = base_map[cur_base]
-                if cur_count > max_base_count:
-                    max_base_count = cur_count
-                    max_base = cur_base
-            if max_base_count >= int(row_num / 2) and max_base != '-':
-                model_seq += max_base
-                ext_count += 1
-            col_index += 1
-
-        # 在前10bp和后10bp中，寻找第一个ATC，CTRR(R=A/G)T
-        cur_search_len = 10
-        first_10bp = model_seq[0: cur_search_len]
-        last_10bp = model_seq[-cur_search_len:]
-        tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
-        for tail_motif in tail_motifs:
-            # 查找子串最后一次出现的位置
-            end_index = last_10bp.rfind(tail_motif)
-            if end_index != -1:
-                start_index = first_10bp.find('ATC')
-                if start_index != -1:
-                    final_boundary_start = homo_boundary_start-1+start_index+1
-                    final_boundary_end = homo_boundary_end+1-(cur_search_len-(end_index+3)-1)
-                    if (cur_search_len-(end_index+3)-1) == 0:
-                        final_cons_seq = model_seq[start_index+1:]
-                    else:
-                        final_cons_seq = model_seq[start_index + 1:-(cur_search_len-(end_index+3)-1)]
-                    break
+                final_cons_seq = model_seq[boundary[4]:]
 
     if final_cons_seq == '':
         is_TE = False
@@ -11645,18 +7755,30 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     return is_TE, '', final_cons_seq
 
 
+def most_common_element(arr):
+    if len(arr) > 0:
+        counter = Counter(arr)
+        most_common = counter.most_common(1)
+        if most_common[0][1] == 1:
+            return arr[0]
+        return most_common[0][0]
+    else:
+        return -1
+
 def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+    # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
+    #     # Extend 20bp on both sides from the anchor point, extract the effective columns, and determine their homology.
+    #     If it contradicts our rule, it is a false positive sequence.
+    #     # --First, locate the TIR boundary position of the first sequence in the alignment file as the anchor point.
+    #     # Take the first and last 20bp of the original sequence, and search on the aligned sequence without gaps.
     anchor_len = 20
     first_10bp = cur_seq[0:anchor_len]
     last_10bp = cur_seq[-anchor_len:]
     align_names, align_contigs = read_fasta(align_file)
-    # if TE_type == 'helitron':
-    #     return False, 'copy_num:'+str(len(align_names)), ''
-
+    # Process the aligned sequence into a no-gap form: align_seq
+    # position_reflex stores the mapping relationship between the processed and original positions.
+    align_starts = []
+    align_ends = []
     align_start = -1
     align_end = -1
     for name in align_names:
@@ -11671,7 +7793,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                 align_seq += base
                 position_reflex[cur_align_index] = i
                 cur_align_index += 1
-
+        # Locate the anchor point in the aligned sequence based on the original sequence.
         start_dist = 2
         last_dist = 2
         first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
@@ -11680,14 +7802,19 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         if len(first_matches) > 0 and len(last_matches) > 0:
             align_no_gap_start = first_matches[0].start
             align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
+            # The position needs to be mapped back to the original aligned sequence.
             align_start = position_reflex[align_no_gap_start]
             align_end = position_reflex[align_no_gap_end]
-            break
+            align_starts.append(align_start)
+            align_ends.append(align_end)
+            #break
+    # Select the most frequently occurring position as the anchor point.
+    align_start = most_common_element(align_starts)
+    align_end = most_common_element(align_ends)
+
     if debug:
         print(align_file, align_start, align_end)
     if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
         if debug:
             print('not found boundary:' + align_file)
         return False, 'nb', ''
@@ -11698,15 +7825,15 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         return False, '', ''
 
     tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
-    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
-    # 在锚点位置上下2bp应该有碱基
+    # 2. For align_start and align_end, take all copies that are not empty at the boundaries.
+    # Determine if the copy has high homology within the boundary and non-homology outside the boundary.
+    # There should be bases both up and down by 2bp at the anchor point.
     start_member_names = []
     start_member_contigs = {}
     end_member_names = []
     end_member_contigs = {}
     search_len = 1
     for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
         if len(start_member_contigs) > 100:
             break
         if len(end_member_contigs) > 100:
@@ -11721,9 +7848,9 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
             start_member_names.append(name)
             start_member_contigs[name] = align_seq
 
-        # 对align_seq的尾端判断是否有CTRRT结尾，过滤掉那些没有的align_seq
-        # 取align_end的下游1bp和上游3bp，共5bp。
-        # 尝试往左扩展3bp
+        # Check if align_seq ends with CTRRT, and filter out those that do not.
+        # Take the downstream 1bp and upstream 3bp of align_end, a total of 5bp.
+        # Attempt to extend to the left by 3bp.
         tail_seq = align_seq[align_end]
         ext_len = 3
         col_index = align_end - 1
@@ -11735,7 +7862,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                 ext_count += 1
             col_index -= 1
 
-        # 尝试往右扩展1bp
+        # Attempt to extend to the right by 1bp.
         ext_len = 1
         col_index = align_end + 1
         ext_count = 0
@@ -11746,9 +7873,6 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                 ext_count += 1
             col_index += 1
 
-        if tail_seq not in tail_motifs:
-            continue
-
         if align_end + search_len < len(align_seq):
             anchor_end = align_end + search_len
         else:
@@ -11758,7 +7882,8 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
             end_member_names.append(name)
             end_member_contigs[name] = align_seq
 
-    # 把序列存成矩阵，方便遍历和索引
+    # Starting from the anchor point, extend 20bp on both sides and extract the effective columns. Determine their homology. If it contradicts our rule, it is a false positive sequence.
+    # Store the sequence as a matrix for easy traversal and indexing.
     if len(end_member_names) <= 0:
         return False, '', ''
     first_seq = end_member_contigs[end_member_names[0]]
@@ -11770,8 +7895,10 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         for col in range(len(seq)):
             matrix[row][col] = seq[col]
 
-    # Helitron的拷贝数较少，很难用与TIR一样的办法识别同源边界.因此我们使用连续同源性的办法去搜索
-    # 由于Helitron的末端已经固定，因此我们首先从末端开始找，如果满足条件，不发生改变则说明末端找准了
+    # Since Helitron copies are relatively rare, it is difficult to identify homologous boundaries using the same method as TIR.
+    # Therefore, we use a method based on continuous homology to search.
+    # Since the end of Helitron is fixed, we start searching from the end.
+    # If the conditions are met and there is no change, it means the end has been correctly identified.
     sliding_window_size = 10
     valid_col_threshold = int(end_row_num/2)
 
@@ -11788,7 +7915,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         int_homo_threshold = 0.65
         out_homo_threshold = 0.7
 
-    # 首先判断末端是否是真实Helitron支持
+    # First, check if the end is a genuine Helitron support.
     end_align_valid, homo_boundary_end = search_boundary_homo_v4(valid_col_threshold, align_end, matrix, end_row_num,
                                                  col_num, 'end', homo_threshold, int_homo_threshold, out_homo_threshold, debug, sliding_window_size)
     if not end_align_valid:
@@ -11796,7 +7923,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
             print(align_file, end_align_valid)
         return end_align_valid, '', ''
 
-    # 把序列存成矩阵，方便遍历和索引
+    # Store the sequence as a matrix for easy traversal and indexing.
     first_seq = start_member_contigs[start_member_names[0]]
     col_num = len(first_seq)
     start_row_num = len(start_member_names)
@@ -11819,18 +7946,18 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         homo_threshold = 0.7
         int_homo_threshold = 0.65
         out_homo_threshold = 0.7
-    # 从首端开始搜索同源列边界
+    # Start searching for homologous column boundaries from the beginning.
     start_align_valid, homo_boundary_start = search_boundary_homo_v4(valid_col_threshold, align_start, matrix, start_row_num,
                                                                  col_num, 'start', homo_threshold, int_homo_threshold,
                                                                  out_homo_threshold, debug, sliding_window_size)
 
-    # 3.取全长序列用来生成一致性序列
-    # 在锚点位置上下1bp应该有碱基
+    # 3. Take the full-length sequence to generate a consensus sequence.
+    # There should be bases both up and down by 1bp at the anchor point.
     full_length_member_names = []
     full_length_member_contigs = {}
     anchor_len = 1
     for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
+        # To reduce computational load, only take 100 full-length copies.
         if len(full_length_member_names) > 100:
             break
         align_seq = align_contigs[name]
@@ -11854,7 +7981,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
             print('full length align file size = 0, ' + align_file)
         return False, '', ''
 
-    # 利用全长拷贝生成一致性序列
+    # Generate a consensus sequence using full-length copies.
     first_seq = full_length_member_contigs[full_length_member_names[0]]
     col_num = len(first_seq)
     row_num = len(full_length_member_names)
@@ -11864,13 +7991,13 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         for col in range(len(seq)):
             matrix[row][col] = seq[col]
 
-    # 记录每一列的碱基组成
+    # Record the base composition of each column.
     col_base_map = {}
     for col_index in range(col_num):
         if not col_base_map.__contains__(col_index):
             col_base_map[col_index] = {}
         base_map = col_base_map[col_index]
-        # 统计当前列的碱基占比
+        # Calculate the base composition ratio in the current column.
         if len(base_map) == 0:
             for row in range(row_num):
                 cur_base = matrix[row][col_index]
@@ -11882,17 +8009,15 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         if not base_map.__contains__('-'):
             base_map['-'] = 0
 
-    ## 生成一致性序列
+    # Generate a consensus sequence.
     model_seq = ''
     if result_type == 'cons':
         for col_index in range(homo_boundary_start, homo_boundary_end+1):
             base_map = col_base_map[col_index]
-            #识别频次最多的碱基且超过阈值 valid_col_threshold
+            # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
             max_base_count = 0
             max_base = ''
             for cur_base in base_map.keys():
-                # if cur_base == '-':
-                #     continue
                 cur_count = base_map[cur_base]
                 if cur_count > max_base_count:
                     max_base_count = cur_count
@@ -11912,18 +8037,20 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
             else:
                 continue
 
-    # 判断同源边界的起始碱基
-    # 确定首端同源边界homo_boundary_start后，我们对model seq扩展1bp，然后搜索model seq中'ATC'的位置，然后即可确定边界
+    # Determine the starting base of the homologous boundary.
+    # After determining homo_boundary_start at the starting end,
+    # extend the model seq by 1bp and search for the position of 'ATC' in the model seq to determine the boundary.
     final_boundary_start = -1
     final_boundary_end = homo_boundary_end
     final_cons_seq = ''
     if TE_type == 'helitron':
-        # helitron转座子的话需要去边界附近找ATC...CTRR(R=A/G)T
-        # 策略1：往边界的外面扩展1bp，如果在边界的10bp范围内能找到ATC或者CTRRT，就算做真实Helitron
+        # For helitron transposons, you need to look for ATC...CTRR (R=A/G) T near the boundary.
+        # Strategy 1: Extend 1bp outside the boundary.
+        # If ATC or CTRRT can be found within 10bp of the boundary, it is considered a true Helitron.
         model_seq = ''
         for col_index in range(homo_boundary_start, homo_boundary_end + 1):
             base_map = col_base_map[col_index]
-            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
             max_base_count = 0
             max_base = ''
             for cur_base in base_map.keys():
@@ -11938,13 +8065,13 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                     continue
             else:
                 model_seq += 'N'
-        # 尝试往两端扩展1bp
+        # Attempt to extend by 1bp on both ends.
         ext_len = 1
         col_index = homo_boundary_start - 1
         ext_count = 0
         while ext_count < ext_len and col_index >= 0:
             base_map = col_base_map[col_index]
-            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
             max_base_count = 0
             max_base = ''
             for cur_base in base_map.keys():
@@ -11961,7 +8088,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         ext_count = 0
         while ext_count < ext_len and col_index < col_num:
             base_map = col_base_map[col_index]
-            # 识别频次最多的碱基且超过阈值 valid_col_threshold
+            # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
             max_base_count = 0
             max_base = ''
             for cur_base in base_map.keys():
@@ -11974,14 +8101,14 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                 ext_count += 1
             col_index += 1
 
-        # 搜索model seq中'ATC'的位置，然后即可确定首端边界
-        # 查找子串最后一次出现的位置
-        # 在前10bp和后10bp中，寻找第一个ATC，CTRR(R=A/G)T
+        # Search for the position of 'ATC' in the model seq to determine the starting end boundary.
+        # Find the last occurrence of a substring.
+        # In the first 10bp and last 10bp, look for the first occurrence of aTC, CTRRt.
         cur_search_len = 10
         first_10bp = model_seq[0: cur_search_len]
         last_10bp = model_seq[-cur_search_len:]
         for tail_motif in tail_motifs:
-            # 查找子串最后一次出现的位置
+            # Find the last occurrence of a substring.
             end_index = last_10bp.rfind(tail_motif)
             if end_index != -1:
                 start_index = first_10bp.find('ATC')
@@ -11993,20 +8120,6 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                     else:
                         final_cons_seq = model_seq[start_index + 1:-(cur_search_len - (end_index + 3) - 1)]
                     break
-        # tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
-        # for tail_motif in tail_motifs:
-        #     # 查找子串最后一次出现的位置
-        #     end_index = model_seq.rfind(tail_motif)
-        #     if end_index != -1:
-        #         start_index = model_seq.find('ATC')
-        #         if start_index != -1:
-        #             final_boundary_start = homo_boundary_start - 1 + start_index + 1
-        #             final_boundary_end = homo_boundary_end + 1 - (len(model_seq) - (end_index + 3) - 1)
-        #             if (len(model_seq)-(end_index+3)-1) == 0:
-        #                 final_cons_seq = model_seq[start_index+1:]
-        #             else:
-        #                 final_cons_seq = model_seq[start_index + 1:-(len(model_seq)-(end_index+3)-1)]
-        #             break
 
     if final_cons_seq == '':
         is_TE = False
@@ -12017,15 +8130,20 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         print(align_file, is_TE, final_boundary_start, final_boundary_end)
     return is_TE, '', final_cons_seq
 
-def judge_boundary_v1(cur_seq, align_file, debug):
-    # 1. 根据remove gap多比对文件，定位原始序列的位置（锚点）。
-    # 从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性。如果与我们的定律相违背就是一条假阳性序列。
-    # --先定位比对文件中第一条序列的TIR边界位置，作为锚点
-    # 取原始序列的首尾20bp，分别在对齐序列上搜索，对齐序列无gap
+def judge_boundary_v7(cur_seq, align_file, debug, TE_type, plant, result_type):
+    # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
+    #     # Extend 20bp on both sides from the anchor point, extract the effective columns, and determine their homology.
+    #     If it contradicts our rule, it is a false positive sequence.
+    #     # --First, locate the TIR boundary position of the first sequence in the alignment file as the anchor point.
+    #     # Take the first and last 20bp of the original sequence, and search on the aligned sequence without gaps.
     anchor_len = 20
     first_10bp = cur_seq[0:anchor_len]
     last_10bp = cur_seq[-anchor_len:]
     align_names, align_contigs = read_fasta(align_file)
+    # Process the aligned sequence into a no-gap form: align_seq
+    # position_reflex stores the mapping relationship between the processed and original positions.
+    align_starts = []
+    align_ends = []
     align_start = -1
     align_end = -1
     for name in align_names:
@@ -12040,252 +8158,293 @@ def judge_boundary_v1(cur_seq, align_file, debug):
                 align_seq += base
                 position_reflex[cur_align_index] = i
                 cur_align_index += 1
-
-        start_dist = 1
-        last_dist = 1
+        # Locate the anchor point in the aligned sequence based on the original sequence.
+        start_dist = 2
+        last_dist = 2
         first_matches = find_near_matches(first_10bp, align_seq, max_l_dist=start_dist)
         last_matches = find_near_matches(last_10bp, align_seq, max_l_dist=last_dist)
         last_matches = last_matches[::-1]
         if len(first_matches) > 0 and len(last_matches) > 0:
             align_no_gap_start = first_matches[0].start
             align_no_gap_end = last_matches[0].end - 1
-            # 需要将位置映射到原始比对序列上
+            # The position needs to be mapped back to the original aligned sequence.
             align_start = position_reflex[align_no_gap_start]
             align_end = position_reflex[align_no_gap_end]
-            break
-    if debug:
-        print(align_start, align_end)
-    if align_start == -1 or align_end == -1:
-        # 没有找到边界，异常情况
-        return False
-    align_names, align_contigs = read_fasta(align_file)
-    if len(align_names) <= 0:
-        return False
+            align_starts.append(align_start)
+            align_ends.append(align_end)
+            #break
+    # Select the most frequently occurring position as the anchor point.
+    align_start = most_common_element(align_starts)
+    align_end = most_common_element(align_ends)
 
-    col_base_map = {}
-    # 2. 依次对align_start和align_end取所有在边界处不为空的拷贝，判断拷贝在边界内部是否具有高同源性，边界外部是否非同源性。
-    # 在锚点位置上下2bp应该有碱基
+    if debug:
+        print(align_file, align_start, align_end)
+    if align_start == -1 or align_end == -1:
+        if debug:
+            print('not found boundary:' + align_file)
+        return False, 'nb', ''
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 1:
+        if debug:
+            print('align file size <= 1, ' + align_file)
+        return False, '', ''
+
+    # 2. For align_start and align_end, take all copies that are not empty at the boundaries. Determine if the copy has high homology within the boundary and non-homology outside the boundary.
+    # There should be bases both up and down by 2bp at the anchor point.
     start_member_names = []
     start_member_contigs = {}
     end_member_names = []
     end_member_contigs = {}
+    search_len = 1
     for name in align_names:
-        # 为了减少计算量，只取100条全长拷贝
         if len(start_member_contigs) > 100:
             break
         if len(end_member_contigs) > 100:
             break
         align_seq = align_contigs[name]
-        if align_start - 20 >= 0:
-            anchor_start = align_start - 20
+        if align_start - search_len >= 0:
+            anchor_start = align_start - search_len
         else:
             anchor_start = 0
-        anchor_start_seq = align_seq[anchor_start: align_start + 20]
+        anchor_start_seq = align_seq[anchor_start: align_start + search_len]
         if not all(c == '-' for c in list(anchor_start_seq)):
             start_member_names.append(name)
             start_member_contigs[name] = align_seq
-        if align_end + 20 < len(align_seq):
-            anchor_end = align_end + 20
+
+        # Check if align_seq ends with CTRRT, and filter out those that do not.
+        # Take the downstream 1bp and upstream 3bp of align_end, a total of 5bp.
+        # Attempt to extend to the left by 3bp.
+        tail_seq = align_seq[align_end]
+        ext_len = 3
+        col_index = align_end - 1
+        ext_count = 0
+        while ext_count < ext_len and col_index >= 0:
+            cur_base = align_seq[col_index]
+            if cur_base != '-':
+                tail_seq = cur_base + tail_seq
+                ext_count += 1
+            col_index -= 1
+
+        # Attempt to extend to the right by 1bp.
+        ext_len = 1
+        col_index = align_end + 1
+        ext_count = 0
+        while ext_count < ext_len and col_index < len(align_seq):
+            cur_base = align_seq[col_index]
+            if cur_base != '-':
+                tail_seq += cur_base
+                ext_count += 1
+            col_index += 1
+
+        if align_end + search_len < len(align_seq):
+            anchor_end = align_end + search_len
         else:
             anchor_end = len(align_seq)
-        anchor_end_seq = align_seq[align_end - 20: anchor_end]
+        anchor_end_seq = align_seq[align_end - search_len: anchor_end]
         if not all(c == '-' for c in list(anchor_end_seq)):
             end_member_names.append(name)
             end_member_contigs[name] = align_seq
 
-    # 判断align start处的拷贝们是否满足定律。
-    if len(start_member_names) <= 0:
-        return False
-    elif len(start_member_names) == 1:
-        start_align_valid = True
-    else:
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = start_member_contigs[start_member_names[0]]
-        col_num = len(first_seq)
-        row_num = len(start_member_names)
-        matrix = [[''] * col_num for i in range(row_num)]
-        for row, name in enumerate(start_member_names):
-            seq = start_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-        # 从align_start列开始，向左向右搜索20个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        valid_col_threshold = int(row_num/2)
-        out_homo_threshold = 5
-        if row_num <= 2:
-            internal_no_homo_threshold = 5
-        else:
-            internal_no_homo_threshold = 2
-
-        start_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_start, matrix, row_num,
-                                                 col_num, internal_no_homo_threshold, out_homo_threshold, 'start',
-                                                 debug)
-    if not start_align_valid:
-        return False
-    # 判断align end处的拷贝们是否满足定律。
+    # Starting from the anchor point, extend 20bp on both sides and extract the effective columns. Determine their homology. If it contradicts our rule, it is a false positive sequence.
+    # Store the sequence as a matrix for easy traversal and indexing.
     if len(end_member_names) <= 0:
-        return False
-    elif len(end_member_names) == 1:
-        end_align_valid = True
-    else:
-        # 把序列存成矩阵，方便遍历和索引
-        first_seq = end_member_contigs[end_member_names[0]]
-        col_num = len(first_seq)
-        row_num = len(end_member_names)
-        matrix = [[''] * col_num for i in range(row_num)]
-        for row, name in enumerate(end_member_names):
-            seq = end_member_contigs[name]
-            for col in range(len(seq)):
-                matrix[row][col] = seq[col]
-        # 从align_end列开始，向左向右搜索20个有效列
-        # 统计每一列的碱基组成，格式为{40: {A: 10, T: 5, C: 7, G: 9, '-': 20}}，即当前列分别有多少个不同碱基，根据这个很容易计算当前列是否为有效列，并且是否同源列
-        valid_col_threshold = int(row_num/2)
-        out_homo_threshold = 5
-        if row_num <= 2:
-            internal_no_homo_threshold = 5
-        else:
-            internal_no_homo_threshold = 2
+        return False, '', ''
+    first_seq = end_member_contigs[end_member_names[0]]
+    col_num = len(first_seq)
+    end_row_num = len(end_member_names)
+    matrix = [[''] * col_num for i in range(end_row_num)]
+    for row, name in enumerate(end_member_names):
+        seq = end_member_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
 
-        end_align_valid = search_boundary_homo(col_base_map, valid_col_threshold, align_end, matrix, row_num, col_num,
-                                               internal_no_homo_threshold, out_homo_threshold, 'end', debug)
-        if debug:
-            print(align_file + ':' + str(start_align_valid) + ',' + str(end_align_valid))
+    sliding_window_size = 10
+    valid_col_threshold = int(end_row_num/2)
+
+    if end_row_num <= 2:
+        homo_threshold = 0.95
+        int_homo_threshold = 0.9
+        out_homo_threshold = 0.95
+    elif end_row_num <= 5:
+        homo_threshold = 0.9
+        int_homo_threshold = 0.85
+        out_homo_threshold = 0.9
+    else:
+        homo_threshold = 0.7
+        int_homo_threshold = 0.65
+        out_homo_threshold = 0.7
+
+    end_align_valid, homo_boundary_end = search_boundary_homo_v5(valid_col_threshold, align_end, matrix, end_row_num,
+                                                 col_num, 'end', homo_threshold, int_homo_threshold, out_homo_threshold, debug, sliding_window_size)
     if not end_align_valid:
-        return False
+        if debug:
+            print(align_file, end_align_valid)
+        return end_align_valid, '', ''
+
+    # Store the sequence as a matrix for easy traversal and indexing.
+    first_seq = start_member_contigs[start_member_names[0]]
+    col_num = len(first_seq)
+    start_row_num = len(start_member_names)
+    matrix = [[''] * col_num for i in range(start_row_num)]
+    for row, name in enumerate(start_member_names):
+        seq = start_member_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+
+    valid_col_threshold = int(start_row_num / 2)
+    if start_row_num <= 2:
+        homo_threshold = 0.95
+        int_homo_threshold = 0.9
+        out_homo_threshold = 0.95
+    elif start_row_num <= 5:
+        homo_threshold = 0.9
+        int_homo_threshold = 0.85
+        out_homo_threshold = 0.9
     else:
-        return True
+        homo_threshold = 0.7
+        int_homo_threshold = 0.65
+        out_homo_threshold = 0.7
+    # Start searching for homologous column boundaries from the beginning.
+    start_align_valid, homo_boundary_start = search_boundary_homo_v5(valid_col_threshold, align_start, matrix, start_row_num,
+                                                                 col_num, 'start', homo_threshold, int_homo_threshold,
+                                                                 out_homo_threshold, debug, sliding_window_size)
 
-def run_find_members_v5(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type, flanking_len):
-    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-    debug = 1
 
-    cur_names, cur_contigs = read_fasta(cur_file)
-    cur_seq = cur_contigs[cur_names[0]]
+    # Iterate through each copy in the multiple sequence alignment, take 15-bp of bases with no gaps above
+    # and below the homologous boundary, search for polyA/T within the window, locate the position of polyA/T,
+    # and then search for TSDs of 8-bp or more in the upstream 30-bp of the other homologous boundary.
+    final_boundary_start = -1
+    final_boundary_end = -1
+    TSD_sizes = list(range(8, 31))
+    end_5_window_size = 30
+    cur_boundary_start = homo_boundary_start
+    cur_boundary_end = homo_boundary_end
+    tsd_count = 0
+    first_non_ltr_seq = ''
+    for name in align_names:
+        raw_align_seq = align_contigs[name]
+        align_seq = ''
+        gap_to_nogap = {}
+        nogap_to_gap = {}
+        cur_align_index = 0
+        for i, base in enumerate(raw_align_seq):
+            if base == '-':
+                gap_to_nogap[i] = cur_align_index
+                continue
+            else:
+                align_seq += base
+                nogap_to_gap[cur_align_index] = i
+                gap_to_nogap[i] = cur_align_index
+                cur_align_index += 1
 
-    # 1.找members，扩展members 50bp,取最长的100条序列
-    extend_len = flanking_len
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
-        extend_len) + ' > /dev/null 2>&1'
-    os.system(copy_command)
-    member_file = cur_file + '.blast.bed.fa'
-    member_names, member_contigs = read_fasta(member_file)
-    if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-        os.system(sub_command)
-        member_file += '.rdmSubset.fa'
-        align_file = cur_file + '.maf.fa'
-        align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
-        os.system(align_command)
-        # 取在边界处不为空的全长拷贝
-        full_length_member_names = judge_boundary_v2(cur_seq, align_file, debug)
-        if full_length_member_names is None:
-            return None, None
-        copies = []
-        for name in full_length_member_names:
-            seq = member_contigs[name]
-            new_name = name.replace('-', '_')
-            copies.append((len(seq), new_name, seq))
-        copies.sort(key=lambda x: -x[0])
-        return cur_names[0], copies
-    elif len(member_names) == 1:
-        return None, None
+        end_3 = -1
+        end_5 = -1
+        direct = ''
+        prev_tail_len = 0
+        # Obtain the polyA sequence near cur_boundary_start.
+        start_pos, end_pos, polyA_seq = find_nearest_polyA(align_seq, gap_to_nogap[cur_boundary_start], window_size=15, min_length=5)
+        if len(polyA_seq) > 0 and len(polyA_seq) > prev_tail_len:
+            end_3 = start_pos
+            end_5 = gap_to_nogap[cur_boundary_end]
+            direct = '-'
+            prev_tail_len = len(polyA_seq)
+        # Obtain the polyT sequence near cur_boundary_start.
+        start_pos, end_pos, polyT_seq = find_nearest_polyT(align_seq, gap_to_nogap[cur_boundary_start], window_size=15, min_length=5)
+        if len(polyT_seq) > 0 and len(polyT_seq) > prev_tail_len:
+            end_3 = start_pos
+            end_5 = gap_to_nogap[cur_boundary_end]
+            direct = '-'
+            prev_tail_len = len(polyT_seq)
+        # Obtain the polyA sequence near cur_boundary_end.
+        start_pos, end_pos, polyA_seq = find_nearest_polyA(align_seq, gap_to_nogap[cur_boundary_end], window_size=15, min_length=5)
+        if len(polyA_seq) > 0 and len(polyA_seq) > prev_tail_len:
+            end_3 = end_pos
+            end_5 = gap_to_nogap[cur_boundary_start]
+            direct = '+'
+            prev_tail_len = len(polyA_seq)
+        # Obtain the polyT sequence near cur_boundary_end.
+        start_pos, end_pos, polyT_seq = find_nearest_polyT(align_seq, gap_to_nogap[cur_boundary_end], window_size=15, min_length=5)
+        if len(polyT_seq) > 0 and len(polyT_seq) > prev_tail_len:
+            end_3 = end_pos
+            end_5 = gap_to_nogap[cur_boundary_start]
+            direct = '+'
+            prev_tail_len = len(polyT_seq)
+
+        found_TSD = False
+        TSD_seq = ''
+        # After locating the 3' end, attempt to search for a set of TSDs in the side wing (8-20) lengths.
+        # Search for the corresponding length of TSD near the 5' end (30 bp), and once found, confirm the final 5' end.
+        if end_3 != -1 and end_5 != -1 and direct is not None:
+            if direct == '-':
+                # Obtain all possible TSDs on the side wing of the 3' end.
+                TSD_list = [(k, align_seq[end_3 - k:end_3]) for k in TSD_sizes]
+                # Search for TSDs of various lengths near the 5' end (30 bp) (when TSD len >=8, allow 1bp mismatch).
+                subsequence = align_seq[end_5:end_5 + end_5_window_size]
+                for k, TSD in reversed(TSD_list):
+                    for i in range(0, len(subsequence) - k + 1):
+                        kmer = subsequence[i:i + k]
+                        dist = 1
+                        if k == len(TSD) and k == len(kmer):
+                            first_matches = find_near_matches(TSD, kmer, max_l_dist=dist)
+                            if len(first_matches) > 0:
+                                end_5 = end_5 + i
+                                # end_5 cannot be too far from the homologous boundary, < 5 bp.
+                                if abs(end_5 - gap_to_nogap[cur_boundary_end]) <= 5:
+                                    found_TSD = True
+                                    TSD_seq = TSD
+                                    break
+                    if found_TSD:
+                        break
+            if direct == '+':
+                # Obtain all possible TSDs on the side wing of the 3' end.
+                TSD_list = [(k, align_seq[end_3:end_3 + k]) for k in TSD_sizes]
+                # Search for TSDs of various lengths near the 5' end (30 bp) (when TSD len >=8, allow 1bp mismatch).
+                subsequence = align_seq[end_5 - end_5_window_size:end_5]
+                for k, TSD in reversed(TSD_list):
+                    for i in range(0, len(subsequence) - k + 1):
+                        kmer = subsequence[i:i + k]
+                        dist = 1
+                        if k == len(TSD) and k == len(kmer):
+                            first_matches = find_near_matches(TSD, kmer, max_l_dist=dist)
+                            if len(first_matches) > 0:
+                                end_5 = end_5 - end_5_window_size + i + k
+                                # end_5 cannot be too far from the homologous boundary, < 5 bp.
+                                if abs(end_5 - gap_to_nogap[cur_boundary_start]) <= 5:
+                                    found_TSD = True
+                                    TSD_seq = TSD
+                                    break
+                    if found_TSD:
+                        break
+        if found_TSD:
+            tsd_count += 1
+            if first_non_ltr_seq == '':
+                final_boundary_start = min(end_5, end_3)
+                final_boundary_end = max(end_5, end_3)
+                first_non_ltr_seq = align_seq[final_boundary_start: final_boundary_end]
+                final_boundary_start = nogap_to_gap[final_boundary_start]
+                final_boundary_end = nogap_to_gap[final_boundary_end]
+
+    final_non_ltr_seq = ''
+    if tsd_count > 1:
+        final_non_ltr_seq = first_non_ltr_seq
+
+    if final_non_ltr_seq == '':
+        is_TE = False
     else:
-        align_file = cur_file + '.maf.fa'
-        align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
-        os.system(align_command)
-        # 取在边界处不为空的全长拷贝
-        full_length_member_names = judge_boundary_v2(cur_seq, align_file, debug)
-        if full_length_member_names is None:
-            return None, None
-        copies = []
-        for name in full_length_member_names:
-            seq = member_contigs[name]
-            new_name = name.replace('-', '_')
-            copies.append((len(seq), new_name, seq))
-        copies.sort(key=lambda x: -x[0])
-        return cur_names[0], copies
+        is_TE = True
 
-def run_find_members(file, reference, temp_dir, member_script_path, subset_script_path, flanking_len):
-    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-    new_name = file[0]
-    cur_file = file[1]
-    cur_names, cur_contigs = read_fasta(cur_file)
+    if debug:
+        print(align_file, is_TE, final_boundary_start, final_boundary_end, len(align_names))
+    return is_TE, '', final_non_ltr_seq
 
-    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
-    extend_len = flanking_len
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(extend_len) + ' > /dev/null 2>&1'
-    os.system(copy_command)
-    #print(copy_command)
-    member_file = cur_file + '.blast.bed.fa'
-    member_names, member_contigs = read_fasta(member_file)
-    if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-        os.system(sub_command)
-        member_file += '.rdmSubset.fa'
-    return new_name, member_file
-
-
-
-def run_find_members_v6(cur_split_files, reference, member_script_path, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
-    result_list = []
-    for cur_file_tuple in cur_split_files:
-        # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-        # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-        # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-        (cur_temp_dir, cur_file) = cur_file_tuple
-        cur_names, cur_contigs = read_fasta(cur_file)
-        cur_seq = cur_contigs[cur_names[0]]
-
-        # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
-        extend_len = flanking_len
-        copy_command = 'cd ' + cur_temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
-            extend_len) + ' > /dev/null 2>&1'
-        os.system(copy_command)
-        #print(copy_command)
-        member_file = cur_file + '.blast.bed.fa'
-        member_names, member_contigs = read_fasta(member_file)
-        if len(member_names) > 100:
-            sub_command = 'cd ' + cur_temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-            os.system(sub_command)
-            member_file += '.rdmSubset.fa'
-        if not os.path.exists(member_file):
-            result_list.append((None, None, ''))
-            continue
-        align_file = cur_file + '.maf.fa'
-        align_command = 'cd ' + cur_temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
-        os.system(align_command)
-
-        # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
-        if TE_type == 'tir':
-            is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
-        elif TE_type == 'helitron':
-            is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
-
-        # 删除中间文件
-        if not debug:
-            os.system('rm -f ' + cur_file + '*')
-
-        if is_TE:
-            result_list.append((cur_names[0], cons_seq, info))
-            continue
-        else:
-            result_list.append((None, None, info))
-            continue
-    return result_list
 
 def get_full_length_member(query_path, reference, flanking_len):
-     # 尝试我们的获取拷贝方法能不能连接blastn的片段
     member_file = query_path + '.blast.bed.fa'
     blastn2Results_path = query_path + '.blast.out'
     align_command = 'blastn -db ' + reference + ' -query ' + query_path + ' -evalue 1e-20 -outfmt 6 > ' + blastn2Results_path
     os.system(align_command)
     all_copies = get_copies_v1(blastn2Results_path, query_path, reference, query_coverage=0.95)
 
-    # 获取fasta序列
     ref_names, ref_contigs = read_fasta(reference)
     new_all_copies = {}
     for query_name in all_copies.keys():
@@ -12308,7 +8467,6 @@ def get_full_length_member(query_path, reference, flanking_len):
     store_fasta(new_all_copies, member_file)
     return member_file
 
-#将fasta字典均分成threads块
 def split_dict_into_blocks(chromosomes_dict, threads):
     total_length = sum(len(seq) for seq in chromosomes_dict.values())
     target_length = total_length // threads
@@ -12344,7 +8502,6 @@ def get_full_length_member_batch(query_path, reference, ref_contigs, temp_dir, f
     all_copies = multiple_alignment_blast_and_get_copies(repeats_path)
     print(all_copies)
 
-    # 获取fasta序列
     new_all_copies = {}
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
@@ -12377,9 +8534,6 @@ def get_full_length_member_batch(query_path, reference, ref_contigs, temp_dir, f
 def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
     (query_name, cur_seq, member_file) = batch_member_file
 
-    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
     member_names, member_contigs = read_fasta(member_file)
     if len(member_names) > 100:
         sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
@@ -12391,11 +8545,14 @@ def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, 
     align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
     os.system(align_command)
 
-    # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
+    # Due to the characteristics of TIR, Helitron, and non-LTR elements,
+    # their homology filtering methods have slight differences.
     if TE_type == 'tir':
         is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
     elif TE_type == 'helitron':
         is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
+    elif TE_type == 'non_ltr':
+        is_TE, info, cons_seq = judge_boundary_v7(cur_seq, align_file, debug, TE_type, plant, result_type)
 
     if is_TE:
         return (query_name, cons_seq, info)
@@ -12403,232 +8560,601 @@ def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, 
         return (None, None, info)
 
 
-def run_find_members_v7(cur_split_files, reference, temp_dir, subset_script_path, plant, TE_type, flanking_len, debug, result_type):
-    result_list = []
-    ref_names, ref_contigs = read_fasta(reference)
-    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
-    # 原来的找拷贝的方法无法连接相邻的片段，导致无法识别全长拷贝
-    batch_member_files = get_full_length_member_batch(cur_split_files, reference, ref_contigs, temp_dir, flanking_len)
-    cur_names, cur_contigs = read_fasta(cur_split_files)
-    # 循环处理批次的拷贝
-    for (query_name, member_file) in batch_member_files:
-        # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-        # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-        # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-        cur_seq = cur_contigs[query_name]
+def FMEA(blastn2Results_path, fixed_extend_base_threshold):
+    # parse blastn output, determine the repeat boundary
+    # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
+    query_records = {}
+    with open(blastn2Results_path, 'r') as f_r:
+        for idx, line in enumerate(f_r):
+            # print('current line idx: %d' % (idx))
+            parts = line.split('\t')
+            query_name = parts[0]
+            subject_name = parts[1]
+            identity = float(parts[2])
+            alignment_len = int(parts[3])
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+            if query_name == subject_name and q_start == s_start and q_end == s_end:
+                continue
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
 
-        member_names, member_contigs = read_fasta(member_file)
-        if len(member_names) > 100:
-            sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-            os.system(sub_command)
-            member_file += '.rdmSubset.fa'
-        if not os.path.exists(member_file):
-            result_list.append((None, None, ''))
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
+
+    skip_gap = fixed_extend_base_threshold
+    longest_repeats = {}
+    for idx, query_name in enumerate(query_records.keys()):
+        subject_dict = query_records[query_name]
+
+        # if there are more than one longest query overlap with the final longest query over 90%,
+        # then it probably the true TE
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            subject_pos = subject_dict[subject_name]
+
+            # cluster all closed fragments, split forward and reverse records
+            forward_pos = []
+            reverse_pos = []
+            for pos_item in subject_pos:
+                if pos_item[2] > pos_item[3]:
+                    reverse_pos.append(pos_item)
+                else:
+                    forward_pos.append(pos_item)
+            forward_pos.sort(key=lambda x: (x[2], x[3]))
+            reverse_pos.sort(key=lambda x: (-x[2], -x[3]))
+
+            clusters = {}
+            cluster_index = 0
+            for k, frag in enumerate(forward_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (cur_subject_start - prev_subject_end < skip_gap and cur_query_end > prev_query_end):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            cluster_index += 1
+            for k, frag in enumerate(reverse_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (prev_subject_end - cur_subject_start < skip_gap and cur_query_end > prev_query_end):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            for cluster_index in clusters.keys():
+                cur_cluster = clusters[cluster_index]
+                cur_cluster.sort(key=lambda x: (x[0], x[1]))
+
+                # print('subject pos size: %d' %(len(cur_cluster)))
+                # record visited fragments
+                visited_frag = {}
+                for i in range(len(cur_cluster)):
+                    # keep a longest query start from each fragment
+                    prev_frag = cur_cluster[i]
+                    if visited_frag.__contains__(prev_frag):
+                        continue
+                    prev_query_start = prev_frag[0]
+                    prev_query_end = prev_frag[1]
+                    prev_subject_start = prev_frag[2]
+                    prev_subject_end = prev_frag[3]
+                    prev_query_seq = (min(prev_query_start, prev_query_end), max(prev_query_start, prev_query_end))
+                    prev_subject_seq = (
+                        min(prev_subject_start, prev_subject_end), max(prev_subject_start, prev_subject_end))
+                    prev_query_len = abs(prev_query_end - prev_query_start)
+                    prev_subject_len = abs(prev_subject_end - prev_subject_start)
+                    cur_longest_query_len = prev_query_len
+
+                    cur_extend_num = 0
+                    visited_frag[prev_frag] = 1
+                    # try to extend query
+                    for j in range(i + 1, len(cur_cluster)):
+                        cur_frag = cur_cluster[j]
+                        if visited_frag.__contains__(cur_frag):
+                            continue
+                        cur_query_start = cur_frag[0]
+                        cur_query_end = cur_frag[1]
+                        cur_subject_start = cur_frag[2]
+                        cur_subject_end = cur_frag[3]
+                        cur_query_seq = (min(cur_query_start, cur_query_end), max(cur_query_start, cur_query_end))
+                        cur_subject_seq = (
+                            min(cur_subject_start, cur_subject_end), max(cur_subject_start, cur_subject_end))
+                        cur_query_len = abs(cur_query_end - cur_query_start)
+                        cur_subject_len = abs(cur_subject_end - cur_subject_start)
+
+                        query_overlap_len = get_overlap_len(cur_query_seq, prev_query_seq)
+                        is_same_query = float(query_overlap_len) / cur_query_len >= 0.5 or float(
+                            query_overlap_len) / prev_query_len >= 0.5
+                        subject_overlap_len = get_overlap_len(prev_subject_seq, cur_subject_seq)
+                        is_same_subject = float(subject_overlap_len) / cur_subject_len >= 0.5 or float(
+                            subject_overlap_len) / prev_subject_len >= 0.5
+
+                        # could extend
+                        # extend right
+                        if cur_query_end > prev_query_end:
+                            # judge subject direction
+                            if prev_subject_start < prev_subject_end and cur_subject_start < cur_subject_end:
+                                # +
+                                if cur_subject_end > prev_subject_end:
+                                    # forward extend
+                                    if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and cur_subject_start - prev_subject_end < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
+                                        # update the longest path
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start < cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
+                                        break
+                            elif prev_subject_start > prev_subject_end and cur_subject_start > cur_subject_end:
+                                # reverse
+                                if cur_subject_end < prev_subject_end:
+                                    # reverse extend
+                                    if cur_query_end - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and prev_subject_end - cur_subject_start < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
+                                        # update the longest path
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start > cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
+                                        break
+                    # keep this longest query
+                    if cur_longest_query_len != -1:
+                        longest_queries.append(
+                            (prev_query_start, prev_query_end, cur_longest_query_len, prev_subject_start,
+                             prev_subject_end, abs(prev_subject_end - prev_subject_start), subject_name,
+                             cur_extend_num))
+        if not longest_repeats.__contains__(query_name):
+            longest_repeats[query_name] = []
+        cur_longest_repeats = longest_repeats[query_name]
+        for repeat in longest_queries:
+            # Subject序列处理流程
+            subject_name = repeat[6]
+            old_subject_start_pos = repeat[3] - 1
+            old_subject_end_pos = repeat[4]
+            # Query序列处理流程
+            old_query_start_pos = repeat[0] - 1
+            old_query_end_pos = repeat[1]
+            cur_query_seq_len = abs(old_query_end_pos - old_query_start_pos)
+            cur_longest_repeats.append((query_name, old_query_start_pos, old_query_end_pos, subject_name, old_subject_start_pos, old_subject_end_pos))
+
+    return longest_repeats
+
+def cons_from_mafft(align_file):
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        return None
+
+    # Generate a consensus sequence using full-length copies.
+    first_seq = align_contigs[align_names[0]]
+    col_num = len(first_seq)
+    row_num = len(align_names)
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(align_names):
+        seq = align_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+    # Record the base composition of each column.
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # Calculate the percentage of each base in the current column.
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    ## Generate a consensus sequence.
+    model_seq = ''
+    for col_index in range(col_num):
+        base_map = col_base_map[col_index]
+        # Identify the most frequently occurring base if it exceeds the threshold valid_col_threshold.
+        max_base_count = 0
+        max_base = ''
+        for cur_base in base_map.keys():
+            # if cur_base == '-':
+            #     continue
+            cur_count = base_map[cur_base]
+            if cur_count > max_base_count:
+                max_base_count = cur_count
+                max_base = cur_base
+        if max_base_count >= int(row_num / 2):
+            if max_base != '-':
+                model_seq += max_base
+            else:
+                continue
+        else:
+            # Here, we do not use 'N' because it can make it difficult to find the boundary. Therefore, we take the base with the highest non-empty count.
+            max_base_count = 0
+            max_base = ''
+            for cur_base in base_map.keys():
+                if cur_base == '-':
+                    continue
+                cur_count = base_map[cur_base]
+                if cur_count > max_base_count:
+                    max_base_count = cur_count
+                    max_base = cur_base
+            model_seq += max_base
+    return model_seq
+
+def generate_cons(cluster_id, cur_cluster_path, cluster_dir):
+    cur_cons = {}
+    cur_contignames, cur_contigs = read_fasta(cur_cluster_path)
+    align_file = cur_cluster_path + '.maf.fa'
+    if not file_exist(align_file):
+        if len(cur_contignames) >= 1:
+            align_command = 'cd ' + cluster_dir + ' && mafft --preservecase --quiet --thread 1 ' + cur_cluster_path + ' > ' + align_file
+            os.system(align_command)
+    cons_seq = cons_from_mafft(align_file)
+    cur_cons['LTR_cons_' + str(cluster_id)] = cons_seq
+    return cur_cons
+
+def deredundant_for_LTR(redundant_ltr, work_dir, threads):
+    # We found that performing a direct mafft alignment on the redundant LTR library was too slow.
+    # Therefore, we first need to use Blastn for alignment clustering, and then proceed with mafft processing.
+    tmp_blast_dir = work_dir + '/LTR_blastn'
+    blastnResults_path = work_dir + '/LTR_blastn.out'
+    # 1. Start by performing an all-vs-all comparison using blastn.
+    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True)
+    # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
+    fixed_extend_base_threshold = 1000
+    longest_repeats = FMEA(blastnResults_path, fixed_extend_base_threshold)
+    # 3. If the combined sequence length constitutes 95% or more of the original individual sequence lengths, we place these two sequences into a cluster.
+    contigNames, contigs = read_fasta(redundant_ltr)
+    keep_clusters = []
+    relations = set()
+    for query_name in longest_repeats.keys():
+        longest_repeats_list = longest_repeats[query_name]
+        for cur_longest_repeat in longest_repeats_list:
+            query_name = cur_longest_repeat[0]
+            query_len = len(contigs[query_name])
+            q_len = abs(cur_longest_repeat[2] - cur_longest_repeat[1])
+            subject_name = cur_longest_repeat[3]
+            subject_len = len(contigs[subject_name])
+            s_len = abs(cur_longest_repeat[4] - cur_longest_repeat[5])
+            if float(q_len) / query_len >= 0.95 and float(s_len) / subject_len >= 0.95:
+                # we consider the query and subject to be from the same family.
+                if (query_name, subject_name) in relations:
+                    continue
+                relations.add((query_name, subject_name))
+                relations.add((subject_name, query_name))
+                is_new_cluster = True
+                for cluster in keep_clusters:
+                    if query_name in cluster or subject_name in cluster:
+                        is_new_cluster = False
+                        cluster.add(query_name)
+                        cluster.add(subject_name)
+                        break
+                if is_new_cluster:
+                    new_cluster = set()
+                    new_cluster.add(query_name)
+                    new_cluster.add(subject_name)
+                    keep_clusters.append(new_cluster)
+                    # print(keep_clusters)
+    # Iterate through each cluster, if any element in the cluster overlaps with elements in other clusters, merge the clusters.
+    merged_clusters = []
+    while keep_clusters:
+        current_cluster = keep_clusters.pop(0)
+        for other_cluster in keep_clusters[:]:
+            if current_cluster.intersection(other_cluster):
+                current_cluster.update(other_cluster)
+                keep_clusters.remove(other_cluster)
+        merged_clusters.append(current_cluster)
+    keep_clusters = merged_clusters
+    # store cluster
+    all_unique_name = set()
+    raw_cluster_files = []
+    cluster_dir = work_dir + '/raw_ltr_cluster'
+    if not os.path.exists(cluster_dir):
+        os.makedirs(cluster_dir)
+    for cluster_id, cur_cluster in enumerate(keep_clusters):
+        cur_cluster_path = cluster_dir + '/' + str(cluster_id) + '.fa'
+        cur_cluster_contigs = {}
+        for ltr_name in cur_cluster:
+            cur_cluster_contigs[ltr_name] = contigs[ltr_name]
+            all_unique_name.add(ltr_name)
+        store_fasta(cur_cluster_contigs, cur_cluster_path)
+        raw_cluster_files.append((cluster_id, cur_cluster_path))
+    # We save the sequences that did not appear in any clusters separately. These sequences do not require clustering.
+    uncluster_path = work_dir + '/uncluster_ltr.fa'
+    uncluster_contigs = {}
+    for name in contigNames:
+        if name not in all_unique_name:
+            uncluster_contigs[name] = contigs[name]
+    store_fasta(uncluster_contigs, uncluster_path)
+    # 4. The final cluster should encompass all instances from the same family.
+    # We then use the mafft+majority principle to generate a consensus sequence for each cluster.
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for cluster_id, cur_cluster_path in raw_cluster_files:
+        job = ex.submit(generate_cons, cluster_id, cur_cluster_path, cluster_dir)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+    all_cons = {}
+    for job in as_completed(jobs):
+        cur_cons = job.result()
+        all_cons.update(cur_cons)
+    all_cons.update(uncluster_contigs)
+    ltr_cons_path = redundant_ltr + '.cons'
+    store_fasta(all_cons, ltr_cons_path)
+    rename_fasta(ltr_cons_path, ltr_cons_path, 'LTR')
+    return ltr_cons_path
+
+def find_nearest_polyA(sequence, position, window_size=25, min_length=6):
+    subsequence = sequence[max(0, position - window_size):position + window_size]
+    max_length = 0
+    current_length = 0
+    max_start = 0
+    max_end = 0
+
+    for i, base in enumerate(subsequence):
+        if base == 'A':
+            current_length += 1
+            if current_length == 1:
+                start = i
+        else:
+            if current_length >= min_length and current_length > max_length:
+                max_length = current_length
+                max_start = start
+                max_end = i
+            current_length = 0
+
+    if current_length >= min_length and current_length > max_length:
+        max_start = start
+        max_end = len(subsequence)
+
+
+    max_start = max(0, position - window_size + max_start)
+    max_end = max(0, position - window_size + max_end)
+
+    return max_start, max_end, sequence[max_start:max_end]
+
+def find_nearest_polyT(sequence, position, window_size=25, min_length=6):
+    subsequence = sequence[max(0, position - window_size):position + window_size]
+    max_length = 0
+    current_length = 0
+    max_start = 0
+    max_end = 0
+
+    for i, base in enumerate(subsequence):
+        if base == 'T':
+            current_length += 1
+            if current_length == 1:
+                start = i
+        else:
+            if current_length >= min_length and current_length > max_length:
+                max_length = current_length
+                max_start = start
+                max_end = i
+            current_length = 0
+
+    if current_length >= min_length and current_length > max_length:
+        max_start = start
+        max_end = len(subsequence)
+
+    if max_start != 0:
+        max_start = max(0, position - window_size + max_start)
+        max_end = max(0, position - window_size + max_end)
+
+    return max_start, max_end, sequence[max_start:max_end]
+
+def search_polyA_TSD(seq, flanking_len, end_5_window_size, TSD_sizes):
+    # 2. Identify sequences in longest_repeats.flanked.fa with polyA/T tail or polyA/T head.
+    raw_start = flanking_len + 1
+    raw_end = len(seq) - flanking_len
+    end_3 = -1
+    end_5 = -1
+    direct = None
+    prev_tail_len = 0
+    # Obtain the polyA sequence near raw_end.
+    start_pos, end_pos, polyA_seq = find_nearest_polyA(seq, raw_end)
+    if len(polyA_seq) > 0 and len(polyA_seq) > prev_tail_len:
+        end_3 = end_pos
+        end_5 = raw_start
+        direct = '+'
+        prev_tail_len = len(polyA_seq)
+    # Obtain the polyA sequence near raw_start.
+    start_pos, end_pos, polyA_seq = find_nearest_polyA(seq, raw_start)
+    if len(polyA_seq) > 0 and len(polyA_seq) > prev_tail_len:
+        end_3 = start_pos
+        end_5 = raw_end
+        direct = '-'
+        prev_tail_len = len(polyA_seq)
+    # Obtain the polyT sequence near raw_start.
+    start_pos, end_pos, polyT_seq = find_nearest_polyT(seq, raw_start)
+    if len(polyT_seq) > 0 and len(polyT_seq) > prev_tail_len:
+        end_3 = start_pos
+        end_5 = raw_end
+        direct = '-'
+        prev_tail_len = len(polyT_seq)
+    # Obtain the polyT sequence near raw_end.
+    start_pos, end_pos, polyT_seq = find_nearest_polyT(seq, raw_end)
+    if len(polyT_seq) > 0 and len(polyT_seq) > prev_tail_len:
+        end_3 = end_pos
+        end_5 = raw_start
+        direct = '+'
+        prev_tail_len = len(polyT_seq)
+    found_TSD = False
+    TSD_seq = ''
+    # 3. After locating the 3' end, attempt to search for a set of TSDs with various lengths (up to 20bp)
+    # on both sides within 50bp of the 5' end. Allow for 1bp mismatch when TSD length >=8.
+    if end_3 != -1 and end_5 != -1 and direct is not None:
+        if direct == '-':
+            # Retrieve all possible TSDs on the 3' end side.
+            TSD_list = [(k, seq[end_3 - k:end_3]) for k in TSD_sizes]
+            # Search for TSDs of various lengths (up to 20bp) near the 5' end within 50bp. Allow for 1bp mismatch when TSD length >=8.
+            subsequence = seq[max(0, end_5 - end_5_window_size):end_5 + end_5_window_size]
+            for k, TSD in reversed(TSD_list):
+                for i in range(0, len(subsequence) - k + 1):
+                    kmer = subsequence[i:i + k]
+                    if len(kmer) >= 8:
+                        dist = 1
+                    else:
+                        dist = 0
+                    if k == len(TSD) and k == len(kmer):
+                        first_matches = find_near_matches(TSD, kmer, max_l_dist=dist)
+                        if len(first_matches) > 0 and not TSD.__contains__('NNNN'):
+                            end_5 = max(0, end_5 - end_5_window_size) + i
+                            found_TSD = True
+                            TSD_seq = TSD
+                            break
+                if found_TSD:
+                    break
+        if direct == '+':
+            # Retrieve all possible TSDs on the 5' end side.
+            TSD_list = [(k, seq[end_3:end_3 + k]) for k in TSD_sizes]
+            # Search for TSDs of various lengths (up to 20bp) near the 5' end within 50bp. Allow for 1bp mismatch when TSD length >=8.
+            subsequence = seq[max(0, end_5 - end_5_window_size):end_5 + end_5_window_size]
+            for k, TSD in reversed(TSD_list):
+                for i in range(0, len(subsequence) - k + 1):
+                    kmer = subsequence[i:i + k]
+                    if len(kmer) >= 8:
+                        dist = 1
+                    else:
+                        dist = 0
+                    if k == len(TSD) and k == len(kmer):
+                        first_matches = find_near_matches(TSD, kmer, max_l_dist=dist)
+                        if len(first_matches) > 0 and not TSD.__contains__('NNNN'):
+                            end_5 = max(0, end_5 - end_5_window_size) + i + k
+                            found_TSD = True
+                            TSD_seq = TSD
+                            break
+                if found_TSD:
+                    break
+    non_ltr_seq = seq[min(end_5, end_3): max(end_5, end_3)]
+    # print(end_5, end_3, found_TSD, TSD_seq)
+    # print(non_ltr_seq)
+    return found_TSD, TSD_seq, non_ltr_seq
+
+def get_candidate_non_LTR(longest_repeats_flanked_path, flanking_len=50):
+    TSD_sizes = list(range(8, 21))
+    end_5_window_size = 25
+    # 1. Determine the length of the sequence. If the sequence length is between 100-700, it is identified as a SINE.
+    # If the sequence length is between 4-8 kb, it is identified as a LINE.
+    contig_names, contigs = read_fasta(longest_repeats_flanked_path)
+    raw_SINE_names = []
+    raw_SINE_contigs = {}
+    raw_LINE_names = []
+    raw_LINE_contigs = {}
+    for name in contig_names:
+        seq_len = len(contigs[name]) - 2 * flanking_len
+        if seq_len >= 100 and seq_len <= 700:
+            raw_SINE_contigs[name] = contigs[name]
+            raw_SINE_names.append(name)
+        elif seq_len >= 4000 and seq_len <= 8000:
+            raw_LINE_contigs[name] = contigs[name]
+            raw_LINE_names.append(name)
+
+    candidate_SINE_contigs = {}
+    candidate_LINE_contigs = {}
+    for name in raw_SINE_names:
+        seq = raw_SINE_contigs[name]
+        found_TSD, TSD_seq, non_ltr_seq = search_polyA_TSD(seq, flanking_len, end_5_window_size, TSD_sizes)
+        seq_len = len(non_ltr_seq)
+        # 4. If a TSD is found, it is retained. Otherwise, if it is a SINE, it is filtered out. If it is a LINE,
+        # it is aligned with the LINE domain. If a protein sequence is present, it is retained. Otherwise, it is filtered out.
+        if found_TSD and seq_len >= 100 and seq_len <= 700:
+            new_name = name + '\tTSD:' + TSD_seq
+            candidate_SINE_contigs[new_name] = non_ltr_seq
+    for name in raw_LINE_names:
+        seq = raw_LINE_contigs[name]
+        found_TSD, TSD_seq, non_ltr_seq = search_polyA_TSD(seq, flanking_len, end_5_window_size, TSD_sizes)
+        seq_len = len(non_ltr_seq)
+        if len(non_ltr_seq) > 0 and seq_len >= 4000 and seq_len <= 8000:
+            new_name = name + '\tTSD:' + TSD_seq
+            candidate_LINE_contigs[new_name] = non_ltr_seq
+    return candidate_SINE_contigs, candidate_LINE_contigs
+
+def get_candidate_non_ltr_parallel(longest_repeats_flanked_path, work_dir, threads):
+    tmp_blast_dir = work_dir + '/non_ltr_split'
+    orig_names, orig_contigs = read_fasta(longest_repeats_flanked_path)
+    longest_repeat_files = []
+    segments_cluster = divided_array(list(orig_contigs.items()), threads)
+    for partition_index, cur_segments in enumerate(segments_cluster):
+        if len(cur_segments) <= 0:
             continue
-        align_file = member_file + '.maf.fa'
-        align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
-        os.system(align_command)
-
-        # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
-        if TE_type == 'tir':
-            is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
-        elif TE_type == 'helitron':
-            is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
-
-        if is_TE:
-            result_list.append((query_name, cons_seq, info))
-        else:
-            result_list.append((None, None, info))
-    return result_list
-
-def run_find_members_v3(cur_file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):
-    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-    debug = 1
-    # if cur_file.__contains__('N_174912'):
-    #     debug = 1
-
-    cur_names, cur_contigs = read_fasta(cur_file)
-    cur_seq = cur_contigs[cur_names[0]]
-
-    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
-    extend_len = 20
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
-        extend_len) + ' > /dev/null 2>&1'
-    # print(copy_command)
-    os.system(copy_command)
-    member_file = cur_file + '.blast.bed.fa'
-    member_names, member_contigs = read_fasta(member_file)
-    if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-        os.system(sub_command)
-        # print(sub_command)
-        member_file += '.rdmSubset.fa'
-    elif len(member_names) == 1:
-        return None, None
-        # # 如果只有一条全长拷贝，但是满足一些固定特征的序列，我认为是真实TIR
-        # # 包括TSD>=6 或者
-        # # animal/fungi中的5'-CCC...GGG-3', 3-> plant中的5'-CACT(A/G)...(C/T)AGTG-3'
-        # first_10bp = cur_seq[0:extend_len]
-        # last_10bp = cur_seq[-extend_len:]
-        # align_start = -1
-        # align_end = -1
-        # member_seq = member_contigs[member_names[0]]
-        #
-        # start_dist = 1
-        # last_dist = 1
-        # first_matches = find_near_matches(first_10bp, member_seq, max_l_dist=start_dist)
-        # last_matches = find_near_matches(last_10bp, member_seq, max_l_dist=last_dist)
-        # last_matches = last_matches[::-1]
-        # if len(first_matches) > 0 and len(last_matches) > 0:
-        #     align_start = first_matches[0].start
-        #     align_end = last_matches[0].end - 1
-        #
-        # query_name = cur_names[0]
-        # tsd_len = int(query_name.split('-tsd_')[1].split('-')[0])
-        # left_tsd = get_no_gap_seq(member_seq, align_start - 1, 'left', tsd_len)
-        # first_3bp = get_no_gap_seq(member_seq, align_start, 'right', 3)
-        # last_3bp = get_no_gap_seq(member_seq, align_end, 'left', 3)
-        # first_5bp = get_no_gap_seq(member_seq, align_start, 'right', 5)
-        # last_5bp = get_no_gap_seq(member_seq, align_end, 'left', 5)
-        # if tsd_len >= 6 or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG') \
-        #         or (plant == 1 and ((first_5bp == 'CACTA' and last_5bp == 'TAGTG')
-        #                             or (first_5bp == 'CACTG' and last_5bp == 'CAGTG'))):
-        #     return cur_names[0], cur_seq
-        # else:
-        #     return None, None
-    align_file = cur_file + '.maf.fa'
-    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
-    os.system(align_command)
-
-    # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
-    is_TE = judge_boundary(cur_seq, align_file, debug)
-    if is_TE:
-        return cur_names[0], cur_seq
-    else:
-        return None, None
-
-def run_find_members_v4(file, reference, temp_dir, member_script_path, subset_script_path, plant, TE_type):
-    # 因为一致性工具生成的一致性序列的N无法知道是来自于碎片化的序列还是mismatch，
-    # 因此我们需要自己写一个判断程序，判断多比对序列边界外是非同源，边界内是同源（定律）。
-    # 我认为一个真实的TIR，在其边界处至少有两条拷贝支持。
-    debug = 0
-    # if cur_file.__contains__('N_174912'):
-    #     debug = 1
-    cur_file = file[0]
-    cur_all_boundary = file[1]
-
-    cur_names, cur_contigs = read_fasta(cur_file)
-    cur_seq = cur_contigs[cur_names[0]]
-
-    # 1.找members，扩展members 20bp,进行多序列比对,取最长的100条序列，并移除序列中间的gap
-    extend_len = 20
-    copy_command = 'cd ' + temp_dir + ' && sh ' + member_script_path + ' ' + reference + ' ' + cur_file + ' 0 ' + str(
-        extend_len) + ' > /dev/null 2>&1'
-    # print(copy_command)
-    os.system(copy_command)
-    member_file = cur_file + '.blast.bed.fa'
-    member_names, member_contigs = read_fasta(member_file)
-    if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
-        os.system(sub_command)
-        # print(sub_command)
-        member_file += '.rdmSubset.fa'
-    elif len(member_names) == 1:
-        return None, None
-    align_file = cur_file + '.maf.fa'
-    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
-    os.system(align_command)
-
-    is_TE = False
-    boudary_count = 0
-    seq = ''
-    while not is_TE and boudary_count < len(cur_all_boundary) + 1:
-        if boudary_count == 0:
-            seq = cur_seq
-        else:
-            seq = cur_all_boundary[boudary_count-1]
-        # 定位锚点，从锚点位置向两侧延伸，分别取20bp有效列，并判断其同源性
-        is_TE = judge_boundary_v1(seq, align_file, debug)
-        break
-
-    if is_TE:
-        return cur_names[0], seq
-    else:
-        return None, None
-
-def filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant, TE_type):
-    real_tirs = output
-
-    os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    names, contigs = read_fasta(raw_input)
-    split_files = []
-    for i, name in enumerate(names):
-        cur_file = temp_dir + '/' + str(name) + '.fa'
+        single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
+        if not os.path.exists(single_tmp_dir):
+            os.makedirs(single_tmp_dir)
+        split_repeat_file = single_tmp_dir + '/repeats_split.fa'
         cur_contigs = {}
-        cur_contigs[name] = contigs[name]
-        store_fasta(cur_contigs, cur_file)
-        split_files.append(cur_file)
+        for item in cur_segments:
+            cur_contigs[item[0]] = item[1]
+        store_fasta(cur_contigs, split_repeat_file)
+        longest_repeat_files.append(split_repeat_file)
 
     ex = ProcessPoolExecutor(threads)
     jobs = []
-    for ref_index, cur_file in enumerate(split_files):
-        job = ex.submit(run_find_members_v3, cur_file, reference, temp_dir, member_script_path, subset_script_path,
-                        plant, TE_type)
+    for file in longest_repeat_files:
+        job = ex.submit(get_candidate_non_LTR, file)
         jobs.append(job)
     ex.shutdown(wait=True)
-
-    true_tirs = {}
+    candidate_SINE_contigs = {}
+    candidate_LINE_contigs = {}
     for job in as_completed(jobs):
-        cur_name, cur_seq = job.result()
-        if cur_name is not None:
-            true_tirs[cur_name] = cur_seq
-    store_fasta(true_tirs, real_tirs)
-
-def filter_boundary_homo_v1(raw_input, all_tir_tsd_path, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant, TE_type):
-    real_tirs = output
-
-    file = open(all_tir_tsd_path, 'r')
-    js = file.read()
-    all_boundary_contigs = json.loads(js)
-
-    os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    names, contigs = read_fasta(raw_input)
-    split_files = []
-    for i, name in enumerate(names):
-        cur_file = temp_dir + '/' + str(name) + '.fa'
-        cur_all_boundary = all_boundary_contigs[name]
-        cur_contigs = {}
-        cur_contigs[name] = contigs[name]
-        store_fasta(cur_contigs, cur_file)
-        split_files.append((cur_file, cur_all_boundary))
-
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for ref_index, cur_file in enumerate(split_files):
-        job = ex.submit(run_find_members_v4, cur_file, reference, temp_dir, member_script_path, subset_script_path,
-                        plant, TE_type)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    true_tirs = {}
-    for job in as_completed(jobs):
-        cur_name, cur_seq = job.result()
-        if cur_name is not None:
-            true_tirs[cur_name] = cur_seq
-    store_fasta(true_tirs, real_tirs)
-
-if __name__ == '__main__':
-    trf_data_path = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/ReferenceMode/output/CRD.2022-05-04.9-30-26/trf/dmel-all-chromosome-r5.43.fasta.2.7.7.80.10.50.500.dat'
-    tandem_elements = extract_tandem_from_trf(trf_data_path)
-    tandem_path = '/public/home/hpc194701009/KmerRepFinder_git/KmerRepFinder/ReferenceMode/output/CRD.2022-05-04.9-30-26/trf/tandem.fa'
-
-    with open(tandem_path, 'w') as f_save:
-        for index, elem in enumerate(tandem_elements):
-            f_save.write('>Node_'+str(index)+'\n'+elem+'\n')
-    f_save.close()
+        cur_candidate_SINE_contigs, cur_candidate_LINE_contigs = job.result()
+        candidate_SINE_contigs.update(cur_candidate_SINE_contigs)
+        candidate_LINE_contigs.update(cur_candidate_LINE_contigs)
+    candidate_SINE_path = work_dir + '/candidate_SINE.fa'
+    candidate_LINE_path = work_dir + '/candidate_LINE.fa'
+    store_fasta(candidate_SINE_contigs, candidate_SINE_path)
+    store_fasta(candidate_LINE_contigs, candidate_LINE_path)
+    return candidate_SINE_path, candidate_LINE_path

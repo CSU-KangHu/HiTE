@@ -11,27 +11,27 @@ from Util import Logger
 
 if __name__ == '__main__':
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='run HiTE benchmarking...')
     parser.add_argument('--BM_RM2', metavar='BM_RM2',
-                        help='e.g., ')
+                        help='Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false.')
     parser.add_argument('--BM_EDTA', metavar='BM_EDTA',
-                        help='e.g., ')
+                        help='Whether to conduct benchmarking of EDTA, 1: true, 0: false.')
     parser.add_argument('-t', metavar='threads number',
-                        help='input threads number')
+                        help='Input threads number.')
     parser.add_argument('--lib_module', metavar='lib_module',
-                        help='e.g., ')
+                        help='Please enter the directory for library. Use an absolute path.')
     parser.add_argument('--TE_lib', metavar='TE_lib',
-                        help='e.g., ')
+                        help='The path of TE library')
     parser.add_argument('--rm2_script', metavar='rm2_script',
-                        help='e.g., ')
+                        help='The path of BM_RM2 script')
     parser.add_argument('-r', metavar='reference',
-                        help='e.g., Reference Path')
+                        help='e.g., Input reference Path')
     parser.add_argument('--EDTA_home', metavar='EDTA_home',
-                        help='e.g., ')
+                        help='When conducting benchmarking of EDTA, you will be asked to input EDTA home path.')
     parser.add_argument('--species', metavar='species',
-                        help='e.g., ')
+                        help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
+                        help='Please enter the directory for output. Use an absolute path.')
 
 
     args = parser.parse_args()

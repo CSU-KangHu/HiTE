@@ -1,10 +1,7 @@
 #-- coding: UTF-8 --
 import argparse
-import codecs
 import os
 import sys
-
-import json
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -12,16 +9,15 @@ from Util import read_fasta, store_fasta, Logger, convertToUpperCase_v1, multi_l
 
 if __name__ == '__main__':
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='run HiTE split genome chunks...')
     parser.add_argument('-g', metavar='Genome assembly',
-                        help='input genome assembly path')
+                        help='Input genome assembly path')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/dmel')
+                        help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length',
                         help='The length of genome segments')
     parser.add_argument('--chunk_size', metavar='chunk_size',
                         help='The chunk size of large genome')
-
 
     args = parser.parse_args()
     reference = args.g
@@ -34,10 +30,7 @@ if __name__ == '__main__':
     log = Logger(tmp_output_dir + '/HiTE_split.log', level='debug')
 
     log.logger.info('Start Splitting Reference into chunks')
-    # using multiple threads to gain speed
     reference_pre = convertToUpperCase_v1(reference)
-
-    # 将基因组切成更小的块，以提升后续的比对性能
     reference_tmp = multi_line(reference_pre, chrom_seg_length)
     cut_references = []
     cur_ref_contigs = {}
@@ -66,11 +59,11 @@ if __name__ == '__main__':
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
     f_r.close()
-    #print(cut_references)
 
-    # 发现把整个genome传入的话，在获取TE拷贝时blastn比对会占用很大的内存，因此：
-    # 我们将genome按照染色体切成threads块，每块total/threads条，且每块的大小均匀，存在一个目录下，然后把路径当做参数传递给TIR和Helitron模块
-    # 同一时间，一个进程只对部分染色体进行blastn，这样不影响最后的结果，还能降低内存使用
+    # When passing the entire genome, the blastn alignment for obtaining TE copies consumes a large amount of memory. Therefore:
+    # We divide the genome into 'threads' blocks based on chromosomes, with 'total/threads' sequences in each block.
+    # Each block is of equal size and stored in a directory. Then, we pass the path as a parameter to the TIR and Helitron modules.
+    # At the same time, only a portion of chromosomes is processed by one process, which does not affect the final results and also reduces memory usage.
     ref_names, ref_contigs = read_fasta(reference)
     split_ref_dir = tmp_output_dir + '/ref_chr'
     os.system('rm -rf ' + split_ref_dir)

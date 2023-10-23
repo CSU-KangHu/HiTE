@@ -1,30 +1,19 @@
 #-- coding: UTF-8 --
 import argparse
-
-import codecs
 import re
 import subprocess
-
 import datetime
 import json
-import multiprocessing
 import os
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
 
-from module.Util import read_fasta, Logger, store_fasta, \
-    get_candidate_repeats, split2cluster_normal, \
-    convertToUpperCase_v1, multi_line, run_LTR_harvest, getUniqueKmer_v1, file_exist, \
-    determine_repeat_boundary_v1, multi_process_TRF, multi_process_align, get_copies, flanking_copies, store_copies_v1, \
-    generate_candidate_ltrs, rename_reference, store_LTR_seq_v1, store_LTR_seq, multi_process_align_and_get_copies, \
-    remove_ltr_from_tir, flanking_seq, rename_fasta, run_LTR_retriever, flank_region_align_v1, \
-    determine_repeat_boundary_v2, determine_repeat_boundary_v3, split_dict_into_blocks
+from module.Util import Logger, file_exist, rename_fasta
 
-#from module.judge_TIR_transposons import is_transposons
 
 if __name__ == '__main__':
+    # We define the default parameters for HiTE.
     default_threads = int(cpu_count())
     default_fixed_extend_base_threshold = 1000
     default_chunk_size = 400
@@ -38,6 +27,8 @@ if __name__ == '__main__':
     default_EDTA_home = ''
     default_skip_HiTE = 0
     default_flanking_len = 50
+    default_is_prev_mask = 1
+    default_is_denovo_nonltr = 0
     default_debug = 0
     default_chrom_seg_length = 100000
     default_classified = 1
@@ -45,7 +36,7 @@ if __name__ == '__main__':
     default_miu = str(1.3e-8)
     default_remove_nested = 1
 
-    version_num = '2.0.4'
+    version_num = '3.0.0'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
@@ -74,6 +65,8 @@ if __name__ == '__main__':
     parser.add_argument('--EDTA_home', metavar='EDTA_home', help='When conducting benchmarking of EDTA, you will be asked to input EDTA home path.')
     parser.add_argument('--species', metavar='species', help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
     parser.add_argument('--skip_HiTE', metavar='skip_HiTE', help='Whether to skip_HiTE, 1: true, 0: false. default = [ ' + str(default_skip_HiTE) + ' ]')
+    parser.add_argument('--is_prev_mask', metavar='is_prev_mask', help='Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ ' + str(default_is_prev_mask) + ' ]')
+    parser.add_argument('--is_denovo_nonltr', metavar='is_denovo_nonltr', help='Whether to detect non-ltr de novo, 1: true, 0: false. default = [ ' + str(default_is_denovo_nonltr) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
     parser.add_argument('--outdir', metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
 
@@ -87,7 +80,6 @@ if __name__ == '__main__':
 
     reference = args.genome
     threads = args.thread
-    # alias = args.a
     output_dir = args.outdir
     fixed_extend_base_threshold = args.fixed_extend_base_threshold
     chunk_size = args.chunk_size
@@ -107,6 +99,8 @@ if __name__ == '__main__':
     EDTA_home = args.EDTA_home
     species = args.species
     skip_HiTE = args.skip_HiTE
+    is_prev_mask = args.is_prev_mask
+    is_denovo_nonltr = args.is_denovo_nonltr
     debug = args.debug
 
     i = datetime.datetime.now()
@@ -210,6 +204,16 @@ if __name__ == '__main__':
     else:
         skip_HiTE = int(skip_HiTE)
 
+    if is_denovo_nonltr is None:
+        is_denovo_nonltr = default_is_denovo_nonltr
+    else:
+        is_denovo_nonltr = int(is_denovo_nonltr)
+
+    if is_prev_mask is None:
+        is_prev_mask = default_is_prev_mask
+    else:
+        is_prev_mask = int(is_prev_mask)
+
     if debug is None:
         debug = default_debug
     else:
@@ -227,13 +231,6 @@ if __name__ == '__main__':
 
     partitions_num = int(threads)
 
-    # Step1. read configuration
-    param_config_path = os.getcwd() + "/ParamConfig.json"
-    # read param config
-    with open(param_config_path, 'r') as load_f:
-        param = json.load(load_f)
-    load_f.close()
-
     total_starttime = time.time()
     tools_dir = os.getcwd() + '/tools'
 
@@ -245,20 +242,11 @@ if __name__ == '__main__':
 
     # preset steps, no needs to execute time-consuming job again
     # when the job is retried due to abnormal termination.
-    # 检查各个步骤的结果文件
     is_recover = False
     recover = int(recover)
     if recover == 1:
         is_recover = True
 
-    blast_program_dir = param['RMBlast_Home']
-    Genome_Tools_Home = param['Genome_Tools_Home']
-    LTR_retriever_Home = param['LTR_retriever_Home']
-    RepeatModeler_Home = param['RepeatModeler_Home']
-
-
-    # LTR_finder_parallel_Home = param['LTR_finder_parallel_Home']
-    # EAHelitron = param['EAHelitron']
     LTR_harvest_parallel_Home = os.getcwd() + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
     EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
@@ -267,34 +255,11 @@ if __name__ == '__main__':
     rm2_script = os.getcwd() + '/bin/get_family_summary_paper.sh'
     member_script_path = tools_dir + '/make_fasta_from_blast.sh'
     subset_script_path = tools_dir + '/ready_for_MSA.sh'
-    sh_dir = os.getcwd() + '/module'
+    sh_dir = os.getcwd() + '/bin'
     lib_module = os.getcwd() + '/library'
     protein_lib_path = os.getcwd() + '/library/RepeatPeps.lib'
 
-    if blast_program_dir == '':
-        (status, blast_program_path) = subprocess.getstatusoutput('which makeblastdb')
-        blast_program_dir = os.path.dirname(os.path.dirname(blast_program_path))
-    if Genome_Tools_Home == '':
-        (status, Genome_Tools_path) = subprocess.getstatusoutput('which gt')
-        Genome_Tools_Home = os.path.dirname(os.path.dirname(Genome_Tools_path))
-    if LTR_retriever_Home == '':
-        (status, LTR_retriever_path) = subprocess.getstatusoutput('which LTR_retriever')
-        LTR_retriever_Home = os.path.dirname(LTR_retriever_path)
-    if RepeatModeler_Home == '':
-        (status, RepeatClassifier_path) = subprocess.getstatusoutput('which RepeatClassifier')
-        RepeatModeler_Home = os.path.dirname(RepeatClassifier_path)
-
-    if blast_program_dir == '' or Genome_Tools_Home == '' or LTR_retriever_Home == '':
-        print('Error configuration: please check the "ParamConfig.json" file. '
-              'You should not meet this error if you install HiTE with Conda; '
-              'if you do, please check whether you have installed all the packages required in "environment.yml" file.')
-        sys.exit(-1)
-
-    if RepeatModeler_Home == '' and classified == 1:
-        print('Error configuration: You have not configured RepeatModeler2, so please run HiTE with "--classified 0"')
-        sys.exit(-1)
-
-    if BM_EDTA == 1 and  not os.path.exists(EDTA_home + '/lib-test.pl'):
+    if BM_EDTA == 1 and not os.path.exists(EDTA_home + '/lib-test.pl'):
         print('Cannot conduct benchmarking of EDTA, Invalid EDTA home: ' + EDTA_home)
         sys.exit(-1)
 
@@ -320,31 +285,41 @@ if __name__ == '__main__':
                     '  [Setting] BM_EDTA = [ ' + str(BM_EDTA) + ' ]  Default( ' + str(default_BM_EDTA) + ' )\n'
                     '  [Setting] EDTA_home = [' + str(EDTA_home) + ']\n'
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
+                    '  [Setting] is_prev_mask = [ ' + str(is_prev_mask) + ' ]  Default( ' + str(default_is_prev_mask) + ' )\n'
+                    '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
                     '  [Setting] Output Directory = [' + str(output_dir) + ']\n'
                                                                                                                                                                                                            
                     '  [Setting] Fixed extend bases threshold = [ ' + str(fixed_extend_base_threshold) + ' ] Default( ' + str(default_fixed_extend_base_threshold) + ' )\n'
                     '  [Setting] Flanking length of TE = [ ' + str(flanking_len) + ' ]  Default( ' + str(default_flanking_len) + ' )\n'
                     '  [Setting] Cutoff of the repeat regarded as tandem sequence = [ ' + str(tandem_region_cutoff) + ' ] Default( ' + str(default_tandem_region_cutoff) + ' )\n'
-                    '  [Setting] The length of genome segments = [ ' + str(chrom_seg_length) + ' ]  Default( ' + str(default_chrom_seg_length) + ' )\n'
-                                                                                                                                                 
-                    '  [Setting] Blast Program Home = [' + str(blast_program_dir) + ']\n'
-                    '  [Setting] Genome Tools Program Home = [' + str(Genome_Tools_Home) + ']\n'
-                    '  [Setting] LTR_retriever Program Home = [' + str(LTR_retriever_Home) + ']\n'
-                    '  [Setting] RepeatModeler Program Home = [' + str(RepeatModeler_Home) + ']'
+                    '  [Setting] The length of genome segments = [ ' + str(chrom_seg_length) + ' ]  Default( ' + str(default_chrom_seg_length) + ' )'
                     )
-
 
     TRsearch_dir = tools_dir
     test_home = os.getcwd() + '/module'
     library_dir = os.getcwd() + '/library'
 
+    # The HiTE pipeline performs recognition of LTR, Non-LTR, TIR, and Helitron transposons.
+    # The organizational structure of HiTE is as follows:
+    # Pipeline:
+    # ├──LTR: judge_LTR_transposons.py
+    # ├──Homology-Non-LTR: judge_Other_transposons.py
+    # ├──split genome into chunks: split_genome_chunks.py
+    #   ├──De novo TE searching: coarse_boundary.py
+    #   ├──TIR: judge_TIR_transposons.py
+    #   ├──Helitron: judge_Helitron_transposons.py
+    #   └──De novo-Non-LTR: judge_Non_LTR_transposons.py
+    # ├──generate TE library: get_nonRedundant_lib.py
+    #   └──unwrap nested TE: remove_nested_lib.py
+    # ├──classify TE library: get_classified_lib.py
+    # ├──genome annotation: annotate_genome.py
+    # ├──benchmarking reproduction: benchmarking.py
+    # └──clean temporary files: clean_lib.py
     pipeline_starttime = time.time()
-
     if skip_HiTE != 1:
-
         log.logger.info('Start step0: Structural Based LTR Searching')
-        confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+        confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa.cons'
         resut_file = confident_ltr_cut_path
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
@@ -366,11 +341,9 @@ if __name__ == '__main__':
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
             log.logger.info('Start step1: homology-based other TE searching')
-            # 同源搜索其他转座子
             other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
                                            + ' -r ' + reference \
-                                           + ' -t ' + str(threads) + ' --member_script_path ' + member_script_path \
-                                           + ' --subset_script_path ' + subset_script_path \
+                                           + ' -t ' + str(threads) \
                                            + ' --tmp_output_dir ' + tmp_output_dir  \
                                            + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
             log.logger.info(other_identification_command)
@@ -380,8 +353,6 @@ if __name__ == '__main__':
             log.logger.info("Running time of step1: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
-
-        # 我们将大的基因组划分成多个小的基因组，每个小基因组500M，分割来处理
 
         # --------------------------------------------------------------------------------------
         starttime = time.time()
@@ -402,7 +373,12 @@ if __name__ == '__main__':
             if match:
                 ref_index = match.group(1)
                 cut_references.append((ref_index, tmp_output_dir + '/' + filename))
- 
+
+        # Using identified TEs to mask the genome in order to reduce computational load in all-vs-all alignments.
+        prev_TE = tmp_output_dir + '/prev_TE.fa'
+        os.system('cat ' + confident_ltr_cut_path + ' > ' + prev_TE)
+        os.system('cat ' + confident_other_path + ' >> ' + prev_TE)
+
         split_ref_dir = tmp_output_dir + '/ref_chr'
         for cut_reference_item in cut_references:
             ref_index = cut_reference_item[0]
@@ -417,13 +393,15 @@ if __name__ == '__main__':
                 log.logger.info('Start 2.1: Coarse-grained boundary mapping')
                 coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
                                        + ' -g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
+                                       + ' --prev_TE ' + str(prev_TE) \
                                        + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
                                        + ' --max_repeat_len ' + str(max_repeat_len) \
                                        + ' --thread ' + str(threads) \
                                        + ' --flanking_len ' + str(flanking_len) \
                                        + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                        + ' --ref_index ' + str(ref_index) \
-                                       + ' -r ' + reference + ' --recover ' + str(recover) + ' --debug ' + str(debug)
+                                       + ' -r ' + reference + ' --recover ' + str(recover) \
+                                       + ' --is_prev_mask ' + str(is_prev_mask) + ' --debug ' + str(debug)
                 log.logger.info(coarse_boundary_command)
                 os.system(coarse_boundary_command)
                 endtime = time.time()
@@ -437,17 +415,19 @@ if __name__ == '__main__':
             if not is_recover or not file_exist(resut_file):
                 starttime = time.time()
                 log.logger.info('Start step2.2: determine fine-grained TIR')
-                # 识别TIR转座子
                 tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
                                              + cut_reference + ' --seqs ' + longest_repeats_flanked_path \
                                              + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
                                              + ' --tmp_output_dir ' + tmp_output_dir \
                                              + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                              + ' --ref_index ' + str(ref_index) \
-                                             + ' --member_script_path ' + str(member_script_path) \
                                              + ' --subset_script_path ' + str(subset_script_path) \
-                                             + ' --plant ' + str(plant) + ' --flanking_len ' + str(flanking_len) + ' --recover ' + str(recover) \
-                                             + ' --debug ' + str(debug) + ' -r ' + reference + ' --split_ref_dir ' + split_ref_dir
+                                             + ' --plant ' + str(plant) \
+                                             + ' --flanking_len ' + str(flanking_len) \
+                                             + ' --recover ' + str(recover) \
+                                             + ' --debug ' + str(debug) \
+                                             + ' -r ' + reference \
+                                             + ' --split_ref_dir ' + split_ref_dir
                 log.logger.debug(tir_identification_command)
                 os.system(tir_identification_command)
                 endtime = time.time()
@@ -460,11 +440,10 @@ if __name__ == '__main__':
             if not is_recover or not file_exist(resut_file):
                 starttime = time.time()
                 log.logger.info('Start step2.3: determine fine-grained Helitron')
-                # 识别Helitron转座子
                 helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
                                                   + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
                                                   + ' --tmp_output_dir ' + tmp_output_dir + ' --HSDIR ' + HSDIR + ' --HSJAR ' + HSJAR \
-                                                  + ' --sh_dir ' + sh_dir + ' --member_script_path ' + member_script_path \
+                                                  + ' --sh_dir ' + sh_dir + ' --EAHelitron ' + EAHelitron \
                                                   + ' --subset_script_path ' + subset_script_path \
                                                   + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
                                                   + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir
@@ -477,22 +456,44 @@ if __name__ == '__main__':
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
+            resut_file = tmp_output_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
+            if not is_recover or not file_exist(resut_file):
+                starttime = time.time()
+                log.logger.info('Start step2.4: determine fine-grained Non-LTR')
+                non_ltr_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Non_LTR_transposons.py'\
+                                             + ' --seqs ' + longest_repeats_flanked_path + ' -t ' + str(threads) \
+                                             + ' --subset_script_path ' + str(subset_script_path) \
+                                             + ' --tmp_output_dir ' + tmp_output_dir \
+                                             + ' --library_dir ' + str(library_dir) \
+                                             + ' --recover ' + str(recover) \
+                                             + ' --plant ' + str(plant) \
+                                             + ' --debug ' + str(debug) \
+                                             + ' --flanking_len ' + str(flanking_len) \
+                                             + ' --ref_index ' + str(ref_index) \
+                                             + ' --is_denovo_nonltr ' + str(is_denovo_nonltr) \
+                                             + ' -r ' + reference
+                log.logger.debug(non_ltr_identification_command)
+                os.system(non_ltr_identification_command)
+                endtime = time.time()
+                dtime = endtime - starttime
+                log.logger.info("Running time of step2.4: %.8s s" % (dtime))
+            else:
+                log.logger.info(resut_file + ' exists, skip...')
 
-        # 过滤TIR候选序列中的LTR转座子（intact LTR or LTR terminals or LTR internals）
-        # 1.1 合并所有parts的TIR序列
+        # Merging all TEs generated from individual chunks.
         confident_tir_path = tmp_output_dir + '/confident_tir_merge.fa'
         confident_helitron_path = tmp_output_dir + '/confident_helitron_merge.fa'
+        confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr_merge.fa'
         os.system('rm -f ' + confident_tir_path)
         os.system('rm -f ' + confident_helitron_path)
+        os.system('rm -f ' + confident_non_ltr_path)
         for ref_index, ref_rename_path in enumerate(cut_references):
             cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
             cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
-            rename_fasta(cur_confident_tir_path, cur_confident_tir_path, 'TIR_'+str(ref_index))
-            rename_fasta(cur_confident_helitron_path, cur_confident_helitron_path, 'Helitron_'+str(ref_index))
             os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
             os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
-        rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
-        rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
+            cur_confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
+            os.system('cat ' + cur_confident_non_ltr_path + ' >> ' + confident_non_ltr_path)
 
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
@@ -500,6 +501,7 @@ if __name__ == '__main__':
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                + ' --confident_tir ' + confident_tir_path \
                                + ' --confident_helitron ' + confident_helitron_path \
+                               + ' --confident_non_ltr ' + confident_non_ltr_path \
                                + ' --confident_other ' + confident_other_path \
                                + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                                + ' --test_home ' + str(test_home)
@@ -541,7 +543,6 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step5: %.8s s" % (dtime))
 
-
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
     classified_TE_path = confident_TE_consensus + '.classified'
     if not os.path.exists(classified_TE_path):
@@ -549,7 +550,6 @@ if __name__ == '__main__':
     else:
         starttime = time.time()
         log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2 and EDTA')
-
         benchmarking_command = 'cd ' + test_home + ' && python3 ' + test_home + '/benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) \
@@ -567,13 +567,11 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step6: %.8s s" % (dtime))
 
-
     clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --debug ' + str(debug)
 
     os.system(clean_lib_command)
-
 
     pipeline_endtime = time.time()
     dtime = pipeline_endtime - pipeline_starttime

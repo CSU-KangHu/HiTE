@@ -2,10 +2,9 @@ import argparse
 import os
 import sys
 
-
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, read_fasta_v1, store_fasta, Logger, multi_process_align
+from Util import read_fasta, store_fasta, multi_process_align
 
 
 def remove_self_alignment(blastnResults_path, new_blastnResults_path):
@@ -78,19 +77,19 @@ def remove_nest(blastnResults_path, query_path, subject_path, output, coverage =
 
 if __name__ == '__main__':
     # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE...')
+    parser = argparse.ArgumentParser(description='run HiTE remove nested TEs')
     parser.add_argument('-t', metavar='threads number',
-                        help='input threads number')
+                        help='Input threads number.')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='e.g., /public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa')
+                        help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--max_iter_num', metavar='max_iter_num',
-                        help='e.g., 3')
+                        help='Maximum number of iterations to resolve nested insertions.')
     parser.add_argument('--input1', metavar='input1',
-                        help='e.g., ')
+                        help='The path of input1')
     parser.add_argument('--input2', metavar='input2',
-                        help='e.g., ')
+                        help='The path of input2')
     parser.add_argument('--output', metavar='output',
-                        help='e.g., ')
+                        help='The path of output')
 
     args = parser.parse_args()
 
@@ -107,8 +106,6 @@ if __name__ == '__main__':
     else:
         max_iter_num = int(max_iter_num)
 
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
-
     iter_num = 0
     while iter_num < max_iter_num:
         # remove nested TE
@@ -117,12 +114,6 @@ if __name__ == '__main__':
         multi_process_align(input1, input2, blastnResults_path, confident_TE_blast_dir, threads)
         clean_output = output
         remove_nest(blastnResults_path, input1, input2, clean_output, coverage=0.95, identity_threshold=95)
-        # input_contignames, inputput_contigs = read_fasta(input)
-        # clean_output_contignames, clean_output_contigs = read_fasta(clean_output)
-        # over_contignames = set(clean_output_contignames).difference(set(input_contignames))
-        # #print(over_contignames)
-        # print('input size: '+str(len(inputput_contigs))+ ', clean_output size: ' + str(len(clean_output_contigs)))
-        # print('over_contignames size: '+str(len(over_contignames)))
         input = clean_output
         iter_num += 1
 

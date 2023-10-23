@@ -39,11 +39,10 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
     get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
     determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
-    run_blast_align, TSDsearch_v2, filter_boundary_homo, judge_boundary, remove_ltr_from_tir, multi_process_tsd_v3, \
-    filter_boundary_homo_v1, run_find_members_v3, flank_region_align_v1, flank_region_align_v2, flank_region_align_v3, \
+    run_blast_align, TSDsearch_v2, remove_ltr_from_tir, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
-    flanking_seq, multi_process_helitronscanner, get_seq_families, split_fasta, get_longest_repeats_v4, \
-    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, flank_region_align_v4, search_confident_tir_v4, \
+    flanking_seq, multi_process_helitronscanner, split_fasta, get_longest_repeats_v4, \
+    process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, search_confident_tir_v4, \
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5
 
 
@@ -3602,6 +3601,39 @@ def analyz_maize_TIR_insert_time():
             f_save.write(str(insert_time)+'\t'+'HiTE-TIR'+'\n')
     get_insert_time_dist_boxplot(output_path, output_fig)
 
+def flanking_and_getcopies(input):
+    threads = 48
+    reference = tmp_output_dir + '/GCF_001433935.1_IRGSP-1.0_genomic.fna'
+    temp_dir = tmp_output_dir + '/temp'
+    blast_program_dir = '/public/home/hpc194701009/repeat_detect_tools/rmblast-2.9.0-p2'
+    all_copies = multi_process_align_and_get_copies(input, reference, blast_program_dir,
+                                                    temp_dir, 'tir', threads)
+
+    # 在copies的两端 flanking 20bp的序列
+    flanking_len = 20
+    all_copies = flanking_copies(all_copies, input, reference, flanking_len, copy_num=1)
+    ltr_copies = tmp_output_dir + '/ltr_copies.csv'
+    # 存储all copies
+    with codecs.open(ltr_copies, 'w', encoding='utf-8') as f:
+        json.dump(all_copies, f)
+
+    return all_copies
+
+
+def get_logo_seq(ltr_copies):
+    # (ref_name, copy_ref_start, copy_ref_end, copy_len, copy_seq)
+    start_logos = {}
+    tail_logos = {}
+    for name in ltr_copies.keys():
+        copies = ltr_copies[name]
+        copy = copies[0]
+        copy_seq = copy[4]
+        head_seq = copy_seq[0:50]
+        tail_seq = copy_seq[-60:-10]
+        start_logos[name] = head_seq
+        tail_logos[name] = tail_seq
+    return start_logos, tail_logos
+
 
 if __name__ == '__main__':
     repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
@@ -3981,7 +4013,7 @@ if __name__ == '__main__':
     #     output_file = tmp_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
     #     resut_file = output_file
     #     if not is_recover or not file_exist(resut_file):
-    #         flank_region_align_v5(input_file, output_file, flanking_len, similar_ratio, reference, split_ref_dir,
+    #         flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir,
     #                               TE_type, tmp_dir, threads,
     #                               ref_index, log, member_script_path, subset_script_path, plant, debug, i, result_type)
     #     input_file = output_file
@@ -4028,7 +4060,7 @@ if __name__ == '__main__':
     #         output_file = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
     #         resut_file = output_file
     #         if not is_recover or not file_exist(resut_file):
-    #             flank_region_align_v5(input_file, output_file, flanking_len, similar_ratio, reference, split_ref_dir,
+    #             flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir,
     #                                   TE_type,
     #                                   tmp_dir, threads,
     #                                   ref_index, log, member_script_path, subset_script_path, 1, debug, i, result_type)
@@ -4046,4 +4078,44 @@ if __name__ == '__main__':
 
     #统计玉米中所有TIR转座子的插入时间
     #analyz_maize_TIR_insert_time()
+
+    # tmp_output_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa'
+    # # confident_ltr_terminal_path = tmp_output_dir + '/confident_ltr_cut.terminal.fa'
+    # # ltr_copies = flanking_and_getcopies(confident_ltr_terminal_path)
+    #
+    # confident_helitron_path = tmp_output_dir + '/confident_helitron_0.rename.cons.fa'
+    # helitron_copies = flanking_and_getcopies(confident_helitron_path)
+    #
+    # # enspm_path = tmp_output_dir + '/enspm.fa'
+    # # confident_TE_path = tmp_output_dir + '/confident_TE.cons.fa.final.classified'
+    # # contignames, contigs = read_fasta(confident_TE_path)
+    # # node_index = 0
+    # # Enspm_contigs = {}
+    # # for name in contignames:
+    # #     if name.__contains__('#DNA/CMC-EnSpm'):
+    # #         seq = contigs[name]
+    # #         Enspm_contigs[name] = seq
+    # # store_fasta(Enspm_contigs, enspm_path)
+    # #
+    # # Enspm_copies = flanking_and_getcopies(enspm_path)
+    #
+    # # 取序列头部前20bp至头部后20bp
+    # # ltr_start_logos, ltr_tail_logos = get_logo_seq(ltr_copies)
+    # helitron_start_logos, helitron_tail_logos = get_logo_seq(helitron_copies)
+    # # Enspm_start_logos, Enspm_tail_logos = get_logo_seq(Enspm_copies)
+    #
+    # # ltr_terminal_start_path = tmp_output_dir + '/ltr_terminal_start.fa'
+    # # ltr_terminal_end_path = tmp_output_dir + '/ltr_terminal_end.fa'
+    # # store_fasta(ltr_start_logos, ltr_terminal_start_path)
+    # # store_fasta(ltr_tail_logos, ltr_terminal_end_path)
+    #
+    # helitron_terminal_start_path = tmp_output_dir + '/helitron_terminal_start.fa'
+    # helitron_terminal_end_path = tmp_output_dir + '/helitron_terminal_end.fa'
+    # store_fasta(helitron_start_logos, helitron_terminal_start_path)
+    # store_fasta(helitron_tail_logos, helitron_terminal_end_path)
+    #
+    # # EnSpm_terminal_start_path = tmp_output_dir + '/EnSpm_terminal_start.fa'
+    # # EnSpm_terminal_end_path = tmp_output_dir + '/EnSpm_terminal_end.fa'
+    # # store_fasta(Enspm_start_logos, EnSpm_terminal_start_path)
+    # # store_fasta(Enspm_tail_logos, EnSpm_terminal_end_path)
 

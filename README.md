@@ -95,6 +95,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:2.0.4 python main.py \
 ```sh
 # Find the **yml** file in the project directory and run
 cd HiTE
+chmod +x tools/*
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
 
@@ -277,6 +278,25 @@ We also provide an optional method to avoid the big Dfam.h5.gz (15 GB) download 
 
 5. `unzip RepeatMasker_Lib.zip && mv RepeatMasker_Lib/* ./`
 
+## <a name="code"></a>Code Structure
+HiTE performs recognition of LTR, Non-LTR, TIR, and Helitron transposons. 
+The organizational structure of HiTE is as follows:
+```shell
+Pipeline:
+    ├──LTR: judge_LTR_transposons.py
+    ├──Homology-Non-LTR: judge_Other_transposons.py
+    ├──split genome into chunks: split_genome_chunks.py
+      ├──De novo TE searching: coarse_boundary.py
+      ├──TIR: judge_TIR_transposons.py
+      ├──Helitron: judge_Helitron_transposons.py
+      └──De novo-Non-LTR: judge_Non_LTR_transposons.py
+    ├──generate TE library: get_nonRedundant_lib.py
+      └──unwrap nested TE: remove_nested_lib.py
+    ├──classify TE library: get_classified_lib.py
+    ├──genome annotation: annotate_genome.py
+    ├──benchmarking reproduction: benchmarking.py
+    └──clean temporary files: clean_lib.py
+```
 
 ## <a name="cmd"></a>Usage
 Type `python main.py -h` for help.
@@ -293,14 +313,15 @@ usage: main.py [-h] [--genome genome] [--thread thread_num]
                [--domain is_domain] [--recover is_recover]
                [--annotate is_annotate] [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA]
                [--EDTA_home EDTA_home] [--species species]
-               [--skip_HiTE skip_HiTE] [--debug is_debug]
+               [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask]
+               [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug]
                [--outdir output_dir] [--flanking_len flanking_len]
                [--fixed_extend_base_threshold fixed_extend_base_threshold]
                [--tandem_region_cutoff tandem_region_cutoff]
                [--max_repeat_len max_repeat_len]
                [--chrom_seg_length chrom_seg_length]
 
-########################## HiTE, version 2.0.4 ##########################
+########################## HiTE, version 3.0.0 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -308,10 +329,8 @@ optional arguments:
   --thread thread_num   Input thread num, default = [ 40 ]
   --chunk_size chunk_size
                         The chunk size of large genome, default = [ 400 MB ]
-  --miu miu             The neutral mutation rate (per bp per ya), default = [
-                        1.3e-08 ]
-  --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1
-                        ]
+  --miu miu             The neutral mutation rate (per bp per ya), default = [ 1.3e-08 ]
+  --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1 ]
   --classified is_classified
                         Whether to classify TE models, HiTE uses
                         RepeatClassifier from RepeatModeler to classify TEs,
@@ -339,6 +358,12 @@ optional arguments:
                         ath).
   --skip_HiTE skip_HiTE
                         Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
+  --is_prev_mask is_prev_mask
+                        Whether to mask current genome used the TEs detected
+                        in previous iteration, 1: true, 0: false. default = [ 1 ]
+  --is_denovo_nonltr is_denovo_nonltr
+                        Whether to detect non-ltr de novo, 1: true, 0: false.
+                        default = [ 0 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1:
                         true, 0: false. default = [ 0 ]
   --outdir output_dir   The path of output directory; It is recommended to use
