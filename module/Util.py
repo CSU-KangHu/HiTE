@@ -5585,8 +5585,6 @@ def search_tsd_ltr_batch(all_copies_ltr_contigs, ltr_tsd_dir, partition_index, T
 
 def rename_fasta(input, output, header='N'):
     names, contigs = read_fasta(input)
-    print(input)
-    print(contigs)
     node_index = 0
     with open(output, 'w') as f_save:
         for name in names:
