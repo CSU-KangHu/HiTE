@@ -159,7 +159,7 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
             top_FN[TE_name] = cur_FN
             f_save.write(line)
     sorted_items = sorted(top_FN.items(), key=lambda x: x[1], reverse=True)[:5]
-    print(sorted_items)
+    #print(sorted_items)
 
     # 遍历 test_BlastnOut ,寻找并保存 FP 栏目
     FP_lines = []
@@ -323,7 +323,6 @@ def map_fragment(start, end, chunk_size):
         return start_chunk
 
 if __name__ == '__main__':
-    # preprocess()
     # 1.parse args
     parser = argparse.ArgumentParser(description='run HiTE library evaluation...')
     parser.add_argument('-g', metavar='genome_path',
