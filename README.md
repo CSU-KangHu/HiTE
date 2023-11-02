@@ -206,12 +206,12 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
 ```text
 demo/test/
-├── confident_helitron.fa (1K)
-├── confident_other.fa (8K)
-├── confident_tir.fa (45K)
-├── confident_ltr_cut.fa (46K)
-├── confident_TE.cons.fa (99K)
-└── confident_TE.cons.fa.classified (100K)
+├── confident_helitron.fa (1.4 KB)
+├── confident_other.fa (150 B)
+├── confident_tir.fa (43 KB)
+├── confident_ltr_cut.fa.cons (45 KB)
+├── confident_TE.cons.fa (88 KB)
+└── confident_TE.cons.fa.classified (89 KB)
 ```
 
 Note:
@@ -245,7 +245,7 @@ output_dir/
 ├── confident_tir_*.fa
 ├── confident_helitron_*.fa
 ├── confident_other_*.fa
-├── confident_ltr_cut.fa
+├── confident_ltr_cut.fa.cons
 ├── confident_TE.cons.fa
 ├── confident_TE.cons.fa.classified
 ├── HiTE.out (require `--annotate 1`)
@@ -284,7 +284,7 @@ We also provide an optional method to avoid the big Dfam.h5.gz (15 GB) download 
 ## <a name="code"></a>Code Structure
 The code structure of HiTE is organized as follows:
 ```shell
-Pipeline:
+Pipeline: main.py
     ├──LTR: judge_LTR_transposons.py
     ├──Homology-Non-LTR: judge_Other_transposons.py
     ├──split genome into chunks: split_genome_chunks.py

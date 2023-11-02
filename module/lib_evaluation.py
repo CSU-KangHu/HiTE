@@ -12,7 +12,6 @@ def transfer_RMOut2BlastnOut(RMOut, BlastnOut, consensus_path, tools_dir, covera
     for name in cons_names:
         new_name = name.split('#')[0]
         cons_len[new_name] = len(cons_contigs[name])
-
     # 1. 将.out文件转.bed文件
     convert2bed_command = 'perl ' + tools_dir + '/RMout_to_bed.pl ' + RMOut + ' base1'
     print(convert2bed_command)
@@ -293,23 +292,6 @@ def get_evaluation_sample(genome_path, repbase_path, repbase_RMOut, test_path, t
     FN_BlastnOut = work_dir + '/FN.blastn.out'
     FP_BlastnOut = work_dir + '/FP.blastn.out'
     get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_BlastnOut, chrom_length, coverage_threshold)
-
-def evaluation_sample(genome_path, repbase_path, repbase_RMOut, test_path, test_RMOut, work_dir, tools_dir):
-    # Step 0. 获取基因组的长度
-    names, contigs = read_fasta(genome_path)
-    chrom_length = {}
-    for name in names:
-        chr_len = len(contigs[name])
-        chrom_length[name] = chr_len
-
-    # Step 1. transform RepeatMasker out format to blastn format
-    repbase_BlastnOut = work_dir + '/repbase.blastn.out'
-    transfer_RMOut2BlastnOut(repbase_RMOut, repbase_BlastnOut, repbase_path, tools_dir)
-
-    test_BlastnOut = work_dir + '/test.blastn.out'
-    transfer_RMOut2BlastnOut(test_RMOut, test_BlastnOut, test_path, tools_dir)
-    print('test libray:')
-    evaluation(repbase_BlastnOut, test_BlastnOut, chrom_length)
 
 def map_fragment(start, end, chunk_size):
     start_chunk = start // chunk_size
