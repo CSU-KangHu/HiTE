@@ -4455,6 +4455,9 @@ def get_integer_pos(x):
 def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
+
+    blast_db_command = 'makeblastdb -dbtype prot -in ' + lib + ' > /dev/null 2>&1'
+    os.system(blast_db_command)
     # 1. blastx -num_threads 1 -evalue 1e-20
     partitions_num = int(threads)
     consensus_contignames, consensus_contigs = read_fasta(cons)
