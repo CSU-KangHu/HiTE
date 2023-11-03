@@ -50,7 +50,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
-singularity pull HiTE.sif docker://kanghu/hite:3.0.1
+singularity pull HiTE.sif docker://kanghu/hite:3.0.0
 
 # run HiTE
 singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif} python main.py \
@@ -75,10 +75,10 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
 ### <a name="install_docker"></a>Option 2. Run with Docker
 ```sh
 # pull docker image (once for all).
-docker pull kanghu/hite:3.0.1
+docker pull kanghu/hite:3.0.0
 
 # run HiTE
-docker run -v ${host_path}:${container_path} kanghu/hite:3.0.1 python main.py \
+docker run -v ${host_path}:${container_path} kanghu/hite:3.0.0 python main.py \
  --genome ${genome} \
  --thread ${thread} \
  --outdir ${output_dir} \
@@ -89,7 +89,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.0.1 python main.py \
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
  
- # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.0.1 python main.py 
+ # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.0.0 python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -326,7 +326,7 @@ usage: main.py [-h] [--genome genome] [--thread thread_num]
                [--max_repeat_len max_repeat_len]
                [--chrom_seg_length chrom_seg_length]
 
-########################## HiTE, version 3.0.1 ##########################
+########################## HiTE, version 3.0.0 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
