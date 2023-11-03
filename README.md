@@ -8,6 +8,7 @@
 [![DockerHub](https://img.shields.io/badge/Docker-support-orange)](https://hub.docker.com/repository/docker/kanghu/hite/general)
 [![Conda](https://img.shields.io/badge/Conda-support-yellow)](https://docs.conda.io/en/latest/)
 [![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://docs.conda.io/en/latest/)
+[![DOI](https://zenodo.org/badge/581174729.svg)](https://zenodo.org/doi/10.5281/zenodo.10065665)
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies.
 
