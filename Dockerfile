@@ -24,8 +24,8 @@ RUN curl -LJO https://zenodo.org/records/10068148/files/CSU-KangHu/TE_annotation
 # RUN git clone https://github.com/CSU-KangHu/HiTE.git
 # RUN cd /HiTE && conda env create --name ${DNAME} --file=environment.yml && conda clean -a
 # Download HiTE from Zenodo
-RUN curl -LJO https://zenodo.org/records/10065666/files/CSU-KangHu/HiTE-v.3.0.0.zip?download=1 &&  \
-    unzip HiTE-v.3.0.0.zip && cd CSU-KangHu-HiTE-* && chmod +x tools/*  \
+RUN curl -LJO https://zenodo.org/records/10068550/files/CSU-KangHu/HiTE-v.3.0.1.zip?download=1 &&  \
+    unzip HiTE-v.3.0.1.zip && cd CSU-KangHu-HiTE-* && chmod +x tools/*  \
     && conda env create --name ${DNAME} --file=environment.yml && conda clean -a
 
 # update RepeatMasker libraries from Github
