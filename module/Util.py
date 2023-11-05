@@ -56,7 +56,6 @@ def run_TRsearch(TRsearch_dir, longest_repeats_multi_line_path, longest_repeats_
     return TR_out
 
 def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, HSJAR, partition_index, debug):
-    # candidate_Helitrons = {}
     # cur_candidate_Helitrons_path = temp_dir + '/' + str(partition_index) + '.fa'
     # cur_candidate_Helitrons = {}
     # for item in cur_segments:
@@ -74,6 +73,7 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, H
     cur_rc_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.rc.hel.fa'
     cur_names, cur_contigs = read_fasta(cur_helitron_out)
     cur_rc_names, cur_rc_contigs = read_fasta(cur_rc_helitron_out)
+    candidate_Helitrons = {}
     candidate_Helitrons.update(cur_contigs)
     candidate_Helitrons.update(cur_rc_contigs)
     return candidate_Helitrons
@@ -94,20 +94,19 @@ def run_HelitronScanner_v1(sh_dir, temp_dir, candidate_file, HSDIR, HSJAR, prefi
     return candidate_Helitrons, prefix
 
 def run_EAHelitron(flanking_len, temp_dir, all_candidate_helitron_path, EAHelitron, partition_index):
-    # all_candidate_helitron_contigs = {}
-    # all_candidate_helitron_path = temp_dir + '/' + str(partition_index) + '.fa'
-    # for item in cur_segments:
-    #     query_name = item[0]
-    #     seq = item[1]
-    #
-    #     raw_start = flanking_len + 1
-    #     raw_end = len(seq) - flanking_len
-    #
-    #     if seq.__contains__('NNNNNNNNNN'):
-    #         continue
-    #     new_query_name = query_name + '-rawstart_' + str(raw_start) + '-rawend_' + str(raw_end)
-    #     all_candidate_helitron_contigs[new_query_name] = seq
-    # store_fasta(all_candidate_helitron_contigs, all_candidate_helitron_path)
+    all_candidate_helitron_contigs = {}
+    contigNames, contigs = read_fasta(all_candidate_helitron_path)
+    for query_name in contigNames:
+        seq = contigs[query_name]
+
+        raw_start = flanking_len + 1
+        raw_end = len(seq) - flanking_len
+
+        if seq.__contains__('NNNNNNNNNN'):
+            continue
+        new_query_name = query_name + '-rawstart_' + str(raw_start) + '-rawend_' + str(raw_end)
+        all_candidate_helitron_contigs[new_query_name] = seq
+    store_fasta(all_candidate_helitron_contigs, all_candidate_helitron_path)
     EAHelitron_command = 'cd ' + temp_dir + ' && ' + 'perl ' + EAHelitron + '/EAHelitron -o ' + str(partition_index) + ' -u 20000 -T "ATC" -r 3 ' + all_candidate_helitron_path
     os.system(EAHelitron_command + '> /dev/null 2>&1')
 
@@ -204,7 +203,7 @@ def multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, output,
 
     # After partitioning the files, perform parallel computations using multiple processes.
     fasta_file = longest_repeats_flanked_path
-    subfile_size = 10000  # 10K
+    subfile_size = 50000  # 50K
     output_dir = temp_dir
     split_fasta(fasta_file, subfile_size, output_dir)
     split_files = []
@@ -234,7 +233,7 @@ def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDI
 
     # After partitioning the files, perform parallel computations using multiple processes.
     fasta_file = candidate_file
-    subfile_size = 10000  # 10K
+    subfile_size = 50000  # 50K
     output_dir = temp_dir
     split_fasta(fasta_file, subfile_size, output_dir)
     split_files = []
