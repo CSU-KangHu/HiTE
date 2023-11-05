@@ -134,7 +134,6 @@ if __name__ == '__main__':
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
 
-
     log = Logger(tmp_output_dir+'/HiTE_tir.log', level='debug')
 
     tir_tsd_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.fa'

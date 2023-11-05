@@ -41,6 +41,7 @@ def helpMessage() {
       --annotate                        Whether to annotate the genome using the TE library generated, 1: true, 0: false. default = [ 0 ]
       --BM_RM2                          Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false. default = [ 0 ]
       --BM_EDTA                         Whether to conduct benchmarking of EDTA, 1: true, 0: false. default = [ 0 ]
+      --BM_HiTE                         Whether to conduct benchmarking of HiTE, 1: true, 0: false. default = [ 0 ]
       --EDTA_home                       When conducting benchmarking of EDTA, you will be asked to input EDTA home path.
       --species                         Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).
       --skip_HiTE                       Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
@@ -71,6 +72,7 @@ def printSetting() {
       [Setting] annotate = [ $params.annotate ]
       [Setting] BM_RM2 = [ $params.BM_RM2 ]
       [Setting] BM_EDTA = [ $params.BM_EDTA ]
+      [Setting] BM_HiTE = [ $params.BM_HiTE ]
       [Setting] skip_HiTE = [ $params.skip_HiTE ]
       [Setting] is_prev_mask = [ $params.is_prev_mask ]
       [Setting] is_denovo_nonltr = [ $params.is_denovo_nonltr ]
@@ -109,7 +111,7 @@ ch_classification = "${projectDir}/classification"
 tools_module = "${projectDir}/tools"
 HSDIR = "${projectDir}/bin/HelitronScanner/TrainingSet"
 HSJAR = "${projectDir}/bin/HelitronScanner/HelitronScanner.jar"
-sh_dir = "${projectDir}/module"
+sh_dir = "${projectDir}/bin"
 member_script_path = "${projectDir}/tools/make_fasta_from_blast.sh"
 subset_script_path = "${projectDir}/tools/ready_for_MSA.sh"
 lib_module = "${projectDir}/library"
@@ -144,6 +146,7 @@ ref = "${params.genome}"
 //parameters of Evaluation
 BM_RM2 = "${params.BM_RM2}"
 BM_EDTA = "${params.BM_EDTA}"
+BM_HiTE = "${params.BM_HiTE}"
 rm2_script = "${projectDir}/bin/get_family_summary_paper.sh"
 EDTA_home = "${params.EDTA_home}"
 species = "${params.species}"
@@ -591,7 +594,7 @@ process benchmarking {
         """
         python3 ${ch_module}/benchmarking.py \
          --tmp_output_dir ${tmp_output_dir} \
-         --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} \
+         --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} --BM_HiTE ${BM_HiTE} \
          -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
          --rm2_script ${rm2_script} \
          -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
@@ -603,6 +606,7 @@ process benchmarking {
         python3 ${ch_module}/benchmarking.py \
          --tmp_output_dir ${tmp_output_dir} \
          --BM_RM2 ${BM_RM2} \
+         --BM_HiTE ${BM_HiTE} \
          -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
          --rm2_script ${rm2_script} \
          -r ${ref} --species ${species}

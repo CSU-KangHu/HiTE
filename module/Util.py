@@ -120,7 +120,7 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
     for cur_name in all_copies_out_contigs.keys():
         raw_name = cur_name.split(' ')[1]
         parts = raw_name.split(':')
-        query_name = parts[0]
+        query_name = ':'.join(parts[:-1])
         if not group_copies_contigs.__contains__(query_name):
             group_copies_contigs[query_name] = {}
         cur_copies_out_contigs = group_copies_contigs[query_name]
@@ -136,8 +136,8 @@ def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_i
         for name in cur_copies_out_contigs.keys():
             raw_name = name.split(' ')[1]
             parts = raw_name.split(':')
-            raw_name = parts[0]+':'+parts[1]
-            pos_parts = parts[2].split('..')
+            raw_name = ':'.join(parts[:-1])
+            pos_parts = parts[-1].split('..')
             cur_start = int(pos_parts[0])
             cur_end = int(pos_parts[1])
             if cur_start > cur_end:
@@ -4748,7 +4748,7 @@ def split_fasta(fasta_file, subfile_size, output_dir):
     with open(fasta_file) as handle:
         current_subfile_size = 0
         current_subfile_index = 0
-        current_subfile_name = os.path.join(output_dir, f"subfile_{current_subfile_index}.fasta")
+        current_subfile_name = os.path.join(output_dir, "subfile_"+str(current_subfile_index)+".fasta")
         current_subfile = open(current_subfile_name, "w")
 
         for line in handle:
@@ -4756,7 +4756,7 @@ def split_fasta(fasta_file, subfile_size, output_dir):
                 # Close the current subfile and open a new one
                 current_subfile.close()
                 current_subfile_index += 1
-                current_subfile_name = os.path.join(output_dir, f"subfile_{current_subfile_index}.fasta")
+                current_subfile_name = os.path.join(output_dir, "subfile_"+str(current_subfile_index)+".fasta")
                 current_subfile = open(current_subfile_name, "w")
                 current_subfile_size = 0
 

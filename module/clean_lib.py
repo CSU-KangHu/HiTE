@@ -43,11 +43,13 @@ if __name__ == '__main__':
                     'confident_helitron(_\d+)?\.fa',
                     'confident_non_ltr(_\d+)?\.fa',
                     'confident_other(_\d+)?\.fa',
+                    'repbase.out',
                     'HiTE.out',
                     'HiTE.tbl',
                     'HiTE.gff',
                     'BM_RM2.log',
-                    'BM_EDTA.log']
+                    'BM_EDTA.log',
+                    'BM_HiTE.log']
 
         all_files = os.listdir(tmp_output_dir)
         for filename in all_files:

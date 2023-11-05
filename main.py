@@ -9,8 +9,7 @@ import sys
 import time
 from multiprocessing import cpu_count
 
-from module.Util import Logger, file_exist, rename_fasta
-
+from module.Util import Logger, file_exist
 
 if __name__ == '__main__':
     # We define the default parameters for HiTE.
@@ -24,6 +23,7 @@ if __name__ == '__main__':
     default_annotate = 0
     default_BM_RM2 = 0
     default_BM_EDTA = 0
+    default_BM_HiTE = 0
     default_EDTA_home = ''
     default_skip_HiTE = 0
     default_flanking_len = 50
@@ -62,6 +62,7 @@ if __name__ == '__main__':
     parser.add_argument('--annotate', metavar='is_annotate', help='Whether to annotate the genome using the TE library generated, 1: true, 0: false. default = [ ' + str(default_annotate) + ' ]')
     parser.add_argument('--BM_RM2', metavar='BM_RM2', help='Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false. default = [ ' + str(default_BM_RM2) + ' ]')
     parser.add_argument('--BM_EDTA', metavar='BM_EDTA', help='Whether to conduct benchmarking of EDTA, 1: true, 0: false. default = [ ' + str(default_BM_EDTA) + ' ]')
+    parser.add_argument('--BM_HiTE', metavar='BM_HiTE', help='Whether to conduct benchmarking of HiTE, 1: true, 0: false. default = [ ' + str(default_BM_HiTE) + ' ]')
     parser.add_argument('--EDTA_home', metavar='EDTA_home', help='When conducting benchmarking of EDTA, you will be asked to input EDTA home path.')
     parser.add_argument('--species', metavar='species', help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
     parser.add_argument('--skip_HiTE', metavar='skip_HiTE', help='Whether to skip_HiTE, 1: true, 0: false. default = [ ' + str(default_skip_HiTE) + ' ]')
@@ -96,6 +97,7 @@ if __name__ == '__main__':
     annotate = args.annotate
     BM_RM2 = args.BM_RM2
     BM_EDTA = args.BM_EDTA
+    BM_HiTE = args.BM_HiTE
     EDTA_home = args.EDTA_home
     species = args.species
     skip_HiTE = args.skip_HiTE
@@ -194,6 +196,11 @@ if __name__ == '__main__':
     else:
         BM_EDTA = int(BM_EDTA)
 
+    if BM_HiTE is None:
+        BM_HiTE = default_BM_HiTE
+    else:
+        BM_HiTE = int(BM_HiTE)
+
     if EDTA_home is None:
         EDTA_home = default_EDTA_home
     else:
@@ -283,6 +290,7 @@ if __name__ == '__main__':
                     '  [Setting] annotate = [ ' + str(annotate) + ' ]  Default( ' + str(default_annotate) + ' )\n'
                     '  [Setting] BM_RM2 = [ ' + str(BM_RM2) + ' ]  Default( ' + str(default_BM_RM2) + ' )\n'
                     '  [Setting] BM_EDTA = [ ' + str(BM_EDTA) + ' ]  Default( ' + str(default_BM_EDTA) + ' )\n'
+                    '  [Setting] BM_HiTE = [ ' + str(BM_HiTE) + ' ]  Default( ' + str(default_BM_HiTE) + ' )\n'
                     '  [Setting] EDTA_home = [' + str(EDTA_home) + ']\n'
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
                     '  [Setting] is_prev_mask = [ ' + str(is_prev_mask) + ' ]  Default( ' + str(default_is_prev_mask) + ' )\n'
@@ -549,10 +557,10 @@ if __name__ == '__main__':
         log.logger.error('Run benchmarking fail, Cannot find TE path: ' + classified_TE_path)
     else:
         starttime = time.time()
-        log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2 and EDTA')
+        log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
         benchmarking_command = 'cd ' + test_home + ' && python3 ' + test_home + '/benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
-                            + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) \
+                            + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
                             + ' -t ' + str(threads) + ' --lib_module ' + str(lib_module) \
                             + ' --TE_lib ' + str(classified_TE_path) + ' --rm2_script ' + str(rm2_script) \
                             + ' -r ' + reference
@@ -562,6 +570,7 @@ if __name__ == '__main__':
             benchmarking_command += ' --species test'
         else:
             benchmarking_command += ' --species ' + str(species)
+        log.logger.info(benchmarking_command)
         os.system(benchmarking_command)
         endtime = time.time()
         dtime = endtime - starttime

@@ -1,6 +1,6 @@
 #-- coding: UTF-8 --
-# 这个脚本是用来评估不同的 TE library 的性能，它结合了RepeatModeler2的序列全长特征以及EDTA的具体细节指标例如TP,FP,FN。
-# 与 lib_evaluation_bak.py不同的是，我们这里对.out文件进行过滤，只保留完整全长的拷贝
+# This script is used to assess the performance of different TE libraries,
+# incorporating both the full-length characteristics from RepeatModeler2 and specific metrics from EDTA such as TP, FP, and FN.
 import argparse
 import os
 
@@ -12,7 +12,7 @@ def transfer_RMOut2BlastnOut(RMOut, BlastnOut, consensus_path, tools_dir, covera
     for name in cons_names:
         new_name = name.split('#')[0]
         cons_len[new_name] = len(cons_contigs[name])
-    # 1. 将.out文件转.bed文件
+    # 1. Convert the .out file to a .bed file.
     convert2bed_command = 'perl ' + tools_dir + '/RMout_to_bed.pl ' + RMOut + ' base1'
     print(convert2bed_command)
     os.system(convert2bed_command)
@@ -34,7 +34,7 @@ def transfer_RMOut2BlastnOut(RMOut, BlastnOut, consensus_path, tools_dir, covera
             else:
                 s_start = subject_pats[12]
                 s_end = subject_pats[13]
-            # 取全长拷贝
+            # Retrieve the full-length copy.
             if float(abs(int(s_end)-int(s_start)))/cons_len[subject_name] >= coverage_threshold:
                 new_line = query_name+'\t'+subject_name+'\t'+'-1'+'\t'+'-1'+'\t'+'-1'+'\t'+'-1'+'\t'+q_start+'\t'+q_end+'\t'+s_start+'\t'+s_end+'\t'+'-1'+'\t'+'-1'+'\n'
                 lines.append(new_line)
@@ -60,14 +60,20 @@ def get_chr_fragments(BlastnOut):
 def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_BlastnOut, chrom_length, coverage_threshold):
     repbase_fragments = get_chr_fragments(repbase_BlastnOut)
     test_fragments = get_chr_fragments(test_BlastnOut)
-    # 将染色体划分成 10k 一段，根据碎片的起始和结束位置将碎片映射到某一段中。例如碎片的起始和结束位置分别是9549和9617，它们对10k取模都是0，因此映射到第0段。
-    # 如果碎片映射到了前一段和后一段中间，例如某个碎片的起始和结束位置分别为9645和15966，因为它们对10k取模分别是0和1，因此它们要么映射到第0段，要么第1段。
-    # 此时我们计算10k-9645=355,15966-10k=5966,5966>355，因此应该把这条序列映射到第1段。
+    # Divide the chromosome into segments of 10k each. Map the fragments to a specific segment based on their start and end positions.
+    # For example, if a fragment has start and end positions of 9549 and 9617 respectively,
+    # and both values modulo 10k result in 0, then it is mapped to the 0th segment.
+    # If a fragment falls between the start and end of two consecutive segments,
+    # for instance, with start and end positions of 9645 and 15966 respectively,
+    # and their modulo 10k values are 0 and 1, then it could be mapped to either the 0th or 1st segment.
+    # In this case, we calculate 10k-9645=355 and 15966-10k=5966.
+    # Since 5966 is greater than 355, this sequence should be mapped to the 1st segment.
     segment_len = 100000 # 100K
-    # chr_segments -> {chr1: {seg0: [(start, end, status)], seg1: []}} status:0, 1 0代表片段未被标记为found，1表示片段被标记为found
+    # chr_segments -> {chr1: {seg0: [(start, end, status)], seg1: []}}
+    # Status: 0 indicates that the fragment is not marked as found, while 1 indicates that the fragment is marked as found.
     chr_segments = {}
     total_chr_len = 0
-    # 根据染色体的长度将其均分成N段，这样做是将fragment分段存储，减少检索时间
+    # Divide the chromosome evenly into N segments to store fragments in segments and reduce retrieval time.
     for chr_name in chrom_length.keys():
         chr_len = chrom_length[chr_name]
         total_chr_len += chr_len
@@ -79,7 +85,7 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
             num_segments += 1
         for i in range(num_segments):
             cur_chr_segment[i] = []
-    # 将repbase的fragment映射到对应的segment中存储
+    # Map the fragments from Repbase to the corresponding segment for storage.
     for chr_name in repbase_fragments.keys():
         cur_chr_segment = chr_segments[chr_name]
         for frag in repbase_fragments[chr_name]:
@@ -88,7 +94,8 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
             seg_index = map_fragment(start, end, segment_len)
             segment_frags = cur_chr_segment[seg_index]
             segment_frags.append([frag[0], frag[1], 0])
-    # 将test的fragment映射到对应的segment中，判断segment中是否有fragment和test fragment有超过95%的overlap
+    # Map the fragments from the test set to the corresponding segment,
+    # and check if there is an overlap of over 95% with the fragment in the segment.
     TP = 0
     FP = 0
     FN = 0
@@ -103,12 +110,12 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
             end = cur_frag[1]
             seg_index = map_fragment(start, end, segment_len)
             segment_frags = cur_chr_segment[seg_index]
-            # 判断segment中是否有fragment和test fragment有超过95%的overlap
+            # Check if there is an overlap of over 95% between the fragment in the segment and the test fragment.
             is_found = False
             for prev_frag in segment_frags:
                 overlap_len = get_overlap_len(prev_frag, cur_frag)
                 if overlap_len / abs(prev_frag[1] - prev_frag[0]) >= coverage_threshold and overlap_len / abs(cur_frag[1] - cur_frag[0]) >= coverage_threshold:
-                    # 将prev_frag的status改为1
+                    # Change the status of prev_frag to 1.
                     is_found = True
                     prev_frag[2] = 1
                     TP += abs(cur_frag[1] - cur_frag[0])
@@ -127,7 +134,7 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
                 target_len += abs(frag[1] - frag[0])
     TN = total_chr_len - target_len
 
-    # 遍历 repbase_BlastnOut ,寻找并保存 FN 栏目
+    # Iterate through repbase_BlastnOut, locate and save the FN column.
     FN_lines = []
     with open(repbase_BlastnOut, 'r') as f_r:
         for line in f_r:
@@ -142,7 +149,7 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
             if item in FN_set:
                 FN_lines.append(line)
 
-    # 统计一下当前FN最多的top 5 的TE
+    # Calculate the top 5 TEs with the highest FN counts.
     top_FN = {}
     with open(FN_BlastnOut, 'w') as f_save:
         for line in FN_lines:
@@ -160,7 +167,7 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
     sorted_items = sorted(top_FN.items(), key=lambda x: x[1], reverse=True)[:5]
     #print(sorted_items)
 
-    # 遍历 test_BlastnOut ,寻找并保存 FP 栏目
+    # Iterate through test_BlastnOut, locate and save the FP column.
     FP_lines = []
     with open(test_BlastnOut, 'r') as f_r:
         for line in f_r:
@@ -189,83 +196,6 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
     print('FP:', FP)
     print('TN:', TN)
     print('FN:', FN)
-    print('sensitivity:', sensitivity)
-    print('specificity:', specificity)
-    print('accuracy:', accuracy)
-    print('precision:', precision)
-    print('FDR:', FDR)
-    print('F1:', F1)
-
-def evaluation(repbase_BlastnOut, test_BlastnOut, chrom_length):
-    repbase_fragments = get_chr_fragments(repbase_BlastnOut)
-    test_fragments = get_chr_fragments(test_BlastnOut)
-    # 将染色体划分成 10k 一段，根据碎片的起始和结束位置将碎片映射到某一段中。例如碎片的起始和结束位置分别是9549和9617，它们对10k取模都是0，因此映射到第0段。
-    # 如果碎片映射到了前一段和后一段中间，例如某个碎片的起始和结束位置分别为9645和15966，因为它们对10k取模分别是0和1，因此它们要么映射到第0段，要么第1段。
-    # 此时我们计算10k-9645=355,15966-10k=5966,5966>355，因此应该把这条序列映射到第1段。
-    segment_len = 100000 # 100K
-    # chr_segments -> {chr1: {seg0: [(start, end, status)], seg1: []}} status:0, 1 0代表片段未被标记为found，1表示片段被标记为found
-    chr_segments = {}
-    total_chr_len = 0
-    # 根据染色体的长度将其均分成N段，这样做是将fragment分段存储，减少检索时间
-    for chr_name in chrom_length.keys():
-        chr_len = chrom_length[chr_name]
-        total_chr_len += chr_len
-        if not chr_segments.__contains__(chr_name):
-            chr_segments[chr_name] = {}
-        cur_chr_segment = chr_segments[chr_name]
-        num_segments = chr_len // segment_len
-        if chr_len % segment_len != 0:
-            num_segments += 1
-        for i in range(num_segments):
-            cur_chr_segment[i] = []
-    # 将repbase的fragment映射到对应的segment中存储
-    for chr_name in repbase_fragments.keys():
-        cur_chr_segment = chr_segments[chr_name]
-        for frag in repbase_fragments[chr_name]:
-            start = frag[0]
-            end = frag[1]
-            seg_index = map_fragment(start, end, segment_len)
-            segment_frags = cur_chr_segment[seg_index]
-            segment_frags.append([frag[0], frag[1], 0])
-    # 将test的fragment映射到对应的segment中，判断segment中是否有fragment和test fragment有超过95%的overlap
-    TP = 0
-    FP = 0
-    FN = 0
-    target_len = 0
-    for chr_name in test_fragments.keys():
-        cur_chr_segment = chr_segments[chr_name]
-        for cur_frag in test_fragments[chr_name]:
-            start = cur_frag[0]
-            end = cur_frag[1]
-            seg_index = map_fragment(start, end, segment_len)
-            segment_frags = cur_chr_segment[seg_index]
-            # 判断segment中是否有fragment和test fragment有超过95%的overlap
-            is_found = False
-            for prev_frag in segment_frags:
-                overlap_len = get_overlap_len(prev_frag, cur_frag)
-                if overlap_len / abs(prev_frag[1] - prev_frag[0]) >= 0.95 and overlap_len / abs(cur_frag[1] - cur_frag[0]) >= 0.95:
-                    # 将prev_frag的status改为1
-                    is_found = True
-                    prev_frag[2] = 1
-                    TP += abs(cur_frag[1] - cur_frag[0])
-            if not is_found:
-                FP += abs(cur_frag[1] - cur_frag[0])
-    for chr_name in chr_segments.keys():
-        cur_chr_segment = chr_segments[chr_name]
-        for seg_index in cur_chr_segment.keys():
-            segment_frags = cur_chr_segment[seg_index]
-            for frag in segment_frags:
-                if frag[2] == 0:
-                    FN += abs(frag[1] - frag[0])
-                target_len += abs(frag[1] - frag[0])
-    TN = total_chr_len - target_len
-
-    sensitivity = round(float(TP) / (TP + FN), 4)
-    specificity = round(float(TN) / (TN + FP), 4)
-    accuracy = round(float(TP + TN) / (TP + TN + FP + FN), 4)
-    precision = round(float(TP) / (TP + FP), 4)
-    F1 = round(float(2 * TP) / (2 * TP + FP + FN), 4)
-    FDR = round(float(FP) / (TP + FP), 4)
     print('sensitivity:', sensitivity)
     print('specificity:', specificity)
     print('accuracy:', accuracy)

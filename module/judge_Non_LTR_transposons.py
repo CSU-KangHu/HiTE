@@ -120,6 +120,8 @@ if __name__ == '__main__':
             rename_fasta(confident_non_ltr_cons, confident_non_ltr_path, 'Non-LTR_' + str(ref_index))
         else:
             log.logger.info(resut_file + ' exists, skip...')
+    else:
+        os.system('touch ' + confident_non_ltr_path)
 
     prev_TE = tmp_output_dir + '/prev_TE.fa'
     os.system('cat ' + resut_file + ' >> ' + prev_TE)
