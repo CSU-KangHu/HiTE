@@ -43,8 +43,9 @@ Recommended OS: (Ubuntu 16.04, CentOS 7, etc.)
 ### Dowload project
 ```sh
 git clone https://github.com/CSU-KangHu/HiTE.git
-
 # Alternatively, you can download the zip file directly from the repository.
+cd HiTE
+chmod +x tools/*
 ```
 
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
@@ -99,7 +100,6 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.0.0 python main.py \
 ```sh
 # Find the **yml** file in the project directory and run
 cd HiTE
-chmod +x tools/*
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
 ```
