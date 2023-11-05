@@ -22,8 +22,8 @@ RUN curl -LJO https://zenodo.org/records/10068148/files/CSU-KangHu/TE_annotation
 # Download HiTE from Github
 # RUN git clone https://github.com/CSU-KangHu/HiTE.git
 # Download HiTE from Zenodo
-RUN curl -LJO https://zenodo.org/records/10068550/files/CSU-KangHu/HiTE-v.3.0.1.zip?download=1 &&  \
-    unzip HiTE-v.3.0.1.zip && mv CSU-KangHu-HiTE-* /HiTE
+RUN curl -LJO https://zenodo.org/records/10072260/files/CSU-KangHu/HiTE-v.3.0.2.zip?download=1 &&  \
+    unzip HiTE-v.3.0.2.zip && mv CSU-KangHu-HiTE-* /HiTE
 
 RUN cd /HiTE && chmod +x tools/* && conda env create --name ${DNAME} --file=environment.yml && conda clean -a
 
