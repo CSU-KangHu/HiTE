@@ -55,15 +55,15 @@ def run_TRsearch(TRsearch_dir, longest_repeats_multi_line_path, longest_repeats_
     TR_out = longest_repeats_multi_line_path + '.TR.set'
     return TR_out
 
-def run_HelitronScanner(sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_index, debug):
-    candidate_Helitrons = {}
-    cur_candidate_Helitrons_path = temp_dir + '/' + str(partition_index) + '.fa'
-    cur_candidate_Helitrons = {}
-    for item in cur_segments:
-        query_name = item[0]
-        orig_seq = item[1]
-        cur_candidate_Helitrons[query_name] = orig_seq
-    store_fasta(cur_candidate_Helitrons, cur_candidate_Helitrons_path)
+def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, HSJAR, partition_index, debug):
+    # candidate_Helitrons = {}
+    # cur_candidate_Helitrons_path = temp_dir + '/' + str(partition_index) + '.fa'
+    # cur_candidate_Helitrons = {}
+    # for item in cur_segments:
+    #     query_name = item[0]
+    #     orig_seq = item[1]
+    #     cur_candidate_Helitrons[query_name] = orig_seq
+    # store_fasta(cur_candidate_Helitrons, cur_candidate_Helitrons_path)
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR
     os.system(HelitronScanner_command + '> /dev/null 2>&1')
@@ -93,22 +93,21 @@ def run_HelitronScanner_v1(sh_dir, temp_dir, candidate_file, HSDIR, HSJAR, prefi
     candidate_Helitrons.update(cur_rc_contigs)
     return candidate_Helitrons, prefix
 
-def run_EAHelitron(flanking_len, temp_dir, cur_segments, EAHelitron, partition_index):
-    all_candidate_helitron_contigs = {}
-    all_candidate_helitron_path = temp_dir + '/' + str(partition_index) + '.fa'
-    for item in cur_segments:
-        query_name = item[0]
-        seq = item[1]
-
-        raw_start = flanking_len + 1
-        raw_end = len(seq) - flanking_len
-
-        if seq.__contains__('NNNNNNNNNN'):
-            continue
-        new_query_name = query_name + '-rawstart_' + str(raw_start) + '-rawend_' + str(raw_end)
-        all_candidate_helitron_contigs[new_query_name] = seq
-
-    store_fasta(all_candidate_helitron_contigs, all_candidate_helitron_path)
+def run_EAHelitron(flanking_len, temp_dir, all_candidate_helitron_path, EAHelitron, partition_index):
+    # all_candidate_helitron_contigs = {}
+    # all_candidate_helitron_path = temp_dir + '/' + str(partition_index) + '.fa'
+    # for item in cur_segments:
+    #     query_name = item[0]
+    #     seq = item[1]
+    #
+    #     raw_start = flanking_len + 1
+    #     raw_end = len(seq) - flanking_len
+    #
+    #     if seq.__contains__('NNNNNNNNNN'):
+    #         continue
+    #     new_query_name = query_name + '-rawstart_' + str(raw_start) + '-rawend_' + str(raw_end)
+    #     all_candidate_helitron_contigs[new_query_name] = seq
+    # store_fasta(all_candidate_helitron_contigs, all_candidate_helitron_path)
     EAHelitron_command = 'cd ' + temp_dir + ' && ' + 'perl ' + EAHelitron + '/EAHelitron -o ' + str(partition_index) + ' -u 20000 -T "ATC" -r 3 ' + all_candidate_helitron_path
     os.system(EAHelitron_command + '> /dev/null 2>&1')
 
@@ -199,19 +198,25 @@ def run_ltrsearch(TRsearch_dir, input, input_dir):
     return TR_out
 
 def multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, output, temp_dir, EAHelitron, threads):
-    seq_names, seq_contigs = read_fasta(longest_repeats_flanked_path)
-    # ---------------------------------------Terminal Repeat Search--------------------------------------------------
-    segments_cluster = divided_array(list(seq_contigs.items()), threads)
-
-    os.system('rm -rf '+temp_dir)
+    os.system('rm -rf ' + temp_dir)
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
+
+    # After partitioning the files, perform parallel computations using multiple processes.
+    fasta_file = longest_repeats_flanked_path
+    subfile_size = 10000  # 10K
+    output_dir = temp_dir
+    split_fasta(fasta_file, subfile_size, output_dir)
+    split_files = []
+    for split_file_name in os.listdir(output_dir):
+        split_file = output_dir + '/' + split_file_name
+        split_files.append(split_file)
 
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(run_EAHelitron, flanking_len, temp_dir, cur_segments, EAHelitron, partition_index)
+    for partition_index, split_file in enumerate(split_files):
+        obj = ex.submit(run_EAHelitron, flanking_len, temp_dir, split_file, EAHelitron, partition_index)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
@@ -223,18 +228,25 @@ def multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, output,
 
 
 def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDIR, HSJAR, threads, debug):
-    candidate_names, candidate_contigs = read_fasta(candidate_file)
-    segments_cluster = divided_array(list(candidate_contigs.items()), threads)
-
     os.system('rm -rf ' + temp_dir)
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
+    # After partitioning the files, perform parallel computations using multiple processes.
+    fasta_file = candidate_file
+    subfile_size = 10000  # 10K
+    output_dir = temp_dir
+    split_fasta(fasta_file, subfile_size, output_dir)
+    split_files = []
+    for split_file_name in os.listdir(output_dir):
+        split_file = output_dir + '/' + split_file_name
+        split_files.append(split_file)
+
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        obj = ex.submit(run_HelitronScanner, sh_dir, temp_dir, cur_segments, HSDIR, HSJAR, partition_index, debug)
+    for partition_index, split_file in enumerate(split_files):
+        obj = ex.submit(run_HelitronScanner, sh_dir, temp_dir, split_file, HSDIR, HSJAR, partition_index, debug)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
@@ -243,7 +255,6 @@ def multi_process_helitronscanner(candidate_file, output, sh_dir, temp_dir, HSDI
         cur_candidate_Helitrons = obj.result()
         candidate_Helitrons.update(cur_candidate_Helitrons)
     store_fasta(candidate_Helitrons, output)
-
 
 def multi_process_TR(input, output, tmp_output_dir, TRsearch_dir):
     threads = 48

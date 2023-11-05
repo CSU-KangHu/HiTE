@@ -16,6 +16,4 @@ dependencies:
   - python-levenshtein
   - pip
   - fuzzysearch
-#  - pip:
-#    - fuzzysearch
 
