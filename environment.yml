@@ -15,6 +15,7 @@ dependencies:
   - samtools
   - python-levenshtein
   - pip
-  - pip:
-    - fuzzysearch
+  - fuzzysearch
+#  - pip:
+#    - fuzzysearch
 
