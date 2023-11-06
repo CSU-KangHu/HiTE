@@ -317,7 +317,8 @@ usage: main.py [-h] [--genome genome] [--thread thread_num]
                [--classified is_classified] [--remove_nested is_remove_nested]
                [--domain is_domain] [--recover is_recover]
                [--annotate is_annotate] [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA]
-               [--EDTA_home EDTA_home] [--species species]
+               [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home]
+               [--coverage_threshold coverage_threshold] [--species species]
                [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask]
                [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug]
                [--outdir output_dir] [--flanking_len flanking_len]
@@ -331,7 +332,7 @@ usage: main.py [-h] [--genome genome] [--thread thread_num]
 optional arguments:
   -h, --help            show this help message and exit
   --genome genome       Input genome assembly path
-  --thread thread_num   Input thread num, default = [ 40 ]
+  --thread thread_num   Input thread num, default = [ 48 ]
   --chunk_size chunk_size
                         The chunk size of large genome, default = [ 400 MB ]
   --miu miu             The neutral mutation rate (per bp per ya), default = [ 1.3e-08 ]
@@ -355,9 +356,13 @@ optional arguments:
                         true, 0: false. default = [ 0 ]
   --BM_EDTA BM_EDTA     Whether to conduct benchmarking of EDTA, 1: true, 0:
                         false. default = [ 0 ]
+  --BM_HiTE BM_HiTE     Whether to conduct benchmarking of HiTE, 1: true, 0:
+                        false. default = [ 0 ]
   --EDTA_home EDTA_home
                         When conducting benchmarking of EDTA, you will be
                         asked to input EDTA home path.
+  --coverage_threshold coverage_threshold
+                        coverage threshold of benchmarking methods
   --species species     Which species you want to conduct benchmarking, six
                         species support (dmel, rice, cb, zebrafish, maize,
                         ath).
