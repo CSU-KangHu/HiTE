@@ -390,8 +390,24 @@ optional arguments:
 ```
 
 ## <a name="ER"></a>Experiment reproduction
-
 The quantitative experimental results from the HiTE paper can be reproduced following the [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction).
+### Benchmarking method of HiTE (BM_HiTE)
+```sh
+# 1. annotate the genome with gold standard library:
+RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 40 \
+ -lib ${standard_lib} -cutoff 225 ${genome} && mv ${genome}.out standard.out
+
+# 2. annotate the genome with test library:
+RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 40 \
+ -lib ${test_lib} -cutoff 225 ${genome} && mv ${genome}.out test.out
+
+# 3. run BM_HiTE
+cd HiTE && python module/lib_evaluation.py -g ${genome} \
+ --standard_lib ${standard_lib} --standard_lib_out standard.out \
+ --test_lib ${test_lib} --test_lib_out test.out \
+ --work_dir ${out_dir} --coverage_threshold [0.95/0.99]
+```
+
 
 ## <a name="QA"></a>More tutorials
 You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) page for more tutorials.
