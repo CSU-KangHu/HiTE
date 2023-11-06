@@ -275,7 +275,7 @@ on the proportion of each transposon type within the genome.
 Since the Dfam library included in RepeatMasker by default is not complete, it will seriously affect the classification effect.
 We recommend updating RepeatMasker with the complete Dfam 3.6 library as described at http://www.repeatmasker.org/RepeatMasker/, including download, unpack, and reconfiguration.
 We also provide an optional method to avoid the big Dfam.h5.gz (15 GB) download and reconfiguration, as follows:
-1. download **RepeatMasker_Lib.zip** from [Zenodo](https://zenodo.org/records/10068148) or [google drive](https://drive.google.com/file/d/1vQLamfINdJ5iDwggYigWKe7Gor4t6JMK/view?usp=sharing) or Github: `git clone https://github.com/CSU-KangHu/TE_annotation.git`
+1. download **RepeatMasker_Lib.zip** from [Zenodo](https://zenodo.org/records/10074038) or Github: `git clone https://github.com/CSU-KangHu/TE_annotation.git`
 
 3. upload **RepeatMasker_Lib.zip** to RepeatMasker/Libraries, where RepeatMasker is your installation directory of RepeatMasker.
    (e.g., ~/anaconda2/envs/HiTE/share/RepeatMasker)
@@ -391,7 +391,7 @@ optional arguments:
 
 ## <a name="ER"></a>Experiment reproduction
 
-The quantitative experimental results from the HiTE paper, such as Fig. 2 and Supplementary Table 2, can be reproduced following the [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction).
+The quantitative experimental results from the HiTE paper can be reproduced following the [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction).
 
 ## <a name="QA"></a>More tutorials
 You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) page for more tutorials.

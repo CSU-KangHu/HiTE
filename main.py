@@ -25,6 +25,7 @@ if __name__ == '__main__':
     default_BM_EDTA = 0
     default_BM_HiTE = 0
     default_EDTA_home = ''
+    default_coverage_threshold = 0.95
     default_skip_HiTE = 0
     default_flanking_len = 50
     default_is_prev_mask = 1
@@ -64,6 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--BM_EDTA', metavar='BM_EDTA', help='Whether to conduct benchmarking of EDTA, 1: true, 0: false. default = [ ' + str(default_BM_EDTA) + ' ]')
     parser.add_argument('--BM_HiTE', metavar='BM_HiTE', help='Whether to conduct benchmarking of HiTE, 1: true, 0: false. default = [ ' + str(default_BM_HiTE) + ' ]')
     parser.add_argument('--EDTA_home', metavar='EDTA_home', help='When conducting benchmarking of EDTA, you will be asked to input EDTA home path.')
+    parser.add_argument('--coverage_threshold', metavar='coverage_threshold', help='coverage threshold of benchmarking methods')
     parser.add_argument('--species', metavar='species', help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
     parser.add_argument('--skip_HiTE', metavar='skip_HiTE', help='Whether to skip_HiTE, 1: true, 0: false. default = [ ' + str(default_skip_HiTE) + ' ]')
     parser.add_argument('--is_prev_mask', metavar='is_prev_mask', help='Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ ' + str(default_is_prev_mask) + ' ]')
@@ -99,6 +101,7 @@ if __name__ == '__main__':
     BM_EDTA = args.BM_EDTA
     BM_HiTE = args.BM_HiTE
     EDTA_home = args.EDTA_home
+    coverage_threshold = args.coverage_threshold
     species = args.species
     skip_HiTE = args.skip_HiTE
     is_prev_mask = args.is_prev_mask
@@ -206,6 +209,11 @@ if __name__ == '__main__':
     else:
         EDTA_home = str(EDTA_home)
 
+    if coverage_threshold is None:
+        coverage_threshold = default_coverage_threshold
+    else:
+        coverage_threshold = float(coverage_threshold)
+
     if skip_HiTE is None:
         skip_HiTE = default_skip_HiTE
     else:
@@ -292,6 +300,7 @@ if __name__ == '__main__':
                     '  [Setting] BM_EDTA = [ ' + str(BM_EDTA) + ' ]  Default( ' + str(default_BM_EDTA) + ' )\n'
                     '  [Setting] BM_HiTE = [ ' + str(BM_HiTE) + ' ]  Default( ' + str(default_BM_HiTE) + ' )\n'
                     '  [Setting] EDTA_home = [' + str(EDTA_home) + ']\n'
+                    '  [Setting] coverage_threshold = [ ' + str(coverage_threshold) + ' ]  Default( ' + str(default_coverage_threshold) + ' )\n'
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
                     '  [Setting] is_prev_mask = [ ' + str(is_prev_mask) + ' ]  Default( ' + str(default_is_prev_mask) + ' )\n'
                     '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
@@ -561,7 +570,7 @@ if __name__ == '__main__':
         benchmarking_command = 'cd ' + test_home + ' && python3 ' + test_home + '/benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
-                            + ' -t ' + str(threads) + ' --lib_module ' + str(lib_module) \
+                            + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) + ' --lib_module ' + str(lib_module) \
                             + ' --TE_lib ' + str(classified_TE_path) + ' --rm2_script ' + str(rm2_script) \
                             + ' -r ' + reference
         if EDTA_home is not None and EDTA_home.strip() != '':
