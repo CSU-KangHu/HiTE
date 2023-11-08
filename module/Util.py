@@ -55,6 +55,18 @@ def run_TRsearch(TRsearch_dir, longest_repeats_multi_line_path, longest_repeats_
     TR_out = longest_repeats_multi_line_path + '.TR.set'
     return TR_out
 
+def run_command_with_timeout(command, timeout):
+    process = subprocess.Popen(command, shell=True)
+    start_time = time.time()
+    while True:
+        if process.poll() is not None:
+            break
+        if time.time() - start_time > timeout:
+            process.terminate()
+            process.wait()
+            raise TimeoutError(f"Command '{command}' timed out after {timeout} seconds")
+    return process.returncode
+
 def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, HSJAR, partition_index, debug):
     # cur_candidate_Helitrons_path = temp_dir + '/' + str(partition_index) + '.fa'
     # cur_candidate_Helitrons = {}
@@ -63,9 +75,16 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, H
     #     orig_seq = item[1]
     #     cur_candidate_Helitrons[query_name] = orig_seq
     # store_fasta(cur_candidate_Helitrons, cur_candidate_Helitrons_path)
+
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
-                              + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR
-    os.system(HelitronScanner_command + '> /dev/null 2>&1')
+                              + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR + '> /dev/null 2>&1'
+    # os.system(HelitronScanner_command + '> /dev/null 2>&1')
+    # 在某些情况下，未知原因会导致HelitronScanner执行卡死，我们给每个进程限制最大的运行时间 5 min，如果还不结束就直接kill掉
+    timeout = 300  # 5min
+    try:
+        return_code = run_command_with_timeout(HelitronScanner_command, timeout)
+    except TimeoutError as e:
+        print(e)
     if debug:
         print(HelitronScanner_command)
 

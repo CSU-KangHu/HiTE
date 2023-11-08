@@ -209,12 +209,12 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
 ```text
 demo/test/
-├── confident_helitron.fa (1.4 KB)
-├── confident_other.fa (150 B)
-├── confident_tir.fa (43 KB)
-├── confident_ltr_cut.fa.cons (45 KB)
-├── confident_TE.cons.fa (88 KB)
-└── confident_TE.cons.fa.classified (89 KB)
+├── confident_helitron.fa
+├── confident_other.fa
+├── confident_tir.fa
+├── confident_ltr_cut.fa.cons
+├── confident_TE.cons.fa
+└── confident_TE.cons.fa.classified
 ```
 
 Note:
