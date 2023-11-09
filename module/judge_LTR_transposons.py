@@ -7,7 +7,51 @@ import time
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
-    rename_fasta, deredundant_for_LTR
+    rename_fasta, deredundant_for_LTR, read_fasta, store_fasta
+
+def rename_LTR(ltr_lib, rename_ltr_lib):
+    contigNames, contigs = read_fasta(ltr_lib)
+    chr_elements = {}
+    for i, name in enumerate(contigNames):
+        raw_name = name.split('#')[0]
+        parts = raw_name.split(':')
+        chr_name = parts[0]
+        info_parts = parts[1].split('_')
+        pos_parts = info_parts[0].split('..')
+        ltr_type = info_parts[1]
+        start_pos = int(pos_parts[0])
+        end_pos = int(pos_parts[1])
+        element = (start_pos, end_pos, ltr_type, name)
+        if not chr_elements.__contains__(chr_name):
+            chr_elements[chr_name] = []
+        elements = chr_elements[chr_name]
+        elements.append(element)
+    ltr_index = 0
+    ltrName2ltrIndex = {}
+    for chr_name in chr_elements.keys():
+        elements = chr_elements[chr_name]
+        elements.sort(key=lambda x: (x[0], x[1]))
+        for i in range(len(elements)):
+            cur_element = elements[i]
+            cur_ltr_name = cur_element[3]
+            if not ltrName2ltrIndex.__contains__(cur_ltr_name):
+                ltrName2ltrIndex[cur_ltr_name] = ltr_index
+                ltr_index += 1
+            cur_ltr_index = ltrName2ltrIndex[cur_ltr_name]
+            for j in range(i + 1, len(elements)):
+                next_element = elements[j]
+                # 是同一个LTR
+                if cur_element[2] != next_element[2] and abs(next_element[0] - cur_element[1]) < 10:
+                    next_ltr_name = next_element[3]
+                    if not ltrName2ltrIndex.__contains__(next_ltr_name):
+                        ltrName2ltrIndex[next_ltr_name] = cur_ltr_index
+    rename_LTRs = {}
+    for ltrName in ltrName2ltrIndex.keys():
+        ltr_type = ltrName.split('#')[0].split('_')[-1]
+        ltr_index = ltrName2ltrIndex[ltrName]
+        new_name = 'ltr_' + str(ltr_index) + '_' + ltr_type
+        rename_LTRs[new_name] = contigs[ltrName]
+    store_fasta(rename_LTRs, rename_ltr_lib)
 
 if __name__ == '__main__':
     # 1.parse args
@@ -80,7 +124,9 @@ if __name__ == '__main__':
         log.logger.info(resut_file + ' exists, skip...')
 
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
-    rename_fasta(resut_file, confident_ltr_cut_path, 'LTR')
+    rename_LTR(resut_file, confident_ltr_cut_path)
+    # confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    # rename_fasta(resut_file, confident_ltr_cut_path, 'LTR')
 
     # Remove redundancy from the LTR results.
     ltr_cons_path = confident_ltr_cut_path + '.cons'

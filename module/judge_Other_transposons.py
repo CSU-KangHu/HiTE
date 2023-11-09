@@ -94,6 +94,6 @@ if __name__ == '__main__':
                     confident_non_ltr_contigs[new_name] = copy_seq
                     max_len = len(copy_seq)
         store_fasta(confident_non_ltr_contigs, confident_other_path)
-        rename_fasta(confident_other_path, confident_other_path, 'Other')
+        rename_fasta(confident_other_path, confident_other_path, 'Homology_Non_LTR')
     else:
         log.logger.info(resut_file + ' exists, skip...')

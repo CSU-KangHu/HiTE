@@ -8869,12 +8869,12 @@ def generate_cons(cluster_id, cur_cluster_path, cluster_dir):
     cur_cons = {}
     cur_contignames, cur_contigs = read_fasta(cur_cluster_path)
     align_file = cur_cluster_path + '.maf.fa'
-    if not file_exist(align_file):
-        if len(cur_contignames) >= 1:
+    if len(cur_contignames) >= 1:
+        if not file_exist(align_file):
             align_command = 'cd ' + cluster_dir + ' && mafft --preservecase --quiet --thread 1 ' + cur_cluster_path + ' > ' + align_file
             os.system(align_command)
-    cons_seq = cons_from_mafft(align_file)
-    cur_cons['LTR_cons_' + str(cluster_id)] = cons_seq
+        cons_seq = cons_from_mafft(align_file)
+        cur_cons[cur_contignames[0]] = cons_seq
     return cur_cons
 
 def deredundant_for_LTR(redundant_ltr, work_dir, threads):
@@ -8965,7 +8965,7 @@ def deredundant_for_LTR(redundant_ltr, work_dir, threads):
     all_cons.update(uncluster_contigs)
     ltr_cons_path = redundant_ltr + '.cons'
     store_fasta(all_cons, ltr_cons_path)
-    rename_fasta(ltr_cons_path, ltr_cons_path, 'LTR')
+    #rename_fasta(ltr_cons_path, ltr_cons_path, 'LTR')
     return ltr_cons_path
 
 def find_nearest_polyA(sequence, position, window_size=25, min_length=6):

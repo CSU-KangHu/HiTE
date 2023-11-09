@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
     rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
-    rename_fasta(confident_non_ltr_path, confident_non_ltr_path, 'Non-LTR')
+    rename_fasta(confident_non_ltr_path, confident_non_ltr_path, 'Denovo_Non_LTR')
 
 
     final_confident_tir_path = tmp_output_dir + '/confident_tir.fa'
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                      + ' -G 0 -g 1 -A 80 -i ' + confident_non_ltr_path + ' -o ' + confident_non_ltr_cons + ' -T 0 -M 0'
     os.system(cd_hit_command)
-    rename_fasta(confident_non_ltr_cons, final_confident_non_ltr_path, 'Non_LTR')
+    rename_fasta(confident_non_ltr_cons, final_confident_non_ltr_path, 'Denovo_Non_LTR')
 
     # Remove TIR elements containing LTR
     remove_ltr_from_tir(confident_ltr_cut_path, final_confident_tir_path, threads)
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     sample_name = 'test'
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
 
-    rename_fasta(clean_TE_path, clean_TE_path)
+    #rename_fasta(clean_TE_path, clean_TE_path)
     contignames, contigs = read_fasta(clean_TE_path)
     new_contigs = {}
     for name in contignames:
