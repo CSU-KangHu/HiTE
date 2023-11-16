@@ -268,6 +268,7 @@ if __name__ == '__main__':
     HSDIR = os.getcwd() + '/bin/HelitronScanner/TrainingSet'
     HSJAR = os.getcwd() + '/bin/HelitronScanner/HelitronScanner.jar'
     rm2_script = os.getcwd() + '/bin/get_family_summary_paper.sh'
+    rm2_strict_script = os.getcwd() + '/bin/get_family_summary_paper_0.99.sh'
     member_script_path = tools_dir + '/make_fasta_from_blast.sh'
     subset_script_path = tools_dir + '/ready_for_MSA.sh'
     sh_dir = os.getcwd() + '/bin'
@@ -572,7 +573,7 @@ if __name__ == '__main__':
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
                             + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) + ' --lib_module ' + str(lib_module) \
                             + ' --TE_lib ' + str(classified_TE_path) + ' --rm2_script ' + str(rm2_script) \
-                            + ' -r ' + reference
+                            + ' --rm2_strict_script ' + str(rm2_strict_script) + ' -r ' + reference
         if EDTA_home is not None and EDTA_home.strip() != '':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
         if species is None or species.strip() == '':

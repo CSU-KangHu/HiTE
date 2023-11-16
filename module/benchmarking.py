@@ -26,6 +26,8 @@ if __name__ == '__main__':
                         help='The path of TE library')
     parser.add_argument('--rm2_script', metavar='rm2_script',
                         help='The path of BM_RM2 script')
+    parser.add_argument('--rm2_strict_script', metavar='rm2_strict_script',
+                        help='The path of BM_RM2 0.99 threshold script')
     parser.add_argument('-r', metavar='reference',
                         help='e.g., Input reference Path')
     parser.add_argument('--EDTA_home', metavar='EDTA_home',
@@ -44,6 +46,7 @@ if __name__ == '__main__':
     lib_module = args.lib_module
     TE_lib = args.TE_lib
     rm2_script = args.rm2_script
+    rm2_strict_script = args.rm2_strict_script
     reference = args.r
     EDTA_home = args.EDTA_home
     species = args.species
@@ -76,6 +79,10 @@ if __name__ == '__main__':
     TE_lib = os.path.abspath(TE_lib)
     reference = os.path.abspath(reference)
     rm2_script = os.path.abspath(rm2_script)
+    rm2_strict_script = os.path.abspath(rm2_strict_script)
+
+    if coverage_threshold == 0.99:
+        rm2_script = rm2_strict_script
 
     log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
 
@@ -114,44 +121,66 @@ if __name__ == '__main__':
     else:
         log.logger.debug('Skip benchmarking of RepeatModeler2')
 
-    repbase_out = tmp_output_dir + '/repbase.out'
-    test_out = tmp_output_dir + '/HiTE.out'
-    if is_BM_EDTA or is_BM_HiTE:
-        if not os.path.exists(repbase_out):
-            RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-                                   + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + curated_lib + ' -cutoff 225 ' \
-                                   + reference
-            log.logger.debug(RepeatMasker_command)
-            os.system(RepeatMasker_command)
+    if is_BM_EDTA:
+        repbase_out = tmp_output_dir + '/repbase.edta.out'
+        test_out = tmp_output_dir + '/HiTE.edta.out'
 
-            mv_file_command = 'mv ' + reference + '.out ' + repbase_out
-            log.logger.debug(mv_file_command)
-            os.system(mv_file_command)
+        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + curated_lib + ' -cutoff 225 ' \
+                               + reference
+        log.logger.debug(RepeatMasker_command)
+        os.system(RepeatMasker_command)
 
-        if not os.path.exists(test_out):
-            RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-                                   + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + TE_lib + ' -cutoff 225 ' \
-                                   + reference
-            log.logger.debug(RepeatMasker_command)
-            os.system(RepeatMasker_command)
+        mv_file_command = 'mv ' + reference + '.out ' + repbase_out
+        log.logger.debug(mv_file_command)
+        os.system(mv_file_command)
 
-            mv_file_command = 'mv ' + reference + '.out ' + test_out
-            log.logger.debug(mv_file_command)
-            os.system(mv_file_command)
+        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + TE_lib + ' -cutoff 225 ' \
+                               + reference
+        log.logger.debug(RepeatMasker_command)
+        os.system(RepeatMasker_command)
 
-        if is_BM_EDTA:
-            # remove old report
-            os.system('rm -f ' + tmp_output_dir + '/HiTE.out.*.report')
-            bm_edta_command = 'cd ' + tmp_output_dir + ' && perl ' + EDTA_home + '/lib-test.pl -genome ' \
-                              + reference + ' -std ' + repbase_out + ' -tst ' + test_out + ' -cat Total'
-            log.logger.debug(bm_edta_command)
-            os.system(bm_edta_command)
+        mv_file_command = 'mv ' + reference + '.out ' + test_out
+        log.logger.debug(mv_file_command)
+        os.system(mv_file_command)
 
-            mv_file_command = 'mv ' + tmp_output_dir + '/HiTE.out.*.report ' + edta_out
-            log.logger.debug(mv_file_command)
-            os.system(mv_file_command)
-        else:
-            log.logger.debug('Skip benchmarking of EDTA')
+        # remove old report
+        os.system('rm -f ' + tmp_output_dir + '/HiTE.out.*.report')
+        bm_edta_command = 'cd ' + tmp_output_dir + ' && perl ' + EDTA_home + '/lib-test.pl -genome ' \
+                          + reference + ' -std ' + repbase_out + ' -tst ' + test_out + ' -cat Total'
+        log.logger.debug(bm_edta_command)
+        os.system(bm_edta_command)
+
+        mv_file_command = 'mv ' + tmp_output_dir + '/HiTE.out.*.report ' + edta_out
+        log.logger.debug(mv_file_command)
+        os.system(mv_file_command)
+    else:
+        log.logger.debug('Skip benchmarking of EDTA')
+
+    if is_BM_HiTE:
+        repbase_out = tmp_output_dir + '/repbase.hite.out'
+        test_out = tmp_output_dir + '/HiTE.hite.out'
+
+        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -q -no_is -norna -nolow -div 5 -gff -lib ' + curated_lib + ' -cutoff 225 ' \
+                               + reference
+        log.logger.debug(RepeatMasker_command)
+        os.system(RepeatMasker_command)
+
+        mv_file_command = 'mv ' + reference + '.out ' + repbase_out
+        log.logger.debug(mv_file_command)
+        os.system(mv_file_command)
+
+        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -q -no_is -norna -nolow -div 5 -gff -lib ' + TE_lib + ' -cutoff 225 ' \
+                               + reference
+        log.logger.debug(RepeatMasker_command)
+        os.system(RepeatMasker_command)
+
+        mv_file_command = 'mv ' + reference + '.out ' + test_out
+        log.logger.debug(mv_file_command)
+        os.system(mv_file_command)
 
         parent_dir = os.path.dirname(lib_module)
         HiTE_home = parent_dir

@@ -50,12 +50,6 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
 
-    log.logger.info(confident_ltr_cut_path)
-    log.logger.info(confident_tir_path)
-    log.logger.info(confident_helitron_path)
-    log.logger.info(confident_non_ltr_path)
-    log.logger.info(confident_other_path)
-    log.logger.info(tmp_output_dir)
 
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
     rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')

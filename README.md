@@ -399,11 +399,11 @@ The quantitative experimental results from the HiTE paper can be reproduced foll
 ### Benchmarking method of HiTE (BM_HiTE)
 ```sh
 # 1. annotate the genome with gold standard library:
-RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 40 \
+RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 5 \
  -lib ${standard_lib} -cutoff 225 ${genome} && mv ${genome}.out standard.out
 
 # 2. annotate the genome with test library:
-RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 40 \
+RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 5 \
  -lib ${test_lib} -cutoff 225 ${genome} && mv ${genome}.out test.out
 
 # 3. run BM_HiTE

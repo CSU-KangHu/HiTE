@@ -148,6 +148,7 @@ BM_RM2 = "${params.BM_RM2}"
 BM_EDTA = "${params.BM_EDTA}"
 BM_HiTE = "${params.BM_HiTE}"
 rm2_script = "${projectDir}/bin/get_family_summary_paper.sh"
+rm2_strict_script = "${projectDir}/bin/get_family_summary_paper_0.99.sh"
 EDTA_home = "${params.EDTA_home}"
 species = "${params.species}"
 
@@ -596,7 +597,7 @@ process benchmarking {
          --tmp_output_dir ${tmp_output_dir} \
          --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} --BM_HiTE ${BM_HiTE} \
          -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
-         --rm2_script ${rm2_script} \
+         --rm2_script ${rm2_script} --rm2_strict_script ${rm2_strict_script} \
          -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
 
         echo "benchmarking_finished" > output.txt
@@ -608,7 +609,7 @@ process benchmarking {
          --BM_RM2 ${BM_RM2} \
          --BM_HiTE ${BM_HiTE} \
          -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
-         --rm2_script ${rm2_script} \
+         --rm2_script ${rm2_script} --rm2_strict_script ${rm2_strict_script} \
          -r ${ref} --species ${species}
 
         echo "benchmarking_finished" > output.txt
