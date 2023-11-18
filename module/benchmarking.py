@@ -146,13 +146,13 @@ if __name__ == '__main__':
         os.system(mv_file_command)
 
         # remove old report
-        os.system('rm -f ' + tmp_output_dir + '/HiTE.out.*.report')
+        os.system('rm -f ' + tmp_output_dir + '/HiTE.edta.out.*.report')
         bm_edta_command = 'cd ' + tmp_output_dir + ' && perl ' + EDTA_home + '/lib-test.pl -genome ' \
                           + reference + ' -std ' + repbase_out + ' -tst ' + test_out + ' -cat Total'
         log.logger.debug(bm_edta_command)
         os.system(bm_edta_command)
 
-        mv_file_command = 'mv ' + tmp_output_dir + '/HiTE.out.*.report ' + edta_out
+        mv_file_command = 'mv ' + tmp_output_dir + '/HiTE.edta.out.*.report ' + edta_out
         log.logger.debug(mv_file_command)
         os.system(mv_file_command)
     else:

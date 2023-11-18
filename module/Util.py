@@ -6358,7 +6358,7 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
                 if float(subject_len)/total_subject_len >= 0.95:
                     delete_tir_names.add(query_name)
     f_r.close()
-    print(delete_tir_names)
+    # print(delete_tir_names)
     # print(len(delete_tir_names))
     # remain_names = set(query_names).difference(delete_tir_names)
     # print(remain_names)

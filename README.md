@@ -21,6 +21,8 @@ HiTE has been successfully applied to multiple practical applications, and you c
 
 ## Table of Contents
 - [Installation](#install)
+  - [Dowload project](#download)
+  - [Before running](#before_run)
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
   - [Run with Conda](#install_conda)
@@ -40,13 +42,19 @@ Recommended Hardware requirements: 40 CPU processors, 128 GB RAM.
 
 Recommended OS: (Ubuntu 16.04, CentOS 7, etc.)
 
-### Dowload project
+### <a name="download"></a>Dowload project
 ```sh
 git clone https://github.com/CSU-KangHu/HiTE.git
 # Alternatively, you can download the zip file directly from the repository.
 cd HiTE
 chmod +x tools/*
 ```
+
+### <a name="before_run"></a>Before running
+HiTE enables the pre-masking step by default to minimize processing time in large genomes.
+If you are working with a **smaller genome** or desire a **more comprehensive TE library** 
+and are willing to accept slightly **longer runtimes**, please use the parameter `--is_prev_mask 0` 
+to deactivate the pre-masking step.
 
 ### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
 ```sh
@@ -135,55 +143,6 @@ and support for containerization technologies like **Docker** and **Singularity*
 
 We provide a [tutorial](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow) on how to run HiTE with nextflow.
 
-<!--
-### <a name="step-step"></a>Option 4. Step-by-step installation
-#### 1. Download project 
-```
-git clone https://github.com/CSU-KangHu/HiTE.git
-```
-
-#### 2. installing python3
-HiTE requires python3, please ensure you run HiTE with python3.
-
-#### 3. installing RMBlast
-Please install  [RMBlast](https://www.repeatmasker.org/rmblast/).
-
-#### <a name="genome_tools"></a>4. Installing genome tools
-Download [Genome Tools](http://genometools.org/pub/binary_distributions/).
-
-#### <a name="ltrretriever"></a>5. Installing LTR_retriever
-Install the latest release of LTR_retriever
-from the [LTR_retriever Github page](https://github.com/oushujun/LTR_retriever).
-
-#### <a name="repeatmodeler"></a>6. Installing RepeatMasker and RepeatModeler2 (Optional)
-It is recommended to download the [RepeatMasker](http://www.repeatmasker.org/RepeatMasker/) with the complete Dfam 3.6 library.
-
-HiTE uses RepeatClassifier from [RepeatModeler2](https://www.repeatmasker.org/RepeatModeler/) to classify the TE models. 
-Please follow the documentation to install RepeatModeler2 and configure RepeatMasker.
-
-If you do not need classified TE models, you can skip this step and run HiTE with `--classified 0`.
-
-#### <a name="configure"></a>7. Configuring dependencies
-```
-cd /your_path_to/HiTE
-vim ParamConfig.json
-```
-Change
-- Genome_Tools_Home
-- LTR_retriever_Home
-- RMBlast_Home
-- RepeatModeler_Home
-
-to the actual installation directories of RepeatMasker, Genome_Tools, LTR_retriever, and RMBlast, respectively.
-
-Then, run
-
-```
-cd /your_path_to/HiTE
-python configure.py
-```
-to validate all configurations.
--->
 
 ## <a name="demo"></a>Demo data
 
