@@ -8,7 +8,7 @@
 [![DockerHub](https://img.shields.io/badge/Docker-support-orange)](https://hub.docker.com/repository/docker/kanghu/hite/general)
 [![Conda](https://img.shields.io/badge/Conda-support-yellow)](https://docs.conda.io/en/latest/)
 [![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://docs.conda.io/en/latest/)
-[![DOI](https://zenodo.org/badge/581174729.svg)](https://zenodo.org/doi/10.5281/zenodo.10065665)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10158451.svg)](https://doi.org/10.5281/zenodo.10158451)
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies.
 
@@ -237,7 +237,7 @@ on the proportion of each transposon type within the genome.
 Since the Dfam library included in RepeatMasker by default is not complete, it will seriously affect the classification effect.
 We recommend updating RepeatMasker with the complete Dfam 3.6 library as described at http://www.repeatmasker.org/RepeatMasker/, including download, unpack, and reconfiguration.
 We also provide an optional method to avoid the big Dfam.h5.gz (15 GB) download and reconfiguration, as follows:
-1. download **RepeatMasker_Lib.zip** from [Zenodo](https://zenodo.org/records/10074038) or Github: `git clone https://github.com/CSU-KangHu/TE_annotation.git`
+1. download **RepeatMasker_Lib.zip** from [Zenodo](https://zenodo.org/records/10159971) or Github: `git clone https://github.com/CSU-KangHu/TE_annotation.git`
 
 3. upload **RepeatMasker_Lib.zip** to RepeatMasker/Libraries, where RepeatMasker is your installation directory of RepeatMasker.
    (e.g., ~/anaconda2/envs/HiTE/share/RepeatMasker)
