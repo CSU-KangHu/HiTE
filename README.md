@@ -11,13 +11,13 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10158451.svg)](https://doi.org/10.5281/zenodo.10158451)
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies.
-
+<!-- 
 ## Application
 
 HiTE has been successfully applied to multiple practical applications, and you can refer to our most recent case for reference.
 
 [TE annotation in einkorn assemblies using HiTE](https://github.com/CSU-KangHu/HiTE/wiki/TE-annotation-in-einkorn-assemblies-using-HiTE)
-
+-->
 
 ## Table of Contents
 - [Installation](#install)
