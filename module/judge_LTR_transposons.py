@@ -49,7 +49,7 @@ def rename_LTR(ltr_lib, rename_ltr_lib):
     for ltrName in ltrName2ltrIndex.keys():
         ltr_type = ltrName.split('#')[0].split('_')[-1]
         ltr_index = ltrName2ltrIndex[ltrName]
-        new_name = 'ltr_' + str(ltr_index) + '_' + ltr_type
+        new_name = 'ltr_' + str(ltr_index) + '-' + ltr_type
         rename_LTRs[new_name] = contigs[ltrName]
     store_fasta(rename_LTRs, rename_ltr_lib)
 
