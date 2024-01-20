@@ -1,6 +1,6 @@
 # HiTE: a fast and accurate dynamic boundary adjustment approach for full-length Transposable Elements detection and annotation in Genome Assemblies
 
-# HiTE
+# HiTE (HiTE is currently undergoing an update to version 3.1, with an expected completion date of January 21, 2024.)
 
 [![GitHub](https://img.shields.io/badge/python-3-blue)](https://www.python.org/)
 [![GitHub](https://img.shields.io/badge/license-GPL--3.0-green)](https://github.com/CSU-KangHu/HiTE/blob/master/LICENSE)
@@ -17,7 +17,7 @@ Similar works include:
 * [EDTA](https://github.com/oushujun/EDTA)
 * [EarlGrey](https://github.com/TobyBaril/EarlGrey)
 
-`HiTE` now uses [NeuralTE](https://github.com/CSU-KangHu/NeuralTE) for TE classification instead of the previous RepeatClassifier. 
+`HiTE` now uses [NeuralTE](https://github.com/CSU-KangHu/NeuralTE) for TE classification instead of the previous `RepeatClassifier`. 
 Consequently, there is no need to configure additional `Dfam` libraries for TE classification.
 
 
@@ -60,7 +60,7 @@ chmod +x ${pathTo}/HiTE/tools/* && chmod +x ${pathTo}/HiTE/bin/NeuralTE/tools/*
 ```
 
 ### <a name="before_run"></a>Before running
-HiTE enables the pre-masking step by default to minimize processing time in large genomes.
+`HiTE` enables the pre-masking step by default to minimize processing time in large genomes.
 If you are working with a **smaller genome** or desire a **more comprehensive TE library** 
 and are willing to accept slightly **longer runtimes**, please use the parameter `--is_prev_mask 0` 
 to deactivate the pre-masking step.
