@@ -17,7 +17,7 @@ Similar works include:
 * [EDTA](https://github.com/oushujun/EDTA)
 * [EarlGrey](https://github.com/TobyBaril/EarlGrey)
 
-HiTE has been updated to the new version 3.1. We now use [NeuralTE](https://github.com/CSU-KangHu/NeuralTE) for TE classification instead of the previous RepeatClassifier. 
+`HiTE` now uses [NeuralTE](https://github.com/CSU-KangHu/NeuralTE) for TE classification instead of the previous RepeatClassifier. 
 Consequently, there is no need to configure additional `Dfam` libraries for TE classification.
 
 
