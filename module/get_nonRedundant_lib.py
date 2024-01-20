@@ -5,9 +5,7 @@ import sys
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir
-
-
+from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir, get_domain_info
 
 if __name__ == '__main__':
     # 1.parse args
@@ -28,6 +26,17 @@ if __name__ == '__main__':
                         help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--test_home', metavar='test_home',
                         help='The directory of HiTE module')
+    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
+                        help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
+    parser.add_argument('--NeuralTE_home', metavar='NeuralTE_home',
+                        help='The root directory of NeuralTE')
+    parser.add_argument('--TEClass_home', metavar='TEClass_home',
+                        help='The root directory of TEClass')
+    parser.add_argument('--domain', metavar='domain',
+                        help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
+    parser.add_argument('--protein_path', metavar='protein_path',
+                        help='The path of protein domain')
+
 
     args = parser.parse_args()
 
@@ -39,6 +48,11 @@ if __name__ == '__main__':
     confident_other_path = args.confident_other
     tmp_output_dir = args.tmp_output_dir
     test_home = args.test_home
+    use_NeuralTE = int(args.use_NeuralTE)
+    NeuralTE_home = args.NeuralTE_home
+    TEClass_home = args.TEClass_home
+    domain = args.domain
+    protein_path = args.protein_path
 
     confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
     confident_tir_path = os.path.realpath(confident_tir_path)
@@ -89,6 +103,34 @@ if __name__ == '__main__':
     os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
     os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)
     os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
+    # os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+
+    ref_rename_path = tmp_output_dir + '/genome.rename.fa'
+    # ClassifyTE except for LTR (LTRs have been classified)
+    if use_NeuralTE:
+        # classify LTR using NeuralTE
+        NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
+        if not os.path.exists(NeuralTE_output_dir):
+            os.makedirs(NeuralTE_output_dir)
+        NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + confident_TE_path \
+                           + ' --genome ' + ref_rename_path + ' --use_TSD 1 --model_path ' \
+                           + NeuralTE_home + '/models/NeuralTE-TSDs_model.h5 --outdir ' \
+                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker 0'
+        log.logger.debug(NeuralTE_command)
+        os.system(NeuralTE_command + ' > /dev/null 2>&1')
+        classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
+    else:
+        # classify LTR using RepeatClassifier
+        sample_name = 'test'
+        TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+                          + ' --consensus ' + confident_TE_path + ' --genome 1' \
+                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
+        log.logger.debug(TEClass_command)
+        os.system(TEClass_command)
+        classified_TE_path = confident_TE_path + '.classified'
+
+    # merge classified LTRs and TEs
+    os.system('mv ' + classified_TE_path + ' ' + confident_TE_path)
     os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
     # Unpack nested TEs within TEs
@@ -118,5 +160,10 @@ if __name__ == '__main__':
                      + ' -G 0 -g 1 -A 80 -i ' + clean_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
     os.system(cd_hit_command)
 
+    # get domain for TEs
+    if domain is not None and int(domain) == 1:
+        output_table = confident_TE_consensus + '.domain'
+        temp_dir = tmp_output_dir + '/domain'
+        get_domain_info(confident_TE_consensus, protein_path, output_table, threads, temp_dir)
 
 

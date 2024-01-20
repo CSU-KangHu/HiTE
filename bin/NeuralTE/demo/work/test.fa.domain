@@ -1,0 +1,13 @@
+TE_name	domain_name	TE_start	TE_end	domain_start	domain_end
+
+MARINER2	Mariner2_DM_tp#DNA/TcMar-Tc1	56	799	1	248
+Gypsy-autonomous	Gypsy47-ZM_1p#LTR/Gypsy	910	5131	236	1634
+MuDR2-autonomous	MDR2_tp#DNA/MULE-MuDR	1459	3851	225	1029
+MuDR2-autonomous	MuDR-3_SBi_p2#DNA/MULE-MuDR	4028	5607	1	491
+MuDR2-autonomous	MDR3_tp#DNA/MULE-MuDR	872	1257	1	129
+LINE1-autonomous	L1-9_Mad_pol#LINE/L1	2134	6257	7	1377
+LINE1-autonomous	OSLINE1_2_gag#LINE/L1	576	2117	193	699
+QUASIMODO2-autonomous	QUASIMODO2_DM_pol#LTR/Gypsy	2523	5639	1	1039
+QUASIMODO2-autonomous	QUASIMODO2_DM_gag#LTR/Gypsy	1279	2559	1	427
+G6	G6_DM_gag#LINE/I-Jockey	127	1596	1	490
+HOBO	UN-Hobo_tp#DNA/hAT-hobo	316	2244	1	622

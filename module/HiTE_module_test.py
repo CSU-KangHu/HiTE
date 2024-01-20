@@ -36,10 +36,10 @@ sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, getReverseSequence, allow_mismatch, \
     run_itrsearch, multi_process_itr, filter_large_gap_tirs, multi_process_align_and_get_copies, \
     store_copies_v1, get_TSD, store_copies, store_LTR_seq_v1, store_LTR_seq, store_LTR_seq_v2, rename_reference, \
-    run_LTR_harvest, run_LTR_retriever, determine_repeat_boundary_v2, determine_repeat_boundary_v1, multi_process_align, \
-    get_copies, TSDsearch_v4, overlap_with_boundary, judge_flank_align, get_copies_v1, convertToUpperCase_v1, \
-    determine_repeat_boundary_v3, search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
-    run_blast_align, TSDsearch_v2, remove_ltr_from_tir, \
+    run_LTR_harvest, run_LTR_retriever, multi_process_align, \
+    get_copies, TSDsearch_v4, overlap_with_boundary, get_copies_v1, convertToUpperCase_v1, \
+    search_confident_tir, store_copies_seq, PET, multiple_alignment_blastx_v1, store2file, \
+    TSDsearch_v2, remove_ltr_from_tir, \
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
     flanking_seq, multi_process_helitronscanner, split_fasta, get_longest_repeats_v4, \
     process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, search_confident_tir_v4, \
@@ -3636,25 +3636,72 @@ def get_logo_seq(ltr_copies):
 
 
 if __name__ == '__main__':
-    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
-    tmp_out_dir = repbase_dir + '/rice'
-    ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
-    tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
+    work_dir = '/home/hukang/test/HiTE/demo/test2'
+    ltr_list = work_dir + '/genome.rename.fa.pass.list'
+    genome_path = work_dir + '/genome.rename.fa'
+    intact_LTR_path = work_dir + '/intact_LTR.fa'
+
+    segmentLTRs = {}
+    ltr_contigs = {}
+    ref_contigNames, ref_contigs = read_fasta(genome_path)
+    ltr_index = 1
+    with open(ltr_list, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            direct = line.split('\t')[8]
+            ltr_name = line.split('\t')[0]
+            internal_info = line.split('\t')[6]
+            int_start = int(internal_info.split(':')[1].split('..')[0])
+            int_end = int(internal_info.split(':')[1].split('..')[1])
+            parts = ltr_name.split(':')
+            chr_name = parts[0]
+            chr_start = int(parts[1].split('..')[0])
+            chr_end = int(parts[1].split('..')[1])
+            if direct == '-':
+                temp = chr_end
+                chr_end = chr_start
+                chr_start = temp
+            chr_seq = ref_contigs[chr_name]
+            ltr_seq = chr_seq[chr_start-1: chr_end]
+
+            terminal_seq1 = chr_seq[chr_start-1: int_start-1]
+            internal_seq = chr_seq[int_start-1: int_end]
+            terminal_seq2 = chr_seq[int_end: chr_end]
+            current_name = 'ltr_'+str(ltr_index)
+            segmentLTRs[current_name+'_LTR'] = terminal_seq1
+            segmentLTRs[current_name + '_INT'] = internal_seq
+            ltr_contigs[current_name] = ltr_seq
+            ltr_index += 1
+            # print(terminal_seq1)
+            # print(internal_seq)
+            # print(terminal_seq2)
+            # print(ltr_seq)
+            break
+    store_fasta(ltr_contigs, intact_LTR_path)
+
+
+
+
+    # repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/repbase'
+    # tmp_out_dir = repbase_dir + '/rice'
+    # ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
+    # tir_repbase_path = tmp_out_dir + '/tir.repbase.ref'
     #log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
 
     #将repbase中的TIR序列，用最新的过滤方法，看它认为哪些是假阳性
-    plant = 1
+    # plant = 1
     #TE_type = 'TIR'
-    tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
+    # tmp_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test'
     #raw_input = tmp_dir + '/tir.repbase.ref'
     #output = tmp_dir + '/real_lost_tirs.fa'
-    output = tmp_dir + '/real_tir.fa'
+    # output = tmp_dir + '/real_tir.fa'
     #output = tmp_dir + '/real_helitron.fa'
     # member_script_path = '/home/hukang/TE_ManAnnot/bin/make_fasta_from_blast.sh'
     # subset_script_path = '/home/hukang/TE_ManAnnot/bin/ready_for_MSA.sh'
     # reference = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/genome.rename.fa'
-    member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
-    subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
+    # member_script_path = '/public/home/hpc194701009/HiTE/tools/make_fasta_from_blast.sh'
+    # subset_script_path = '/public/home/hpc194701009/HiTE/tools/ready_for_MSA.sh'
     #reference = '/home/hukang/EDTA/krf_test/dmel/dmel-all-chromosome-r5.43.rename.fasta'
     #reference = '/home/hukang/EDTA/krf_test/drerio/GCF_000002035.6_GRCz11_genomic.rename.fna'
     #reference = '/home/hukang/EDTA/krf_test/maize/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
@@ -3664,16 +3711,16 @@ if __name__ == '__main__':
     #reference = '/home/hukang/HiTE/demo/genome.fa'
     #reference = '/home/hukang/EDTA/krf_test/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
     #reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
-    reference = '/public/home/hpc194701009/KmerRepFinder_test/genome/GCF_000226075.1_SolTub_3.0_genomic.fna'
-    temp_dir = tmp_dir + '/copies'
-    threads = 40
+    # reference = '/public/home/hpc194701009/KmerRepFinder_test/genome/GCF_000226075.1_SolTub_3.0_genomic.fna'
+    # temp_dir = tmp_dir + '/copies'
+    # threads = 40
     # filter_boundary_homo(raw_input, output, reference, member_script_path, subset_script_path, temp_dir, threads, plant,
     #                     TE_type)
 
     # 我想尝试一下把获得拷贝的方法换成member_script，过滤方法还是老的过滤方法
     #raw_input = tmp_dir + '/fake_helitron.fa'
     #raw_input = tmp_dir + '/lost_tir.fa'
-    raw_input = tmp_dir + '/test.fa'
+    # raw_input = tmp_dir + '/test.fa'
     #raw_input = tmp_dir + '/test_helitron.fa'
     #raw_input = tmp_dir + '/helitron.repbase.ref'
     #raw_input = tmp_dir + '/tir.repbase.ref'
@@ -3688,18 +3735,18 @@ if __name__ == '__main__':
     #     rename_contigs[new_name] = contigs[name]
     # store_fasta(rename_contigs, raw_input)
 
-    flanking_len = 50
-    similar_ratio = 0.2
-    TE_type = 'tir'
+    # flanking_len = 50
+    # similar_ratio = 0.2
+    # TE_type = 'tir'
     #TE_type = 'helitron'
-    ref_index = 0
+    # ref_index = 0
     #log = Logger(tmp_dir+'/HiTE.log', level='debug')
     #confident_copies = flank_region_align_v2(raw_input, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant)
-    debug = 1
+    # debug = 1
     #output = tmp_dir + '/real_tir_'+str(ref_index)+'.fa'
     #output = tmp_dir + '/confident_helitron_' + str(ref_index) + '.r1.fa'
     #output1 = tmp_dir + '/confident_helitron_' + str(ref_index) + '.fa'
-    result_type = 'cons'
+    # result_type = 'cons'
     #flank_region_align_v4(raw_input, output, flanking_len, similar_ratio, reference, TE_type, tmp_dir, threads, ref_index, log, member_script_path, subset_script_path, plant, debug, 0, result_type)
 
 
@@ -3742,7 +3789,7 @@ if __name__ == '__main__':
     # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
 
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
-    tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test4/rice'
+    # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test4/rice'
     #analyze_new_TIRs(tmp_output_dir)
 
 
@@ -3890,7 +3937,7 @@ if __name__ == '__main__':
 
     # # 看一下能否过滤或者合并longest_repeats
     # max_single_repeat_len = 30000
-    output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib1/rice'
+    # output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib1/rice'
     # longest_repeats_path = output_dir + '/longest_repeats_0.fa'
     # contigName, contigs = read_fasta(longest_repeats_path)
     # r1_longest_repeats_path = output_dir + '/longest_repeats_0.r1.fa'
@@ -3962,13 +4009,13 @@ if __name__ == '__main__':
     # output_fig = '/public/home/hpc194701009/KmerRepFinder_test/library/tir_test/tir_copies.png'
     # get_copies_dist_boxplot(paths, copies_dirs, labels, output_path, output_fig)
 
-    # 估计序列的插入时间
-    tir_identity = 0.79
-    miu = 1.3e-8
-    d = 1 - tir_identity
-    K=  -3/4*math.log(1-d*4/3)
-    T = K/(2*miu)
-    print(d, K, T)
+    # # 估计序列的插入时间
+    # tir_identity = 0.79
+    # miu = 1.3e-8
+    # d = 1 - tir_identity
+    # K=  -3/4*math.log(1-d*4/3)
+    # T = K/(2*miu)
+    # print(d, K, T)
 
 
     # reference = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Zea_mays_Mol7/Zm-Mo17-REFERENCE-CAU-2.0.fa'
@@ -3999,7 +4046,7 @@ if __name__ == '__main__':
     #     chr_path = split_ref_dir + '/ref_block_' + str(i) + '.fa'
     #     store_fasta(block, chr_path)
     #     os.system('makeblastdb -in ' + chr_path + ' -dbtype nucl')
-    is_recover = 1
+    # is_recover = 1
     # flanking_len = 50
     # similar_ratio = 0.2
     # TE_type = 'tir'

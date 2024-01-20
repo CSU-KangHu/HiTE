@@ -1,0 +1,10 @@
+#Seq_Name,Predict_Label
+MuDR1-non-autonomous,Mutator
+MuDR2-autonomous,Mutator
+LINE1-autonomous,L1
+Gypsy-autonomous,Gypsy
+QUASIMODO2-autonomous,Gypsy
+G6,Jockey
+MARINER2,Tc1-Mariner
+HOBO,hAT
+SAT-1_DEl,Unknown

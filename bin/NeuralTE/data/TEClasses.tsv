@@ -1,0 +1,299 @@
+full_name	title	description	hyperlink	count	repeatmasker_type	repeatmasker_subtype	repbase_equiv	wicker_equiv	curcio_derbyshire_equiv	piegu_equiv
+Accidental	Accidental/spontaneous integration events.									
+Accidental;Normally_Non-integrating_Virus	Virus families that are more likely the result of spontaneous integration rather than Retrotranposition. 			22	Other	DNA_virus				
+Artifact	Elements often found in cloning vectors that may contaminate sequencing projects.			42	ARTEFACT					
+Interspersed_Repeat	A repetitive sequence with copies interspersed throughout an organisms genome.									
+Interspersed_Repeat;Pseudogene	Duplications of existing genes in an organism.									
+Interspersed_Repeat;Pseudogene;RNA	Non-translated, small RNA genes often found in high copy number.	Related genes are included			RNA					
+Interspersed_Repeat;Pseudogene;RNA;rRNA	Copies of a ribosomal RNA (rRNA) gene or pseudogene.			3654	rRNA					
+Interspersed_Repeat;Pseudogene;RNA;scRNA				71	scRNA					
+Interspersed_Repeat;Pseudogene;RNA;snRNA	Copies of a small nuclear RNA (snRNA) gene or pseudogene.	Small nuclear RNAs include 7SK RNA and the U1 to U13. They are dependent on external promoters and are theferore much less frequently involved in the creation of a SINE		1863	snRNA					
+Interspersed_Repeat;Pseudogene;RNA;tRNA	Copies of a transfer RNA (tRNA) gene or pseudogene.	In mammals,  tRNAs copies can occur in relatively large numbers (up to a thousand copies) The boundary between a large number of accidentally retroposed or otherwise duplicated (pseudo)genes and a low copy number SINE (selected on its ability to propagate) is nebulous		6835	tRNA					
+Interspersed_Repeat;Transposable_Element	Families that are the direct result of transposition events.									
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition	Elements that do not require an RNA intermediate in their transposition lifecycle.									
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;DNA_Polymerase										
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;DNA_Polymerase;Casposon	Archaeal and bacterial mobile elements at the origin of CRISPR-Cas immunity.	PMID 24884953, 26764427	https://www.ncbi.nlm.nih.gov/pubmed/?term=24884953		DNA	Casposons				
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;DNA_Polymerase;Maverick				16274	DNA	Maverick	DNA/Polinton	D/M (Maverick)/M (Maverick)		
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;DNA_Polymerase;Maverick;Maverick-Mavirus		Maverick-Mavirus			DNA	Maverick-Mavirus	DNA/Polinton	D/M (Maverick)/M (Maverick)		
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Helicase	Circular ssDNA Intermediate.	Circular ssDNA Intermediate			RC		DNA	D/H/H		
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Helicase;Helitron-1				106868	RC	Helitron	DNA/Helitron	D/H/H (Helitron)	Y2-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Helicase;Helitron-2				55	RC	Helitron-2	DNA/Helitron	D/H/H (Helitron)	Y2-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase	DNA transposons with terminal inverted repeats ranging from 6 bp to many kb.	Autonomous elements have a DD(E/D) transposase. Most DNA transposons fall in this class. Some non-autonomous elements, hairpin		63219	DNA		DNA	D		
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Academ	Academ superfamily of  DNA transposons.	Found in metazoans and fungi, autonomous Academ elements encode a ca 1.5 kb protein containing an XPG exonuclease domain, a Cys8 zinc finger, and a DDE transposase domain unlike those of others. Termini tend to be TAGÃCTA and a 3 bp target site is duplicated.								
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Academ;Academ-1	First described family of Academ DNA transposon.			9490	DNA	Academ-1	DNA/Academ	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Academ
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Academ;Academ-2	Second described family of Academ DNA transposon.			226	DNA	Academ-2	DNA/Academ	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Academ
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Academ;Academ-H	Family of Academ transposons described in rust fungi.			53	DNA	Academ-H	DNA/Academ	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Academ
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA	A group of DNA transposons with characteristic CACTAâ¦TAGTG termini.									
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;CMC	CACTA (EnSpm), Mirage, Chapaev group with related DNA transposons.			45	DNA	CMC				
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;CMC;Chapaev_group	Superfamily including  Chapaev and Chapaev-3 elements.									
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;CMC;Chapaev_group;Chapaev	So-far animal-specific elements with a specific DDE transposase.			489	DNA	CMC-Chapaev	DNA/Enspm/Cacta	D/T (TIR)/C (CACTA)	DDE-transposons	DDE-transposons/CutOPasI/CMC
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;CMC;Chapaev_group;Chapaev-3	So-far animal-specific elements with a specific DDE transposase.			6650	DNA	CMC-Chapaev-3	DNA/Enspm/Cacta	D/T (TIR)/C (CACTA)	DDE-transposons	DDE-transposons/CutOPasI/CMC
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;CMC;EnSpm				25094	DNA	CMC-EnSpm	DNA/Enspm/Cacta	D/T (TIR)/C (CACTA)	DDE-transposons	DDE-transposons/CutOPasI/CMC
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;CMC;Mirage				11	DNA	CMC-Mirage	DNA/Enspm/Cacta	D/T (TIR)/C (CACTA)	DDE-transposons	DDE-transposons/CutOPasI/CMC
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;CACTA;Transib	Group of DNA transposons at the basis of our adaptive immune system.			8043	DNA	CMC-Transib	DNA/Enspm/Cacta	D/T (TIR)/R (Transib)	DDE-transposons	DDE-transposons/CutOPasI/CMC
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Dada				602	DNA	Dada	DNA/Dada	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Dada
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Ginger				24	DNA	Ginger	DNA/Ginger1	D/T (TIR)	DDE-transposons	DDE-transposons
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Ginger;Ginger-1		Ginger-1		171	DNA	Ginger-1	DNA/Ginger1	D/T (TIR)	DDE-transposons	DDE-transposons
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Ginger;Ginger-2		Ginger-2		951	DNA	Ginger-2	DNA/Ginger2	D/T (TIR)	DDE-transposons	DDE-transposons
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;IS3EU				4513	DNA	IS3EU	DNA/IS3EU	D		DDE-transposons/CopOPasI/IS3
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Kolobok				2446	DNA	Kolobok				
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Kolobok;Hydra-specific_Branch				4865	DNA	Kolobok-Hydra	DNA/Kolobok	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Kolobok
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Kolobok;Kolobok-E				1114	DNA	Kolobok-E	DNA/KolobokE	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Kolobok
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Kolobok;Kolobok-H				26	DNA	Kolobok-H	DNA/	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Kolobok
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Kolobok;T2				11303	DNA	Kolobok-T2	DNA/Kolobok	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Kolobok
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Merlin				6556	DNA	Merlin	DNA/Merlin	D/T (TIR)/E (Merlin)	DDE-transposons	DDE-transposons/CutOPasI/IS1595-Merlin
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Mutator-like	Mutator-like Element aka MULE.	Mutator-like Element aka MULE		31	DNA	MULE	DNA/MuDR	D/T (TIR)/M (Mutator)	DDE-transposons	DDE-transposons/CutOPasI/IS256/MuDR/Mutator/Rehavkus
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Mutator-like;F				11	DNA	MULE-F	DNA/MuDRF	D/T (TIR)/M (Mutator)	DDE-transposons	DDE-transposons/CutOPasI/IS256/MuDR/Mutator/Rehavkus
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Mutator-like;MuDR				10287	DNA	MULE-MuDR	DNA/MuDR	D/T (TIR)/M (Mutator)	DDE-transposons	DDE-transposons/CutOPasI/IS256/MuDR/Mutator/Rehavkus
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Mutator-like;NOF				2148	DNA	MULE-NOF	DNA/MuDR	D/T (TIR)/M (Mutator)	DDE-transposons	DDE-transposons/CutOPasI/IS256/MuDR/Mutator/Rehavkus
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Mutator-like;Ricksha		Ricksha subclass		25	DNA	MULE-Ricksha	DNA/MuDR	D/T (TIR)/M (Mutator)	DDE-transposons	DDE-transposons/CutOPasI/IS256/MuDR/Mutator/Rehavkus
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Novosib				59	DNA	Novosib	DNA/Novosib	D		
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PIF-Harbinger				40	DNA	PIF				
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PIF-Harbinger;HarbS				18	DNA	PIF-HarbS	DNA/HarbS	D/T (TIR)/H (PIF-Harbinger)	DDE-transposons	DDE-transposons/CutOPasI/IS5/PIF/Harbinger
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PIF-Harbinger;Harbinger				55021	DNA	PIF-Harbinger	DNA/Harbinger	D/T (TIR)/H (PIF-Harbinger)	DDE-transposons	DDE-transposons/CutOPasI/IS5/PIF/Harbinger
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PIF-Harbinger;ISL2EU				3100	DNA	PIF-ISL2EU	DNA/ISL2EU	D/T (TIR)/H (PIF-Harbinger)	DDE-transposons	DDE-transposons/CutOPasI/IS5/PIF/Harbinger
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PIF-Harbinger;Spy				2609	DNA	PIF-Spy	DNA/Harbinger	D/T (TIR)/H (PIF-Harbinger)	DDE-transposons	DDE-transposons/CutOPasI/IS5/PIF/Harbinger
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;P_Element				10207	DNA	P	DNA/P	D/T (TIR)/P 	DDE-transposons	DDE-transposons/CutOPasI/P (?)
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;P_Element;Fungi-specific_Branch				25	DNA	P-Fungi	DNA/P	D/T (TIR)/P 	DDE-transposons	DDE-transposons/CutOPasI/P (?)
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PiggyBac_Group										
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PiggyBac_Group;PiggyBac				20487	DNA	PiggyBac	DNA/piggyBac	D/T (TIR)/B (PiggyBac)	DDE-transposons	DDE-transposons/CutOPasI/ISI380/PiggyBac
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PiggyBac_Group;PiggyBac-A					DNA	PiggyBac-A	DNA/piggyBacA	D/T (TIR)/B (PiggyBac)	DDE-transposons	DDE-transposons/CutOPasI/ISI380/PiggyBac
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;PiggyBac_Group;PiggyBac-X				67	DNA	PiggyBac-X	DNA/piggyBacX	D/T (TIR)/B (PiggyBac)	DDE-transposons	DDE-transposons/CutOPasI/ISI380/PiggyBac
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Sola										
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Sola;Sola-1				4849	DNA	Sola-1	DNA/Sola1	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Sola
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Sola;Sola-2				4741	DNA	Sola-2	DNA/Sola2	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Sola
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Sola;Sola-3				263	DNA	Sola-3	DNA/Sola3	D/T (TIR)	DDE-transposons	DDE-transposons/CutOPasI/Sola
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner				2207	DNA	TcMar	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Ant1	A group of DNA transposons so far limited to fungi.			19	DNA	TcMar-Ant1	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Cweed				8	DNA	TcMar-Cweed	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Gizmo					DNA	TcMar-Gizmo	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;IS885		TcMar-IS885		2	DNA	TcMar-IS885	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;ISRm11				5314	DNA	TcMar-ISRm11	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Mariner				37270	DNA	TcMar-Mariner	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Mogwai					DNA	TcMar-Mogwai	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Sagan				38	DNA	TcMar-Sagan	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Stowaway				194	DNA	TcMar-Stowaway	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc1				109265	DNA	TcMar-Tc1	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc2-group	Containing the sister clades of Tc2, Pogo, Fot1, and Tigger DNA transposons.									
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc2-group;Fot1				5470	DNA	TcMar-Fot1	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc2-group;Pogo				3437	DNA	TcMar-Pogo	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc2-group;Tc2				7173	DNA	TcMar-Tc2	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc2-group;Tigger	So far animal-specific mariner-like elements with the mammalian Tigger1 as type specimen.			23948	DNA	TcMar-Tigger	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;Tc4				4536	DNA	TcMar-Tc4	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Tc1-Mariner;m44				3337	DNA	TcMar-m44	DNA/Mariner	D/T (TIR)/T (Tc1-Mariner)	DDE-transposons	DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Zator				4412	DNA	Zator	DNA/Zator	D		DDE-transposons/CutOPasI/ITM (IS630/Tc1/Mariner)/Zator
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;Zisupton				3290	DNA	Zisupton	DNA/Zisupton	D		Zisupton
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT	hobo Activator Tam3 Elements.	hobo Activator Tam3 Elements		16225	DNA	hAT	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Activator	A large class in plants and animals named after the maize element.			84169	DNA	hAT-Ac	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Blackjack	A group of hAT transposons possibly closest to Charlie elements.			14394	DNA	hAT-Blackjack	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Charlie	Mostly animal-specific hAT transposons with the mammalian Charlie1 as type specimen.			65349	DNA	hAT-Charlie	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Pegasus				465	DNA	hAT-Pegasus	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Restless				8	DNA	hAT-Restless	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Tag1				3855	DNA	hAT-Tag1	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;Tip100	Widespread class of hAT elements, including the Arthur and Zaphod elements in ancient mammals.			53307	DNA	hAT-Tip100	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hAT1				20	DNA	hAT-hAT1	DNA/hAT1	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hAT19				4831	DNA	hAT-hAT19	DNA/hAT19	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hAT5				4339	DNA	hAT-hAT5	DNA/hAT5	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hAT6				1106	DNA	hAT-hAT6	DNA/hATa	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hATm				4148	DNA	hAT-hATm	DNA/hATm	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hATw				55	DNA	hAT-hATw	DNA/hATw	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hATx				2207	DNA	hAT-hATx	DNA/hATx	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Transposase;hAT;hobo				1430	DNA	hAT-hobo	DNA/hAT	D/T (TIR)/A (hAT)	DDE-transposons	DDE-transposons/CutOPasI/hAT
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase										
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton				777	DNA	Crypton	DNA/Crypton	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-A				3773	DNA	Crypton-A	DNA/CryptonA	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-C				77	DNA	Crypton-C	DNA/CryptonC	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-F				28	DNA	Crypton-F	DNA/CryptonF	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-H				339	DNA	Crypton-H	DNA/CryptonH	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-I				3999	DNA	Crypton-I	DNA/CryptonI	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-R				2	DNA	Crypton-R	DNA/CryptonR	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-S				88	DNA	Crypton-S	DNA/CryptonS	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-V				2537	DNA	Crypton-V	DNA/CryptonV	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_II_DNA_Transposition;Tyrosine_Recombinase;Crypton;Crypton-X				4	DNA	Crypton-X	DNA/CryptonX	D/Y (Crypton)/C (Crypton)	Y1-transposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition	Elements that require an RNA intermediate in their transposition lifecycle.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE	Long Interspersed Nuclear Element.		https://en.wikipedia.org/wiki/Long_interspersed_nuclear_element	3575	LINE		non-LTR/	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-I	Based on reverse transcriptase phylogeny, an outlier group containing the Ambal, CRE and Odin LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-I;Ambal	A group of LINE  so far specific to Diatoms.			31	LINE	CRE-Ambal	non-LTR/Ambal	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-I;CRE				5119	LINE	CRE	non-LTR/CRE	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-I;CRE;CRE-1					LINE	CRE-1	non-LTR/CRE	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-I;CRE;CRE-2					LINE	CRE-2	non-LTR/CRE	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-I;Odin				17	LINE	CRE-Odin	non-LTR/-	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II	The bulk of the LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Genie				1	LINE	Genie	non-LTR/-	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1	Containing the sister classes of Proto-1, L1-like, R2-like, and R4-like LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;L1-like	Containing the sister classes of DRE, L1, Tx1, and Zorro LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;L1-like;DRE				9	LINE	L1-DRE	non-LTR/	R/I (LINE)/L (L1)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;L1-like;L1-group	Containing the closely related L1 and Tx1 LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;L1-like;L1-group;L1	A large group of LINE elements with mammalian LINE-1 (L1) as type specimen.			75604	LINE	L1	non-LTR/L1	R/I (LINE)/L (L1)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;L1-like;L1-group;Tx1				6821	LINE	L1-Tx1	non-LTR/Tx1	R/I (LINE)/L (L1)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;L1-like;Zorro				2	LINE	L1-Zorro	non-LTR/	R/I (LINE)/L (L1)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;Proto-1				8	LINE	Proto1	non-LTR/Proto1	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R2-like	Containing the sister clades of R2, Hero and NeSL LINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R2-like;Hero				1678	LINE	R2-Hero	non-LTR/Hero	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R2-like;NeSL				792	LINE	R2-NeSL	non-LTR/NeSL	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R2-like;R2				1299	LINE	R2	non-LTR/R2	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R4-like	Containing the sister clades of Deceiver, Dong-R4, and Dualen LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R4-like;Deceiver				3	LINE	Deceiver	non-LTR/-	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R4-like;Dong-R4				7199	LINE	Dong-R4	non-LTR/R4	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-1;R4-like;Dualen				111	LINE	Dualen	non-LTR/RandI/Dualen	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2	Containing the sister classes of Proto-2, R1-like, and RTE-like LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;Proto-2				7258	LINE	Proto2	non-LTR/Proto2	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like	Containing Tad1, CR1-related and R1-related LINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;CR1-group	Containing the sister classes of CR1, L2 and Rex-Babar LINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;CR1-group;CR1	A large group of LINE elements with Chicken Repeat 1 (CR1) as type specimen.			103228	LINE	CR1	non-LTR/CR1	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;CR1-group;CR1;Zenon				12146	LINE	CR1-Zenon	non-LTR/CR1	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;CR1-group;L2-group	A large group of L2-like elements that can still need to be subclassified.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;CR1-group;L2-group;L2	A large group of LINE elements with mammalian LINE-2 (L2) as type specimen.			142811	LINE	L2	non-LTR/L2	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;CR1-group;Rex-Babar				26127	LINE	Rex-Babar	non-LTR/Rex1	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group	Containing the I, Jockey, LOA and R1 LINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group;I-group	Containing the sister classes of I and Jockey LINE elements.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group;I-group;I				20403	LINE	I	non-LTR/I + Nimb	R/I (LINE)/I	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group;I-group;Jockey				29123	LINE	I-Jockey	non-LTR/Jockey	R/I (LINE)/J (Jockey)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group;R1-subgroup	Containing the closely related LOA and R1 LINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group;R1-subgroup;LOA				21733	LINE	R1-LOA	non-LTR/Loa	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;R1-group;R1-subgroup;R1				28933	LINE	R1	non-LTR/R1	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;R1-like;Tad1				382	LINE	Tad1	non-LTR/Tad1	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;RTE-like				3021	LINE	RTE	non-LTR/RTE	R/I (LINE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;RTE-like;ORTE				236	LINE	RTE-ORTE	non-LTR/RTE	R/I (LINE)/T (RTE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;RTE-like;RTE-group										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;RTE-like;RTE-group;BovB	A subgoup of RTE elements with the bovine BovB as the type specimen.			57819	LINE	RTE-BovB	non-LTR/RTE (and 1 RTETP)	R/I (LINE)/T (RTE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;RTE-like;RTE-group;RTE				22097	LINE	RTE-RTE	non-LTR/RTE	R/I (LINE)/T (RTE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE;Group-II;Group-2;RTE-like;RTE-group;RTE-X				11629	LINE	RTE-X	non-LTR/RTEX	R/I (LINE)/T (RTE)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter				1829	Retroposon		non-LTR	R		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;I-derived	Nonautonomous retroposons derived from I-type LINEs.				Retroposon	I-derived	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;L1-dependent	A retroposon mobilized by an L1-type LINE.			441	Retroposon	L1-dep	non-LTR	R		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;L1-dependent;SVA				67	Retroposon	SVA	non-LTR	R		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;L1-derived	Nonautonomous retroposons derived from L1-type LINEs.			16	Retroposon	L1-derived	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;L2-derived	Nonautonomous retroposons derived from L2-type LINEs.			32	Retroposon	L2-derived	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;R4-derived	Nonautonomous retroposons derived from R4-type LINEs.				Retroposon	R4-derived	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;Lacking_Small_RNA_pol_III_Promoter;RTE-derived	Nonautonomous retroposons derived from RTE-type LINEs.			51	Retroposon	RTE-derived	non-LTR	R		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE	Short LINE-dependent retroposons with an internal (usually pol III) promoter.	The median length of described SINEs is ca. 250 bp Â±130 bp SD. The canonical SINE has a tRNA 5' end with the internal promoter, a core of unknown function shared with multiple other SINE families, a 3' end identical to that of the LINE responsible for its mobility, and a simple repeat tail. A few SINEs have a LINE-derived internal pol II promoter, and many lack either or both the core and LINE-derived regions.	https://en.wikipedia.org/wiki/Retrotransposon#SINEs	7834	SINE		SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter	SINEs with an internal promoter derived from 5S RNA.			528	SINE	5S	SINE/SINE3	R/S (SINE)/S (5S)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;Deu-core	Animal-wide conserved SINE central region, with the core of the ancient AmnSINE1 as type specimen.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;Deu-core;L2-end	SINE with a 3' end derived from a L2-type LINE.			1967	SINE	5S-Deu-L2	SINE/SINE3	R/S (SINE)/S (5S)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;Deu-core;Unknown_LINE-dependent				2377	SINE	5S-Deu	SINE/SINE3	R/S (SINE)/S (5S)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;MIR-core	SINE with a conserved central core region originally described for MIR.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;MIR-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			50	SINE	5S-Core-RTE	SINE/SINE3	R/S (SINE)/S (5S)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;No_or_Unknown_Core	SINEs lacking a central region or with central region yet unrelated to that of other SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;No_or_Unknown_Core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			46	SINE	5S-RTE				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;Sauria-core	Conserved central region so far limited to squamate SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;5S-RNA_Promoter;Sauria-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			5	SINE	5S-Sauria-RTE	SINE/SINE3	R/S (SINE)/S (5S)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;7SL-RNA_Promoter	SINEs with an internal promoter derived from 7SL RNA.			78	SINE	7SL	SINE/SINE1	R/S (SINE)/L (7SL)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;7SL-RNA_Promoter;No-core	SINEs lacking a central region.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;7SL-RNA_Promoter;No-core;L1-dependent	A retroposon mobilized by an L1-type LINE.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;7SL-RNA_Promoter;No-core;L1-dependent;Alu	A SINE family specific to primates and rodents.			6252	SINE	Alu	SINE/SINE1	R/S (SINE)/L (7SL)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;U-RNA_Promoter	SINEs with an internal promoter derived from a spliceosomal U-RNA.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;U-RNA_Promoter;No_or_Unknown_Core	SINEs lacking a central region or with central region yet unrelated to that of other SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;U-RNA_Promoter;No_or_Unknown_Core;L1-dependent				1	SINE	U-L1				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;U-RNA_Promoter;No_or_Unknown_Core;Unknown_LINE-dependent				490	SINE	U	SINE/SINEU	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;Unknown_Promoter										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;Unknown_Promoter;Ceph-core	Containing a SINE core originally discovered in Cephalopod SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;Unknown_Promoter;Ceph-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			2	SINE	Ceph	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;Unknown_Promoter;MIR-core	SINE with a conserved central core region originally described for MIR.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;Unknown_Promoter;MIR-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.				SINE	Core-RTE	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;Unknown_Promoter;MIR-core;Unknown_LINE-dependent					SINE	Core	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter	SINEs with an internal promoter derived from a tRNA.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Ceph-core	Containing a SINE core originally discovered in Cephalopod SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Ceph-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			15	SINE	tRNA-Ceph-RTE	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Ceph-core;Unknown_LINE-dependent				2	SINE	tRNA-Ceph	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Deu-core	Animal-wide conserved SINE central region, with the core of the ancient AmnSINE1 as type specimen.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Deu-core;CR1-end	SINE with a 3' end derived from a CR1-type LINE.			106	SINE	tRNA-Deu-CR1	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Deu-core;I-end	SINE with a 3' end derived from a I-type LINE.			142	SINE	tRNA-Deu-I				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Deu-core;L2-end	SINE with a 3' end derived from a L2-type LINE.			681	SINE	tRNA-Deu-L2	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Deu-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			440	SINE	tRNA-Deu-RTE				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Deu-core;Unknown_LINE-dependent				1466	SINE	tRNA-Deu	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;MIR-core	SINE with a conserved central core region originally described for MIR.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;MIR-core;L2-end	SINE with a 3' end derived from a L2-type LINE.			16051	SINE	MIR	SINE/SINE2	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;MIR-core;Mermaid					SINE	tRNA-Mermaid	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;MIR-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			532	SINE	tRNA-Core-RTE	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;MIR-core;Unknown_LINE-dependent				1191	SINE	tRNA-Core	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Meta-core	Animal-wide conserved SINE central region.		https://www.ncbi.nlm.nih.gov/pubmed/?term=26872770							
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Meta-core;Unknown_LINE-dependent				1063	SINE	tRNA-Meta	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No-core	SINEs lacking a central region.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No-core;L1-dependent	A retroposon mobilized by an L1-type LINE.			2534	SINE	ID	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No-core;L1-dependent;B2	A rodent specific SINE family.			1007	SINE	B2	SINE/SINE1	R/S (SINE)/L (7SL)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core	SINEs lacking a central region or with central region yet unrelated to that of other SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;BovB-end	SINE with a 3' end derived from a BovB-type LINE.			66	SINE	RTE-BovB	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;CR1-end	SINE with a 3' end derived from a CR1-type LINE.			728	SINE	tRNA-CR1	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;I-end	SINE with a 3' end derived from a I-type LINE.			165	SINE	tRNA-I	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;Jockey-end				4	SINE	tRNA-Jockey	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;L1-dependent	A retroposon mobilized by an L1-type LINE.			665	SINE	tRNA-L1	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;L2-end	SINE with a 3' end derived from a L2-type LINE.			1091	SINE	tRNA-L2	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;R1-end	SINE with a 3' end derived from an R1-type LINE.			5	SINE	R1	SINE	R/S (SINE)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;R2-end	SINE with a 3' end derived from an R2-type LINE.			10	SINE	tRNA-R2	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			4988	SINE	tRNA-RTE	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;Rex-end	SINE with a 3' end derived from an Rex-type LINE.			15	SINE	tRNA-Rex	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;Tad1_End	SINE with a 3' end derived from a Tad1-type LINE.				SINE	tRNA-Tad1	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;No_or_Unknown_Core;Unknown_LINE-dependent				15304	SINE	tRNA	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Sauria-core	Conserved central region so far limited to squamate SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Sauria-core;L2-end	SINE with a 3' end derived from a L2-type LINE.			140	SINE	tRNA-Sauria-L2	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Sauria-core;RTE-end	SINE with a 3' end derived from an RTE-type LINE.			414	SINE	tRNA-Sauria-RTE	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;Sauria-core;Unknown_LINE-dependent				80	SINE	tRNA-Sauria	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V-core										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V-core;CR1-end	SINE with a 3' end derived from a CR1-type LINE.			178	SINE	tRNA-V-CR1	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V-core;L2-end				11	SINE	tRNA-V-L2	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V-core;RTE-end		RTE-end		65	SINE	tRNA-V-RTE	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V-core;Unknown_LINE-dependent				546	SINE	tRNA-V	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V_and_MIR-core										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_Promoter;V_and_MIR-core;L2-end	SINE with a 3' end derived from a L2-type LINE.			28	SINE	tRNA-V-Core-L2	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_5S_RNA	SINEs retaining fragment of both a tRNA and 5S RNA; promoter can come from either.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_5S_RNA;No_or_Unknown_Core	SINEs lacking a central region or with central region yet unrelated to that of other SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_5S_RNA;No_or_Unknown_Core;Unknown_LINE-dependent					SINE	tRNA-5S				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_7SL_RNA	SINEs retaining fragment of both a tRNA and 7SL RNA; promoter can come from either.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_7SL_RNA;No-core	SINEs lacking a central region.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_7SL_RNA;No-core;L1-dependent	A retroposon mobilized by an L1-type LINE.			562	SINE	B4	SINE/SINE1	R/S (SINE)/L (7SL)
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_7SL_RNA;No_or_Unknown_Core	SINEs lacking a central region or with central region yet unrelated to that of other SINEs.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;SINE;tRNA_and_7SL_RNA;No_or_Unknown_Core;Unknown_LINE-dependent					SINE	tRNA-7SL	SINE/SINE2	R/S (SINE)/T (tRNA)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;snoRNA				4	Retroposon	sno				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;LINE-dependent_Retroposon;snoRNA;L1-derived				5	Retroposon	sno-L1				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element				8398	LTR		LTR	R/L (LTR)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Bel-Pao	The third large group of LTR elements besides Gypsy/ERV and Copia.			37379	LTR	Pao	LTR/BEL	R/L (LTR)/B (Bel-Pao)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Gypsy				133146	LTR	Gypsy	LTR	R/L (LTR)/G (Gypsy)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Pararetroviridae										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Pararetroviridae;Caulimoviridae	Plant and insect DNA reverse-transcribing viruses lacking a provirus state in their cycle.			585	LTR	Caulimovirus	LTR	R/L (LTR)/R (Retrovirus) ??		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae				85	LTR	Cassandra	LTR	R/L (LTR)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae				1280	LTR	ERV	LTR	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV1	Exogenous representatives are called Gamma- and Epsilonretroviruses.			62110	LTR	ERV1	LTR/ERV1	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV1;SINE-like				4	SINE	ERV1				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV2-group	Most endogenous retroviruses not incldued in class I.									
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV2-group;ERV2	Exogenous representatives are called Alpha-, Beta- and Delta-viruses.			26003	LTR	ERVK	LTR/ERV2	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV2-group;ERV3	Class 3 endogenous retroviruses with HERVL as type specimen.			46219	LTR	ERVL				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV2-group;ERV3;MaLR	Mammalian-specific non-autonomous LTR elements dependent on class 3 (ERVL) ERVs .			16760	LTR	ERVL-MaLR	LTR/ERV3	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV2-group;ERV4	A so far non-avian reptile specific class of ERVs.		https://www.ncbi.nlm.nih.gov/pubmed/?term=25499090	1534	LTR	ERV4	LTR/ERV4	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Orthoretrovirinae;ERV2-group;Lenti				3	LTR	ERV-Lenti	LTR/Lentivirus	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Gypsy-ERV;Retroviridae;Spumaretrovirinae				69	LTR	ERV-Foamy	LTR	R/L (LTR)/E (ERV)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;TRIM	A placeholder for not-yet-classified non-autonomous LTR elements with short internal sequences.				LTR	TRIM	LTR	R/L (LTR)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Long_Terminal_Repeat_Element;Ty1-Copia				23494	LTR	Copia	LTR/Copia	R/L (LTR)/C (Copia)		
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements				29718	LINE	Penelope	non-LTR/Penelope	R/P (PLE)/P (Penelope)	TP-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Athena					PLE	Athena				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Chlamys				61	PLE	Chlamys				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Coprina					PLE	Coprina				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Hydra				6	PLE	Hydra				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Naiad				53	PLE	Naiad				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Nematis					PLE	Nematis				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Neptune					PLE	Neptune				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Penelope-like_Elements;Poseidon					PLE	Poseidon				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements;DIRS				14115	LTR	DIRS	LTR/DIRS	R/Y (DIRS)/D (DIRS)	Y-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements;DIRS;Q		DIRS-Q subclass		3	LTR	DIRS-Q	LTR/DIRS	R/Y (DIRS)/D (DIRS)	Y-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements;Ngaro				7763	LTR	Ngaro	non-LTR	R/Y (DIRS)/N (Ngaro)	Y-retrotransposons	
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements;Viper-group										
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements;Viper-group;TATE				5	Unknown	TATE				
+Interspersed_Repeat;Transposable_Element;Class_I_Retrotransposition;Retrotransposon;Tyrosine_Recombinase_Elements;Viper-group;Viper				25	LTR	Viper	LTR/DIRS	R/Y (DIRS)/V (Viper)	Y-retrotransposons	
+Interspersed_Repeat;Unknown	A placeholder for unknown classes of interspersed repeats.			1474668	Unknown					
+Interspersed_Repeat;Unknown;Centromeric	Primarily or only found in centromeric regions.				Unknown	centromeric				
+Low_Complexity	Stretches of sequence with unusually simple composition. I.e. AT rich sequence.				Low_complexity					
+Other	A placeholder for unknown classes of repetitive sequence.			2	Other					
+Segmental_Duplication	Long segments of DNA with near-identical sequence.			12	Segmental					
+Tandem_Repeat	Repeated stretches of one or more nucleotides directly adjacent to each other.		https://en.wikipedia.org/wiki/Tandem_repeat							
+Tandem_Repeat;Satellite	Medium to long pattern tandem repeats found in long runs.		https://en.wikipedia.org/wiki/Satellite_DNA	11184	Satellite					
+Tandem_Repeat;Satellite;Acromeric	Satellites occurring specifically in the short arm of acromeric chromosomes.			9	Satellite	acromeric				
+Tandem_Repeat;Satellite;Centromeric	Primarily or only found in centromeric regions.			310	Satellite	centromeric				
+Tandem_Repeat;Satellite;Macro				14	Satellite	macro				
+Tandem_Repeat;Satellite;Subtelomeric				27	Satellite	subtelomeric				
+Tandem_Repeat;Satellite;W-chromosomal				69	Satellite	W-chromosome				
+Tandem_Repeat;Satellite;Y-chromosomal				41	Satellite	Y-chromosome				
+Tandem_Repeat;Simple	Short pattern tandem repeats found in short runs.			8122	Simple_repeat					

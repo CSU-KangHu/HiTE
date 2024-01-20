@@ -682,6 +682,7 @@ def run_LTR_retriever(reference, tmp_output_dir, threads, miu, log):
     log.logger.debug('start LTR_retriever detection...')
     LTR_retriever_command = 'cd ' + tmp_output_dir + ' && LTR_retriever -genome ' + reference \
                             + ' -inharvest ' + tmp_output_dir + '/genome_all.fa.rawLTR.scn -noanno -threads ' + str(threads) + ' -u ' + str(miu)
+    log.logger.debug(LTR_retriever_command)
     os.system(LTR_retriever_command)
     endtime = time.time()
     dtime = endtime - starttime

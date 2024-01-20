@@ -48,6 +48,7 @@ def helpMessage() {
       --is_prev_mask                    Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ 1 ]
       --is_denovo_nonltr                Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
+      --use_NeuralTE                    Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1]
 
       --flanking_len                    The flanking length of candidates to find the true boundaries, default = [ 50 ]
       --fixed_extend_base_threshold     The length of variation can be tolerated during pairwise alignment, default = [ 1000 ]
@@ -78,6 +79,7 @@ def printSetting() {
       [Setting] is_denovo_nonltr = [ $params.is_denovo_nonltr ]
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.outdir ]
+      [Setting] use_NeuralTE = [ $params.use_NeuralTE ]
 
       [Setting] Fixed extend bases threshold = [ $params.fixed_extend_base_threshold ]
       [Setting] Flanking length of TE = [ $params.flanking_len ]
@@ -118,6 +120,7 @@ lib_module = "${projectDir}/library"
 ch_EAHelitron = "${projectDir}/bin/EAHelitron-master"
 ch_ltrfinder = "${projectDir}/bin/LTR_FINDER_parallel-master"
 ch_ltrharvest = "${projectDir}/bin/LTR_HARVEST_parallel"
+ch_NeuralTE = "${projectDir}/bin/NeuralTE"
 ch_protein = "${projectDir}/library/RepeatPeps.lib"
 genome_name = file(params.genome).getName()
 out_genome = "${params.outdir}/${genome_name}"
@@ -143,6 +146,7 @@ debug = "${params.debug}"
 is_denovo_nonltr = "${params.is_denovo_nonltr}"
 miu = "${params.miu}"
 ref = "${params.genome}"
+use_NeuralTE = "${params.use_NeuralTE}"
 //parameters of Evaluation
 BM_RM2 = "${params.BM_RM2}"
 BM_EDTA = "${params.BM_EDTA}"
@@ -464,7 +468,8 @@ process LTR {
     python3 ${ch_module}/judge_LTR_transposons.py \
      -g ${ref} --ltrharvest_home ${ch_ltrharvest} --ltrfinder_home ${ch_ltrfinder} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --recover ${recover} --miu ${miu}
+     --recover ${recover} --miu ${miu} --use_NeuralTE ${use_NeuralTE} \
+     --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification}
 
     cp ${tmp_output_dir}/confident_ltr_cut.fa.cons ./
     """
@@ -527,7 +532,9 @@ process BuildLib {
      --confident_non_ltr ${non_ltr} \
      --confident_other ${other} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --test_home ${ch_module}
+     --test_home ${ch_module} --use_NeuralTE ${use_NeuralTE} \
+     --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification} \
+     --domain ${domain} --protein_path ${ch_protein}
 
     cp ${tmp_output_dir}/confident_TE.cons.fa ./
     """
@@ -761,18 +768,18 @@ workflow {
         //Build TE library
         ch_lib = BuildLib(ch_ltrs, all_tirs, all_helitrons, all_non_ltrs, ch_others)
 
-        //Classify TE library
-        ch_lib.splitFasta(by: params.classify_chunk_size, file:true).set { ch_fasta }
-        ch_classified_lib = ClassifyLib(ch_fasta)
-        ch_final = ch_classified_lib.collectFile(name: "${params.outdir}/confident_TE.cons.fa.classified")
+//         //Classify TE library
+//         ch_lib.splitFasta(by: params.classify_chunk_size, file:true).set { ch_fasta }
+//         ch_classified_lib = ClassifyLib(ch_fasta)
+//         ch_final = ch_classified_lib.collectFile(name: "${params.outdir}/confident_TE.cons.fa.classified")
         //test(ch_lib) | view { "$it" }
-        annotate_out = annotate_genome(ch_final, ch_genome)
+        annotate_out = annotate_genome(ch_lib, ch_genome)
 
     }
 
     if (params.skip_HiTE)
-        Channel.fromPath("${params.outdir}/confident_TE.cons.fa.classified", type: 'any', checkIfExists: true).set{ ch_final }
-    bm_out = benchmarking(ch_final, ch_genome, annotate_out)
+        Channel.fromPath("${params.outdir}/confident_TE.cons.fa", type: 'any', checkIfExists: true).set{ ch_lib }
+    bm_out = benchmarking(ch_lib, ch_genome, annotate_out)
     CleanLib(bm_out)
 
 }

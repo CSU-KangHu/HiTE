@@ -184,17 +184,14 @@ if __name__ == '__main__':
 
         parent_dir = os.path.dirname(lib_module)
         HiTE_home = parent_dir
-        if is_BM_HiTE:
-            bm_hite_command = 'cd ' + parent_dir + ' && python ' + parent_dir + '/module/lib_evaluation.py -g ' \
-                              + reference + ' --standard_lib ' + lib_path + ' --standard_lib_out ' + repbase_out \
-                              + ' --test_lib ' + TE_lib + ' --test_lib_out ' + test_out + ' --work_dir ' + tmp_output_dir \
-                              + ' --coverage_threshold ' + str(coverage_threshold) + ' > ' + hite_out
-            log.logger.debug(bm_hite_command)
-            os.system(bm_hite_command)
-        else:
-            log.logger.debug('Skip benchmarking of HiTE')
+
+        bm_hite_command = 'cd ' + parent_dir + ' && python ' + parent_dir + '/module/lib_evaluation.py -g ' \
+                          + reference + ' --standard_lib ' + lib_path + ' --standard_lib_out ' + repbase_out \
+                          + ' --test_lib ' + TE_lib + ' --test_lib_out ' + test_out + ' --work_dir ' + tmp_output_dir \
+                          + ' --coverage_threshold ' + str(coverage_threshold) + ' > ' + hite_out
+        log.logger.debug(bm_hite_command)
+        os.system(bm_hite_command)
     else:
-        log.logger.debug('Skip benchmarking of EDTA')
         log.logger.debug('Skip benchmarking of HiTE')
 
 

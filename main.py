@@ -36,8 +36,9 @@ if __name__ == '__main__':
     default_domain = 0
     default_miu = str(1.3e-8)
     default_remove_nested = 1
+    default_use_NeuralTE = 1
 
-    version_num = '3.0'
+    version_num = '3.1'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
@@ -51,7 +52,9 @@ if __name__ == '__main__':
     # 1.parse args
     describe_info = '########################## HiTE, version ' + str(version_num) + ' ##########################'
     parser = argparse.ArgumentParser(description=describe_info)
-    parser.add_argument('--genome', metavar='genome', help='Input genome assembly path')
+    parser.add_argument('--genome', required=True, metavar='genome', help='Input genome assembly path')
+    parser.add_argument('--outdir', required=True, metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
+
     parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
     parser.add_argument('--miu', metavar='miu', help='The neutral mutation rate (per bp per ya), default = [ ' + str(default_miu) + ' ]')
@@ -71,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('--is_prev_mask', metavar='is_prev_mask', help='Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ ' + str(default_is_prev_mask) + ' ]')
     parser.add_argument('--is_denovo_nonltr', metavar='is_denovo_nonltr', help='Whether to detect non-ltr de novo, 1: true, 0: false. default = [ ' + str(default_is_denovo_nonltr) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
-    parser.add_argument('--outdir', metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
+    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
 
     parser.add_argument('--flanking_len', metavar='flanking_len', help='The flanking length of candidates to find the true boundaries, default = [ ' + str(default_flanking_len) + ' ]')
     parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold', help='The length of variation can be tolerated during pairwise alignment, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
@@ -107,6 +110,7 @@ if __name__ == '__main__':
     is_prev_mask = args.is_prev_mask
     is_denovo_nonltr = args.is_denovo_nonltr
     debug = args.debug
+    use_NeuralTE = args.use_NeuralTE
 
     i = datetime.datetime.now()
     # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
@@ -133,6 +137,11 @@ if __name__ == '__main__':
         threads = int(default_threads)
     else:
         threads = int(threads)
+
+    if use_NeuralTE is None:
+        use_NeuralTE = int(default_use_NeuralTE)
+    else:
+        use_NeuralTE = int(use_NeuralTE)
 
     if fixed_extend_base_threshold is None:
         fixed_extend_base_threshold = default_fixed_extend_base_threshold
@@ -264,6 +273,7 @@ if __name__ == '__main__':
 
     LTR_harvest_parallel_Home = os.getcwd() + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
+    NeuralTE_home = os.getcwd() + '/bin/NeuralTE'
     EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
     HSDIR = os.getcwd() + '/bin/HelitronScanner/TrainingSet'
     HSJAR = os.getcwd() + '/bin/HelitronScanner/HelitronScanner.jar'
@@ -305,6 +315,7 @@ if __name__ == '__main__':
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
                     '  [Setting] is_prev_mask = [ ' + str(is_prev_mask) + ' ]  Default( ' + str(default_is_prev_mask) + ' )\n'
                     '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
+                    '  [Setting] use_NeuralTE = [ ' + str(use_NeuralTE) + ' ]  Default( ' + str(default_use_NeuralTE) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
                     '  [Setting] Output Directory = [' + str(output_dir) + ']\n'
                                                                                                                                                                                                            
@@ -341,11 +352,13 @@ if __name__ == '__main__':
         resut_file = confident_ltr_cut_path
         if not is_recover or not file_exist(resut_file):
             starttime = time.time()
+            TEClass_home = os.getcwd() + '/classification'
             LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
                                          + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
                                          + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
-                                         + ' --tmp_output_dir ' + tmp_output_dir \
-                                         + ' --recover ' + str(recover) + ' --miu ' + str(miu)
+                                         + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
+                                         + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) \
+                                         + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home)
             log.logger.info(LTR_identification_command)
             os.system(LTR_identification_command)
             endtime = time.time()
@@ -513,8 +526,10 @@ if __name__ == '__main__':
             cur_confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
             os.system('cat ' + cur_confident_non_ltr_path + ' >> ' + confident_non_ltr_path)
 
+        confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
+        TEClass_home = os.getcwd() + '/classification'
         generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                + ' --confident_tir ' + confident_tir_path \
@@ -522,35 +537,36 @@ if __name__ == '__main__':
                                + ' --confident_non_ltr ' + confident_non_ltr_path \
                                + ' --confident_other ' + confident_other_path \
                                + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
-                               + ' --test_home ' + str(test_home)
+                               + ' --test_home ' + str(test_home) + ' --use_NeuralTE ' + str(use_NeuralTE) \
+                               + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home) \
+                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path)
         log.logger.info(generate_lib_command)
         os.system(generate_lib_command)
         endtime = time.time()
         dtime = endtime - starttime
         log.logger.info("Running time of step3: %.8s s" % (dtime))
 
-        confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
-        starttime = time.time()
-        log.logger.info('Start step4: generate classified library')
-        TEClass_home = os.getcwd() + '/classification'
-        classify_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_classified_lib.py' \
-                               + ' --confident_TE_consensus ' + confident_TE_consensus \
-                               + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
-                               + ' --classified ' + str(classified) + ' --domain ' + str(domain) + ' --TEClass_home ' + str(TEClass_home) \
-                               + ' --protein_path ' + str(protein_lib_path) \
-                               + ' --debug ' + str(debug)
-        log.logger.info(classify_lib_command)
-        os.system(classify_lib_command)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step4: %.8s s" % (dtime))
+        # confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
+        # starttime = time.time()
+        # log.logger.info('Start step4: generate classified library')
+        # TEClass_home = os.getcwd() + '/classification'
+        # classify_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_classified_lib.py' \
+        #                        + ' --confident_TE_consensus ' + confident_TE_consensus \
+        #                        + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
+        #                        + ' --classified ' + str(classified) + ' --domain ' + str(domain) + ' --TEClass_home ' + str(TEClass_home) \
+        #                        + ' --protein_path ' + str(protein_lib_path) \
+        #                        + ' --debug ' + str(debug)
+        # log.logger.info(classify_lib_command)
+        # os.system(classify_lib_command)
+        # endtime = time.time()
+        # dtime = endtime - starttime
+        # log.logger.info("Running time of step4: %.8s s" % (dtime))
 
         starttime = time.time()
-        log.logger.info('Start step5: annotate genome')
+        log.logger.info('Start step4: annotate genome')
         TEClass_home = os.getcwd() + '/classification'
-        classified_TE_path = confident_TE_consensus + '.classified'
         annotate_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/annotate_genome.py' \
-                            + ' -t ' + str(threads) + ' --classified_TE_consensus ' + classified_TE_path \
+                            + ' -t ' + str(threads) + ' --classified_TE_consensus ' + confident_TE_consensus \
                             + ' --annotate ' + str(annotate) \
                             + ' -r ' + reference \
                             + ' --tmp_output_dir ' + tmp_output_dir
@@ -559,20 +575,19 @@ if __name__ == '__main__':
 
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step5: %.8s s" % (dtime))
+        log.logger.info("Running time of step4: %.8s s" % (dtime))
 
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
-    classified_TE_path = confident_TE_consensus + '.classified'
-    if not os.path.exists(classified_TE_path):
-        log.logger.error('Run benchmarking fail, Cannot find TE path: ' + classified_TE_path)
+    if not os.path.exists(confident_TE_consensus):
+        log.logger.error('Run benchmarking fail, Cannot find TE path: ' + confident_TE_consensus)
     else:
         starttime = time.time()
-        log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
+        log.logger.info('Start step5: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
         benchmarking_command = 'cd ' + test_home + ' && python3 ' + test_home + '/benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
                             + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) + ' --lib_module ' + str(lib_module) \
-                            + ' --TE_lib ' + str(classified_TE_path) + ' --rm2_script ' + str(rm2_script) \
+                            + ' --TE_lib ' + str(confident_TE_consensus) + ' --rm2_script ' + str(rm2_script) \
                             + ' --rm2_strict_script ' + str(rm2_strict_script) + ' -r ' + reference
         if EDTA_home is not None and EDTA_home.strip() != '':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
@@ -584,7 +599,7 @@ if __name__ == '__main__':
         os.system(benchmarking_command)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step6: %.8s s" % (dtime))
+        log.logger.info("Running time of step5: %.8s s" % (dtime))
 
     clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \
