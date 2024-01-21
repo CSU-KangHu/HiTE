@@ -22,6 +22,7 @@ dependencies:
   - cd-hit=4.8.1
   - samtools
   - fuzzysearch
+  - pip
   - pip:
     - python-Levenshtein
 

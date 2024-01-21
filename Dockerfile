@@ -9,26 +9,14 @@ ARG DNAME="HiTE"
 
 RUN apt-get update && apt-get install unzip --yes && apt-get install less --yes && apt-get install curl --yes
 
-# Command 'RUN' during docker build
-# download RepeatMasker libraries from Github
-# RUN git clone https://github.com/CSU-KangHu/TE_annotation.git && \
-#    cd TE_annotation && unzip RepeatMasker_Lib.zip \
-# download RepeatMasker libraries from Zenodo
-RUN curl -LJO https://zenodo.org/records/10068148/files/CSU-KangHu/TE_annotation-v3.0.zip?download=1 &&  \
-    unzip TE_annotation-v3.0.zip && mv CSU-KangHu-TE_annotation-* /TE_annotation && \
-    cd /TE_annotation && unzip RepeatMasker_Lib.zip
-
-
 # Download HiTE from Github
 # RUN git clone https://github.com/CSU-KangHu/HiTE.git
 # Download HiTE from Zenodo
-RUN curl -LJO https://zenodo.org/records/10158451/files/CSU-KangHu/HiTE-v.3.0.4.zip?download=1 &&  \
-    unzip HiTE-v.3.0.4.zip && mv CSU-KangHu-HiTE-* /HiTE
+RUN curl -LJO https://zenodo.org/records/10537322/files/CSU-KangHu/HiTE-v.3.1.0.zip?download=1 &&  \
+    unzip HiTE-v.3.1.0.zip && mv CSU-KangHu-HiTE-* /HiTE
 
-RUN cd /HiTE && chmod +x tools/* && conda env create --name ${DNAME} --file=environment.yml && conda clean -a
-
-# update RepeatMasker libraries from Github
-RUN mv /TE_annotation/RepeatMasker_Lib/* /opt/conda/envs/HiTE/share/RepeatMasker/Libraries/
+RUN conda install mamba -c conda-forge -y
+RUN cd /HiTE && chmod +x tools/* && chmod +x bin/NeuralTE/tools/* && mamba env create --name ${DNAME} --file=environment.yml && conda clean -a
 
 # Make RUN commands use the new environment
 # name need to be the same with the above ${DNAME}
