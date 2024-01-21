@@ -333,6 +333,6 @@ You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) p
 * [Run HiTE with Nextflow](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow)
 
 ## Citations
-Please cite our paper if you find HiTE useful:
+Please cite our paper if you find `HiTE` useful:
 
 Hu, K., Xu, M., Zou, Y., & Wang, J.✉ (2023). HiTE: An accurate dynamic boundary adjustment approach for full-length Transposable Elements detection and annotation in Genome Assemblies. [bioRxiv](https://doi.org/10.1101/2023.05.23.541879).
