@@ -59,7 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of large genome, default = [ ' + str(default_chunk_size) + ' MB ]')
     parser.add_argument('--miu', metavar='miu', help='The neutral mutation rate (per bp per ya), default = [ ' + str(default_miu) + ' ]')
     parser.add_argument('--plant', metavar='is_plant', help='Is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
-    parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
+    # parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
     parser.add_argument('--remove_nested', metavar='is_remove_nested',help='Whether to remove nested TE, 1: true, 0: false. default = [ ' + str(default_remove_nested) + ' ]')
     parser.add_argument('--domain', metavar='is_domain', help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false. default = [ ' + str(default_domain) + ' ]')
     parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     chrom_seg_length = args.chrom_seg_length
     flanking_len = args.flanking_len
     plant = args.plant
-    classified = args.classified
+    # classified = args.classified
     remove_nested = args.remove_nested
     domain = args.domain
     miu = args.miu
@@ -168,10 +168,10 @@ if __name__ == '__main__':
     else:
         plant = int(plant)
 
-    if classified is None:
-        classified = default_classified
-    else:
-        classified = int(classified)
+    # if classified is None:
+    #     classified = default_classified
+    # else:
+    #     classified = int(classified)
 
     if remove_nested is None:
         remove_nested = default_remove_nested
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     log.logger.info('\nParameters configuration\n'
                     '====================================System settings========================================\n'
                     '  [Setting] Reference sequences / assemblies path = [ ' + str(reference) + ' ]\n'
-                    '  [Setting] Is classified = [ ' + str(classified) + ' ] Default( ' + str(default_classified) + ' )\n'
+                    # '  [Setting] Is classified = [ ' + str(classified) + ' ] Default( ' + str(default_classified) + ' )\n'
                     '  [Setting] Is remove nested TE = [ ' + str(remove_nested) + ' ] Default( ' + str(default_remove_nested) + ' )\n'
                     '  [Setting] Is getting domain = [ ' + str(domain) + ' ] Default( ' + str(default_domain) + ' )\n'
                     '  [Setting] The neutral mutation rate (per bp per ya) = [ ' + str(miu) + ' ] Default( ' + str(default_miu) + ' )\n'
@@ -331,20 +331,20 @@ if __name__ == '__main__':
 
     # The HiTE pipeline performs recognition of LTR, Non-LTR, TIR, and Helitron transposons.
     # The organizational structure of HiTE is as follows:
-    # Pipeline:
-    # ├──LTR: judge_LTR_transposons.py
-    # ├──Homology-Non-LTR: judge_Other_transposons.py
-    # ├──split genome into chunks: split_genome_chunks.py
-    #   ├──De novo TE searching: coarse_boundary.py
-    #   ├──TIR: judge_TIR_transposons.py
-    #   ├──Helitron: judge_Helitron_transposons.py
-    #   └──De novo-Non-LTR: judge_Non_LTR_transposons.py
-    # ├──generate TE library: get_nonRedundant_lib.py
-    #   └──unwrap nested TE: remove_nested_lib.py
-    # ├──classify TE library: get_classified_lib.py
-    # ├──genome annotation: annotate_genome.py
-    # ├──benchmarking reproduction: benchmarking.py
-    # └──clean temporary files: clean_lib.py
+    # Pipeline: main.py
+    #     ├──LTR: judge_LTR_transposons.py
+    #     ├──Homology-Non-LTR: judge_Other_transposons.py
+    #     ├──split genome into chunks: split_genome_chunks.py
+    #       ├──De novo TE searching: coarse_boundary.py
+    #       ├──TIR: judge_TIR_transposons.py
+    #       ├──Helitron: judge_Helitron_transposons.py
+    #       └──De novo-Non-LTR: judge_Non_LTR_transposons.py
+    #     ├──generate TE library: get_nonRedundant_lib.py
+    #       └──unwrap nested TE: remove_nested_lib.py
+    #     ├──genome annotation: annotate_genome.py
+    #     ├──benchmarking reproduction: benchmarking.py
+    #     └──clean temporary files: clean_lib.py
+
     pipeline_starttime = time.time()
     if skip_HiTE != 1:
         log.logger.info('Start step0: Structural Based LTR Searching')
