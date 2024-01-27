@@ -36,6 +36,8 @@ if __name__ == '__main__':
                         help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
     parser.add_argument('--protein_path', metavar='protein_path',
                         help='The path of protein domain')
+    parser.add_argument('--is_wicker', metavar='is_wicker',
+                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
 
 
     args = parser.parse_args()
@@ -53,6 +55,7 @@ if __name__ == '__main__':
     TEClass_home = args.TEClass_home
     domain = args.domain
     protein_path = args.protein_path
+    is_wicker = args.is_wicker
 
     confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
     confident_tir_path = os.path.realpath(confident_tir_path)
@@ -115,7 +118,7 @@ if __name__ == '__main__':
         NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + confident_TE_path \
                            + ' --genome ' + ref_rename_path + ' --use_TSD 1 --model_path ' \
                            + NeuralTE_home + '/models/NeuralTE-TSDs_model.h5 --outdir ' \
-                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker 0'
+                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command + ' > /dev/null 2>&1')
         classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'

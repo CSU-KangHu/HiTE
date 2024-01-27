@@ -37,8 +37,9 @@ if __name__ == '__main__':
     default_miu = str(1.3e-8)
     default_remove_nested = 1
     default_use_NeuralTE = 1
+    default_is_wicker = 0
 
-    version_num = '3.1'
+    version_num = '3.1.1'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
@@ -74,7 +75,8 @@ if __name__ == '__main__':
     parser.add_argument('--is_prev_mask', metavar='is_prev_mask', help='Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ ' + str(default_is_prev_mask) + ' ]')
     parser.add_argument('--is_denovo_nonltr', metavar='is_denovo_nonltr', help='Whether to detect non-ltr de novo, 1: true, 0: false. default = [ ' + str(default_is_denovo_nonltr) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
-    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
+    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [' + str(default_use_NeuralTE) + ' ]')
+    parser.add_argument('--is_wicker', metavar='is_wicker', help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [ ' + str(default_is_wicker) + ' ]')
 
     parser.add_argument('--flanking_len', metavar='flanking_len', help='The flanking length of candidates to find the true boundaries, default = [ ' + str(default_flanking_len) + ' ]')
     parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold', help='The length of variation can be tolerated during pairwise alignment, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
@@ -111,6 +113,7 @@ if __name__ == '__main__':
     is_denovo_nonltr = args.is_denovo_nonltr
     debug = args.debug
     use_NeuralTE = args.use_NeuralTE
+    is_wicker = args.is_wicker
 
     i = datetime.datetime.now()
     # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
@@ -142,6 +145,11 @@ if __name__ == '__main__':
         use_NeuralTE = int(default_use_NeuralTE)
     else:
         use_NeuralTE = int(use_NeuralTE)
+
+    if is_wicker is None:
+        is_wicker = int(default_is_wicker)
+    else:
+        is_wicker = int(is_wicker)
 
     if fixed_extend_base_threshold is None:
         fixed_extend_base_threshold = default_fixed_extend_base_threshold
@@ -316,6 +324,7 @@ if __name__ == '__main__':
                     '  [Setting] is_prev_mask = [ ' + str(is_prev_mask) + ' ]  Default( ' + str(default_is_prev_mask) + ' )\n'
                     '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
                     '  [Setting] use_NeuralTE = [ ' + str(use_NeuralTE) + ' ]  Default( ' + str(default_use_NeuralTE) + ' )\n'
+                    '  [Setting] is_wicker = [ ' + str(is_wicker) + ' ]  Default( ' + str(default_is_wicker) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
                     '  [Setting] Output Directory = [' + str(output_dir) + ']\n'
                                                                                                                                                                                                            
@@ -357,7 +366,7 @@ if __name__ == '__main__':
                                          + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
                                          + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
                                          + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
-                                         + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) \
+                                         + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
                                          + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home)
             log.logger.info(LTR_identification_command)
             os.system(LTR_identification_command)
@@ -530,7 +539,7 @@ if __name__ == '__main__':
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
         TEClass_home = os.getcwd() + '/classification'
-        generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
+        generate_lib_command = ('cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                + ' --confident_tir ' + confident_tir_path \
                                + ' --confident_helitron ' + confident_helitron_path \
@@ -538,8 +547,9 @@ if __name__ == '__main__':
                                + ' --confident_other ' + confident_other_path \
                                + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
                                + ' --test_home ' + str(test_home) + ' --use_NeuralTE ' + str(use_NeuralTE) \
+                               + ' --is_wicker ' + str(is_wicker) \
                                + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home) \
-                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path)
+                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path))
         log.logger.info(generate_lib_command)
         os.system(generate_lib_command)
         endtime = time.time()

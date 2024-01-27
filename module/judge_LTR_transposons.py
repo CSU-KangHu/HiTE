@@ -85,7 +85,7 @@ def get_intact_ltr(genome_path, ltr_list, intact_LTR_path):
             current_name = 'ltr_' + str(ltr_index)
             segmentLTRs[current_name + '_LTR'] = terminal_seq1
             segmentLTRs[current_name + '_INT'] = internal_seq
-            ltr_contigs[current_name] = ltr_seq
+            ltr_contigs[ltr_name] = ltr_seq
             ltr_index += 1
     store_fasta(ltr_contigs, intact_LTR_path)
     return segmentLTRs
@@ -113,6 +113,8 @@ if __name__ == '__main__':
                         help='The root directory of TEClass')
     parser.add_argument('--miu', metavar='miu',
                         help='The neutral mutation rate (per bp per ya)')
+    parser.add_argument('--is_wicker', metavar='is_wicker',
+                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
 
 
     args = parser.parse_args()
@@ -126,6 +128,7 @@ if __name__ == '__main__':
     miu = args.miu
     NeuralTE_home = args.NeuralTE_home
     TEClass_home = args.TEClass_home
+    is_wicker = args.is_wicker
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
@@ -158,8 +161,7 @@ if __name__ == '__main__':
     ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
     os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)
 
-    # resut_file = ref_rename_path + '.LTRlib.fa'
-    resut_file = ref_rename_path + '.pass.list'
+    resut_file = ref_rename_path + '.LTRlib.fa'
     if not is_recover or not file_exist(resut_file):
         starttime = time.time()
         log.logger.info('Start step0.2: run LTR_retriever to get confident LTR')
@@ -170,21 +172,51 @@ if __name__ == '__main__':
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
-    # 1. get intact LTR from LTR_retriever pass list
-    # 2. get LTR internal and terminal sequences (segment LTR)
-    # 3. map segment LTR to intact LTR, so that we can assign labels from intact LTR to segment LTR
-    intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
-    segmentLTRs = get_intact_ltr(ref_rename_path, resut_file, intact_LTR_path)
+    # Remove redundancy from the LTR results.
+    confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+    ltr_cons_path = confident_ltr_cut_path + '.cons'
+    resut_file = ltr_cons_path
+    if not is_recover or not file_exist(resut_file):
+        starttime = time.time()
+        log.logger.info('Start step0.3: Remove LTR redundancy')
+        deredundant_for_LTR(confident_ltr_cut_path, tmp_output_dir, threads)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step0.3: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
+    # get intact LTR from LTR_retriever pass list
+    intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
+    ltr_list = ref_rename_path + '.pass.list'
+    segmentLTRs = get_intact_ltr(ref_rename_path, ltr_list, intact_LTR_path)
+
+    # 1. recover intact-LTRs from 'ltr_cons_path'
+    # 2. classify intact-LTRs and assign label to 'ltr_cons_path'
+    ltr_names, ltr_contigs = read_fasta(ltr_cons_path)
+    intact_ltr_names, intact_ltr_contigs = read_fasta(intact_LTR_path)
+    filter_intact_ltr_contigs = {}
+    for name in ltr_names:
+        seq = ltr_contigs[name]
+        name = name.split('#')[0]
+        intact_ltr_name = name[:-4]
+        if intact_ltr_contigs.__contains__(intact_ltr_name):
+            filter_intact_ltr_contigs[intact_ltr_name] = intact_ltr_contigs[intact_ltr_name]
+        else:
+            filter_intact_ltr_contigs[intact_ltr_name] = seq
+    store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
+
+    # classify intact-LTRs
     if use_NeuralTE:
         # classify LTR using NeuralTE
         NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
         if not os.path.exists(NeuralTE_output_dir):
             os.makedirs(NeuralTE_output_dir)
         NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \
-                           + ' --genome ' + ref_rename_path + ' --use_TSD 1 --model_path ' \
-                           + NeuralTE_home + '/models/NeuralTE-TSDs_model.h5 --outdir ' \
-                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker 0'
+                           + ' --use_TSD 0 --model_path ' \
+                           + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
+                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command + ' > /dev/null 2>&1')
         classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
@@ -198,39 +230,43 @@ if __name__ == '__main__':
         os.system(TEClass_command)
         classified_TE_path = intact_LTR_path + '.classified'
 
-
+    # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
     classified_names, classified_contigs = read_fasta(classified_TE_path)
     intact_LTR_labels = {}
     for name in classified_names:
         parts = name.split('#')
         intact_LTR_labels[parts[0]] = parts[1]
 
-    confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
+    ltr_index = 0
     confident_ltr_cut_contigs = {}
-    for name in segmentLTRs.keys():
-        parts = name.split('_')
-        intact_ltr_name = parts[0] + '_' + parts[1]
+    for name in ltr_names:
+        seq = ltr_contigs[name]
+        name = name.split('#')[0]
+        intact_ltr_name = name[:-4]
         label = intact_LTR_labels[intact_ltr_name]
-        new_name = name+'#'+label
-        confident_ltr_cut_contigs[new_name] = segmentLTRs[name]
-    store_fasta(confident_ltr_cut_contigs, confident_ltr_cut_path)
+        ltr_type = name[-4:]
+        new_name = 'LTR_' + str(ltr_index) + ltr_type + '#' +label
+        confident_ltr_cut_contigs[new_name] = seq
+        ltr_index += 1
+    store_fasta(confident_ltr_cut_contigs, ltr_cons_path)
+
 
     # rename_LTR(resut_file, confident_ltr_cut_path)
     # confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
     # rename_fasta(resut_file, confident_ltr_cut_path, 'LTR')
 
-    # Remove redundancy from the LTR results.
-    ltr_cons_path = confident_ltr_cut_path + '.cons'
-    resut_file = ltr_cons_path
-    if not is_recover or not file_exist(resut_file):
-        starttime = time.time()
-        log.logger.info('Start step0.3: Remove LTR redundancy')
-        deredundant_for_LTR(confident_ltr_cut_path, tmp_output_dir, threads)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step0.3: %.8s s" % (dtime))
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    # # Remove redundancy from the LTR results.
+    # ltr_cons_path = confident_ltr_cut_path + '.cons'
+    # resut_file = ltr_cons_path
+    # if not is_recover or not file_exist(resut_file):
+    #     starttime = time.time()
+    #     log.logger.info('Start step0.3: Remove LTR redundancy')
+    #     deredundant_for_LTR(confident_ltr_cut_path, tmp_output_dir, threads)
+    #     endtime = time.time()
+    #     dtime = endtime - starttime
+    #     log.logger.info("Running time of step0.3: %.8s s" % (dtime))
+    # else:
+    #     log.logger.info(resut_file + ' exists, skip...')
 
 
 

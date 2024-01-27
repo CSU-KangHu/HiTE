@@ -49,6 +49,7 @@ def helpMessage() {
       --is_denovo_nonltr                Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
       --use_NeuralTE                    Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1]
+      --is_wicker                       Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [0]
 
       --flanking_len                    The flanking length of candidates to find the true boundaries, default = [ 50 ]
       --fixed_extend_base_threshold     The length of variation can be tolerated during pairwise alignment, default = [ 1000 ]
@@ -80,6 +81,7 @@ def printSetting() {
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.outdir ]
       [Setting] use_NeuralTE = [ $params.use_NeuralTE ]
+      [Setting] is_wicker = [ $params.is_wicker ]
 
       [Setting] Fixed extend bases threshold = [ $params.fixed_extend_base_threshold ]
       [Setting] Flanking length of TE = [ $params.flanking_len ]
@@ -147,6 +149,7 @@ is_denovo_nonltr = "${params.is_denovo_nonltr}"
 miu = "${params.miu}"
 ref = "${params.genome}"
 use_NeuralTE = "${params.use_NeuralTE}"
+is_wicker = "${params.is_wicker}"
 //parameters of Evaluation
 BM_RM2 = "${params.BM_RM2}"
 BM_EDTA = "${params.BM_EDTA}"
@@ -468,7 +471,7 @@ process LTR {
     python3 ${ch_module}/judge_LTR_transposons.py \
      -g ${ref} --ltrharvest_home ${ch_ltrharvest} --ltrfinder_home ${ch_ltrfinder} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --recover ${recover} --miu ${miu} --use_NeuralTE ${use_NeuralTE} \
+     --recover ${recover} --miu ${miu} --use_NeuralTE ${use_NeuralTE} --is_wicker ${is_wicker}\
      --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification}
 
     cp ${tmp_output_dir}/confident_ltr_cut.fa.cons ./
@@ -532,7 +535,7 @@ process BuildLib {
      --confident_non_ltr ${non_ltr} \
      --confident_other ${other} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --test_home ${ch_module} --use_NeuralTE ${use_NeuralTE} \
+     --test_home ${ch_module} --use_NeuralTE ${use_NeuralTE} --is_wicker ${is_wicker} \
      --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification} \
      --domain ${domain} --protein_path ${ch_protein}
 

@@ -254,12 +254,12 @@ python main.py --genome $genome_assembly --outdir $output_dir
 Most frequently used commands:
 python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --chunk_size 400 --plant 0 --recover 1 --annotate 1
 
-usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--classified is_classified] [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate]
-               [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask] [--is_denovo_nonltr is_denovo_nonltr]
-               [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold] [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len]
+usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--BM_RM2 BM_RM2]
+               [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask] [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug]
+               [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold] [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len]
                [--chrom_seg_length chrom_seg_length]
 
-########################## HiTE, version 3.1 ##########################
+########################## HiTE, version 3.1.1 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -292,7 +292,9 @@ optional arguments:
                         Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
   --use_NeuralTE use_NeuralTE
-                        Whether to use NeuralTE to classify TEs, 1: true, 0: false.
+                        Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1 ]
+  --is_wicker is_wicker
+                        Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [ 0 ]
   --flanking_len flanking_len
                         The flanking length of candidates to find the true boundaries, default = [ 50 ]
   --fixed_extend_base_threshold fixed_extend_base_threshold
