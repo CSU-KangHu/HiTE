@@ -8,7 +8,7 @@
 [![DockerHub](https://img.shields.io/badge/Docker-support-orange)](https://hub.docker.com/repository/docker/kanghu/hite/general)
 [![Conda](https://img.shields.io/badge/Conda-support-yellow)](https://docs.conda.io/en/latest/)
 [![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://www.nextflow.io/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10537322.svg)](https://doi.org/10.5281/zenodo.10537322)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10574301.svg)](https://doi.org/10.5281/zenodo.10574301)
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies. 
 
@@ -335,4 +335,4 @@ You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) p
 ## Citations
 Please cite our paper if you find `HiTE` useful:
 
-Hu, K., Xu, M., Zou, Y., & Wang, J.✉ (2023). HiTE: An accurate dynamic boundary adjustment approach for full-length Transposable Elements detection and annotation in Genome Assemblies. [bioRxiv](https://doi.org/10.1101/2023.05.23.541879).
+Hu, K., Xu, M., Zou, Y. & Wang, J.✉ (2023). HiTE: An accurate dynamic boundary adjustment approach for full-length Transposable Elements detection and annotation in Genome Assemblies. [bioRxiv](https://doi.org/10.1101/2023.05.23.541879).
