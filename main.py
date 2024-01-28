@@ -39,7 +39,7 @@ if __name__ == '__main__':
     default_use_NeuralTE = 1
     default_is_wicker = 0
 
-    version_num = '3.1.1'
+    version_num = '3.1.2'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
