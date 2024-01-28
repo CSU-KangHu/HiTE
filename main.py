@@ -539,7 +539,7 @@ if __name__ == '__main__':
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
         TEClass_home = os.getcwd() + '/classification'
-        generate_lib_command = ('cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
+        generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                + ' --confident_tir ' + confident_tir_path \
                                + ' --confident_helitron ' + confident_helitron_path \
@@ -549,7 +549,7 @@ if __name__ == '__main__':
                                + ' --test_home ' + str(test_home) + ' --use_NeuralTE ' + str(use_NeuralTE) \
                                + ' --is_wicker ' + str(is_wicker) \
                                + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home) \
-                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path))
+                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path)
         log.logger.info(generate_lib_command)
         os.system(generate_lib_command)
         endtime = time.time()
