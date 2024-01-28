@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install unzip --yes && apt-get install less --yes 
 # RUN git clone https://github.com/CSU-KangHu/HiTE.git
 
 # use local HiTE
-COPY HiTE-v.3.1.1.zip /HiTE-v.3.1.1.zip
-RUN cd / && unzip HiTE-v.3.1.1.zip && mv CSU-KangHu-HiTE-* /HiTE
+COPY HiTE-v.3.1.2.zip /HiTE-v.3.1.2.zip
+RUN cd / && unzip HiTE-v.3.1.2.zip && mv HiTE-v.3.1.2 /HiTE
 
 # Download HiTE from Zenodo
 #RUN curl -LJO https://zenodo.org/records/10574301/files/CSU-KangHu/HiTE-v.3.1.1.zip &&  \
