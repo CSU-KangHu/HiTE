@@ -143,26 +143,27 @@ if __name__ == '__main__':
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     rename_reference(reference, ref_rename_path)
 
-    ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
-    ltrfinder_output = ref_rename_path + '.finder.combine.scn'
-    if not is_recover or not file_exist(ltrharvest_output) or not file_exist(ltrfinder_output):
-        starttime = time.time()
-        log.logger.info('Start step0.1: Running LTR_harvest_parallel and LTR_finder_parallel')
-        run_LTR_detection(ref_rename_path, tmp_output_dir, threads, LTR_harvest_parallel_Home, LTR_finder_parallel_Home, log)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step0.1: %.8s s" % (dtime))
-    else:
-        log.logger.info(ltrharvest_output + ' exists, skip...')
-        log.logger.info(ltrfinder_output + ' exists, skip...')
-
-    ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
-    ltrfinder_output = ref_rename_path + '.finder.combine.scn'
-    ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
-    os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)
-
     resut_file = ref_rename_path + '.LTRlib.fa'
     if not is_recover or not file_exist(resut_file):
+        ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
+        ltrfinder_output = ref_rename_path + '.finder.combine.scn'
+        if not is_recover or not file_exist(ltrharvest_output) or not file_exist(ltrfinder_output):
+            starttime = time.time()
+            log.logger.info('Start step0.1: Running LTR_harvest_parallel and LTR_finder_parallel')
+            run_LTR_detection(ref_rename_path, tmp_output_dir, threads, LTR_harvest_parallel_Home,
+                              LTR_finder_parallel_Home, log)
+            endtime = time.time()
+            dtime = endtime - starttime
+            log.logger.info("Running time of step0.1: %.8s s" % (dtime))
+        else:
+            log.logger.info(ltrharvest_output + ' exists, skip...')
+            log.logger.info(ltrfinder_output + ' exists, skip...')
+
+        ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
+        ltrfinder_output = ref_rename_path + '.finder.combine.scn'
+        ltr_output = tmp_output_dir + '/genome_all.fa.rawLTR.scn'
+        os.system('cat ' + ltrharvest_output + ' ' + ltrfinder_output + ' > ' + ltr_output)
+
         starttime = time.time()
         log.logger.info('Start step0.2: run LTR_retriever to get confident LTR')
         run_LTR_retriever(ref_rename_path, tmp_output_dir, threads, miu, log)
@@ -237,16 +238,39 @@ if __name__ == '__main__':
         parts = name.split('#')
         intact_LTR_labels[parts[0]] = parts[1]
 
-    ltr_index = 0
-    confident_ltr_cut_contigs = {}
+    no_label_ltr_names = []
+    no_label_ltr_contigs = {}
     for name in ltr_names:
         seq = ltr_contigs[name]
         name = name.split('#')[0]
+        no_label_ltr_names.append(name)
+        no_label_ltr_contigs[name] = seq
+
+    # Assign identical IDs to the same LTR and INT.
+    ltr_index = 0
+    stored_names = set()
+    confident_ltr_cut_contigs = {}
+    for name in no_label_ltr_names:
+        if name in stored_names:
+            continue
+        seq = no_label_ltr_contigs[name]
         intact_ltr_name = name[:-4]
         label = intact_LTR_labels[intact_ltr_name]
         ltr_type = name[-4:]
         new_name = 'LTR_' + str(ltr_index) + ltr_type + '#' +label
         confident_ltr_cut_contigs[new_name] = seq
+
+        # find the other type
+        if ltr_type == '_LTR':
+            other_ltr_type = '_INT'
+        else:
+            other_ltr_type = '_LTR'
+        other_name = intact_ltr_name + other_ltr_type
+        if no_label_ltr_contigs.__contains__(other_name):
+            new_name = 'LTR_' + str(ltr_index) + other_ltr_type + '#' + label
+            confident_ltr_cut_contigs[new_name] = no_label_ltr_contigs[other_name]
+            stored_names.add(other_name)
+
         ltr_index += 1
     store_fasta(confident_ltr_cut_contigs, ltr_cons_path)
 

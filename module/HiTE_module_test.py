@@ -3636,49 +3636,55 @@ def get_logo_seq(ltr_copies):
 
 
 if __name__ == '__main__':
-    work_dir = '/home/hukang/test/HiTE/demo/test2'
-    ltr_list = work_dir + '/genome.rename.fa.pass.list'
-    genome_path = work_dir + '/genome.rename.fa'
-    intact_LTR_path = work_dir + '/intact_LTR.fa'
+    # 输出染色体长度
+    reference = '/home/hukang/EDTA/krf_test/maize/GCF_902167145.1_Zm-B73-REFERENCE-NAM-5.0_genomic.rename.fna'
+    contignames, contigs = read_fasta(reference)
+    for name in contignames:
+        print(name+','+str(len(contigs[name])))
 
-    segmentLTRs = {}
-    ltr_contigs = {}
-    ref_contigNames, ref_contigs = read_fasta(genome_path)
-    ltr_index = 1
-    with open(ltr_list, 'r') as f_r:
-        for line in f_r:
-            if line.startswith('#'):
-                continue
-            direct = line.split('\t')[8]
-            ltr_name = line.split('\t')[0]
-            internal_info = line.split('\t')[6]
-            int_start = int(internal_info.split(':')[1].split('..')[0])
-            int_end = int(internal_info.split(':')[1].split('..')[1])
-            parts = ltr_name.split(':')
-            chr_name = parts[0]
-            chr_start = int(parts[1].split('..')[0])
-            chr_end = int(parts[1].split('..')[1])
-            if direct == '-':
-                temp = chr_end
-                chr_end = chr_start
-                chr_start = temp
-            chr_seq = ref_contigs[chr_name]
-            ltr_seq = chr_seq[chr_start-1: chr_end]
-
-            terminal_seq1 = chr_seq[chr_start-1: int_start-1]
-            internal_seq = chr_seq[int_start-1: int_end]
-            terminal_seq2 = chr_seq[int_end: chr_end]
-            current_name = 'ltr_'+str(ltr_index)
-            segmentLTRs[current_name+'_LTR'] = terminal_seq1
-            segmentLTRs[current_name + '_INT'] = internal_seq
-            ltr_contigs[current_name] = ltr_seq
-            ltr_index += 1
-            # print(terminal_seq1)
-            # print(internal_seq)
-            # print(terminal_seq2)
-            # print(ltr_seq)
-            break
-    store_fasta(ltr_contigs, intact_LTR_path)
+    # work_dir = '/home/hukang/test/HiTE/demo/test2'
+    # ltr_list = work_dir + '/genome.rename.fa.pass.list'
+    # genome_path = work_dir + '/genome.rename.fa'
+    # intact_LTR_path = work_dir + '/intact_LTR.fa'
+    #
+    # segmentLTRs = {}
+    # ltr_contigs = {}
+    # ref_contigNames, ref_contigs = read_fasta(genome_path)
+    # ltr_index = 1
+    # with open(ltr_list, 'r') as f_r:
+    #     for line in f_r:
+    #         if line.startswith('#'):
+    #             continue
+    #         direct = line.split('\t')[8]
+    #         ltr_name = line.split('\t')[0]
+    #         internal_info = line.split('\t')[6]
+    #         int_start = int(internal_info.split(':')[1].split('..')[0])
+    #         int_end = int(internal_info.split(':')[1].split('..')[1])
+    #         parts = ltr_name.split(':')
+    #         chr_name = parts[0]
+    #         chr_start = int(parts[1].split('..')[0])
+    #         chr_end = int(parts[1].split('..')[1])
+    #         if direct == '-':
+    #             temp = chr_end
+    #             chr_end = chr_start
+    #             chr_start = temp
+    #         chr_seq = ref_contigs[chr_name]
+    #         ltr_seq = chr_seq[chr_start-1: chr_end]
+    #
+    #         terminal_seq1 = chr_seq[chr_start-1: int_start-1]
+    #         internal_seq = chr_seq[int_start-1: int_end]
+    #         terminal_seq2 = chr_seq[int_end: chr_end]
+    #         current_name = 'ltr_'+str(ltr_index)
+    #         segmentLTRs[current_name+'_LTR'] = terminal_seq1
+    #         segmentLTRs[current_name + '_INT'] = internal_seq
+    #         ltr_contigs[current_name] = ltr_seq
+    #         ltr_index += 1
+    #         # print(terminal_seq1)
+    #         # print(internal_seq)
+    #         # print(terminal_seq2)
+    #         # print(ltr_seq)
+    #         break
+    # store_fasta(ltr_contigs, intact_LTR_path)
 
 
 
