@@ -86,9 +86,10 @@ class DataProcessor:
 
             # Concatenate LTR sequences with LTR internal sequences from the input TE library to create a complete LTR sequence
             data, repbase_labels = connect_LTR(data)
-
             # Remove domain files to ensure regeneration every time
             os.system('rm -f ' + domain_train_path)
+            # set keep_raw = 1 to ensure not lose any sequence
+            config.keep_raw = 1
 
         names, contigs = read_fasta_v1(data)
         # Convert Repbase labels to Wicker format
@@ -125,6 +126,7 @@ class DataProcessor:
                 # Ensure modifying the 'data/ncbi_ref.info' file with the correct Genome Path
                 is_expanded = 0 # Set is_expanded=1 only when balancing the Repbase dataset; otherwise, set is_expanded=0
                 keep_raw = config.keep_raw # Retain original sequences; set to 0 to retain only sequences with TSD, useful when training the TSD model.
+                print('keep_raw:' + str(keep_raw))
                 data = generate_TSD_info(data, genome_info_path, work_dir, is_expanded, keep_raw, threads)
             if use_domain != 0 and not os.path.exists(domain_train_path):
                 # Use domain feature, but if the domain information file is missing, it needs to be regenerated through comparison.

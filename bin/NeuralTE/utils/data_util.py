@@ -749,6 +749,8 @@ def connect_LTR(repbase_path):
     # Get all LTR sequences.
     LTR_names = set()
     for name in raw_names:
+        if name.__contains__('Non_LTR'):
+            continue
         # Identify LTR terminal sequences and obtain corresponding internal sequence names.
         pattern = r'\b(\w+(-|_)?)LTR((-|_)?\w*)\b'
         matches = re.findall(pattern, name)
