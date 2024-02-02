@@ -8885,6 +8885,8 @@ def deredundant_for_LTR(redundant_ltr, work_dir, threads):
     blastnResults_path = work_dir + '/LTR_blastn.out'
     # 1. Start by performing an all-vs-all comparison using blastn.
     multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True)
+    if not os.path.exists(blastnResults_path):
+        return redundant_ltr
     # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
     fixed_extend_base_threshold = 1000
     longest_repeats = FMEA(blastnResults_path, fixed_extend_base_threshold)

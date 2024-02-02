@@ -191,88 +191,89 @@ if __name__ == '__main__':
     # get intact LTR from LTR_retriever pass list
     intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
     ltr_list = ref_rename_path + '.pass.list'
-    segmentLTRs = get_intact_ltr(ref_rename_path, ltr_list, intact_LTR_path)
+    if os.path.exists(ltr_list):
+        segmentLTRs = get_intact_ltr(ref_rename_path, ltr_list, intact_LTR_path)
 
-    # 1. recover intact-LTRs from 'ltr_cons_path'
-    # 2. classify intact-LTRs and assign label to 'ltr_cons_path'
-    ltr_names, ltr_contigs = read_fasta(ltr_cons_path)
-    intact_ltr_names, intact_ltr_contigs = read_fasta(intact_LTR_path)
-    filter_intact_ltr_contigs = {}
-    for name in ltr_names:
-        seq = ltr_contigs[name]
-        name = name.split('#')[0]
-        intact_ltr_name = name[:-4]
-        if intact_ltr_contigs.__contains__(intact_ltr_name):
-            filter_intact_ltr_contigs[intact_ltr_name] = intact_ltr_contigs[intact_ltr_name]
+        # 1. recover intact-LTRs from 'ltr_cons_path'
+        # 2. classify intact-LTRs and assign label to 'ltr_cons_path'
+        ltr_names, ltr_contigs = read_fasta(ltr_cons_path)
+        intact_ltr_names, intact_ltr_contigs = read_fasta(intact_LTR_path)
+        filter_intact_ltr_contigs = {}
+        for name in ltr_names:
+            seq = ltr_contigs[name]
+            name = name.split('#')[0]
+            intact_ltr_name = name[:-4]
+            if intact_ltr_contigs.__contains__(intact_ltr_name):
+                filter_intact_ltr_contigs[intact_ltr_name] = intact_ltr_contigs[intact_ltr_name]
+            else:
+                filter_intact_ltr_contigs[intact_ltr_name] = seq
+        store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
+
+        # classify intact-LTRs
+        if use_NeuralTE:
+            # classify LTR using NeuralTE
+            NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
+            if not os.path.exists(NeuralTE_output_dir):
+                os.makedirs(NeuralTE_output_dir)
+            NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \
+                               + ' --use_TSD 0 --model_path ' \
+                               + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
+                               + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
+            log.logger.debug(NeuralTE_command)
+            os.system(NeuralTE_command + ' > /dev/null 2>&1')
+            classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
         else:
-            filter_intact_ltr_contigs[intact_ltr_name] = seq
-    store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
+            # classify LTR using RepeatClassifier
+            sample_name = 'test'
+            TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+                              + ' --consensus ' + intact_LTR_path + ' --genome 1' \
+                              + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
+            log.logger.debug(TEClass_command)
+            os.system(TEClass_command)
+            classified_TE_path = intact_LTR_path + '.classified'
 
-    # classify intact-LTRs
-    if use_NeuralTE:
-        # classify LTR using NeuralTE
-        NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
-        if not os.path.exists(NeuralTE_output_dir):
-            os.makedirs(NeuralTE_output_dir)
-        NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \
-                           + ' --use_TSD 0 --model_path ' \
-                           + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
-                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
-        log.logger.debug(NeuralTE_command)
-        os.system(NeuralTE_command + ' > /dev/null 2>&1')
-        classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
-    else:
-        # classify LTR using RepeatClassifier
-        sample_name = 'test'
-        TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                          + ' --consensus ' + intact_LTR_path + ' --genome 1' \
-                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
-        log.logger.debug(TEClass_command)
-        os.system(TEClass_command)
-        classified_TE_path = intact_LTR_path + '.classified'
+        # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
+        classified_names, classified_contigs = read_fasta(classified_TE_path)
+        intact_LTR_labels = {}
+        for name in classified_names:
+            parts = name.split('#')
+            intact_LTR_labels[parts[0]] = parts[1]
 
-    # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
-    classified_names, classified_contigs = read_fasta(classified_TE_path)
-    intact_LTR_labels = {}
-    for name in classified_names:
-        parts = name.split('#')
-        intact_LTR_labels[parts[0]] = parts[1]
+        no_label_ltr_names = []
+        no_label_ltr_contigs = {}
+        for name in ltr_names:
+            seq = ltr_contigs[name]
+            name = name.split('#')[0]
+            no_label_ltr_names.append(name)
+            no_label_ltr_contigs[name] = seq
 
-    no_label_ltr_names = []
-    no_label_ltr_contigs = {}
-    for name in ltr_names:
-        seq = ltr_contigs[name]
-        name = name.split('#')[0]
-        no_label_ltr_names.append(name)
-        no_label_ltr_contigs[name] = seq
+        # Assign identical IDs to the same LTR and INT.
+        ltr_index = 0
+        stored_names = set()
+        confident_ltr_cut_contigs = {}
+        for name in no_label_ltr_names:
+            if name in stored_names:
+                continue
+            seq = no_label_ltr_contigs[name]
+            intact_ltr_name = name[:-4]
+            label = intact_LTR_labels[intact_ltr_name]
+            ltr_type = name[-4:]
+            new_name = 'LTR_' + str(ltr_index) + ltr_type + '#' +label
+            confident_ltr_cut_contigs[new_name] = seq
 
-    # Assign identical IDs to the same LTR and INT.
-    ltr_index = 0
-    stored_names = set()
-    confident_ltr_cut_contigs = {}
-    for name in no_label_ltr_names:
-        if name in stored_names:
-            continue
-        seq = no_label_ltr_contigs[name]
-        intact_ltr_name = name[:-4]
-        label = intact_LTR_labels[intact_ltr_name]
-        ltr_type = name[-4:]
-        new_name = 'LTR_' + str(ltr_index) + ltr_type + '#' +label
-        confident_ltr_cut_contigs[new_name] = seq
+            # find the other type
+            if ltr_type == '_LTR':
+                other_ltr_type = '_INT'
+            else:
+                other_ltr_type = '_LTR'
+            other_name = intact_ltr_name + other_ltr_type
+            if no_label_ltr_contigs.__contains__(other_name):
+                new_name = 'LTR_' + str(ltr_index) + other_ltr_type + '#' + label
+                confident_ltr_cut_contigs[new_name] = no_label_ltr_contigs[other_name]
+                stored_names.add(other_name)
 
-        # find the other type
-        if ltr_type == '_LTR':
-            other_ltr_type = '_INT'
-        else:
-            other_ltr_type = '_LTR'
-        other_name = intact_ltr_name + other_ltr_type
-        if no_label_ltr_contigs.__contains__(other_name):
-            new_name = 'LTR_' + str(ltr_index) + other_ltr_type + '#' + label
-            confident_ltr_cut_contigs[new_name] = no_label_ltr_contigs[other_name]
-            stored_names.add(other_name)
-
-        ltr_index += 1
-    store_fasta(confident_ltr_cut_contigs, ltr_cons_path)
+            ltr_index += 1
+        store_fasta(confident_ltr_cut_contigs, ltr_cons_path)
 
 
     # rename_LTR(resut_file, confident_ltr_cut_path)
