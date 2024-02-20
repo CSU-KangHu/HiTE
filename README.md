@@ -10,7 +10,7 @@
 [![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://www.nextflow.io/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10576547.svg)](https://doi.org/10.5281/zenodo.10576547)
 
-`HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies. 
+`HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies. In comparison to other tools, HiTE demonstrates superior performance in detecting a greater number of full-length TEs.
 
 Similar works include:
 * [RepeatModeler](https://github.com/Dfam-consortium/RepeatModeler)
