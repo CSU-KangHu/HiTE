@@ -16,7 +16,7 @@ Similar works include:
 * [RepeatModeler](https://github.com/Dfam-consortium/RepeatModeler)
 * [EDTA](https://github.com/oushujun/EDTA)
 * [EarlGrey](https://github.com/TobyBaril/EarlGrey)
-
+ 
 `HiTE` now uses [NeuralTE](https://github.com/CSU-KangHu/NeuralTE) for TE classification instead of the previous `RepeatClassifier`. Users can specify whether to use `NeuralTE` or `RepeatClassifier` by setting the parameter `--use_NeuralTE` to `1` or `0`.
 
 Compared to `RepeatClassifier`, NeuralTE demonstrates superior classification performance and eliminates the necessity to set up additional `Dfam` libraries for TE classification.
