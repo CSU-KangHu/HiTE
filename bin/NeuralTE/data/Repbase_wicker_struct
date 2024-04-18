@@ -1,0 +1,43 @@
+# Transposable elements:
+    # DNA Transposons:
+        # Subclass I:
+            # TIRS:
+                # Tc1-Mariner -> ['Mariner/Tc1', 'mariner/Tc1 superfamily']
+                # hAT -> ['hAT', 'HAT superfamily']
+                # Mutator -> ['MuDR']
+                # Merlin -> ['Merlin']
+                # Transib -> ['Transib']
+                # P -> ['P', 'P-element']
+                # PiggyBac -> ['PiggyBac']
+                # PIF-Harbinger -> ['Harbinger']
+                # CACTA -> ['EnSpm/CACTA']
+            # Crypton
+                # Crypton -> ['Crypton', 'CryptonF', 'CryptonS', 'CryptonI', 'CryptonV', 'CryptonA']
+        # Subclass II:
+            # Helitron:
+                # Helitron -> ['Helitron', 'HELITRON superfamily']
+            # Maverick:
+                # Maverick -> []
+
+    # Retrotransposons:
+        # LTR:
+            # Copia -> ['Copia']
+            # Gypsy -> ['Gypsy', 'GYPSY superfamily', 'Gypsy retrotransposon']
+            # Bel-Pao -> ['BEL']
+            # Retrovirus -> ['ERV1', 'ERV2', 'ERV3', 'Lentivirus', 'ERV4', 'Lokiretrovirus']
+        # DIRS:
+            # DIRS -> ['DIRS']
+            # Ngaro -> []
+            # VIPER -> []
+        # PLE:
+            # Penelope -> ['Penelope', 'Penelope/Poseidon', 'Neptune', 'Nematis', 'Athena', 'Coprina', 'Hydra', 'Naiad/Chlamys']
+        # LINE:
+            # R2 -> ['R2']
+            # RTE -> ['RTE']
+            # Jockey -> ['Jockey']
+            # L1 -> ['L1']
+            # I -> ['I']
+        # SINE:
+            # tRNA -> ['SINE2/tRNA']
+            # 7SL -> ['SINE1/7SL']
+            # 5S -> ['SINE3/5S']

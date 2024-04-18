@@ -1,0 +1,41 @@
+#Wicker_Label	RepeatMasker_Label
+DNA transposon	DNA
+Maverick	DNA/Maverick
+Helitron	RC/Helitron
+CACTA	DNA/CMC-EnSpm
+EnSpm/CACTA	DNA/CMC-EnSpm
+Transib	DNA/CMC-Transib
+Merlin	DNA/Merlin
+Mutator	DNA/MULE
+MuDR	DNA/MULE
+PIF-Harbinger	DNA/PIF-Harbinger
+Harbinger	DNA/PIF-Harbinger
+P	DNA/P
+PiggyBac	DNA/PiggyBac
+Tc1-Mariner	DNA/TcMar
+Mariner/Tc1	DNA/TcMar
+hAT	DNA/hAT
+Crypton	DNA/Crypton
+L1	LINE/L1
+I	LINE/I
+Jockey	LINE/I-Jockey
+RTE	LINE/RTE-RTE
+5S	SINE/5S
+7SL	SINE/7SL
+tRNA	SINE/tRNA
+SINE2/tRNA	SINE/tRNA
+LTR Retrotransposon	LTR
+Caulimoviridae	LTR/Caulimovirus
+Bel-Pao	LTR/Pao
+Gypsy	LTR/Gypsy
+Retrovirus	LTR/ERV
+Copia	LTR/Copia
+Penelope	LINE/Penelope
+DIRS	LTR/DIRS
+Ngaro	LTR/Ngaro
+VIPER	LTR/Viper
+R2	LINE/R2
+Unknown	Unknown
+Transposable Element	Unknown
+Non-LTR Retrotransposon	Unknown
+Nonautonomous	Unknown

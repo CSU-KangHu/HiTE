@@ -1,0 +1,28 @@
+name: HiTE
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+  - r
+dependencies:
+  - python=3.8.16=h7a1cb2a_2
+  - java-jdk
+  - tensorflow=2.6.0
+  - keras=2.6.0=pyhd3eb1b0_0
+  - numpy=1.19.5
+  - biopython=1.78=py38h7f8727e_0
+  - scikit-learn=1.2.0=py38h6a678d5_1
+  - seaborn
+  - matplotlib
+  - openpyxl
+  - rmblast=2.14.0
+  - repeatmasker=4.1.1
+  - repeatmodeler=2.0.1=pl526_0
+  - bedtools=2.30.0
+  - cd-hit=4.8.1
+  - samtools
+  - fuzzysearch
+  - pip
+  - pip:
+    - python-Levenshtein
+
