@@ -4710,13 +4710,8 @@ def filter_out_by_category(TE_out, tmp_output_dir, category):
     os.system('cp ' + TE_out + ' ' + tmp_out)
     if category == 'Total':
         return tmp_out
-    elif category == 'nonLTR':
-        print('filter nonLTR, still developing')
-        return tmp_out
-    elif category == 'TIR':
-        print('filter TIR, still developing')
-        return tmp_out
     else:
+        print('Warning: you are using the parameter "--cat ' + str(category) + '". The program will only calculate transposons that include the label "' + str(category) + '". Please make sure to check the labels in "--standard_lib" and "--test_lib" to avoid miscalculations. For example, if you want to assess the performance of TIR transposons using "--cat DNA", please ensure that all types of TIR transposon labels follow the pattern "xxx#DNA/xxx", and that no non-TIR transposon labels contain "DNA".')
         lines = []
         with open(tmp_out, 'r') as f_r:
             for line in f_r:
@@ -10381,7 +10376,7 @@ def multiple_alignment_blast_v1(repeats_path, tools_dir, coverage_threshold, cat
                         + str(1) + ' -query ' + split_repeats_path + ' -evalue 1e-20 -outfmt 6 >> ' + blastn2Results_path
         os.system(align_command)
 
-    # 我们调用获取全长的函数
+    # invoke the function to retrieve the full-length copies.
     generate_full_length_out(blastn2Results_path, full_length_out, split_repeats_path, genome_path, tmp_dir, tools_dir,
                              coverage_threshold, category)
 

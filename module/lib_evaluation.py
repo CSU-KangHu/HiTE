@@ -171,7 +171,7 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
     print('F1:', F1)
 
 def get_evaluation_sample(genome_path, standard_lib_out, test_lib_out, work_dir, coverage_threshold):
-    # Step 0. 获取基因组的长度
+    # Step 0. Obtaining the length of the genome
     names, contigs = read_fasta(genome_path)
     chrom_length = {}
     for i, name in enumerate(names):
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--coverage_threshold', metavar='coverage_threshold',
                         help='Finding thresholds for full-length copies. Three common thresholds: 0.80, 0.95, and 0.99.')
     parser.add_argument('--cat', metavar='TE category',
-                        help='TE category: LTR|nonLTR|LINE|SINE|TIR|Helitron|Total')
+                        help='TE category: LTR|LINE|SINE|DNA|Helitron|Total')
 
     args = parser.parse_args()
     genome_path = args.g
@@ -264,8 +264,9 @@ if __name__ == '__main__':
 
 
     if skip_blastn != 1:
-        # 由于RepeatMasker会跨过一些大gap，导致比对不准确，影响我们的评价结果，因此我们使用blastn进行比对
-        # 此外，我们发现会出现 test library 过大，导致 blastn 比对 out 过大的问题，我们先在单个线程中调用获取全长拷贝的函数，然后再合并所有的全长拷贝
+        # Due to RepeatMasker sometimes skipping large gaps, which leads to inaccurate alignment and affects our evaluation results,
+        # we opted to employ blastn for alignment. Additionally, we noticed issues with oversized test libraries causing blastn output to balloon.
+        # To address this, we initially invoke the function to retrieve full-length copies in a single thread, before consolidating all full-length copies.
         multi_process_align_v1(standard_lib, genome_path, standard_lib_out, std_tmp_blast_dir, thread, coverage_threshold, category, is_removed_dir=True)
         multi_process_align_v1(test_lib, genome_path, test_lib_out, test_tmp_blast_dir, thread, coverage_threshold, category, is_removed_dir=True)
 

@@ -6,25 +6,18 @@
       <paths name="WebTE计算节点">
         <serverdata>
           <mappings>
-            <mapping deploy="/root/HiTE" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="bio1">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/hukang/HiTE" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="hukang@122.207.108.7:21000 password">
-        <serverdata>
-          <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="hukang@122.207.108.7:21000 password (2)">
+      <paths name="hukang@122.207.108.7:21000 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
@@ -52,24 +45,10 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="hukang@122.207.108.7:5000 password (4)">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="hukang@122.207.108.7:5000 password (5)">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="super">
         <serverdata>
           <mappings>
-            <mapping deploy="HiTE" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
