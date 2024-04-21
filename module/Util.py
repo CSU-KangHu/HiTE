@@ -5548,7 +5548,8 @@ def search_confident_tir_batch_v1(split_file, flanking_len, tir_tsd_dir, TRsearc
 
     # Save the sequence of short TIR and submit it to itrsearch to determine the length of TIR
     short_itr_contigs = get_short_tir_contigs(all_copies_itr_contigs, plant)
-    # 由于我们这里只是想判断是否具有TIR结构，因此我们不必取整条序列，只需要取两端各40bp组合即可，速度会快很多
+    # Since we're only interested in determining the presence of TIR structure, we don't need to consider the entire sequence.
+    # Instead, we can simply select 40 base pairs from each end for analysis. This approach significantly speeds up the process.
     new_short_itr_contigs = {}
     for name in short_itr_contigs.keys():
         seq = short_itr_contigs[name]
@@ -5561,7 +5562,6 @@ def search_confident_tir_batch_v1(split_file, flanking_len, tir_tsd_dir, TRsearc
     # The remaining sequences are handed over to itrsearch to search for TIR structures
     for name in short_itr_contigs.keys():
         del all_copies_itr_contigs[name]
-    # 由于我们这里只是想判断是否具有TIR结构，因此我们不必取整条序列，只需要取两端各40bp组合即可，速度会快很多
     new_all_copies_itr_contigs = {}
     for name in all_copies_itr_contigs.keys():
         seq = all_copies_itr_contigs[name]
