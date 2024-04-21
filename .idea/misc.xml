@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+<<<<<<< Updated upstream
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.6.15 (sftp://hukang@122.207.108.56:5000/home/hukang/anaconda2/envs/HiTE/bin/python)" project-jdk-type="Python SDK" />
+=======
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9" project-jdk-type="Python SDK" />
+>>>>>>> Stashed changes
+</project>
