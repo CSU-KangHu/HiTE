@@ -20,6 +20,8 @@ if __name__ == '__main__':
                         help='The path of tir library')
     parser.add_argument('--helitron_lib', metavar='helitron_lib',
                         help='The path of helitron library')
+    parser.add_argument('--nonltr_lib', metavar='nonltr_lib',
+                        help='The path of non-ltr library')
     parser.add_argument('--other_lib', metavar='other_lib',
                         help='The path of other library')
     parser.add_argument('--chr_name_map', metavar='chr_name_map',
@@ -40,6 +42,7 @@ if __name__ == '__main__':
     ltr_list = args.ltr_list
     tir_lib = args.tir_lib
     helitron_lib = args.helitron_lib
+    nonltr_lib = args.nonltr_lib
     other_lib = args.other_lib
     chr_name_map = args.chr_name_map
     reference = args.r
@@ -71,13 +74,14 @@ if __name__ == '__main__':
     # consider it a candidate full-length copy. Record their positions and sequences on the chromosome.
     # Filter out candidate full-length copies that do not meet the criteria (80-80-80 rule) using cd-hit.
     TE_lib = tmp_output_dir + '/TE_tmp.fa'
-    os.system('cat ' + tir_lib + ' ' + helitron_lib + ' ' + other_lib + ' > ' + TE_lib)
+    log.logger.debug('cat ' + tir_lib + ' ' + helitron_lib + ' ' + nonltr_lib + ' ' + other_lib + ' > ' + TE_lib)
+    os.system('cat ' + tir_lib + ' ' + helitron_lib + ' ' + nonltr_lib + ' ' + other_lib + ' > ' + TE_lib)
     intact_dir = tmp_output_dir + '/intact_tmp'
     full_length_annotations, copies_direct = get_full_length_copies_RM(TE_lib, reference, intact_dir, threads, divergence_threshold,
-                                                   full_length_threshold, search_struct)
+                                                   full_length_threshold, search_struct, TRsearch_dir)
 
     # Step 3. Obtain the classification of TE and add it to the annotation.
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+    confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
     classified_TE_path = confident_TE_path + '.classified'
     contignames, contigs = read_fasta(classified_TE_path)
     TE_classifications = {}
@@ -103,7 +107,7 @@ if __name__ == '__main__':
                     type = 'TIR'
                 elif query_name.__contains__('Helitron'):
                     type = 'Helitron'
-                elif query_name.__contains__('Homology_Non_LTR'):
+                elif query_name.__contains__('Denovo_Non_LTR') or query_name.__contains__('Homology_Non_LTR'):
                     type = 'Non_LTR'
                 intact_count += 1
                 update_annotation = 'id=te_intact_'+str(intact_count)+';name='+query_name+';classification='+classification+';'+annotation

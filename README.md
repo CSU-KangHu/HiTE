@@ -16,10 +16,6 @@ Similar works include:
 * [RepeatModeler](https://github.com/Dfam-consortium/RepeatModeler)
 * [EDTA](https://github.com/oushujun/EDTA)
 * [EarlGrey](https://github.com/TobyBaril/EarlGrey)
- 
-`HiTE` now uses [NeuralTE](https://github.com/CSU-KangHu/NeuralTE) for TE classification instead of the previous `RepeatClassifier`. Users can specify whether to use `NeuralTE` or `RepeatClassifier` by setting the parameter `--use_NeuralTE` to `1` or `0`.
-
-Compared to `RepeatClassifier`, NeuralTE demonstrates superior classification performance and eliminates the necessity to set up additional `Dfam` libraries for TE classification.
 
 
 <!-- 
@@ -60,13 +56,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 cd HiTE && chmod +x tools/* bin/NeuralTE/tools/* bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder
 ```
 
-### <a name="before_run"></a>Before running
-`HiTE` enables the pre-masking step by default to minimize processing time in large genomes.
-If you are working with a **smaller genome** or desire a **more comprehensive TE library** 
-and are willing to accept slightly **longer runtimes**, please use the parameter `--is_prev_mask 0` 
-to deactivate the pre-masking step.
-
-### <a name="install_singularity"></a>Option 1. Run with Singularity (recommended)
+### <a name="install_singularity"></a>Option 1. Run with Singularity
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
 singularity pull HiTE.sif docker://kanghu/hite:3.1.2
@@ -171,6 +161,7 @@ If the following files exist in the **demo/test** directory, it means the progra
 demo/test/
 ├── confident_helitron.fa
 ├── confident_other.fa
+├── confident_non_ltr.fa
 ├── confident_tir.fa
 ├── confident_ltr_cut.fa.cons
 └── confident_TE.cons.fa
@@ -189,6 +180,27 @@ TE_name domain_name     TE_start        TE_end  domain_start    domain_end
 
 N_111   Gypsy-50_SB_1p#LTR/Gypsy        164     4387    1       1410
 ...
+```
+
+### Obtaining full-length TE annotations
+To obtain full-length TE annotations on the genome, you need to include the parameter `--intact_anno 1`.
+
+The output file is **HiTE_intact.sorted.gff3**, which is shown as follows:
+```sh
+##gff-version 3
+##date 2024-04-29 03:20:00 UTC
+##ltr_identity: Sequence identity (0-1) between the left and right LTR region.
+##tir_identity: Sequence identity (0-1) between the left and right TIR region.
+##tsd: target site duplication
+chr_0   HiTE    TIR     68394   68599   .       +       .       id=te_intact_352;name=TIR_89;classification=DNA/MULE;tir=1-68,129-206;tir_identity=0.882353;tsd=TA;tsd_len=2
+chr_0   HiTE    Helitron        3534305 3534481 .       -       .       id=te_intact_517;name=Helitron_1;classification=RC/Helitron;hairpin_loop=GCGCCGAAGGCGC
+chr_1   HiTE    Non_LTR 1036    1315    .       +       .       id=te_intact_472;name=Denovo_Non_LTR_0;classification=LINE/L1;polya_t=AAAAAA;tsd=AAAATTGA;tsd_len=8
+chr_1   HiTE    repeat_region   139832  146291  .       -       .       id=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
+chr_1   HiTE    target_site_duplication 139832  139836  .       -       .       id=lTSD_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
+chr_1   HiTE    long_terminal_repeat    139837  140815  .       -       .       id=lLTR_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
+chr_1   HiTE    LTR     139837  146286  .       -       .       id=LTRRT_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
+chr_1   HiTE    long_terminal_repeat    145317  146286  .       -       .       id=rLTR_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
+chr_1   HiTE    target_site_duplication 146287  146291  .       -       .       id=rTSD_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
 ```
 
 ## <a name="inputs"></a>Inputs
@@ -252,14 +264,14 @@ The simplest command:
 python main.py --genome $genome_assembly --outdir $output_dir
 
 Most frequently used commands:
-python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --chunk_size 400 --plant 0 --recover 1 --annotate 1
+python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --plant 0 --recover 1 --annotate 1
 
-usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--BM_RM2 BM_RM2]
-               [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask] [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug]
-               [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold] [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len]
-               [--chrom_seg_length chrom_seg_length]
+usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--intact_anno intact_anno]
+               [--search_struct search_struct] [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask]
+               [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold] [--tandem_region_cutoff tandem_region_cutoff]
+               [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length]
 
-########################## HiTE, version 3.1.2 ##########################
+########################## HiTE, version 3.2 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -276,6 +288,10 @@ optional arguments:
   --recover is_recover  Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
   --annotate is_annotate
                         Whether to annotate the genome using the TE library generated, 1: true, 0: false. default = [ 0 ]
+  --intact_anno intact_anno
+                        Whether to generate annotation of full-length TEs, 1: true, 0: false. default = [ 0 ]
+  --search_struct search_struct
+                        Is the structural information of full-length copies being searched, 1: true, 0: false. default = [ 1 ]
   --BM_RM2 BM_RM2       Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false. default = [ 0 ]
   --BM_EDTA BM_EDTA     Whether to conduct benchmarking of EDTA, 1: true, 0: false. default = [ 0 ]
   --BM_HiTE BM_HiTE     Whether to conduct benchmarking of HiTE, 1: true, 0: false. default = [ 0 ]
@@ -289,7 +305,7 @@ optional arguments:
   --is_prev_mask is_prev_mask
                         Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ 1 ]
   --is_denovo_nonltr is_denovo_nonltr
-                        Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
+                        Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 1 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
   --use_NeuralTE use_NeuralTE
                         Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1 ]
@@ -311,19 +327,13 @@ optional arguments:
 The quantitative experimental results from the HiTE paper can be reproduced following the [Experiment reproduction](https://github.com/CSU-KangHu/HiTE/wiki/Experiment-reproduction).
 ### Benchmarking method of HiTE (BM_HiTE)
 ```sh
-# 1. annotate the genome with gold standard library:
-RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 5 \
- -lib ${standard_lib} -cutoff 225 ${genome} && mv ${genome}.out standard.out
-
-# 2. annotate the genome with test library:
-RepeatMasker -e ncbi -pa 36 -q -no_is -norna -nolow -div 5 \
- -lib ${test_lib} -cutoff 225 ${genome} && mv ${genome}.out test.out
-
-# 3. run BM_HiTE
+# run BM_HiTE
 cd HiTE && python module/lib_evaluation.py -g ${genome} \
- --standard_lib ${standard_lib} --standard_lib_out standard.out \
- --test_lib ${test_lib} --test_lib_out test.out \
- --work_dir ${out_dir} --coverage_threshold [0.95/0.99]
+ --standard_lib ${standard_lib} \
+ --test_lib ${test_lib} \
+ --work_dir ${out_dir} \
+ --coverage_threshold [0.8/0.95/0.99] \
+ --cat Total
 ```
 
 ## <a name="QA"></a>More tutorials

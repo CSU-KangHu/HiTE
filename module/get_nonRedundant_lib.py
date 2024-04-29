@@ -101,7 +101,7 @@ if __name__ == '__main__':
     remove_ltr_from_tir(confident_ltr_cut_path, final_confident_tir_path, threads)
 
     # Merge all TE types (TIR+Helitron+Non_LTR+Other)
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+    confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
     os.system('cat ' + final_confident_tir_path + ' > ' + confident_TE_path)
     os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
     os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)

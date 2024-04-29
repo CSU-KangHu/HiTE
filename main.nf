@@ -34,6 +34,7 @@ def helpMessage() {
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
       --recover                         Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
+      --intact_anno                     Whether to generate annotation of full-length TEs, 1: true, 0: false. default = [ 0 ]
       --miu                             The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
       --classified                      Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ 1 ]
       --remove_nested                   Whether to remove nested TE, 1: true, 0: false. default = [ 1 ]
@@ -72,6 +73,7 @@ def printSetting() {
       [Setting] Is plant genome = [ $params.plant ]
       [Setting] recover = [ $params.recover ]
       [Setting] annotate = [ $params.annotate ]
+      [Setting] intact_anno = [ $params.intact_anno ]
       [Setting] BM_RM2 = [ $params.BM_RM2 ]
       [Setting] BM_EDTA = [ $params.BM_EDTA ]
       [Setting] BM_HiTE = [ $params.BM_HiTE ]
@@ -150,6 +152,7 @@ miu = "${params.miu}"
 ref = "${params.genome}"
 use_NeuralTE = "${params.use_NeuralTE}"
 is_wicker = "${params.is_wicker}"
+search_struct = "${params.search_struct}"
 //parameters of Evaluation
 BM_RM2 = "${params.BM_RM2}"
 BM_EDTA = "${params.BM_EDTA}"
@@ -426,7 +429,6 @@ process merge_ltr_other {
     cores = task.cpus
     """
      cat ${ltr} > prev_TE.fa
-     cat ${other} >> prev_TE.fa
      cp prev_TE.fa ${tmp_output_dir}/prev_TE.fa
     """
 }
@@ -463,7 +465,7 @@ process LTR {
     path ref
 
     output:
-    path "confident_ltr_cut.fa.cons"
+    path "confident_ltr_cut.fa"
 
     script:
     cores = task.cpus
@@ -474,7 +476,7 @@ process LTR {
      --recover ${recover} --miu ${miu} --use_NeuralTE ${use_NeuralTE} --is_wicker ${is_wicker}\
      --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification}
 
-    cp ${tmp_output_dir}/confident_ltr_cut.fa.cons ./
+    cp ${tmp_output_dir}/confident_ltr_cut.fa ./
     """
 }
 
@@ -543,6 +545,37 @@ process BuildLib {
     """
 }
 
+process intact_TE_annotation {
+    label 'process_high'
+
+    input:
+    path te_lib
+
+    output:
+    path "HiTE_intact.sorted.gff3"
+
+
+    script:
+    cores = task.cpus
+    """
+    python3 ${ch_module}/get_full_length_annotation.py \
+     -t ${cores} --ltr_list ${tmp_output_dir}/genome.rename.fa.pass.list \
+     --tir_lib ${tmp_output_dir}/confident_tir.fa  \
+     --helitron_lib ${tmp_output_dir}/confident_helitron.fa \
+     --nonltr_lib ${tmp_output_dir}/confident_non_ltr.fa \
+     --other_lib ${tmp_output_dir}/confident_other.fa \
+     --chr_name_map ${tmp_output_dir}/chr_name.map \
+     -r ${ref} \
+     --module_home ${ch_module} \
+     --tmp_output_dir ${tmp_output_dir} \
+     --TRsearch_dir ${tools_module} \
+     --search_struct ${search_struct}
+
+    cp ${tmp_output_dir}/HiTE_intact.sorted.gff3 ./
+    """
+}
+
+
 process ClassifyLib {
     label 'process_high'
 
@@ -594,7 +627,6 @@ process benchmarking {
     input:
     path TE_lib
     path ref
-    path annotate_dout
 
     output:
     file "output.txt"
@@ -732,6 +764,9 @@ process test {
 */
 
 workflow {
+    // split genome into chunks
+    Channel.fromPath(params.genome, type: 'any', checkIfExists: true).set{ ch_genome }
+
     if (!params.skip_HiTE) {
         if ( !file(params.genome).exists() )
                 exit 1, "genome reference path does not exist, check params: --genome ${params.genome}"
@@ -739,9 +774,6 @@ workflow {
         // dependency check
         dependencies = Channel.from(params.dependencies)
         EnvCheck(dependencies) | view { "$it" }
-
-        // split genome into chunks
-        Channel.fromPath(params.genome, type: 'any', checkIfExists: true).set{ ch_genome }
 
         //LTR identification
         ch_ltrs = LTR(ch_genome)
@@ -780,9 +812,15 @@ workflow {
 
     }
 
-    if (params.skip_HiTE)
+    if (params.skip_HiTE){
         Channel.fromPath("${params.outdir}/confident_TE.cons.fa", type: 'any', checkIfExists: true).set{ ch_lib }
-    bm_out = benchmarking(ch_lib, ch_genome, annotate_out)
+    }
+
+    if (params.intact_anno)
+        //get full-length TE annotation
+        ch_lib = intact_TE_annotation(ch_lib)
+
+    bm_out = benchmarking(ch_lib, ch_genome)
     CleanLib(bm_out)
 
 }

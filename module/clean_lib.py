@@ -29,10 +29,12 @@ if __name__ == '__main__':
     # remove temp files and directories
     if debug == 0:
         keep_files_temp = []
-        keep_files = ['genome\.rename\.fa', 
+        keep_files = ['chr_name\.map',
+                    'genome\.rename\.fa',
                     'genome\.rename\.fa\.pass\.list', 
                     '.*\.scn',
-                    'genome\.rename\.fa\.LTRlib\.fa', 
+                    'genome\.rename\.fa\.LTRlib\.fa',
+                    'TE_merge_tmp\.fa\.classified',
                     'confident_TE\.cons\.fa',
                     'confident_TE\.cons\.fa\.domain',
                     'confident_ltr_cut\.fa',

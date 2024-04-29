@@ -43,7 +43,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     multi_process_tsd, get_domain_info, run_HelitronScanner, run_HelitronScanner_v1, get_longest_repeats_v3, \
     flanking_seq, multi_process_helitronscanner, split_fasta, get_longest_repeats_v4, \
     process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, search_confident_tir_v4, \
-    multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5
+    multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
+    multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9
 
 
 def filter_repbase_nonTE():
@@ -3634,11 +3635,238 @@ def get_logo_seq(ltr_copies):
         tail_logos[name] = tail_seq
     return start_logos, tail_logos
 
+work_dir = '/homeb/hukang/KmerRepFinder_test/library/HiTE_lib/mouse_bak'
+log = Logger(work_dir + '/HiTE_Non_LTR.log', level='debug')
 
 if __name__ == '__main__':
+    # 将RepeatModeler2中的non-ltr抽取出来
+    work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/human'
+    te_path = work_dir + '/human.lib'
+    names, contigs = read_fasta(te_path)
+    label_set = set()
+    for name in names:
+        label = name.split('#')[1]
+        label_set.add(label)
+    print(label_set)
+    non_ltr_path = work_dir + '/non_ltr.fa'
+    non_ltr_contigs = {}
+    for name in names:
+        if 'LINE' in name or 'SINE' in name:
+            non_ltr_contigs[name] = contigs[name]
+    store_fasta(non_ltr_contigs, non_ltr_path)
+
+    # align_file = '/home/hukang/test/HiTE/demo/test1/non_ltr_copies_0_0/chr_0:13880942-13881327.blast.bed.fa.maf.fa'
+    # debug = 1
+    # #is_TE, info, cons_seq = judge_boundary_v8(align_file, debug)
+    # cur_seq = 'TCCGCATTTGTTTGTCCCAAATTTGATGGAACAGTGTTCTGAAGATTACTGTAGATTACTGTAGAAAATCTCACAGTTTGCAGTTTTCTTTTGTCAACGATTTTTATCCACATTTTGACGAAAAAACTACAAAACGAAAATGGCTTCTACAGTAATCTAAACACCATCCCATCAATTTTCAGACACAAAATTACCTGGAAAAATCGGAAAAGAATACTTCAAAAATAGCTGAAAACCCGAAAAATGTCTGAAAATTTTGCCGAAAAAATCGGATAAAAAA'
+    # TE_type = 'non-ltr'
+    # plant = 0
+    # result_type = 'cons'
+    # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
+    # print(is_TE, info, cons_seq)
+
+    # work_dir = '/homeb/hukang/KmerRepFinder_test/library/HiTE_lib/mouse_bak'
+    # candidate_non_ltr_path = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/mouse/mouse_non_ltr.lib'
+    # names, contigs = read_fasta(candidate_non_ltr_path)
+    # non_ltr_contigs = {}
+    # for name in names:
+    #     non_ltr_contigs[name.split('#')[0]] = contigs[name]
+    # non_ltr_path = work_dir + '/mouse_non_ltr.lib'
+    # store_fasta(non_ltr_contigs, non_ltr_path)
+    #
+    #
+    # confident_non_ltr_path = work_dir + '/test_non_ltr.fa'
+    # flanking_len = 50
+    # reference = '/homeb/hukang/KmerRepFinder_test/library/earlgrey_lib/mouse/mm39.fa'
+    # test_home = '/home/hukang/test/HiTE/module'
+    # tmp_output_dir = work_dir
+    # chrom_seg_length = 100000
+    # chunk_size = 400
+    # split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
+    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
+    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    # #os.system(split_genome_command)
+    #
+    # TE_type = 'non_ltr'
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # threads = 40
+    # ref_index = 0
+    # subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
+    # plant = 0
+    # debug = 1
+    # flank_region_align_v5(non_ltr_path, confident_non_ltr_path, flanking_len, reference, split_ref_dir,
+    #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
+    #                       plant, debug, 0, result_type='cons')
+
+
+    # # 将candidate_non_ltr.fa进行分类，抽取出LINE/SINE标签
+    # work_dir = '/homeb/hukang/KmerRepFinder_test/library/HiTE_lib/mouse_bak'
+    # ref_index = 0
+    # use_NeuralTE = 0
+    # is_wicker = 0
+    # #candidate_non_ltr_path = work_dir + '/candidate_non_ltr.fa'
+    # candidate_non_ltr_path = work_dir + '/confident_non_ltr.fa'
+    # confident_non_ltr_path = candidate_non_ltr_path + '.filter'
+    # tmp_output_dir = work_dir
+    # threads = 40
+    #
+    # # candidate_non_ltr_cons = candidate_non_ltr_path + '.cons'
+    # # cd_hit_command = 'cd-hit-est -aS ' + str(0.8) + ' -c ' + str(0.8) \
+    # #                  + ' -G 0 -g 1 -A 80 -i ' + candidate_non_ltr_path + ' -o ' + candidate_non_ltr_cons + ' -T 0 -M 0'
+    # # os.system(cd_hit_command + ' > /dev/null 2>&1')
+    #
+    # redundant_seq = candidate_non_ltr_path
+    # # 使用 blastn 比对， 去掉冗余
+    # tmp_blast_dir = work_dir + '/non_ltr_blastn'
+    # blastnResults_path = work_dir + '/non_ltr_blastn.out'
+    # #blastnResults_path = work_dir + '/test.out'
+    # # 1. Start by performing an all-vs-all comparison using blastn.
+    # #multi_process_align(redundant_seq, redundant_seq, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True)
+    # # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
+    # fixed_extend_base_threshold = 1000
+    # longest_repeats = FMEA(blastnResults_path, fixed_extend_base_threshold)
+    # # 3. If the combined sequence length constitutes 95% or more of the original individual sequence lengths, we place these two sequences into a cluster.
+    # # 3. 如果两条序列是从某一端开始比对的，且overlap占短的序列的60%以上，我们认为短序列应该是长序列的一个truncated copy
+    # contigNames, contigs = read_fasta(redundant_seq)
+    # keep_clusters = []
+    # relations = set()
+    # close_end_threshold = 10
+    # for query_name in longest_repeats.keys():
+    #     longest_repeats_list = longest_repeats[query_name]
+    #     for cur_longest_repeat in longest_repeats_list:
+    #         close_q_start = False
+    #         close_q_end = False
+    #         close_s_start = False
+    #         close_s_end = False
+    #         query_name = cur_longest_repeat[0]
+    #         query_len = len(contigs[query_name])
+    #         q_len = abs(cur_longest_repeat[2] - cur_longest_repeat[1])
+    #         q_start = min(cur_longest_repeat[1], cur_longest_repeat[2])
+    #         q_end = max(cur_longest_repeat[1], cur_longest_repeat[2])
+    #         if abs(q_start - 0) < close_end_threshold:
+    #             close_q_start = True
+    #         if abs(q_end - query_len) < close_end_threshold:
+    #             close_q_end = True
+    #         subject_name = cur_longest_repeat[3]
+    #         subject_len = len(contigs[subject_name])
+    #         s_len = abs(cur_longest_repeat[4] - cur_longest_repeat[5])
+    #         s_start = min(cur_longest_repeat[4], cur_longest_repeat[5])
+    #         s_end = max(cur_longest_repeat[4], cur_longest_repeat[5])
+    #         if abs(s_start - 0) < close_end_threshold:
+    #             close_s_start = True
+    #         if abs(s_end - subject_len) < close_end_threshold:
+    #             close_s_end = True
+    #
+    #         is_full_length_copy = False
+    #         if float(q_len) / query_len >= 0.95 and float(s_len) / subject_len >= 0.95:
+    #             is_full_length_copy = True
+    #         # is_truncated_copy = False
+    #         # if ((close_q_start or close_q_end) and (close_s_start or close_s_end)
+    #         #         and float(q_len) / query_len >= 0.8 or float(s_len) / subject_len >= 0.8):
+    #         #     is_truncated_copy = True
+    #         if is_full_length_copy:# or is_truncated_copy:
+    #             # we consider the query and subject to be from the same family.
+    #             if (query_name, subject_name) in relations:
+    #                 continue
+    #             relations.add((query_name, subject_name))
+    #             relations.add((subject_name, query_name))
+    #             is_new_cluster = True
+    #             for cluster in keep_clusters:
+    #                 if query_name in cluster or subject_name in cluster:
+    #                     is_new_cluster = False
+    #                     cluster.add(query_name)
+    #                     cluster.add(subject_name)
+    #                     break
+    #             if is_new_cluster:
+    #                 new_cluster = set()
+    #                 new_cluster.add(query_name)
+    #                 new_cluster.add(subject_name)
+    #                 keep_clusters.append(new_cluster)
+    #                 # print(keep_clusters)
+    # # Iterate through each cluster, if any element in the cluster overlaps with elements in other clusters, merge the clusters.
+    # merged_clusters = []
+    # while keep_clusters:
+    #     current_cluster = keep_clusters.pop(0)
+    #     for other_cluster in keep_clusters[:]:
+    #         if current_cluster.intersection(other_cluster):
+    #             current_cluster.update(other_cluster)
+    #             keep_clusters.remove(other_cluster)
+    #     merged_clusters.append(current_cluster)
+    # keep_clusters = merged_clusters
+    # # store cluster
+    # # 挑选cluster中最长的序列当作代表性序列
+    # representative_non_ltr = {}
+    # representative_non_ltr_path = work_dir + '/representative_non_ltr.fa'
+    # all_unique_name = set()
+    # raw_cluster_files = []
+    # cluster_dir = work_dir + '/raw_ltr_cluster'
+    # if not os.path.exists(cluster_dir):
+    #     os.makedirs(cluster_dir)
+    # for cluster_id, cur_cluster in enumerate(keep_clusters):
+    #     cur_cluster_path = cluster_dir + '/' + str(cluster_id) + '.fa'
+    #     max_len = 80
+    #     longest_non_ltr = None
+    #     cur_cluster_contigs = {}
+    #     for non_ltr_name in cur_cluster:
+    #         seq = contigs[non_ltr_name]
+    #         cur_cluster_contigs[non_ltr_name] = seq
+    #         all_unique_name.add(non_ltr_name)
+    #         if len(seq) > max_len:
+    #             longest_non_ltr = non_ltr_name
+    #     if longest_non_ltr is not None:
+    #         representative_non_ltr[longest_non_ltr] = contigs[longest_non_ltr]
+    #     store_fasta(cur_cluster_contigs, cur_cluster_path)
+    #     raw_cluster_files.append((cluster_id, cur_cluster_path))
+    # # We save the sequences that did not appear in any clusters separately. These sequences do not require clustering.
+    # uncluster_path = work_dir + '/uncluster_ltr.fa'
+    # uncluster_contigs = {}
+    # for name in contigNames:
+    #     if name not in all_unique_name:
+    #         seq = contigs[name]
+    #         uncluster_contigs[name] = seq
+    #         if len(seq) > 80:
+    #             representative_non_ltr[name] = seq
+    # store_fasta(uncluster_contigs, uncluster_path)
+    # store_fasta(representative_non_ltr, representative_non_ltr_path)
+
+
+    # # classify intact-LTRs
+    # if use_NeuralTE:
+    #     # classify LTR using NeuralTE
+    #     NeuralTE_home = '/home/hukang/test/HiTE/bin/NeuralTE'
+    #     NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
+    #     if not os.path.exists(NeuralTE_output_dir):
+    #         os.makedirs(NeuralTE_output_dir)
+    #     NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + candidate_non_ltr_path \
+    #                        + ' --use_TSD 0 --model_path ' \
+    #                        + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
+    #                        + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
+    #     os.system(NeuralTE_command + ' > /dev/null 2>&1')
+    #     classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
+    # else:
+    #     TEClass_home = '/home/hukang/test/HiTE/classification'
+    #     # classify LTR using RepeatClassifier
+    #     sample_name = 'test'
+    #     TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+    #                       + ' --consensus ' + candidate_non_ltr_path + ' --genome 1' \
+    #                       + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
+    #     os.system(TEClass_command)
+    #     classified_TE_path = candidate_non_ltr_path + '.classified'
+    # # merge classified LTRs and TEs
+    # os.system('cp ' + classified_TE_path + ' ' + confident_non_ltr_path)
+    # contignames, contigs = read_fasta(confident_non_ltr_path)
+    # non_ltr_contigs = {}
+    # for name in contignames:
+    #     label = name.split('#')[1]
+    #     if 'LINE' in label or 'SINE' in label:
+    #         non_ltr_contigs[name] = contigs[name]
+    # store_fasta(non_ltr_contigs, confident_non_ltr_path)
+
+
+
     # # 获取zebrafinch lib
-    work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/zebrafinch'
-    lib_path = work_dir + '/zebrafinch.lib'
+    # work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/zebrafinch'
+    # lib_path = work_dir + '/zebrafinch.lib'
     # lib_contigs = {}
     # for filename in os.listdir(work_dir):
     #     file_path = work_dir + '/' + filename
@@ -3649,41 +3877,41 @@ if __name__ == '__main__':
     #                 lib_contigs[name] = contigs[name]
     # store_fasta(lib_contigs, lib_path)
 
-    # 将zebrafinch .out文件中的 Unspecified 换成具体类别
-    labels = set()
-    names, contigs = read_fasta_v1(lib_path)
-    te_labels = {}
-    for name in names:
-        parts = name.split('\t')
-        raw_name = parts[0]
-        label = parts[1]
-        labels.add(label)
-        if label.__contains__('ERV'):
-            label = 'LTR/ERV'
-        elif label.__contains__('R2'):
-            label = 'LINE/R2'
-        else:
-            label = 'Unknown'
-        te_labels[raw_name] = label
-    print(labels)
-    out_path = work_dir + '/zebrafinch.out'
-    new_out_path = work_dir + '/zebrafinch.new.out'
-    with open(new_out_path, 'w') as f_save:
-        with open(out_path, 'r') as f_r:
-            for line in f_r:
-                if 'Unspecified' in line:
-                    parts = line.split(' ')
-                    te_name = None
-                    for p in parts:
-                        if p.strip() == '':
-                            continue
-                        if p == 'Unspecified':
-                            break
-                        te_name = p
-                    print(te_name)
-                    label = te_labels[te_name]
-                    line = line.replace('Unspecified', label)
-                f_save.write(line)
+    # # 将zebrafinch .out文件中的 Unspecified 换成具体类别
+    # labels = set()
+    # names, contigs = read_fasta_v1(lib_path)
+    # te_labels = {}
+    # for name in names:
+    #     parts = name.split('\t')
+    #     raw_name = parts[0]
+    #     label = parts[1]
+    #     labels.add(label)
+    #     if label.__contains__('ERV'):
+    #         label = 'LTR/ERV'
+    #     elif label.__contains__('R2'):
+    #         label = 'LINE/R2'
+    #     else:
+    #         label = 'Unknown'
+    #     te_labels[raw_name] = label
+    # print(labels)
+    # out_path = work_dir + '/zebrafinch.out'
+    # new_out_path = work_dir + '/zebrafinch.new.out'
+    # with open(new_out_path, 'w') as f_save:
+    #     with open(out_path, 'r') as f_r:
+    #         for line in f_r:
+    #             if 'Unspecified' in line:
+    #                 parts = line.split(' ')
+    #                 te_name = None
+    #                 for p in parts:
+    #                     if p.strip() == '':
+    #                         continue
+    #                     if p == 'Unspecified':
+    #                         break
+    #                     te_name = p
+    #                 print(te_name)
+    #                 label = te_labels[te_name]
+    #                 line = line.replace('Unspecified', label)
+    #             f_save.write(line)
 
 
 

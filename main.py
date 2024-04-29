@@ -31,7 +31,7 @@ if __name__ == '__main__':
     default_skip_HiTE = 0
     default_flanking_len = 50
     default_is_prev_mask = 1
-    default_is_denovo_nonltr = 0
+    default_is_denovo_nonltr = 1
     default_debug = 0
     default_chrom_seg_length = 100000
     default_classified = 1
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     default_use_NeuralTE = 1
     default_is_wicker = 0
 
-    version_num = '3.1.2'
+    version_num = '3.2'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
@@ -435,7 +435,9 @@ if __name__ == '__main__':
         # Using identified TEs to mask the genome in order to reduce computational load in all-vs-all alignments.
         prev_TE = tmp_output_dir + '/prev_TE.fa'
         os.system('cat ' + confident_ltr_cut_path + ' > ' + prev_TE)
-        os.system('cat ' + confident_other_path + ' >> ' + prev_TE)
+        # The outcomes of homologous methods can only serve as supplementary information and should not be used as masks,
+        # as this could potentially obscure many genuine non-LTR local masks, rendering the de novo method unable to identify them.
+        # os.system('cat ' + confident_other_path + ' >> ' + prev_TE)
 
         split_ref_dir = tmp_output_dir + '/ref_chr'
         for cut_reference_item in cut_references:
@@ -553,7 +555,6 @@ if __name__ == '__main__':
             cur_confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
             os.system('cat ' + cur_confident_non_ltr_path + ' >> ' + confident_non_ltr_path)
 
-        confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
         TEClass_home = os.getcwd() + '/classification'
@@ -574,54 +575,55 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step3: %.8s s" % (dtime))
 
-        if intact_anno == 1:
-            starttime = time.time()
-            log.logger.info('Start step4: get full-length TE annotation')
-            chr_name_map = tmp_output_dir + '/chr_name.map'
-            ltr_list = tmp_output_dir + '/genome.rename.fa.pass.list'
-            confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-            confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
-            confident_other_path = tmp_output_dir + '/confident_other.fa'
-            full_length_anno_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_full_length_annotation.py' \
-                                       + ' -t ' + str(threads) + ' --ltr_list ' + ltr_list \
-                                       + ' --tir_lib ' + str(confident_tir_path) \
-                                       + ' --helitron_lib ' + confident_helitron_path \
-                                       + ' --other_lib ' + confident_other_path \
-                                       + ' --chr_name_map ' + chr_name_map \
-                                       + ' -r ' + reference \
-                                       + ' --module_home ' + test_home \
-                                       + ' --tmp_output_dir ' + tmp_output_dir \
-                                       + ' --TRsearch_dir ' + TRsearch_dir \
-                                       + ' --search_struct ' + str(search_struct)
-            log.logger.info(full_length_anno_command)
-            os.system(full_length_anno_command)
+    if intact_anno == 1:
+        starttime = time.time()
+        log.logger.info('Start step4: get full-length TE annotation')
+        chr_name_map = tmp_output_dir + '/chr_name.map'
+        ltr_list = tmp_output_dir + '/genome.rename.fa.pass.list'
+        confident_tir_path = tmp_output_dir + '/confident_tir.fa'
+        confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
+        confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr.fa'
+        confident_other_path = tmp_output_dir + '/confident_other.fa'
+        full_length_anno_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_full_length_annotation.py' \
+                                   + ' -t ' + str(threads) + ' --ltr_list ' + ltr_list \
+                                   + ' --tir_lib ' + str(confident_tir_path) \
+                                   + ' --helitron_lib ' + confident_helitron_path \
+                                   + ' --nonltr_lib ' + confident_non_ltr_path \
+                                   + ' --other_lib ' + confident_other_path \
+                                   + ' --chr_name_map ' + chr_name_map \
+                                   + ' -r ' + reference \
+                                   + ' --module_home ' + test_home \
+                                   + ' --tmp_output_dir ' + tmp_output_dir \
+                                   + ' --TRsearch_dir ' + TRsearch_dir \
+                                   + ' --search_struct ' + str(search_struct)
+        log.logger.info(full_length_anno_command)
+        os.system(full_length_anno_command)
 
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of step4: %.8s s" % (dtime))
-
-        if annotate == 1:
-            starttime = time.time()
-            log.logger.info('Start step5: annotate genome')
-            TEClass_home = os.getcwd() + '/classification'
-            annotate_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/annotate_genome.py' \
-                                      + ' -t ' + str(threads) + ' --classified_TE_consensus ' + confident_TE_consensus \
-                                      + ' --annotate ' + str(annotate) \
-                                      + ' -r ' + reference \
-                                      + ' --tmp_output_dir ' + tmp_output_dir
-            log.logger.info(annotate_genome_command)
-            os.system(annotate_genome_command)
-
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of step5: %.8s s" % (dtime))
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step4: %.8s s" % (dtime))
 
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
     if not os.path.exists(confident_TE_consensus):
-        log.logger.error('Run benchmarking fail, Cannot find TE path: ' + confident_TE_consensus)
+        log.logger.error('Error, Cannot find TE path: ' + confident_TE_consensus)
     else:
         starttime = time.time()
-        log.logger.info('Start step5: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
+        log.logger.info('Start step5: annotate genome')
+        TEClass_home = os.getcwd() + '/classification'
+        annotate_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/annotate_genome.py' \
+                                  + ' -t ' + str(threads) + ' --classified_TE_consensus ' + confident_TE_consensus \
+                                  + ' --annotate ' + str(annotate) \
+                                  + ' -r ' + reference \
+                                  + ' --tmp_output_dir ' + tmp_output_dir
+        log.logger.info(annotate_genome_command)
+        os.system(annotate_genome_command)
+
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step5: %.8s s" % (dtime))
+
+        starttime = time.time()
+        log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
         benchmarking_command = 'cd ' + test_home + ' && python3 ' + test_home + '/benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
@@ -638,7 +640,7 @@ if __name__ == '__main__':
         os.system(benchmarking_command)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step5: %.8s s" % (dtime))
+        log.logger.info("Running time of step6: %.8s s" % (dtime))
 
     clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \

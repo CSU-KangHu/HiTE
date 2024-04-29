@@ -87,10 +87,11 @@ if __name__ == '__main__':
             candidate_SINE_path, candidate_LINE_path = get_candidate_non_ltr_parallel(longest_repeats_flanked_path, work_dir, threads)
             os.system('cat ' + candidate_SINE_path + ' > ' + candidate_non_ltr_path)
             os.system('cat ' + candidate_LINE_path + ' >> ' + candidate_non_ltr_path)
-            # 2. Conduct homology search on candidate sequences, and search for polyA/T tails near homologous boundaries, requiring at least two copies to have TSD.
+            # 2. Conduct homology search on candidate sequences, and search for polyA tails near homologous boundaries.
             flank_region_align_v5(candidate_non_ltr_path, confident_non_ltr_path, flanking_len, reference, split_ref_dir,
                                   TE_type, work_dir, threads, ref_index, log, subset_script_path,
                                   plant, debug, 0, result_type='cons')
+
             # 3. Select unrestrained LINE elements from candidate_LINE_path, align them to the domain, and extract reliable LINE elements.
             line_names, line_contigs = read_fasta(candidate_LINE_path)
             non_ltr_names, non_ltr_contigs = read_fasta(confident_non_ltr_path)
@@ -100,6 +101,7 @@ if __name__ == '__main__':
                     remain_line_contigs[name] = line_contigs[name]
             store_fasta(remain_line_contigs, remain_candidate_LINE_path)
             get_domain_info(remain_candidate_LINE_path, LINE_domain_path, output_table, threads, temp_dir)
+            domain_names, domain_contigs = read_fasta(LINE_domain_path)
             confident_LINE_contigs = {}
             name_set = set()
             with open(output_table, 'r') as f_r:
@@ -107,15 +109,21 @@ if __name__ == '__main__':
                     if i < 2:
                         continue
                     parts = line.split('\t')
-                    name_set.add(parts[0])
+                    # 如果包含完整的domain元素，则认为是真LINE元素
+                    domain_name = parts[1]
+                    domain_start = int(parts[4])
+                    domain_end = int(parts[5])
+                    if abs(domain_end-domain_start)/len(domain_contigs[domain_name]) >= 0.95:
+                        name_set.add(parts[0])
             for name in name_set:
                 confident_LINE_contigs[name] = line_contigs[name]
             store_fasta(confident_LINE_contigs, remain_confident_LINE_path)
             # 4. Add reliable LINE elements to confident_non_ltr_path and generate a consensus sequence.
             os.system('cat ' + remain_confident_LINE_path + ' >> ' + confident_non_ltr_path)
+
             confident_non_ltr_cons = confident_non_ltr_path + '.cons'
             cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                             + ' -G 0 -g 1 -A 80 -i ' + confident_non_ltr_path + ' -o ' + confident_non_ltr_cons + ' -T 0 -M 0'
+                             + ' -G 0 -g 1 -A 80 -i ' + confident_non_ltr_path + ' -o ' + confident_non_ltr_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
             os.system(cd_hit_command)
             rename_fasta(confident_non_ltr_cons, confident_non_ltr_path, 'Non-LTR_' + str(ref_index))
         else:

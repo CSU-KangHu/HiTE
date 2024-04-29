@@ -152,7 +152,7 @@ if __name__ == '__main__':
         log.logger.info('------clustering candidate TIR')
         starttime = time.time()
         cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + tir_tsd_path + ' -o ' + tir_tsd_cons + ' -T 0 -M 0'
+                         + ' -G 0 -g 1 -A 80 -i ' + tir_tsd_path + ' -o ' + tir_tsd_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
         os.system(cd_hit_command)
         endtime = time.time()
         dtime = endtime - starttime
