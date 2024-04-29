@@ -7205,7 +7205,7 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
     subject_path = confident_ltr_cut_path
     query_path = confident_tir_path
     out_path = query_path + '.out'
-    align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path
+    align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path + ' > /dev/null 2>&1'
     os.system(align_command)
     delete_tir_names = set()
     query_names, query_contigs = read_fasta(query_path)

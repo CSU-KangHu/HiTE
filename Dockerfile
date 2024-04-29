@@ -13,15 +13,15 @@ RUN apt-get update && apt-get install unzip --yes && apt-get install less --yes 
 # RUN git clone https://github.com/CSU-KangHu/HiTE.git
 
 # use local HiTE
-COPY HiTE-v.3.1.2.zip /HiTE-v.3.1.2.zip
-RUN cd / && unzip HiTE-v.3.1.2.zip && mv HiTE-v.3.1.2 /HiTE
+COPY HiTE-master.zip /HiTE-master.zip
+RUN cd / && unzip HiTE-master.zip && mv HiTE-master /HiTE
 
 # Download HiTE from Zenodo
 #RUN curl -LJO https://zenodo.org/records/10574301/files/CSU-KangHu/HiTE-v.3.1.1.zip &&  \
 #    unzip HiTE-v.3.1.1.zip && mv CSU-KangHu-HiTE-* /HiTE
 
 RUN conda install mamba -c conda-forge -y
-RUN cd /HiTE && chmod +x tools/* && chmod +x bin/NeuralTE/tools/* && mamba env create --name ${DNAME} --file=environment.yml && conda clean -a
+RUN cd /HiTE && chmod +x tools/* bin/NeuralTE/tools/* bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder && mamba env create --name ${DNAME} --file=environment.yml && conda clean -a
 
 # Make RUN commands use the new environment
 # name need to be the same with the above ${DNAME}

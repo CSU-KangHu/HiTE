@@ -124,7 +124,7 @@ if __name__ == '__main__':
         cur_confident_helitron_cons = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.cons.fa'
         # clustering
         cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0'
+                         + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
         os.system(cd_hit_command)
         rename_fasta(cur_confident_helitron_cons, confident_helitron_path, 'Helitron_' + str(ref_index))
     else:
