@@ -59,7 +59,7 @@ cd HiTE && chmod +x tools/* bin/NeuralTE/tools/* bin/LTR_FINDER_parallel-master/
 ### <a name="install_singularity"></a>Option 1. Run with Singularity
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
-singularity pull HiTE.sif docker://kanghu/hite:3.1.2
+singularity pull HiTE.sif docker://kanghu/hite:3.2.0
 
 # run HiTE
 singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif} python main.py \
@@ -84,7 +84,7 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
 ### <a name="install_docker"></a>Option 2. Run with Docker
 ```sh
 # pull docker image (once for all).
-docker pull kanghu/hite:3.1.2
+docker pull kanghu/hite:3.2.0
 
 # run HiTE
 docker run -v ${host_path}:${container_path} kanghu/hite:3.1.2 python main.py \
