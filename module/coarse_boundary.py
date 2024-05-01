@@ -31,8 +31,6 @@ if __name__ == '__main__':
                         help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--recover', metavar='recover',
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
-    parser.add_argument('--is_prev_mask', metavar='is_prev_mask',
-                        help='Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false.')
     parser.add_argument('--debug', metavar='recover',
                         help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
 
@@ -49,7 +47,6 @@ if __name__ == '__main__':
     reference = args.r
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
-    is_prev_mask = int(args.is_prev_mask)
     debug = args.debug
 
     if debug is None:
@@ -72,7 +69,7 @@ if __name__ == '__main__':
     if not is_recover or not file_exist(resut_file):
         # -------------------------------This stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
         determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold, max_repeat_len,
-                                     tmp_output_dir, thread, ref_index, reference, is_prev_mask, debug)
+                                     tmp_output_dir, thread, ref_index, reference, debug)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 

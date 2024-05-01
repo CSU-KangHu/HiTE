@@ -46,7 +46,6 @@ def helpMessage() {
       --EDTA_home                       When conducting benchmarking of EDTA, you will be asked to input EDTA home path.
       --species                         Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).
       --skip_HiTE                       Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
-      --is_prev_mask                    Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ 1 ]
       --is_denovo_nonltr                Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
       --use_NeuralTE                    Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1]
@@ -78,7 +77,6 @@ def printSetting() {
       [Setting] BM_EDTA = [ $params.BM_EDTA ]
       [Setting] BM_HiTE = [ $params.BM_HiTE ]
       [Setting] skip_HiTE = [ $params.skip_HiTE ]
-      [Setting] is_prev_mask = [ $params.is_prev_mask ]
       [Setting] is_denovo_nonltr = [ $params.is_denovo_nonltr ]
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.outdir ]
@@ -145,7 +143,6 @@ plant = "${params.plant}"
 classified = "${params.classified}"
 domain = "${params.domain}"
 annotate = "${params.annotate}"
-is_prev_mask = "${params.is_prev_mask}"
 debug = "${params.debug}"
 is_denovo_nonltr = "${params.is_denovo_nonltr}"
 miu = "${params.miu}"
@@ -228,7 +225,7 @@ process coarseBoundary {
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} -r ${out_genome} --recover ${recover} --is_prev_mask ${is_prev_mask} --debug ${debug}
+     --ref_index ${ref_index} -r ${out_genome} --recover ${recover} --debug ${debug}
 
     ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
     cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
@@ -259,7 +256,7 @@ process TE_identification {
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} -r ${out_genome} --recover ${recover} --is_prev_mask ${is_prev_mask} --debug ${debug}
+     --ref_index ${ref_index} -r ${out_genome} --recover ${recover} --debug ${debug}
 
     ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
     cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./

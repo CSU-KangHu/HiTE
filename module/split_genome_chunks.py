@@ -55,7 +55,7 @@ if __name__ == '__main__':
                 cur_base_num = 0
                 ref_index += 1
         if len(cur_ref_contigs) > 0:
-            cur_ref_path = cur_ref_path = tmp_output_dir + '/genome.cut' + str(ref_index) + '.fa'
+            cur_ref_path = tmp_output_dir + '/genome.cut' + str(ref_index) + '.fa'
             store_fasta(cur_ref_contigs, cur_ref_path)
             cut_references.append(cur_ref_path)
     f_r.close()
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     for i, block in enumerate(ref_blocks):
         chr_path = split_ref_dir + '/ref_block_' + str(i) + '.fa'
         store_fasta(block, chr_path)
-        os.system('makeblastdb -in ' + chr_path + ' -dbtype nucl')
+        os.system('makeblastdb -in ' + chr_path + ' -dbtype nucl'+ ' > /dev/null 2>&1')
 
 
 

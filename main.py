@@ -30,7 +30,6 @@ if __name__ == '__main__':
     default_coverage_threshold = 0.95
     default_skip_HiTE = 0
     default_flanking_len = 50
-    default_is_prev_mask = 1
     default_is_denovo_nonltr = 1
     default_debug = 0
     default_chrom_seg_length = 100000
@@ -76,7 +75,6 @@ if __name__ == '__main__':
     parser.add_argument('--coverage_threshold', metavar='coverage_threshold', help='The coverage threshold of benchmarking methods.')
     parser.add_argument('--species', metavar='species', help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
     parser.add_argument('--skip_HiTE', metavar='skip_HiTE', help='Whether to skip_HiTE, 1: true, 0: false. default = [ ' + str(default_skip_HiTE) + ' ]')
-    parser.add_argument('--is_prev_mask', metavar='is_prev_mask', help='Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ ' + str(default_is_prev_mask) + ' ]')
     parser.add_argument('--is_denovo_nonltr', metavar='is_denovo_nonltr', help='Whether to detect non-ltr de novo, 1: true, 0: false. default = [ ' + str(default_is_denovo_nonltr) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [' + str(default_use_NeuralTE) + ' ]')
@@ -115,7 +113,6 @@ if __name__ == '__main__':
     coverage_threshold = args.coverage_threshold
     species = args.species
     skip_HiTE = args.skip_HiTE
-    is_prev_mask = args.is_prev_mask
     is_denovo_nonltr = args.is_denovo_nonltr
     debug = args.debug
     use_NeuralTE = args.use_NeuralTE
@@ -257,11 +254,6 @@ if __name__ == '__main__':
     else:
         is_denovo_nonltr = int(is_denovo_nonltr)
 
-    if is_prev_mask is None:
-        is_prev_mask = default_is_prev_mask
-    else:
-        is_prev_mask = int(is_prev_mask)
-
     if debug is None:
         debug = default_debug
     else:
@@ -339,7 +331,6 @@ if __name__ == '__main__':
                     '  [Setting] EDTA_home = [' + str(EDTA_home) + ']\n'
                     '  [Setting] coverage_threshold = [ ' + str(coverage_threshold) + ' ]  Default( ' + str(default_coverage_threshold) + ' )\n'
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
-                    '  [Setting] is_prev_mask = [ ' + str(is_prev_mask) + ' ]  Default( ' + str(default_is_prev_mask) + ' )\n'
                     '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
                     '  [Setting] use_NeuralTE = [ ' + str(use_NeuralTE) + ' ]  Default( ' + str(default_use_NeuralTE) + ' )\n'
                     '  [Setting] is_wicker = [ ' + str(is_wicker) + ' ]  Default( ' + str(default_is_wicker) + ' )\n'
@@ -461,7 +452,7 @@ if __name__ == '__main__':
                                        + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                        + ' --ref_index ' + str(ref_index) \
                                        + ' -r ' + reference + ' --recover ' + str(recover) \
-                                       + ' --is_prev_mask ' + str(is_prev_mask) + ' --debug ' + str(debug)
+                                       + ' --debug ' + str(debug)
                 log.logger.info(coarse_boundary_command)
                 os.system(coarse_boundary_command)
                 endtime = time.time()

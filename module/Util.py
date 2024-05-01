@@ -4537,7 +4537,7 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
     store_fasta(flanked_contigs, longest_repeats_flanked_path)
 
 def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold,
-                                 max_single_repeat_len, tmp_output_dir, threads, ref_index, reference, is_prev_mask, debug):
+                                 max_single_repeat_len, tmp_output_dir, threads, ref_index, reference, debug):
     repeatNames, repeatContigs = read_fasta(repeats_path)
     tmp_blast_dir = tmp_output_dir + '/trf_filter_'+str(ref_index)
     os.system('rm -rf ' + tmp_blast_dir)
@@ -4592,28 +4592,27 @@ def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fi
     if debug != 1:
         os.system('rm -rf ' + tmp_blast_dir)
 
-    if is_prev_mask == 1:
-        # # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
-        # RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-        #                        + ' -q -no_is -norna -nolow -div 20 -gff -lib ' + prev_TE + ' -cutoff 225 ' \
-        #                        + filter_tandem_file
-        # os.system(RepeatMasker_command)
-        # masked_file_path = filter_tandem_file + '.masked'
+    # # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
+    # RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+    #                        + ' -q -no_is -norna -nolow -div 20 -gff -lib ' + prev_TE + ' -cutoff 225 ' \
+    #                        + filter_tandem_file
+    # os.system(RepeatMasker_command)
+    # masked_file_path = filter_tandem_file + '.masked'
 
-        # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
-        mask_genome_intactTE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index)
-        masked_file_path = filter_tandem_file + '.masked'
+    # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
+    mask_genome_intactTE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index)
+    masked_file_path = filter_tandem_file + '.masked'
 
-        # 2.1. Remove sequences consisting entirely of 'N'.
-        filter_tandem_file = tmp_output_dir + '/filter_TE_' + str(ref_index) + '.fa'
-        masked_contigNames, masked_contigs = read_fasta(masked_file_path)
-        filter_contigs = {}
-        for name in masked_contigNames:
-            seq = masked_contigs[name]
-            if all(c == "N" for c in seq):
-                continue
-            filter_contigs[name] = seq
-        store_fasta(filter_contigs, filter_tandem_file)
+    # 2.1. Remove sequences consisting entirely of 'N'.
+    filter_tandem_file = tmp_output_dir + '/filter_TE_' + str(ref_index) + '.fa'
+    masked_contigNames, masked_contigs = read_fasta(masked_file_path)
+    filter_contigs = {}
+    for name in masked_contigNames:
+        seq = masked_contigs[name]
+        if all(c == "N" for c in seq):
+            continue
+        filter_contigs[name] = seq
+    store_fasta(filter_contigs, filter_tandem_file)
 
     # 3.Collect the filtered concatenated sequences and divide them into 10Mb files to enhance blastn CPU utilization.
     repeatNames, repeatContigs = read_fasta(filter_tandem_file)

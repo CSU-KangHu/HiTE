@@ -29,7 +29,6 @@ HiTE has been successfully applied to multiple practical applications, and you c
 ## Table of Contents
 - [Installation](#install)
   - [Dowload project](#download)
-  - [Before running](#before_run)
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
   - [Run with Conda](#install_conda)
@@ -87,7 +86,7 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
 docker pull kanghu/hite:3.2.0
 
 # run HiTE
-docker run -v ${host_path}:${container_path} kanghu/hite:3.1.2 python main.py \
+docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  --genome ${genome} \
  --thread ${thread} \
  --outdir ${output_dir} \
@@ -98,7 +97,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.1.2 python main.py \
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
  
- # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.1.2 python main.py 
+ # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.2.0 python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
@@ -267,7 +266,7 @@ Most frequently used commands:
 python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --plant 0 --recover 1 --annotate 1
 
 usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--intact_anno intact_anno]
-               [--search_struct search_struct] [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_prev_mask is_prev_mask]
+               [--search_struct search_struct] [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE]
                [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold] [--tandem_region_cutoff tandem_region_cutoff]
                [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length]
 
@@ -302,8 +301,6 @@ optional arguments:
   --species species     Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).
   --skip_HiTE skip_HiTE
                         Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
-  --is_prev_mask is_prev_mask
-                        Whether to mask current genome used the TEs detected in previous iteration, 1: true, 0: false. default = [ 1 ]
   --is_denovo_nonltr is_denovo_nonltr
                         Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 1 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
