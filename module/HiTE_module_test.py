@@ -71,23 +71,24 @@ def filter_repbase_nonTE():
 
 def generate_repbases():
     # 水稻
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/curated_lib/only_TE/repbase/'
-    repbase_path = repbase_dir + '/potato.ref'
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/dmel'
+    repbase_path = repbase_dir + '/drorep.ref'
     repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
-    tags = set()
-    for name in repbase_names:
-        if not name.__contains__('Solanum tuberosum'):
-            continue
-        tag = name.split('\t')[1]
-        tags.add(tag)
-    print(tags)
-    print(len(tags))
+    tmp_out_dir = repbase_dir + '/dmel'
+    # tags = set()
+    # for name in repbase_names:
+    #     if not name.__contains__('Solanum tuberosum'):
+    #         continue
+    #     tag = name.split('\t')[1]
+    #     tags.add(tag)
+    # print(tags)
+    # print(len(tags))
 
     ltr_tags = ['Gypsy', 'Copia', 'LTR Retrotransposon', 'BEL', 'LTR', 'Endogenous Retrovirus', 'Caulimoviridae']
     tir_tags = ['Mariner/Tc1', 'DNA transposon', 'EnSpm/CACTA', 'MuDR', 'hAT', 'Harbinger', 'Transib', 'piggyBac', 'P', 'DNA', 'Sola2', 'Kolobok', ]
     helitron_tags = ['Helitron', 'MINIME_DN']
     non_ltr_tags = ['L1', 'SINE2/tRNA', 'Non-LTR Retrotransposon', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE', 'tRNA']
-    tmp_out_dir = repbase_dir + '/potato'
+
     if not os.path.exists(tmp_out_dir):
         os.makedirs(tmp_out_dir)
     ltr_repbase_path = tmp_out_dir + '/ltr.repbase.ref'
@@ -102,8 +103,8 @@ def generate_repbases():
     helitron_contigs = {}
     non_ltr_contigs = {}
     for name in repbase_names:
-        if not name.__contains__('Solanum tuberosum'):
-            continue
+        # if not name.__contains__('Solanum tuberosum'):
+        #     continue
         tag = name.split('\t')[1]
         if tag in ltr_tags:
             ltr_contigs[name] = repbase_contigs[name]
@@ -113,6 +114,8 @@ def generate_repbases():
             helitron_contigs[name] = repbase_contigs[name]
         elif tag in non_ltr_tags:
             non_ltr_contigs[name] = repbase_contigs[name]
+        else:
+            print(tag)
         all_contigs[name] = repbase_contigs[name]
     store_fasta(ltr_contigs, ltr_repbase_path)
     store_fasta(tir_contigs, tir_repbase_path)
@@ -122,9 +125,21 @@ def generate_repbases():
 
 def generate_rm2():
     # 水稻
-    repbase_dir = '/public/home/hpc194701009/KmerRepFinder_test/library/rm2_run_lib/potato'
-    repbase_path = repbase_dir + '/potato-families.fa'
+    repbase_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/zebrafish'
+    repbase_path = repbase_dir + '/zebrafish.lib'
+    tmp_out_dir = repbase_dir + '/zebrafish'
     repbase_names, repbase_contigs = read_fasta(repbase_path)
+    # repbase中的文件可能有重复，我们根据序列，去掉完全一致的重复
+    seq_set = set()
+    for name in repbase_names:
+        seq = repbase_contigs[name]
+        if seq in seq_set:
+            del repbase_contigs[name]
+        else:
+            seq_set.add(seq)
+    store_fasta(repbase_contigs, repbase_path)
+    repbase_names, repbase_contigs = read_fasta(repbase_path)
+
     tags = set()
     for name in repbase_names:
         tag = name.split('#')[1]
@@ -132,19 +147,19 @@ def generate_rm2():
     print(tags)
     print(len(tags))
 
-    ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/Caulimovirus']
-    tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/TcMar', 'DNA/Maverick', 'DNA/TcMar-Pogo', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/CMC', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/PIF-Harbinger', 'Transib', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
-    helitron_tags = ['RC/Helitron', 'MINIME_DN']
-    non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon', 'Retroposon/L1-derived', 'SINE/tRNA', 'SINE/tRNA-RTE', 'SINE/ID', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
-    unknown_tags = ['Unknown']
-    tmp_out_dir = repbase_dir + '/potato'
+    # ltr_tags = ['LTR/Gypsy', 'LTR/Copia', 'LTR/Pao', 'LTR/Cassandra', 'LTR', 'LTR/ERVK', 'LTR/ERV1', 'LTR/Unknown', 'LTR/Caulimovirus']
+    # tir_tags = ['Mariner/Tc1', 'DNA transposon', 'DNA/TcMar-Stowaway', 'DNA/TcMar', 'DNA/Maverick', 'DNA/TcMar-Pogo', 'DNA/hAT-Charlie', 'DNA/CMC-EnSpm', 'DNA/CMC', 'DNA/MULE-MuDR', 'DNA/hAT-Tag1', 'DNA/hAT-Ac', 'DNA/hAT-Tip100', 'DNA/PIF-Harbinger', 'Transib', 'piggyBac', 'DNA/P', 'DNA', 'Sola2', 'Kolobok', ]
+    # helitron_tags = ['RC/Helitron', 'MINIME_DN']
+    # non_ltr_tags = ['LINE/L1', 'LINE/RTE-BovB', 'Retroposon', 'Retroposon/L1-derived', 'SINE/tRNA', 'SINE/tRNA-RTE', 'SINE/ID', 'LINE/Rex-Babar', 'SINE', 'R1', 'Jockey', 'CR1', 'R2', 'RTEX', 'Hero', 'RTE']
+    # unknown_tags = ['Unknown']
+
     if not os.path.exists(tmp_out_dir):
         os.makedirs(tmp_out_dir)
-    ltr_repbase_path = tmp_out_dir + '/ltr.rm2.ref'
-    tir_repbase_path = tmp_out_dir + '/tir.rm2.ref'
-    helitron_repbase_path = tmp_out_dir + '/helitron.rm2.ref'
-    non_ltr_repbase_path = tmp_out_dir + '/non_ltr.rm2.ref'
-    unknown_repbase_path = tmp_out_dir + '/unknown.rm2.ref'
+    ltr_repbase_path = tmp_out_dir + '/ltr.ref'
+    tir_repbase_path = tmp_out_dir + '/tir.ref'
+    helitron_repbase_path = tmp_out_dir + '/helitron.ref'
+    non_ltr_repbase_path = tmp_out_dir + '/non_ltr.ref'
+    unknown_repbase_path = tmp_out_dir + '/unknown.ref'
 
     ltr_contigs = {}
     tir_contigs = {}
@@ -153,16 +168,18 @@ def generate_rm2():
     unknown_contigs = {}
     for name in repbase_names:
         tag = name.split('#')[1]
-        if tag in ltr_tags:
+        if 'LTR' in tag:
             ltr_contigs[name] = repbase_contigs[name]
-        elif tag in tir_tags:
+        elif 'DNA' in tag:
             tir_contigs[name] = repbase_contigs[name]
-        elif tag in helitron_tags:
+        elif 'Helitron' in tag:
             helitron_contigs[name] = repbase_contigs[name]
-        elif tag in non_ltr_tags:
+        elif 'LINE' in tag or 'SINE' in tag:
             non_ltr_contigs[name] = repbase_contigs[name]
-        elif tag in unknown_tags:
+        elif 'Unknown' in tag:
             unknown_contigs[name] = repbase_contigs[name]
+        else:
+            print(tag)
     store_fasta(ltr_contigs, ltr_repbase_path)
     store_fasta(tir_contigs, tir_repbase_path)
     store_fasta(helitron_contigs, helitron_repbase_path)
@@ -892,6 +909,7 @@ def draw_dist(input_file):
             query_copy_num.append(float(line))
 
     y = list(query_copy_num)
+    print(len(y))
     x = pd.Series(y, name="copy number")
     sns.set_theme(style="ticks", font='Times New Roman', font_scale=1.4)
     sns.set_context("paper")
@@ -3639,21 +3657,21 @@ work_dir = '/homeb/hukang/KmerRepFinder_test/library/HiTE_lib/mouse_bak'
 log = Logger(work_dir + '/HiTE_Non_LTR.log', level='debug')
 
 if __name__ == '__main__':
-    # 将RepeatModeler2中的non-ltr抽取出来
-    work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/human'
-    te_path = work_dir + '/human.lib'
-    names, contigs = read_fasta(te_path)
-    label_set = set()
-    for name in names:
-        label = name.split('#')[1]
-        label_set.add(label)
-    print(label_set)
-    non_ltr_path = work_dir + '/non_ltr.fa'
-    non_ltr_contigs = {}
-    for name in names:
-        if 'LINE' in name or 'SINE' in name:
-            non_ltr_contigs[name] = contigs[name]
-    store_fasta(non_ltr_contigs, non_ltr_path)
+    # # 将RepeatModeler2中的non-ltr抽取出来
+    # work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/human'
+    # te_path = work_dir + '/human.lib'
+    # names, contigs = read_fasta(te_path)
+    # label_set = set()
+    # for name in names:
+    #     label = name.split('#')[1]
+    #     label_set.add(label)
+    # print(label_set)
+    # non_ltr_path = work_dir + '/non_ltr.fa'
+    # non_ltr_contigs = {}
+    # for name in names:
+    #     if 'LINE' in name or 'SINE' in name:
+    #         non_ltr_contigs[name] = contigs[name]
+    # store_fasta(non_ltr_contigs, non_ltr_path)
 
     # align_file = '/home/hukang/test/HiTE/demo/test1/non_ltr_copies_0_0/chr_0:13880942-13881327.blast.bed.fa.maf.fa'
     # debug = 1
@@ -4108,7 +4126,7 @@ if __name__ == '__main__':
     #
     # column_data.to_csv('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv', index=False)
     #
-    # draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
+    draw_dist('/homeb/hukang/KmerRepFinder_test/library/nextflow_test2/rice/novel_tir/data.csv')
 
     # 获取新的TIR转座子，得到它们的多序列比对，蛋白质结构信息
     # tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/nextflow_test4/rice'
@@ -4175,7 +4193,7 @@ if __name__ == '__main__':
     #tmp_output_dir = '/homeb/hukang/KmerRepFinder_test/library/all_tools_run_lib/rice_v7/HiTE'
     #generate_zebrafish_repbases()
     #generate_repbases()
-    #generate_rm2()
+    # generate_rm2()
     #generate_EDTA()
     # generate_HiTE()
     # input = '/public/home/hpc194701009/WebTE_Lib/New_cash_crops/Solanum_tuberosum/GCF_000226075.1_SolTub_3.0_genomic.fna'

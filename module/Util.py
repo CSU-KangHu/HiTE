@@ -5375,7 +5375,7 @@ def generate_full_length_out(BlastnOut, full_length_out, TE_lib, reference, tmp_
                                                                              full_length_threshold,
                                                                              search_struct, tools_dir)
 
-    lines = []
+    lines = set()
     for query_name in full_length_annotations.keys():
         query_name = str(query_name)
         for copy_annotation in full_length_annotations[query_name]:
@@ -5387,15 +5387,9 @@ def generate_full_length_out(BlastnOut, full_length_out, TE_lib, reference, tmp_
             chr_start = int(chr_pos_parts[0]) + 1
             chr_end = int(chr_pos_parts[1])
             new_line = (query_name, chr_name, chr_start, chr_end)
-            lines.append(new_line)
-    sorted_lines = sorted(lines, key=lambda x: (x[1], x[2], x[3]))
+            lines.add(new_line)
 
-    with open(full_length_out, 'w') as f_save:
-        for line in sorted_lines:
-            new_line = line[0] + '\t' + line[1] + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + str(line[2]) + '\t' + str(line[3]) + '\t' + '-1' + '\t' + '-1' + '\n'
-            f_save.write(new_line)
-
-    return sorted_lines
+    return lines
 
 def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index):
     tmp_blast_dir = work_dir + '/mask_tmp_' + str(ref_index)
@@ -11095,10 +11089,10 @@ def multiple_alignment_blast_v1(repeats_path, tools_dir, coverage_threshold, cat
         os.system(align_command)
 
     # invoke the function to retrieve the full-length copies.
-    generate_full_length_out(blastn2Results_path, full_length_out, split_repeats_path, genome_path, tmp_dir, tools_dir,
+    lines = generate_full_length_out(blastn2Results_path, full_length_out, split_repeats_path, genome_path, tmp_dir, tools_dir,
                              coverage_threshold, category)
 
-    return full_length_out
+    return lines
 
 def multi_process_align_v1(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, coverage_threshold, category, is_removed_dir=True):
     tools_dir = ''
@@ -11170,9 +11164,17 @@ def multi_process_align_v1(query_path, subject_path, blastnResults_path, tmp_bla
         jobs.append(job)
     ex.shutdown(wait=True)
 
+    lines = set()
     for job in as_completed(jobs):
-        cur_full_length_out = job.result()
-        os.system('cat ' + cur_full_length_out + ' >> ' + blastnResults_path)
+        cur_lines = job.result()
+        lines.update(cur_lines)
+    lines = list(lines)
+    sorted_lines = sorted(lines, key=lambda x: (x[1], x[2], x[3]))
+
+    with open(blastnResults_path, 'w') as f_save:
+        for line in sorted_lines:
+            new_line = line[0] + '\t' + line[1] + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + str(line[2]) + '\t' + str(line[3]) + '\t' + '-1' + '\t' + '-1' + '\n'
+            f_save.write(new_line)
 
     if is_removed_dir:
         os.system('rm -rf ' + tmp_blast_dir)
