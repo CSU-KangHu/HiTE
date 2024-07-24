@@ -25,6 +25,8 @@ if __name__ == '__main__':
     chrom_seg_length = int(args.chrom_seg_length)
     chunk_size = float(args.chunk_size)
 
+    chunk_size = int(chunk_size * 1024 * 1024)
+
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
     log = Logger(tmp_output_dir + '/HiTE_split.log', level='debug')
@@ -46,7 +48,7 @@ if __name__ == '__main__':
             new_ref_name = ref_name + '$' + start
             cur_ref_contigs[new_ref_name] = seq
             cur_base_num += len(line)
-            if cur_base_num >= chunk_size * 1024 * 1024:
+            if cur_base_num >= chunk_size:
                 # store references
                 cur_ref_path = tmp_output_dir + '/genome.cut' + str(ref_index) + '.fa'
                 store_fasta(cur_ref_contigs, cur_ref_path)
@@ -69,7 +71,7 @@ if __name__ == '__main__':
     os.system('rm -rf ' + split_ref_dir)
     if not os.path.exists(split_ref_dir):
         os.makedirs(split_ref_dir)
-    ref_blocks = split_dict_into_blocks(ref_contigs, 100)
+    ref_blocks = split_dict_into_blocks(ref_contigs, 100, chunk_size)
     for i, block in enumerate(ref_blocks):
         chr_path = split_ref_dir + '/ref_block_' + str(i) + '.fa'
         store_fasta(block, chr_path)

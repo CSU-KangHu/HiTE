@@ -214,7 +214,7 @@ if __name__ == '__main__':
         # classify intact-LTRs
         if use_NeuralTE:
             # classify LTR using NeuralTE
-            NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
+            NeuralTE_output_dir = tmp_output_dir + '/NeuralTE_LTR'
             if not os.path.exists(NeuralTE_output_dir):
                 os.makedirs(NeuralTE_output_dir)
             NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \

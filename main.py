@@ -9,7 +9,7 @@ import sys
 import time
 from multiprocessing import cpu_count
 
-from module.Util import Logger, file_exist
+from module.Util import Logger, file_exist, read_fasta
 
 if __name__ == '__main__':
     # We define the default parameters for HiTE.
@@ -19,6 +19,8 @@ if __name__ == '__main__':
     default_tandem_region_cutoff = 0.5
     default_max_single_repeat_len = 30000
     default_plant = 1
+    default_te_type = 'all'
+    default_curated_lib = None
     default_recover = 0
     default_annotate = 0
     default_intact_annotate = 0
@@ -61,6 +63,8 @@ if __name__ == '__main__':
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of genome, default = [ ' + str(default_chunk_size) + ' MB ]')
     parser.add_argument('--miu', metavar='miu', help='The neutral mutation rate (per bp per ya), default = [ ' + str(default_miu) + ' ]')
     parser.add_argument('--plant', metavar='is_plant', help='Is it a plant genome, 1: true, 0: false. default = [ ' + str(default_plant) + ' ]')
+    parser.add_argument('--te_type', metavar='te_type', help='Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ ' + str(default_te_type) + ' ]')
+    parser.add_argument('--curated_lib', metavar='curated_lib', help='Provide a fully trusted curated library, which will be used to pre-mask highly homologous sequences in the genome. We recommend using TE libraries from Repbase. default = [ ' + str(default_curated_lib) + ' ]')
     # parser.add_argument('--classified', metavar='is_classified', help='Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ ' + str(default_classified) + ' ]')
     parser.add_argument('--remove_nested', metavar='is_remove_nested',help='Whether to remove nested TE, 1: true, 0: false. default = [ ' + str(default_remove_nested) + ' ]')
     parser.add_argument('--domain', metavar='is_domain', help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false. default = [ ' + str(default_domain) + ' ]')
@@ -98,6 +102,8 @@ if __name__ == '__main__':
     chrom_seg_length = args.chrom_seg_length
     flanking_len = args.flanking_len
     plant = args.plant
+    te_type = args.te_type
+    curated_lib = args.curated_lib
     # classified = args.classified
     remove_nested = args.remove_nested
     domain = args.domain
@@ -178,6 +184,16 @@ if __name__ == '__main__':
         plant = default_plant
     else:
         plant = int(plant)
+
+    if te_type is None:
+        te_type = default_te_type
+    else:
+        te_type = te_type
+
+    if curated_lib is None:
+        curated_lib = default_curated_lib
+    else:
+        curated_lib = curated_lib
 
     # if classified is None:
     #     classified = default_classified
@@ -287,6 +303,18 @@ if __name__ == '__main__':
     if recover == 1:
         is_recover = True
 
+    all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
+    if te_type not in all_te_types:
+        log.logger.error('Specified an invalid TE type: ' + te_type + '. Please choose from ' + str(all_te_types))
+        sys.exit(-1)
+
+    if curated_lib is not None:
+        curated_lib = os.path.realpath(curated_lib)
+        curated_names, curated_contigs = read_fasta(curated_lib)
+        if len(curated_names) <= 0:
+            log.logger.error('You have provided an invalid or empty curated library: ' + str(curated_lib) + '. Please check and correct it.')
+            sys.exit(-1)
+
     LTR_harvest_parallel_Home = os.getcwd() + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
     NeuralTE_home = os.getcwd() + '/bin/NeuralTE'
@@ -321,6 +349,8 @@ if __name__ == '__main__':
                     '  [Setting] Threads = [ ' + str(threads) + ' ]  Default( ' + str(default_threads) + ' )\n'
                     '  [Setting] The chunk size of large genome = [ ' + str(chunk_size) + ' ] MB Default( ' + str(default_chunk_size) + ' ) MB\n'
                     '  [Setting] Is plant genome = [ ' + str(plant) + ' ]  Default( ' + str(default_plant) + ' )\n'
+                    '  [Setting] Retrieve specific type of TE output = [ ' + str(te_type) + ' ]  Default( ' + str(default_te_type) + ' )\n'
+                    '  [Setting] Curated library = [ ' + str(curated_lib) + ' ]  Default( ' + str(default_curated_lib) + ' )\n'
                     '  [Setting] recover = [ ' + str(recover) + ' ]  Default( ' + str(default_recover) + ' )\n'
                     '  [Setting] annotate = [ ' + str(annotate) + ' ]  Default( ' + str(default_annotate) + ' )\n'
                     '  [Setting] intact_anno = [ ' + str(intact_anno) + ' ]  Default( ' + str(default_intact_annotate) + ' )\n'                                                                                        
@@ -369,37 +399,39 @@ if __name__ == '__main__':
         confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
         resut_file = confident_ltr_cut_path
         if not is_recover or not file_exist(resut_file):
-            starttime = time.time()
-            TEClass_home = os.getcwd() + '/classification'
-            LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
-                                         + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
-                                         + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
-                                         + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
-                                         + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
-                                         + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home)
-            log.logger.info(LTR_identification_command)
-            os.system(LTR_identification_command)
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of step0: %.8s s" % (dtime))
+            if te_type == 'all' or te_type == 'ltr':
+                starttime = time.time()
+                TEClass_home = os.getcwd() + '/classification'
+                LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
+                                             + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
+                                             + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
+                                             + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
+                                             + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
+                                             + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home)
+                log.logger.info(LTR_identification_command)
+                os.system(LTR_identification_command)
+                endtime = time.time()
+                dtime = endtime - starttime
+                log.logger.info("Running time of step0: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
         confident_other_path = tmp_output_dir + '/confident_other.fa'
         resut_file = confident_other_path
         if not is_recover or not file_exist(resut_file):
-            starttime = time.time()
-            log.logger.info('Start step1: homology-based other TE searching')
-            other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
-                                           + ' -r ' + reference \
-                                           + ' -t ' + str(threads) \
-                                           + ' --tmp_output_dir ' + tmp_output_dir  \
-                                           + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
-            log.logger.info(other_identification_command)
-            os.system(other_identification_command)
-            endtime = time.time()
-            dtime = endtime - starttime
-            log.logger.info("Running time of step1: %.8s s" % (dtime))
+            if te_type == 'all' or te_type == 'non-ltr':
+                starttime = time.time()
+                log.logger.info('Start step1: homology-based other TE searching')
+                other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
+                                               + ' -r ' + reference \
+                                               + ' -t ' + str(threads) \
+                                               + ' --tmp_output_dir ' + tmp_output_dir  \
+                                               + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
+                log.logger.info(other_identification_command)
+                os.system(other_identification_command)
+                endtime = time.time()
+                dtime = endtime - starttime
+                log.logger.info("Running time of step1: %.8s s" % (dtime))
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -425,7 +457,10 @@ if __name__ == '__main__':
 
         # Using identified TEs to mask the genome in order to reduce computational load in all-vs-all alignments.
         prev_TE = tmp_output_dir + '/prev_TE.fa'
-        os.system('cat ' + confident_ltr_cut_path + ' > ' + prev_TE)
+        if os.path.exists(confident_ltr_cut_path):
+            os.system('cat ' + confident_ltr_cut_path + ' > ' + prev_TE)
+        if curated_lib is not None and os.path.exists(curated_lib):
+            os.system('cat ' + curated_lib + ' >> ' + prev_TE)
         # The outcomes of homologous methods can only serve as supplementary information and should not be used as masks,
         # as this could potentially obscure many genuine non-LTR local masks, rendering the de novo method unable to identify them.
         # os.system('cat ' + confident_other_path + ' >> ' + prev_TE)
@@ -440,94 +475,98 @@ if __name__ == '__main__':
             longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
             resut_file = longest_repeats_path
             if not is_recover or not file_exist(resut_file) or not file_exist(longest_repeats_flanked_path):
-                starttime = time.time()
-                log.logger.info('Start 2.1: Coarse-grained boundary mapping')
-                coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
-                                       + ' -g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
-                                       + ' --prev_TE ' + str(prev_TE) \
-                                       + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
-                                       + ' --max_repeat_len ' + str(max_repeat_len) \
-                                       + ' --thread ' + str(threads) \
-                                       + ' --flanking_len ' + str(flanking_len) \
-                                       + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
-                                       + ' --ref_index ' + str(ref_index) \
-                                       + ' -r ' + reference + ' --recover ' + str(recover) \
-                                       + ' --debug ' + str(debug)
-                log.logger.info(coarse_boundary_command)
-                os.system(coarse_boundary_command)
-                endtime = time.time()
-                dtime = endtime - starttime
-                log.logger.info("Running time of step2.1: %.8s s" % (dtime))
+                if te_type != 'ltr':
+                    starttime = time.time()
+                    log.logger.info('Start 2.1: Coarse-grained boundary mapping')
+                    coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
+                                           + ' -g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
+                                           + ' --prev_TE ' + str(prev_TE) \
+                                           + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
+                                           + ' --max_repeat_len ' + str(max_repeat_len) \
+                                           + ' --thread ' + str(threads) \
+                                           + ' --flanking_len ' + str(flanking_len) \
+                                           + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
+                                           + ' --ref_index ' + str(ref_index) \
+                                           + ' -r ' + reference + ' --recover ' + str(recover) \
+                                           + ' --debug ' + str(debug)
+                    log.logger.info(coarse_boundary_command)
+                    os.system(coarse_boundary_command)
+                    endtime = time.time()
+                    dtime = endtime - starttime
+                    log.logger.info("Running time of step2.1: %.8s s" % (dtime))
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
             longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
             resut_file = tmp_output_dir + '/confident_tir_'+str(ref_index)+'.fa'
             if not is_recover or not file_exist(resut_file):
-                starttime = time.time()
-                log.logger.info('Start step2.2: determine fine-grained TIR')
-                tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
-                                             + cut_reference + ' --seqs ' + longest_repeats_flanked_path \
-                                             + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
-                                             + ' --tmp_output_dir ' + tmp_output_dir \
-                                             + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
-                                             + ' --ref_index ' + str(ref_index) \
-                                             + ' --subset_script_path ' + str(subset_script_path) \
-                                             + ' --plant ' + str(plant) \
-                                             + ' --flanking_len ' + str(flanking_len) \
-                                             + ' --recover ' + str(recover) \
-                                             + ' --debug ' + str(debug) \
-                                             + ' -r ' + reference \
-                                             + ' --split_ref_dir ' + split_ref_dir
-                log.logger.debug(tir_identification_command)
-                os.system(tir_identification_command)
-                endtime = time.time()
-                dtime = endtime - starttime
-                log.logger.info("Running time of step2.2: %.8s s" % (dtime))
+                if te_type == 'all' or te_type == 'tir':
+                    starttime = time.time()
+                    log.logger.info('Start step2.2: determine fine-grained TIR')
+                    tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
+                                                 + cut_reference + ' --seqs ' + longest_repeats_flanked_path \
+                                                 + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
+                                                 + ' --tmp_output_dir ' + tmp_output_dir \
+                                                 + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
+                                                 + ' --ref_index ' + str(ref_index) \
+                                                 + ' --subset_script_path ' + str(subset_script_path) \
+                                                 + ' --plant ' + str(plant) \
+                                                 + ' --flanking_len ' + str(flanking_len) \
+                                                 + ' --recover ' + str(recover) \
+                                                 + ' --debug ' + str(debug) \
+                                                 + ' -r ' + reference \
+                                                 + ' --split_ref_dir ' + split_ref_dir
+                    log.logger.debug(tir_identification_command)
+                    os.system(tir_identification_command)
+                    endtime = time.time()
+                    dtime = endtime - starttime
+                    log.logger.info("Running time of step2.2: %.8s s" % (dtime))
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
             resut_file = tmp_output_dir + '/confident_helitron_'+str(ref_index)+'.fa'
             if not is_recover or not file_exist(resut_file):
-                starttime = time.time()
-                log.logger.info('Start step2.3: determine fine-grained Helitron')
-                helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
-                                                  + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
-                                                  + ' --tmp_output_dir ' + tmp_output_dir + ' --HSDIR ' + HSDIR + ' --HSJAR ' + HSJAR \
-                                                  + ' --sh_dir ' + sh_dir + ' --EAHelitron ' + EAHelitron \
-                                                  + ' --subset_script_path ' + subset_script_path \
-                                                  + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
-                                                  + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir
+                if te_type == 'all' or te_type == 'helitron':
+                    starttime = time.time()
+                    log.logger.info('Start step2.3: determine fine-grained Helitron')
+                    helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
+                                                      + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
+                                                      + ' --tmp_output_dir ' + tmp_output_dir + ' --HSDIR ' + HSDIR + ' --HSJAR ' + HSJAR \
+                                                      + ' --sh_dir ' + sh_dir + ' --EAHelitron ' + EAHelitron \
+                                                      + ' --subset_script_path ' + subset_script_path \
+                                                      + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
+                                                      + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir
 
-                log.logger.info(helitron_identification_command)
-                os.system(helitron_identification_command)
-                endtime = time.time()
-                dtime = endtime - starttime
-                log.logger.info("Running time of step2.3: %.8s s" % (dtime))
+                    log.logger.info(helitron_identification_command)
+                    os.system(helitron_identification_command)
+                    endtime = time.time()
+                    dtime = endtime - starttime
+                    log.logger.info("Running time of step2.3: %.8s s" % (dtime))
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
             resut_file = tmp_output_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
             if not is_recover or not file_exist(resut_file):
-                starttime = time.time()
-                log.logger.info('Start step2.4: determine fine-grained Non-LTR')
-                non_ltr_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Non_LTR_transposons.py'\
-                                             + ' --seqs ' + longest_repeats_flanked_path + ' -t ' + str(threads) \
-                                             + ' --subset_script_path ' + str(subset_script_path) \
-                                             + ' --tmp_output_dir ' + tmp_output_dir \
-                                             + ' --library_dir ' + str(library_dir) \
-                                             + ' --recover ' + str(recover) \
-                                             + ' --plant ' + str(plant) \
-                                             + ' --debug ' + str(debug) \
-                                             + ' --flanking_len ' + str(flanking_len) \
-                                             + ' --ref_index ' + str(ref_index) \
-                                             + ' --is_denovo_nonltr ' + str(is_denovo_nonltr) \
-                                             + ' -r ' + reference
-                log.logger.debug(non_ltr_identification_command)
-                os.system(non_ltr_identification_command)
-                endtime = time.time()
-                dtime = endtime - starttime
-                log.logger.info("Running time of step2.4: %.8s s" % (dtime))
+                if te_type == 'all' or te_type == 'non-ltr':
+                    starttime = time.time()
+                    log.logger.info('Start step2.4: determine fine-grained Non-LTR')
+                    non_ltr_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Non_LTR_transposons.py'\
+                                                 + ' --seqs ' + longest_repeats_flanked_path + ' -t ' + str(threads) \
+                                                 + ' --subset_script_path ' + str(subset_script_path) \
+                                                 + ' --tmp_output_dir ' + tmp_output_dir \
+                                                 + ' --library_dir ' + str(library_dir) \
+                                                 + ' --recover ' + str(recover) \
+                                                 + ' --plant ' + str(plant) \
+                                                 + ' --debug ' + str(debug) \
+                                                 + ' --flanking_len ' + str(flanking_len) \
+                                                 + ' --ref_index ' + str(ref_index) \
+                                                 + ' --is_denovo_nonltr ' + str(is_denovo_nonltr) \
+                                                 + ' -r ' + reference
+                    log.logger.debug(non_ltr_identification_command)
+                    os.system(non_ltr_identification_command)
+                    endtime = time.time()
+                    dtime = endtime - starttime
+                    log.logger.info("Running time of step2.4: %.8s s" % (dtime))
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
@@ -541,10 +580,13 @@ if __name__ == '__main__':
         for ref_index, ref_rename_path in enumerate(cut_references):
             cur_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
             cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
-            os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
-            os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
             cur_confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
-            os.system('cat ' + cur_confident_non_ltr_path + ' >> ' + confident_non_ltr_path)
+            if os.path.exists(cur_confident_tir_path):
+                os.system('cat ' + cur_confident_tir_path + ' >> ' + confident_tir_path)
+            if os.path.exists(cur_confident_helitron_path):
+                os.system('cat ' + cur_confident_helitron_path + ' >> ' + confident_helitron_path)
+            if os.path.exists(cur_confident_non_ltr_path):
+                os.system('cat ' + cur_confident_non_ltr_path + ' >> ' + confident_non_ltr_path)
 
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
@@ -559,7 +601,8 @@ if __name__ == '__main__':
                                + ' --test_home ' + str(test_home) + ' --use_NeuralTE ' + str(use_NeuralTE) \
                                + ' --is_wicker ' + str(is_wicker) \
                                + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home) \
-                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path)
+                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path) \
+                               + ' --curated_lib ' + str(curated_lib)
         log.logger.info(generate_lib_command)
         os.system(generate_lib_command)
         endtime = time.time()

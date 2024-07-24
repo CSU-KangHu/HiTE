@@ -36,6 +36,8 @@ if __name__ == '__main__':
                         help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
     parser.add_argument('--protein_path', metavar='protein_path',
                         help='The path of protein domain')
+    parser.add_argument('--curated_lib', metavar='curated_lib',
+                        help='The path of curated library')
     parser.add_argument('--is_wicker', metavar='is_wicker',
                         help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
 
@@ -55,6 +57,7 @@ if __name__ == '__main__':
     TEClass_home = args.TEClass_home
     domain = args.domain
     protein_path = args.protein_path
+    curated_lib = args.curated_lib
     is_wicker = args.is_wicker
 
     confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
@@ -62,6 +65,7 @@ if __name__ == '__main__':
     confident_helitron_path = os.path.realpath(confident_helitron_path)
     confident_non_ltr_path = os.path.realpath(confident_non_ltr_path)
     confident_other_path = os.path.realpath(confident_other_path)
+    curated_lib = os.path.realpath(curated_lib)
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
 
@@ -102,10 +106,14 @@ if __name__ == '__main__':
 
     # Merge all TE types (TIR+Helitron+Non_LTR+Other)
     confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
-    os.system('cat ' + final_confident_tir_path + ' > ' + confident_TE_path)
-    os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
-    os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)
-    os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
+    if os.path.exists(final_confident_tir_path):
+        os.system('cat ' + final_confident_tir_path + ' > ' + confident_TE_path)
+    if os.path.exists(final_confident_helitron_path):
+        os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
+    if os.path.exists(final_confident_non_ltr_path):
+        os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)
+    if os.path.exists(confident_other_path):
+        os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
     # os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
@@ -113,7 +121,7 @@ if __name__ == '__main__':
     # ClassifyTE except for LTR (LTRs have been classified)
     if use_NeuralTE:
         # classify LTR using NeuralTE
-        NeuralTE_output_dir = tmp_output_dir + '/NeuralTE'
+        NeuralTE_output_dir = tmp_output_dir + '/NeuralTE_all'
         if not os.path.exists(NeuralTE_output_dir):
             os.makedirs(NeuralTE_output_dir)
         NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + confident_TE_path \
@@ -135,7 +143,10 @@ if __name__ == '__main__':
 
     # merge classified LTRs and TEs
     os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
-    os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+    if os.path.exists(confident_ltr_cut_path):
+        os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+    if curated_lib is not None and os.path.exists(curated_lib):
+        os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
 
     # # Unpack nested TEs within TEs
     # clean_TE_path = tmp_output_dir + '/confident_TE.clean.fa'

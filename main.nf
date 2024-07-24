@@ -33,6 +33,7 @@ def helpMessage() {
     General options:
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
+      --curated_lib                     Provide a fully trusted curated library, which will be used to pre-mask highly homologous sequences in the genome. We recommend using TE libraries from Repbase. default = [ None ]
       --recover                         Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
       --intact_anno                     Whether to generate annotation of full-length TEs, 1: true, 0: false. default = [ 0 ]
       --miu                             The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
@@ -70,6 +71,7 @@ def printSetting() {
       [Setting] The neutral mutation rate (per bp per ya) = [ $params.miu ]
       [Setting] The chunk size of large genome = [ $params.chunk_size ] MB
       [Setting] Is plant genome = [ $params.plant ]
+      [Setting] Curated library = [ $params.curated_lib ]
       [Setting] recover = [ $params.recover ]
       [Setting] annotate = [ $params.annotate ]
       [Setting] intact_anno = [ $params.intact_anno ]
@@ -140,6 +142,7 @@ flanking_len = "${params.flanking_len}"
 tandem_region_cutoff = "${params.tandem_region_cutoff}"
 recover = "${params.recover}"
 plant = "${params.plant}"
+curated_lib = "${params.curated_lib}"
 classified = "${params.classified}"
 domain = "${params.domain}"
 annotate = "${params.annotate}"
@@ -426,6 +429,7 @@ process merge_ltr_other {
     cores = task.cpus
     """
      cat ${ltr} > prev_TE.fa
+     cat ${curated_lib} >> prev_TE.fa
      cp prev_TE.fa ${tmp_output_dir}/prev_TE.fa
     """
 }
@@ -536,7 +540,7 @@ process BuildLib {
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --test_home ${ch_module} --use_NeuralTE ${use_NeuralTE} --is_wicker ${is_wicker} \
      --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification} \
-     --domain ${domain} --protein_path ${ch_protein}
+     --domain ${domain} --protein_path ${ch_protein} --curated_lib ${curated_lib}
 
     cp ${tmp_output_dir}/confident_TE.cons.fa ./
     """

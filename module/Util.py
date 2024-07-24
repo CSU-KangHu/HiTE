@@ -5392,26 +5392,29 @@ def generate_full_length_out(BlastnOut, full_length_out, TE_lib, reference, tmp_
     return lines
 
 def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index):
-    tmp_blast_dir = work_dir + '/mask_tmp_' + str(ref_index)
-    lib_out = work_dir + '/prev_TE_'+str(ref_index)+'.out'
-    multi_process_align(TE_lib, genome_path, lib_out, tmp_blast_dir, thread, is_removed_dir=True)
-    full_length_out = work_dir + '/mask_full_length'+str(ref_index)+'.out'
-    coverage_threshold = 0.8
-    category = 'Total'
-    sorted_lines = generate_full_length_out(lib_out, full_length_out, TE_lib, genome_path, tmp_blast_dir, '',
-                             coverage_threshold, category)
-
-    ref_names, ref_contigs = read_fasta(genome_path)
-    # mask genome
-    for query_name, chr_name, chr_start, chr_end in sorted_lines:
-        start = chr_start - 1
-        end = chr_end
-        ref_seq = ref_contigs[chr_name]
-        mask_seq = ref_seq[:start] + 'N' * (end - start) + ref_seq[end:]
-        ref_contigs[chr_name] = mask_seq
-
     masked_genome_path = genome_path + '.masked'
-    store_fasta(ref_contigs, masked_genome_path)
+    if file_exist(TE_lib):
+        tmp_blast_dir = work_dir + '/mask_tmp_' + str(ref_index)
+        lib_out = work_dir + '/prev_TE_'+str(ref_index)+'.out'
+        multi_process_align(TE_lib, genome_path, lib_out, tmp_blast_dir, thread, is_removed_dir=True)
+        full_length_out = work_dir + '/mask_full_length'+str(ref_index)+'.out'
+        coverage_threshold = 0.8
+        category = 'Total'
+        sorted_lines = generate_full_length_out(lib_out, full_length_out, TE_lib, genome_path, tmp_blast_dir, '',
+                                 coverage_threshold, category)
+
+        ref_names, ref_contigs = read_fasta(genome_path)
+        # mask genome
+        for query_name, chr_name, chr_start, chr_end in sorted_lines:
+            start = chr_start - 1
+            end = chr_end
+            ref_seq = ref_contigs[chr_name]
+            mask_seq = ref_seq[:start] + 'N' * (end - start) + ref_seq[end:]
+            ref_contigs[chr_name] = mask_seq
+
+        store_fasta(ref_contigs, masked_genome_path)
+    else:
+        os.system('cp ' + genome_path + ' ' + masked_genome_path)
 
 
 def get_TSD(all_copies, flanking_len):
@@ -6901,7 +6904,9 @@ def store_flank_align_groups_v1(groups, flank_align_dir):
                         f_save.write(query_name+'\t'+subject_name+'\t'+str(q_start)+'\t'+str(q_end)+'\t'+str(s_start)+'\t'+str(s_end)+'\t'+str(direct)+'\n')
             f_save.close()
 
-def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, reference, split_ref_dir, TE_type, tmp_output_dir, threads, ref_index, log, subset_script_path, plant, debug, iter_num, result_type='cons'):
+def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, reference, split_ref_dir,
+                          TE_type, tmp_output_dir, threads, ref_index, log, subset_script_path, plant, debug,
+                          iter_num, result_type='cons'):
     log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
     starttime = time.time()
     temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
@@ -6932,7 +6937,15 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         split_files.append(cur_file)
         batch_id += 1
 
-    ref_names, ref_contigs = read_fasta(reference)
+    ref_contigs = {}
+    # 遍历目录下的所有文件
+    for filename in os.listdir(split_ref_dir):
+        if filename.endswith('.fa'):
+            file_path = os.path.join(split_ref_dir, filename)
+            cur_names, cur_contigs = read_fasta(file_path)
+            ref_contigs.update(cur_contigs)
+
+    # ref_names, ref_contigs = read_fasta(reference)
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for cur_split_files in split_files:
@@ -10055,7 +10068,33 @@ def get_full_length_member(query_path, reference, flanking_len):
     store_fasta(new_all_copies, member_file)
     return member_file
 
-def split_dict_into_blocks(chromosomes_dict, threads):
+
+def split_chromosomes(chromosomes_dict, max_length=200_000_000):
+    """
+    分割染色体序列，如果序列长度超过max_length，则将其分割成多个部分。
+
+    参数:
+    chromosomes_dict (dict): 一个字典，键为染色体名称，值为对应的DNA序列。
+    max_length (int): 最大序列长度，超过此长度的序列将被分割。默认值为200 MB。
+
+    返回:
+    dict: 一个新的字典，包含分割后的染色体序列。
+    """
+    new_chromosomes_dict = {}
+    for chrom, sequence in chromosomes_dict.items():
+        if len(sequence) > max_length:
+            num_parts = (len(sequence) + max_length - 1) // max_length  # 计算需要分割的部分数
+            for i in range(num_parts):
+                part_name = f"{chrom}_part{i + 1}"
+                start = i * max_length
+                end = min((i + 1) * max_length, len(sequence))
+                new_chromosomes_dict[part_name] = sequence[start:end]
+        else:
+            new_chromosomes_dict[chrom] = sequence
+    return new_chromosomes_dict
+
+def split_dict_into_blocks(chromosomes_dict, threads, chunk_size):
+    chromosomes_dict = split_chromosomes(chromosomes_dict, max_length=chunk_size)
     total_length = sum(len(seq) for seq in chromosomes_dict.values())
     target_length = total_length // threads
 
