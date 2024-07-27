@@ -5070,7 +5070,7 @@ def get_structure_info(input_file, query_name, query_copies, flank_query_copies,
                     annotation_list.append((copy_name, update_name))
         else:
             # search for hairpin loop
-            EAHelitron = os.getcwd() + '/../bin/EAHelitron-master'
+            EAHelitron = tools_dir + '/../bin/EAHelitron-master'
             copies_hairpin_loops = run_EAHelitron_v1(cluster_dir, flank_full_length_copies_file, EAHelitron, query_name)
             for copy_name in query_copies:
                 if copies_hairpin_loops.__contains__(copy_name):

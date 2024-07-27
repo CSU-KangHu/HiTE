@@ -11,6 +11,9 @@ from multiprocessing import cpu_count
 
 from module.Util import Logger, file_exist, read_fasta
 
+current_folder = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(current_folder, ".")
+
 if __name__ == '__main__':
     # We define the default parameters for HiTE.
     default_threads = int(cpu_count())
@@ -137,7 +140,7 @@ if __name__ == '__main__':
         parser.print_help()
         exit(-1)
     if output_dir is None:
-        output_dir = os.getcwd() + '/output'
+        output_dir = project_dir + '/output'
         log.logger.warning('\noutput directory path is empty, set to: ' + str(output_dir))
 
     if not os.path.isabs(reference):
@@ -288,7 +291,7 @@ if __name__ == '__main__':
     partitions_num = int(threads)
 
     total_starttime = time.time()
-    tools_dir = os.getcwd() + '/tools'
+    tools_dir = project_dir + '/tools'
 
     (ref_dir, ref_filename) = os.path.split(reference)
     (ref_name, ref_extension) = os.path.splitext(ref_filename)
@@ -315,19 +318,19 @@ if __name__ == '__main__':
             log.logger.error('You have provided an invalid or empty curated library: ' + str(curated_lib) + '. Please check and correct it.')
             sys.exit(-1)
 
-    LTR_harvest_parallel_Home = os.getcwd() + '/bin/LTR_HARVEST_parallel'
-    LTR_finder_parallel_Home = os.getcwd() + '/bin/LTR_FINDER_parallel-master'
-    NeuralTE_home = os.getcwd() + '/bin/NeuralTE'
-    EAHelitron = os.getcwd() + '/bin/EAHelitron-master'
-    HSDIR = os.getcwd() + '/bin/HelitronScanner/TrainingSet'
-    HSJAR = os.getcwd() + '/bin/HelitronScanner/HelitronScanner.jar'
-    rm2_script = os.getcwd() + '/bin/get_family_summary_paper.sh'
-    rm2_strict_script = os.getcwd() + '/bin/get_family_summary_paper_0.99.sh'
+    LTR_harvest_parallel_Home = project_dir + '/bin/LTR_HARVEST_parallel'
+    LTR_finder_parallel_Home = project_dir + '/bin/LTR_FINDER_parallel-master'
+    NeuralTE_home = project_dir + '/bin/NeuralTE'
+    EAHelitron = project_dir + '/bin/EAHelitron-master'
+    HSDIR = project_dir + '/bin/HelitronScanner/TrainingSet'
+    HSJAR = project_dir + '/bin/HelitronScanner/HelitronScanner.jar'
+    rm2_script = project_dir + '/bin/get_family_summary_paper.sh'
+    rm2_strict_script = project_dir + '/bin/get_family_summary_paper_0.99.sh'
     member_script_path = tools_dir + '/make_fasta_from_blast.sh'
     subset_script_path = tools_dir + '/ready_for_MSA.sh'
-    sh_dir = os.getcwd() + '/bin'
-    lib_module = os.getcwd() + '/library'
-    protein_lib_path = os.getcwd() + '/library/RepeatPeps.lib'
+    sh_dir = project_dir + '/bin'
+    lib_module = project_dir + '/library'
+    protein_lib_path = project_dir + '/library/RepeatPeps.lib'
 
     if BM_EDTA == 1 and not os.path.exists(EDTA_home + '/lib-test.pl'):
         print('Cannot conduct benchmarking of EDTA, Invalid EDTA home: ' + EDTA_home)
@@ -374,8 +377,8 @@ if __name__ == '__main__':
                     )
 
     TRsearch_dir = tools_dir
-    test_home = os.getcwd() + '/module'
-    library_dir = os.getcwd() + '/library'
+    test_home = project_dir + '/module'
+    library_dir = project_dir + '/library'
 
     # The HiTE pipeline performs recognition of LTR, Non-LTR, TIR, and Helitron transposons.
     # The organizational structure of HiTE is as follows:
@@ -401,7 +404,7 @@ if __name__ == '__main__':
         if not is_recover or not file_exist(resut_file):
             if te_type == 'all' or te_type == 'ltr':
                 starttime = time.time()
-                TEClass_home = os.getcwd() + '/classification'
+                TEClass_home = project_dir + '/classification'
                 LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
                                              + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
                                              + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
@@ -590,7 +593,7 @@ if __name__ == '__main__':
 
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
-        TEClass_home = os.getcwd() + '/classification'
+        TEClass_home = project_dir + '/classification'
         generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                + ' --confident_tir ' + confident_tir_path \
@@ -643,7 +646,7 @@ if __name__ == '__main__':
     else:
         starttime = time.time()
         log.logger.info('Start step5: annotate genome')
-        TEClass_home = os.getcwd() + '/classification'
+        TEClass_home = project_dir + '/classification'
         annotate_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/annotate_genome.py' \
                                   + ' -t ' + str(threads) + ' --classified_TE_consensus ' + confident_TE_consensus \
                                   + ' --annotate ' + str(annotate) \

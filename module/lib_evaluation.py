@@ -7,6 +7,8 @@ import os
 from Util import read_fasta, get_overlap_len, get_gap_len, merge_same_fragments, get_chr_pos, store_fasta, get_full_length_copies_from_blastn, multi_process_align, generate_full_length_out, \
     multi_process_align_v1
 
+current_folder = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(current_folder, ".")
 
 def get_chr_fragments(BlastnOut):
     chr_fragments = {}
@@ -270,5 +272,5 @@ if __name__ == '__main__':
         multi_process_align_v1(standard_lib, genome_path, standard_lib_out, std_tmp_blast_dir, thread, coverage_threshold, category, is_removed_dir=True)
         multi_process_align_v1(test_lib, genome_path, test_lib_out, test_tmp_blast_dir, thread, coverage_threshold, category, is_removed_dir=True)
 
-    tools_dir = os.getcwd() + '/tools'
+    tools_dir = project_dir + '/tools'
     get_evaluation_sample(genome_path, standard_lib_out, test_lib_out, work_dir, coverage_threshold)
