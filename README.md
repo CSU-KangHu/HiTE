@@ -69,8 +69,6 @@ python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- # Please enter the HiTE project directory before executing "python main.py".
- 
  # e.g., my command: python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
