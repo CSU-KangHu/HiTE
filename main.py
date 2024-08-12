@@ -148,6 +148,11 @@ if __name__ == '__main__':
     if not os.path.isabs(output_dir):
         output_dir = os.path.abspath(output_dir)
 
+    if not os.path.exists(reference):
+        log.logger.error('\nCannot find input genome assembly: ' + str(reference))
+        parser.print_help()
+        exit(-1)
+
     if threads is None:
         threads = int(default_threads)
     else:

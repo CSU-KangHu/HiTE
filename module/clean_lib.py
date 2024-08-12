@@ -31,6 +31,7 @@ if __name__ == '__main__':
         keep_files_temp = []
         keep_files = ['chr_name\.map',
                     'genome\.rename\.fa',
+                    'genome\.fa\.masked',
                     'genome\.rename\.fa\.pass\.list', 
                     '.*\.scn',
                     'genome\.rename\.fa\.LTRlib\.fa',
