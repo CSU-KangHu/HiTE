@@ -4,9 +4,9 @@ import random
 import re
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import pandas as pd
+# import pandas as pd
 from openpyxl.utils import get_column_letter
-from pandas import ExcelWriter
+# from pandas import ExcelWriter
 import numpy as np
 import itertools
 from configs import config
