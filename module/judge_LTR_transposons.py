@@ -175,7 +175,10 @@ if __name__ == '__main__':
         log.logger.info(resut_file + ' exists, skip...')
 
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
-    os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+    if os.path.exists(resut_file):
+        os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+    else:
+        log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
 
     # # Remove redundancy from the LTR results.
     # ltr_cons_path = confident_ltr_cut_path + '.cons'
