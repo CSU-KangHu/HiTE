@@ -55,6 +55,8 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 cd HiTE && chmod +x tools/* bin/NeuralTE/tools/* bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder
 ```
 
+For common issues related to installation and usage, please visit: [https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
+
 ### <a name="install_conda"></a>Option 1. Run with conda
 ```sh
 # Find the **yml** file in the project directory and run
