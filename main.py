@@ -511,8 +511,8 @@ if __name__ == '__main__':
                 if te_type == 'all' or te_type == 'tir':
                     starttime = time.time()
                     log.logger.info('Start step2.2: determine fine-grained TIR')
-                    tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py -g ' \
-                                                 + cut_reference + ' --seqs ' + longest_repeats_flanked_path \
+                    tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py ' \
+                                                 + ' --seqs ' + longest_repeats_flanked_path \
                                                  + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
                                                  + ' --tmp_output_dir ' + tmp_output_dir \
                                                  + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
@@ -523,7 +523,8 @@ if __name__ == '__main__':
                                                  + ' --recover ' + str(recover) \
                                                  + ' --debug ' + str(debug) \
                                                  + ' -r ' + reference \
-                                                 + ' --split_ref_dir ' + split_ref_dir
+                                                 + ' --split_ref_dir ' + split_ref_dir \
+                                                 + ' --prev_TE  ' + prev_TE
                     log.logger.debug(tir_identification_command)
                     os.system(tir_identification_command)
                     endtime = time.time()
@@ -543,7 +544,8 @@ if __name__ == '__main__':
                                                       + ' --sh_dir ' + sh_dir + ' --EAHelitron ' + EAHelitron \
                                                       + ' --subset_script_path ' + subset_script_path \
                                                       + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
-                                                      + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir
+                                                      + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir \
+                                                      + ' --prev_TE  ' + prev_TE
 
                     log.logger.info(helitron_identification_command)
                     os.system(helitron_identification_command)
@@ -569,7 +571,8 @@ if __name__ == '__main__':
                                                  + ' --flanking_len ' + str(flanking_len) \
                                                  + ' --ref_index ' + str(ref_index) \
                                                  + ' --is_denovo_nonltr ' + str(is_denovo_nonltr) \
-                                                 + ' -r ' + reference
+                                                 + ' -r ' + reference \
+                                                 + ' --prev_TE  ' + prev_TE
                     log.logger.debug(non_ltr_identification_command)
                     os.system(non_ltr_identification_command)
                     endtime = time.time()
@@ -626,6 +629,7 @@ if __name__ == '__main__':
         confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
         confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr.fa'
         confident_other_path = tmp_output_dir + '/confident_other.fa'
+        classified_TE_path = tmp_output_dir + '/TE_merge_tmp.fa.classified'
         full_length_anno_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_full_length_annotation.py' \
                                    + ' -t ' + str(threads) + ' --ltr_list ' + ltr_list \
                                    + ' --tir_lib ' + str(confident_tir_path) \
@@ -637,7 +641,8 @@ if __name__ == '__main__':
                                    + ' --module_home ' + test_home \
                                    + ' --tmp_output_dir ' + tmp_output_dir \
                                    + ' --TRsearch_dir ' + TRsearch_dir \
-                                   + ' --search_struct ' + str(search_struct)
+                                   + ' --search_struct ' + str(search_struct) \
+                                   + ' --classified_TE_path ' + str(classified_TE_path)
         log.logger.info(full_length_anno_command)
         os.system(full_length_anno_command)
 

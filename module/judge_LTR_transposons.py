@@ -130,6 +130,9 @@ if __name__ == '__main__':
     TEClass_home = args.TEClass_home
     is_wicker = args.is_wicker
 
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
     log = Logger(tmp_output_dir + '/HiTE_ltr.log', level='debug')

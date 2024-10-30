@@ -65,7 +65,9 @@ if __name__ == '__main__':
     confident_helitron_path = os.path.realpath(confident_helitron_path)
     confident_non_ltr_path = os.path.realpath(confident_non_ltr_path)
     confident_other_path = os.path.realpath(confident_other_path)
-    curated_lib = os.path.realpath(curated_lib)
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
 
@@ -145,8 +147,10 @@ if __name__ == '__main__':
     os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
     if os.path.exists(confident_ltr_cut_path):
         os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
-    if curated_lib is not None and os.path.exists(curated_lib):
-        os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
+    if curated_lib is not None:
+        curated_lib = os.path.realpath(curated_lib)
+        if os.path.exists(curated_lib):
+            os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
 
     # # Unpack nested TEs within TEs
     # clean_TE_path = tmp_output_dir + '/confident_TE.clean.fa'

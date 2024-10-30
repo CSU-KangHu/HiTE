@@ -36,26 +36,33 @@ if __name__ == '__main__':
                         help='Please enter the directory where the itrsearch tool is located. Please use the absolute path.')
     parser.add_argument('--search_struct', metavar='search_struct',
                         help='Is the structural information of full-length copies being searched?')
+    parser.add_argument('--classified_TE_path', metavar='classified_TE_path',
+                        help='Input classified TE Path')
 
     args = parser.parse_args()
     threads = int(args.t)
-    ltr_list = args.ltr_list
-    tir_lib = args.tir_lib
-    helitron_lib = args.helitron_lib
-    nonltr_lib = args.nonltr_lib
-    other_lib = args.other_lib
-    chr_name_map = args.chr_name_map
-    reference = args.r
+    ltr_list = os.path.abspath(args.ltr_list)
+    tir_lib = os.path.abspath(args.tir_lib)
+    helitron_lib = os.path.abspath(args.helitron_lib)
+    nonltr_lib = os.path.abspath(args.nonltr_lib)
+    other_lib = os.path.abspath(args.other_lib)
+    chr_name_map = os.path.abspath(args.chr_name_map)
+    reference = os.path.abspath(args.r)
     tmp_output_dir = args.tmp_output_dir
     module_home = args.module_home
     TRsearch_dir = args.TRsearch_dir
     search_struct = int(args.search_struct)
+    classified_TE_path = args.classified_TE_path
     if search_struct == 1:
         search_struct = True
     else:
         search_struct = False
 
     reference = os.path.abspath(reference)
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
 
     log = Logger(tmp_output_dir+'/HiTE_full_length_annotation.log', level='debug')
 
@@ -82,8 +89,6 @@ if __name__ == '__main__':
                                                    full_length_threshold, search_struct, TRsearch_dir)
 
     # Step 3. Obtain the classification of TE and add it to the annotation.
-    confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
-    classified_TE_path = confident_TE_path + '.classified'
     contignames, contigs = read_fasta(classified_TE_path)
     TE_classifications = {}
     for name in contignames:

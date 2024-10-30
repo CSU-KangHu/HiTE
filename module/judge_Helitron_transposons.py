@@ -40,6 +40,8 @@ if __name__ == '__main__':
                         help='Input Reference path.')
     parser.add_argument('--split_ref_dir', metavar='Split Reference path',
                         help='Please enter the directory of the split genome.')
+    parser.add_argument('--prev_TE', metavar='prev_TE',
+                        help='TEs fasta file that has already been identified. Please use the absolute path.')
 
     args = parser.parse_args()
 
@@ -57,6 +59,7 @@ if __name__ == '__main__':
     debug = args.debug
     reference = args.r
     split_ref_dir = args.split_ref_dir
+    prev_TE = args.prev_TE
 
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)
@@ -70,6 +73,9 @@ if __name__ == '__main__':
     recover = int(recover)
     if recover == 1:
         is_recover = True
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
@@ -105,6 +111,7 @@ if __name__ == '__main__':
     # Apply homology filtering to the results identified by HelitronScanner.
     confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
     resut_file = confident_helitron_path
+    delete_files = []
     if not is_recover or not file_exist(resut_file):
         flanking_len = 50
         TE_type = 'helitron'
@@ -115,6 +122,7 @@ if __name__ == '__main__':
             result_type = 'cons'
             output_file = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
             resut_file = output_file
+            delete_files.append(output_file)
             if not is_recover or not file_exist(resut_file):
                 flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir, TE_type,
                                       tmp_output_dir, threads,
@@ -122,13 +130,20 @@ if __name__ == '__main__':
             input_file = output_file
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.fa'
         cur_confident_helitron_cons = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.cons.fa'
+        delete_files.append(cur_confident_helitron_path)
+        delete_files.append(cur_confident_helitron_cons)
         # clustering
         cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                          + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
         os.system(cd_hit_command)
         rename_fasta(cur_confident_helitron_cons, confident_helitron_path, 'Helitron_' + str(ref_index))
+
+        # remove temp files
+        for delete_file in delete_files:
+            if os.path.exists(delete_file):
+                os.remove(delete_file)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
-    prev_TE = tmp_output_dir + '/prev_TE.fa'
+
     os.system('cat ' + resut_file + ' >> ' + prev_TE)

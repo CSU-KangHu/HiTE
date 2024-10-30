@@ -20,11 +20,13 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
 
     # Utilizing multi-alignment sequences with a sliding window mode to filter out false positive sequences.
     # Multiple iterations are performed to achieve more accurate boundary identification.
+    delete_files = []
     iter_num = 3
     input_file = filter_dup_path
     for i in range(iter_num):
         result_type = 'cons'
         output_file = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(i) + '.fa'
+        delete_files.append(output_file)
         resut_file = output_file
         if not is_recover or not file_exist(resut_file):
             flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir, TE_type,
@@ -33,6 +35,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
         input_file = output_file
 
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
+    delete_files.append(confident_tir_path)
     tir_names, tir_contigs = read_fasta(confident_tir_path)
     for name in tir_names:
         seq = tir_contigs[name]
@@ -63,6 +66,11 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     final_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
     rename_fasta(confident_tir_path, final_confident_tir_path, 'TIR_' + str(ref_index))
 
+    # remove temp files
+    for delete_file in delete_files:
+        if os.path.exists(delete_file):
+            os.remove(delete_file)
+
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
@@ -70,8 +78,6 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
 if __name__ == '__main__':
     # 1.parse args
     parser = argparse.ArgumentParser(description='run HiTE TIR module...')
-    parser.add_argument('-g', metavar='Genome assembly',
-                        help='Input genome assembly path.')
     parser.add_argument('--seqs', metavar='seqs',
                         help='Please enter the result of de novo TE searching in HiTE, typically named longest_repeats_*.fa. Please provide the absolute path.')
     parser.add_argument('-t', metavar='threads number',
@@ -98,9 +104,10 @@ if __name__ == '__main__':
                         help='Input Reference path.')
     parser.add_argument('--split_ref_dir', metavar='Split Reference path',
                         help='Please enter the directory of the split genome.')
+    parser.add_argument('--prev_TE', metavar='prev_TE',
+                        help='TEs fasta file that has already been identified. Please use the absolute path.')
 
     args = parser.parse_args()
-    genome = args.g
     longest_repeats_flanked_path = args.seqs
     threads = int(args.t)
     TRsearch_dir = args.TRsearch_dir
@@ -114,8 +121,8 @@ if __name__ == '__main__':
     debug = args.debug
     reference = args.r
     split_ref_dir = args.split_ref_dir
+    prev_TE = args.prev_TE
 
-    genome = os.path.realpath(genome)
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)
 
@@ -128,6 +135,9 @@ if __name__ == '__main__':
     recover = int(recover)
     if recover == 1:
         is_recover = True
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
 
@@ -166,5 +176,4 @@ if __name__ == '__main__':
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
-    prev_TE = tmp_output_dir + '/prev_TE.fa'
     os.system('cat ' + resut_file + ' >> ' + prev_TE)

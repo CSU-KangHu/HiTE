@@ -33,6 +33,10 @@ if __name__ == '__main__':
 
     reference = os.path.abspath(reference)
 
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
+
     log = Logger(tmp_output_dir+'/HiTE_annotate_genome.log', level='debug')
 
     # annotate the genome

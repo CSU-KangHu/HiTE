@@ -54,6 +54,9 @@ if __name__ == '__main__':
     if recover == 1:
         is_recover = True
 
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+
     tmp_output_dir = os.path.abspath(tmp_output_dir)
 
     log = Logger(tmp_output_dir + '/HiTE_other.log', level='debug')

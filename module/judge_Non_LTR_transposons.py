@@ -35,6 +35,8 @@ if __name__ == '__main__':
                         help='Whether to detect non-ltr de novo, 1: true, 0: false.')
     parser.add_argument('-r', metavar='Reference path',
                         help='Input Reference path.')
+    parser.add_argument('--prev_TE', metavar='prev_TE',
+                        help='TEs fasta file that has already been identified. Please use the absolute path.')
 
 
     args = parser.parse_args()
@@ -50,6 +52,7 @@ if __name__ == '__main__':
     ref_index = args.ref_index
     is_denovo_nonltr = int(args.is_denovo_nonltr)
     reference = args.r
+    prev_TE = args.prev_TE
 
     reference = os.path.realpath(reference)
 
@@ -62,6 +65,9 @@ if __name__ == '__main__':
     recover = int(recover)
     if recover == 1:
         is_recover = True
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
     work_dir = tmp_output_dir
@@ -131,5 +137,4 @@ if __name__ == '__main__':
     else:
         os.system('touch ' + confident_non_ltr_path)
 
-    prev_TE = tmp_output_dir + '/prev_TE.fa'
     os.system('cat ' + resut_file + ' >> ' + prev_TE)

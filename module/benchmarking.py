@@ -92,6 +92,10 @@ if __name__ == '__main__':
     if coverage_threshold == 0.99:
         rm2_script = rm2_strict_script
 
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
+
     log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
 
     rm2_test_dir = tmp_output_dir + '/rm2_test'

@@ -27,6 +27,9 @@ if __name__ == '__main__':
 
     chunk_size = int(chunk_size * 1024 * 1024)
 
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+
     tmp_output_dir = os.path.abspath(tmp_output_dir) 
 
     log = Logger(tmp_output_dir + '/HiTE_split.log', level='debug')
