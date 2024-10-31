@@ -823,7 +823,7 @@ workflow {
         Channel.fromPath("${outdir}/confident_TE.cons.fa", type: 'any', checkIfExists: true).set{ ch_TEs }
     }
 
-    if (params.intact_anno)
+    if (params.intact_anno){
         // Step9: get full-length TE annotation
         Channel.fromPath("${outdir}/genome.rename.fa.pass.list", type: 'any', checkIfExists: false).set{ all_LTR_pass_list }
         Channel.fromPath("${outdir}/chr_name.map", type: 'any', checkIfExists: false).set{ all_chr_name_map }
@@ -834,6 +834,7 @@ workflow {
         Channel.fromPath("${outdir}/TE_merge_tmp.fa.classified", type: 'any', checkIfExists: false).set{ ch_classified_TE }
         IntactTEAnnotation(ch_TEs, all_LTR_pass_list, all_chr_name_map, all_tirs, all_helitrons, all_non_ltrs, all_others, ch_genome, ch_classified_TE)
         IntactTEAnnotation.out.ch_intact_gff.collectFile(name: "${outdir}/HiTE_intact.sorted.gff3")
+    }
 
     // Step10: conduct benchmarking
     Benchmarking(ch_TEs, ch_genome)

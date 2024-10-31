@@ -29,9 +29,9 @@ HiTE has been successfully applied to multiple practical applications, and you c
 ## Table of Contents
 - [Installation](#install)
   - [Dowload project](#download)
+  - [Run with Conda](#install_conda)
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
-  - [Run with Conda](#install_conda)
   - [Run with nextflow](#install_nextflow)
   <!-- - [Step-by-step installation](#step-step) -->
 - [Demo data](#demo)
@@ -99,7 +99,6 @@ singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif}
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
- 
 ```
 
 ### <a name="install_docker"></a>Option 3. Run with Docker
@@ -123,6 +122,11 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
  # --outdir /home/hukang/HiTE/demo/test/
+```
+For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14013132](https://zenodo.org/records/14013132).
+```sh
+# Load the Docker image
+docker load -i hite_docker_3.2.0.tar
 ```
 
 ### <a name="install_nextflow"></a>Option 4. Run with nextflow
