@@ -89,7 +89,6 @@ singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiT
  --outdir ${output_dir} \
  [other parameters]
  
-
  # (1) The option "-B" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
@@ -113,7 +112,9 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- # (1) The option "-v" is used to specify directories to be mounted.
+ # (1) Since the default working directory is set to "/HiTE", we recommend specifying the options "--genome"
+ #     and "--outdir" as absolute paths.
+ # (2) The option "-v" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
  
