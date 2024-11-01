@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install unzip --yes && apt-get install less --yes 
 
 # use local HiTE
 COPY HiTE-master.zip /HiTE-master.zip
-RUN cd / && unzip HiTE-master.zip && mv HiTE-master /HiTE
+RUN cd / && unzip HiTE-master.zip && mv HiTE-master /HiTE && rm HiTE-master.zip
 
 # Download HiTE from Zenodo
 #RUN curl -LJO https://zenodo.org/records/10574301/files/CSU-KangHu/HiTE-v.3.1.1.zip &&  \

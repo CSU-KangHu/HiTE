@@ -83,21 +83,21 @@ python main.py \
 singularity pull HiTE.sif docker://kanghu/hite:3.2.0
 
 # run HiTE
-singularity run -B ${host_path}:${container_path} --pwd /HiTE ${pathTo/HiTE.sif} python main.py \
+singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiTE/main.py \
  --genome ${genome} \
  --thread ${thread} \
  --outdir ${output_dir} \
  [other parameters]
  
- # (1) The options "--genome" and "--outdir" need to be specified as absolute paths.
- # (2) The option "-B" is used to specify directories to be mounted.
+
+ # (1) The option "-B" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
- # (3) "--pwd /HiTE" and "python main.py" do not need to be changed.
+ # (2) "python /HiTE/main.py" does not need to be changed.
  
- # e.g., my command: singularity run -B /home/hukang:/home/hukang --pwd /HiTE /home/hukang/HiTE.sif python main.py 
- # --genome /home/hukang/HiTE/demo/genome.fa 
- # --thread 40 
+ # e.g., my command: singularity run -B /home/hukang:/home/hukang /home/hukang/HiTE.sif python /HiTE/main.py \
+ # --genome /home/hukang/HiTE/demo/genome.fa \
+ # --thread 40 \
  # --outdir /home/hukang/HiTE/demo/test/
 ```
 
@@ -113,14 +113,13 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  --outdir ${output_dir} \
  [other parameters]
  
- # (1) The options "--genome" and "--outdir" need to be specified as absolute paths.
- # (2) The option "-v" is used to specify directories to be mounted.
+ # (1) The option "-v" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
  
- # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.2.0 python main.py 
- # --genome /home/hukang/HiTE/demo/genome.fa 
- # --thread 40 
+ # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.2.0 python main.py \
+ # --genome /home/hukang/HiTE/demo/genome.fa \
+ # --thread 40 \
  # --outdir /home/hukang/HiTE/demo/test/
 ```
 For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14013132](https://zenodo.org/records/14013132).
