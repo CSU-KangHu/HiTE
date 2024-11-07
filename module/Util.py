@@ -6982,7 +6982,8 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             new_all_copies[query_name] = copy_contigs
     for query_name in new_all_copies.keys():
         copy_contigs = new_all_copies[query_name]
-        cur_member_file = temp_dir + '/' + query_name + '.blast.bed.fa'
+        valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
+        cur_member_file = temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
         store_fasta(copy_contigs, cur_member_file)
         query_seq = contigs[query_name]
         batch_member_files.append((query_name, query_seq, cur_member_file))
