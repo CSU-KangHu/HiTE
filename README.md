@@ -53,6 +53,8 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 # Alternatively, you can download the zip file directly from the repository.
 
 cd HiTE && python configure.py
+
+source ~/.bashrc # or open a new terminal
 ```
 
 For common issues related to installation and usage, please visit: [https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
