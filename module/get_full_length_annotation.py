@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 from datetime import datetime
 import os
@@ -30,10 +31,6 @@ if __name__ == '__main__':
                         help='Input reference Path')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--module_home', metavar='module_home',
-                        help='HiTE module home.')
-    parser.add_argument('--TRsearch_dir', metavar='TRsearch_dir',
-                        help='Please enter the directory where the itrsearch tool is located. Please use the absolute path.')
     parser.add_argument('--search_struct', metavar='search_struct',
                         help='Is the structural information of full-length copies being searched?')
     parser.add_argument('--classified_TE_path', metavar='classified_TE_path',
@@ -49,14 +46,15 @@ if __name__ == '__main__':
     chr_name_map = os.path.abspath(args.chr_name_map)
     reference = os.path.abspath(args.r)
     tmp_output_dir = args.tmp_output_dir
-    module_home = args.module_home
-    TRsearch_dir = args.TRsearch_dir
     search_struct = int(args.search_struct)
     classified_TE_path = args.classified_TE_path
     if search_struct == 1:
         search_struct = True
     else:
         search_struct = False
+
+    module_home = cur_dir + '/module'
+    TRsearch_dir = cur_dir + '/tools'
 
     reference = os.path.abspath(reference)
 

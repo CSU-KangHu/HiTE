@@ -323,20 +323,6 @@ if __name__ == '__main__':
             log.logger.error('You have provided an invalid or empty curated library: ' + str(curated_lib) + '. Please check and correct it.')
             sys.exit(-1)
 
-    LTR_harvest_parallel_Home = project_dir + '/bin/LTR_HARVEST_parallel'
-    LTR_finder_parallel_Home = project_dir + '/bin/LTR_FINDER_parallel-master'
-    NeuralTE_home = project_dir + '/bin/NeuralTE'
-    EAHelitron = project_dir + '/bin/EAHelitron-master'
-    HSDIR = project_dir + '/bin/HelitronScanner/TrainingSet'
-    HSJAR = project_dir + '/bin/HelitronScanner/HelitronScanner.jar'
-    rm2_script = project_dir + '/bin/get_family_summary_paper.sh'
-    rm2_strict_script = project_dir + '/bin/get_family_summary_paper_0.99.sh'
-    member_script_path = tools_dir + '/make_fasta_from_blast.sh'
-    subset_script_path = tools_dir + '/ready_for_MSA.sh'
-    sh_dir = project_dir + '/bin'
-    lib_module = project_dir + '/library'
-    protein_lib_path = project_dir + '/library/RepeatPeps.lib'
-
     if BM_EDTA == 1 and not os.path.exists(EDTA_home + '/lib-test.pl'):
         print('Cannot conduct benchmarking of EDTA, Invalid EDTA home: ' + EDTA_home)
         sys.exit(-1)
@@ -383,7 +369,6 @@ if __name__ == '__main__':
 
     TRsearch_dir = tools_dir
     test_home = project_dir + '/module'
-    library_dir = project_dir + '/library'
 
     # The HiTE pipeline performs recognition of LTR, Non-LTR, TIR, and Helitron transposons.
     # The organizational structure of HiTE is as follows:
@@ -410,12 +395,10 @@ if __name__ == '__main__':
             if te_type == 'all' or te_type == 'ltr':
                 starttime = time.time()
                 TEClass_home = project_dir + '/classification'
-                LTR_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_LTR_transposons.py ' \
-                                             + ' -g ' + reference + ' --ltrharvest_home ' + LTR_harvest_parallel_Home \
-                                             + ' --ltrfinder_home ' + LTR_finder_parallel_Home + ' -t ' + str(threads) \
+                LTR_identification_command = 'judge_LTR_transposons.py ' \
+                                             + ' -g ' + reference + ' -t ' + str(threads) \
                                              + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
-                                             + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
-                                             + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home)
+                                             + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker)
                 log.logger.info(LTR_identification_command)
                 os.system(LTR_identification_command)
                 endtime = time.time()
@@ -430,11 +413,11 @@ if __name__ == '__main__':
             if te_type == 'all' or te_type == 'non-ltr':
                 starttime = time.time()
                 log.logger.info('Start step1: homology-based other TE searching')
-                other_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Other_transposons.py ' \
+                other_identification_command = 'judge_Other_transposons.py ' \
                                                + ' -r ' + reference \
                                                + ' -t ' + str(threads) \
                                                + ' --tmp_output_dir ' + tmp_output_dir  \
-                                               + ' --library_dir ' + str(library_dir) + ' --recover ' + str(recover)
+                                               + ' --recover ' + str(recover)
                 log.logger.info(other_identification_command)
                 os.system(other_identification_command)
                 endtime = time.time()
@@ -446,7 +429,7 @@ if __name__ == '__main__':
         # --------------------------------------------------------------------------------------
         starttime = time.time()
         log.logger.info('Start step2.0: Splitting genome assembly into chunks')
-        split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
+        split_genome_command = 'split_genome_chunks.py -g ' \
                                      + reference + ' --tmp_output_dir ' + tmp_output_dir \
                                      + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
         log.logger.info(split_genome_command)
@@ -486,7 +469,7 @@ if __name__ == '__main__':
                 if te_type != 'ltr':
                     starttime = time.time()
                     log.logger.info('Start 2.1: Coarse-grained boundary mapping')
-                    coarse_boundary_command = 'cd ' + test_home + ' && python3 ' + test_home + '/coarse_boundary.py ' \
+                    coarse_boundary_command = 'coarse_boundary.py ' \
                                            + ' -g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
                                            + ' --prev_TE ' + str(prev_TE) \
                                            + ' --fixed_extend_base_threshold ' + str(fixed_extend_base_threshold) \
@@ -511,13 +494,12 @@ if __name__ == '__main__':
                 if te_type == 'all' or te_type == 'tir':
                     starttime = time.time()
                     log.logger.info('Start step2.2: determine fine-grained TIR')
-                    tir_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_TIR_transposons.py ' \
+                    tir_identification_command = 'judge_TIR_transposons.py ' \
                                                  + ' --seqs ' + longest_repeats_flanked_path \
-                                                 + ' -t ' + str(threads)+' --TRsearch_dir ' + TRsearch_dir \
+                                                 + ' -t ' + str(threads) \
                                                  + ' --tmp_output_dir ' + tmp_output_dir \
                                                  + ' --tandem_region_cutoff ' + str(tandem_region_cutoff) \
                                                  + ' --ref_index ' + str(ref_index) \
-                                                 + ' --subset_script_path ' + str(subset_script_path) \
                                                  + ' --plant ' + str(plant) \
                                                  + ' --flanking_len ' + str(flanking_len) \
                                                  + ' --recover ' + str(recover) \
@@ -538,11 +520,9 @@ if __name__ == '__main__':
                 if te_type == 'all' or te_type == 'helitron':
                     starttime = time.time()
                     log.logger.info('Start step2.3: determine fine-grained Helitron')
-                    helitron_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Helitron_transposons.py --seqs ' \
+                    helitron_identification_command = 'judge_Helitron_transposons.py --seqs ' \
                                                       + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
-                                                      + ' --tmp_output_dir ' + tmp_output_dir + ' --HSDIR ' + HSDIR + ' --HSJAR ' + HSJAR \
-                                                      + ' --sh_dir ' + sh_dir + ' --EAHelitron ' + EAHelitron \
-                                                      + ' --subset_script_path ' + subset_script_path \
+                                                      + ' --tmp_output_dir ' + tmp_output_dir \
                                                       + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
                                                       + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir \
                                                       + ' --prev_TE  ' + prev_TE
@@ -560,11 +540,9 @@ if __name__ == '__main__':
                 if te_type == 'all' or te_type == 'non-ltr':
                     starttime = time.time()
                     log.logger.info('Start step2.4: determine fine-grained Non-LTR')
-                    non_ltr_identification_command = 'cd ' + test_home + ' && python3 ' + test_home + '/judge_Non_LTR_transposons.py'\
+                    non_ltr_identification_command = 'judge_Non_LTR_transposons.py'\
                                                  + ' --seqs ' + longest_repeats_flanked_path + ' -t ' + str(threads) \
-                                                 + ' --subset_script_path ' + str(subset_script_path) \
                                                  + ' --tmp_output_dir ' + tmp_output_dir \
-                                                 + ' --library_dir ' + str(library_dir) \
                                                  + ' --recover ' + str(recover) \
                                                  + ' --plant ' + str(plant) \
                                                  + ' --debug ' + str(debug) \
@@ -602,17 +580,16 @@ if __name__ == '__main__':
         starttime = time.time()
         log.logger.info('Start step3: generate non-redundant library')
         TEClass_home = project_dir + '/classification'
-        generate_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_nonRedundant_lib.py' \
+        generate_lib_command = 'get_nonRedundant_lib.py' \
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
                                + ' --confident_tir ' + confident_tir_path \
                                + ' --confident_helitron ' + confident_helitron_path \
                                + ' --confident_non_ltr ' + confident_non_ltr_path \
                                + ' --confident_other ' + confident_other_path \
                                + ' -t ' + str(threads) + ' --tmp_output_dir ' + tmp_output_dir \
-                               + ' --test_home ' + str(test_home) + ' --use_NeuralTE ' + str(use_NeuralTE) \
+                               + ' --use_NeuralTE ' + str(use_NeuralTE) \
                                + ' --is_wicker ' + str(is_wicker) \
-                               + ' --NeuralTE_home ' + NeuralTE_home + ' --TEClass_home ' + str(TEClass_home) \
-                               + ' --domain ' + str(domain) + ' --protein_path ' + str(protein_lib_path) \
+                               + ' --domain ' + str(domain) \
                                + ' --curated_lib ' + str(curated_lib)
         log.logger.info(generate_lib_command)
         os.system(generate_lib_command)
@@ -630,7 +607,7 @@ if __name__ == '__main__':
         confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr.fa'
         confident_other_path = tmp_output_dir + '/confident_other.fa'
         classified_TE_path = tmp_output_dir + '/TE_merge_tmp.fa.classified'
-        full_length_anno_command = 'cd ' + test_home + ' && python3 ' + test_home + '/get_full_length_annotation.py' \
+        full_length_anno_command = 'get_full_length_annotation.py' \
                                    + ' -t ' + str(threads) + ' --ltr_list ' + ltr_list \
                                    + ' --tir_lib ' + str(confident_tir_path) \
                                    + ' --helitron_lib ' + confident_helitron_path \
@@ -638,9 +615,7 @@ if __name__ == '__main__':
                                    + ' --other_lib ' + confident_other_path \
                                    + ' --chr_name_map ' + chr_name_map \
                                    + ' -r ' + reference \
-                                   + ' --module_home ' + test_home \
                                    + ' --tmp_output_dir ' + tmp_output_dir \
-                                   + ' --TRsearch_dir ' + TRsearch_dir \
                                    + ' --search_struct ' + str(search_struct) \
                                    + ' --classified_TE_path ' + str(classified_TE_path)
         log.logger.info(full_length_anno_command)
@@ -657,7 +632,7 @@ if __name__ == '__main__':
         starttime = time.time()
         log.logger.info('Start step5: annotate genome')
         TEClass_home = project_dir + '/classification'
-        annotate_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/annotate_genome.py' \
+        annotate_genome_command = 'annotate_genome.py' \
                                   + ' -t ' + str(threads) + ' --classified_TE_consensus ' + confident_TE_consensus \
                                   + ' --annotate ' + str(annotate) \
                                   + ' -r ' + reference \
@@ -671,12 +646,12 @@ if __name__ == '__main__':
 
         starttime = time.time()
         log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
-        benchmarking_command = 'cd ' + test_home + ' && python3 ' + test_home + '/benchmarking.py' \
+        benchmarking_command = 'benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
-                            + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) + ' --lib_module ' + str(lib_module) \
-                            + ' --TE_lib ' + str(confident_TE_consensus) + ' --rm2_script ' + str(rm2_script) \
-                            + ' --rm2_strict_script ' + str(rm2_strict_script) + ' -r ' + reference
+                            + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) \
+                            + ' --TE_lib ' + str(confident_TE_consensus) \
+                            + ' -r ' + reference
         if EDTA_home is not None and EDTA_home.strip() != '':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
         if species is None or species.strip() == '':
@@ -689,7 +664,7 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step6: %.8s s" % (dtime))
 
-    clean_lib_command = 'cd ' + test_home + ' && python3 ' + test_home + '/clean_lib.py' \
+    clean_lib_command = 'clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --debug ' + str(debug)
 

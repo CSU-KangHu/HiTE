@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 import os
 import sys
@@ -24,14 +25,8 @@ if __name__ == '__main__':
                         help='The homology non-ltr path')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--test_home', metavar='test_home',
-                        help='The directory of HiTE module')
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
                         help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
-    parser.add_argument('--NeuralTE_home', metavar='NeuralTE_home',
-                        help='The root directory of NeuralTE')
-    parser.add_argument('--TEClass_home', metavar='TEClass_home',
-                        help='The root directory of TEClass')
     parser.add_argument('--domain', metavar='domain',
                         help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
     parser.add_argument('--protein_path', metavar='protein_path',
@@ -51,14 +46,15 @@ if __name__ == '__main__':
     confident_non_ltr_path = args.confident_non_ltr
     confident_other_path = args.confident_other
     tmp_output_dir = args.tmp_output_dir
-    test_home = args.test_home
     use_NeuralTE = int(args.use_NeuralTE)
-    NeuralTE_home = args.NeuralTE_home
-    TEClass_home = args.TEClass_home
     domain = args.domain
-    protein_path = args.protein_path
     curated_lib = args.curated_lib
     is_wicker = args.is_wicker
+
+    test_home = cur_dir + '/module'
+    NeuralTE_home = cur_dir + '/bin/NeuralTE'
+    TEClass_home = cur_dir + '/classification'
+    protein_path = cur_dir + '/library/RepeatPeps.lib'
 
     confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
     confident_tir_path = os.path.realpath(confident_tir_path)

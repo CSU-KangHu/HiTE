@@ -21,7 +21,8 @@ RUN cd / && unzip HiTE-master.zip && mv HiTE-master /HiTE && rm HiTE-master.zip
 #    unzip HiTE-v.3.1.1.zip && mv CSU-KangHu-HiTE-* /HiTE
 
 RUN conda install mamba -c conda-forge -y
-RUN cd /HiTE && chmod +x tools/* bin/NeuralTE/tools/* bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder && mamba env create --name ${DNAME} --file=environment.yml && conda clean -a
+RUN mamba env create --name ${DNAME} --file=environment.yml && conda clean -a
+RUN cd /HiTE && python configure.py
 
 # Make RUN commands use the new environment
 # name need to be the same with the above ${DNAME}
@@ -29,7 +30,7 @@ SHELL ["conda", "run", "-n", "HiTE", "/bin/bash", "-c"]
 
 # avoid different perl version conflict
 ENV PERL5LIB /
-ENV PATH /opt/conda/envs/${DNAME}/bin:$PATH
+ENV PATH /HiTE/tools:/HiTE/module:/opt/conda/envs/${DNAME}/bin:$PATH
 USER root
 
 WORKDIR /HiTE

@@ -112,20 +112,6 @@ if (!params.outdir){
 
 printSetting()
 projectDir = workflow.projectDir
-ch_module = "${projectDir}/module"
-ch_classification = "${projectDir}/classification"
-tools_module = "${projectDir}/tools"
-HSDIR = "${projectDir}/bin/HelitronScanner/TrainingSet"
-HSJAR = "${projectDir}/bin/HelitronScanner/HelitronScanner.jar"
-sh_dir = "${projectDir}/bin"
-member_script_path = "${projectDir}/tools/make_fasta_from_blast.sh"
-subset_script_path = "${projectDir}/tools/ready_for_MSA.sh"
-lib_module = "${projectDir}/library"
-ch_EAHelitron = "${projectDir}/bin/EAHelitron-master"
-ch_ltrfinder = "${projectDir}/bin/LTR_FINDER_parallel-master"
-ch_ltrharvest = "${projectDir}/bin/LTR_HARVEST_parallel"
-ch_NeuralTE = "${projectDir}/bin/NeuralTE"
-ch_protein = "${projectDir}/library/RepeatPeps.lib"
 genome_name = file(params.genome).getName()
 out_genome = "${params.outdir}/${genome_name}"
 
@@ -157,8 +143,6 @@ search_struct = "${params.search_struct}"
 BM_RM2 = "${params.BM_RM2}"
 BM_EDTA = "${params.BM_EDTA}"
 BM_HiTE = "${params.BM_HiTE}"
-rm2_script = "${projectDir}/bin/get_family_summary_paper.sh"
-rm2_strict_script = "${projectDir}/bin/get_family_summary_paper_0.99.sh"
 EDTA_home = "${params.EDTA_home}"
 species = "${params.species}"
 
@@ -198,7 +182,7 @@ process SplitGenome {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/split_genome_chunks.py \
+    split_genome_chunks.py \
      -g ${ref} --chrom_seg_length ${chrom_seg_length} --chunk_size ${chunk_size}
     """
 }
@@ -218,7 +202,7 @@ process coarseBoundary {
     cores = task.cpus
     (full, ref_index) = (cut_ref =~ /genome.cut(\d+)\.fa/)[0]
     """
-    python3 ${ch_module}/coarse_boundary.py \
+    coarse_boundary.py \
      -g ${cut_ref} --prev_TE ${prev_TE} \
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
@@ -246,7 +230,7 @@ process TE_identification {
     (full, ref_index) = (cut_ref =~ /genome.cut(\d+)\.fa/)[0]
     """
     # Step1: De novo TE searching
-    python3 ${ch_module}/coarse_boundary.py \
+    coarse_boundary.py \
      -g ${cut_ref} --tmp_output_dir ${tmp_output_dir} \
      --prev_TE ${tmp_output_dir}/prev_TE.fa \
      --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
@@ -258,13 +242,12 @@ process TE_identification {
     cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
 
     # Step2: TIR identification
-    python3 ${ch_module}/judge_TIR_transposons.py \
+    judge_TIR_transposons.py \
     -g ${cut_ref} --seqs ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa \
-    -t ${cores} --TRsearch_dir ${tools_module}  \
+    -t ${cores} \
     --tmp_output_dir ${tmp_output_dir} \
     --tandem_region_cutoff ${tandem_region_cutoff} \
     --ref_index ${ref_index} \
-    --subset_script_path ${subset_script_path} \
     --plant ${plant} \
     --flanking_len ${flanking_len} \
     --recover ${recover} \
@@ -275,22 +258,18 @@ process TE_identification {
     cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
 
     # Step3: Helitron identification
-    python3 ${ch_module}/judge_Helitron_transposons.py \
+    judge_Helitron_transposons.py \
     --seqs ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa -r ${ref} -t ${cores} \
-    --tmp_output_dir ${tmp_output_dir} --HSDIR ${HSDIR} --HSJAR ${HSJAR} \
-    --sh_dir ${sh_dir} --EAHelitron ${ch_EAHelitron} \
-    --subset_script_path ${subset_script_path} \
+    --tmp_output_dir ${tmp_output_dir} \
     --ref_index ${ref_index} --flanking_len ${flanking_len} \
     --recover ${recover} --debug ${debug} --split_ref_dir ${tmp_output_dir}/ref_chr
 
     cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
 
     # Step4: non-LTR identification
-    python3 ${ch_module}/judge_Non_LTR_transposons.py \
+    judge_Non_LTR_transposons.py \
     --seqs ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa -t ${cores} \
-    --subset_script_path ${subset_script_path} \
     --tmp_output_dir ${tmp_output_dir} \
-    --library_dir ${lib_module} \
     --recover ${recover} \
     --plant ${plant} \
     --debug ${debug} \
@@ -325,12 +304,11 @@ process TIR {
     (full, ref_index) = (lrf =~ /longest_repeats_(\d+)\.flanked\.fa/)[0]
     script:
     """
-    python3 ${ch_module}/judge_TIR_transposons.py \
-    --seqs ${lrf} -t ${cores} --TRsearch_dir ${tools_module}  \
+    judge_TIR_transposons.py \
+    --seqs ${lrf} -t ${cores} \
     --flanking_len ${flanking_len} --plant ${plant} \
     --tandem_region_cutoff ${tandem_region_cutoff} \
     --ref_index ${ref_index} \
-    --subset_script_path ${subset_script_path} \
     --recover ${recover} \
     --debug ${debug} \
     -r ${ref} \
@@ -357,11 +335,8 @@ process Helitron {
 
     script:
     """
-    python3 ${ch_module}/judge_Helitron_transposons.py \
+    judge_Helitron_transposons.py \
     --seqs ${lrf} -r ${ref} -t ${cores} \
-    --HSDIR ${HSDIR} --HSJAR ${HSJAR} \
-    --sh_dir ${sh_dir} --EAHelitron ${ch_EAHelitron} \
-    --subset_script_path ${subset_script_path} \
     --ref_index ${ref_index} --flanking_len ${flanking_len} \
     --recover ${recover} --debug ${debug} --split_ref_dir ${ref_chr} \
     --prev_TE ${prev_TE}
@@ -386,10 +361,8 @@ process Non_LTR {
 
     script:
     """
-    python3 ${ch_module}/judge_Non_LTR_transposons.py \
+    judge_Non_LTR_transposons.py \
     --seqs ${lrf} -t ${cores} \
-    --subset_script_path ${subset_script_path} \
-    --library_dir ${lib_module} \
     --recover ${recover} \
     --plant ${plant} \
     --debug ${debug} \
@@ -436,8 +409,8 @@ process OtherTE {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/judge_Other_transposons.py \
-     -t ${cores} --library_dir ${lib_module} \
+    judge_Other_transposons.py \
+     -t ${cores} \
      --recover ${recover} -r ${ref}
     """
 }
@@ -458,10 +431,9 @@ process LTR {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/judge_LTR_transposons.py \
-     -g ${ref} --ltrharvest_home ${ch_ltrharvest} --ltrfinder_home ${ch_ltrfinder} \
+    judge_LTR_transposons.py \
+     -g ${ref} \
      -t ${cores} --recover ${recover} --use_NeuralTE ${use_NeuralTE} --miu ${miu} \
-     --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification} \
      --is_wicker ${is_wicker}
     """
 }
@@ -486,14 +458,14 @@ process UnwrapNested {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/remove_nested.py \
+    remove_nested.py \
      -g ${ref} --confident_ltr_cut ${ltr} \
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_other ${other} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
      --global_flanking_filter ${global_flanking_filter} \
-     --remove_nested ${remove_nested} --test_home ${ch_module}
+     --remove_nested ${remove_nested}
 
     cp ${tmp_output_dir}/confident_TE.fa ./
     """
@@ -517,16 +489,15 @@ process BuildLib {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/get_nonRedundant_lib.py \
+    get_nonRedundant_lib.py \
      -t ${cores} \
      --confident_ltr_cut ${ltr} \
      --confident_tir ${tir} \
      --confident_helitron ${helitron} \
      --confident_non_ltr ${non_ltr} \
      --confident_other ${other} \
-     --test_home ${ch_module} --use_NeuralTE ${use_NeuralTE} \
-     --NeuralTE_home ${ch_NeuralTE} --TEClass_home ${ch_classification} \
-     --domain ${domain} --protein_path ${ch_protein} --curated_lib ${curated_lib} \
+     --use_NeuralTE ${use_NeuralTE} \
+     --domain ${domain} --curated_lib ${curated_lib} \
      --is_wicker ${is_wicker}
     """
 }
@@ -552,7 +523,7 @@ process IntactTEAnnotation {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/get_full_length_annotation.py \
+    get_full_length_annotation.py \
      -t ${cores} --ltr_list ${all_LTR_pass_list} \
      --tir_lib ${all_tirs}  \
      --helitron_lib ${all_helitrons} \
@@ -560,8 +531,6 @@ process IntactTEAnnotation {
      --other_lib ${all_others} \
      --chr_name_map ${all_chr_name_map} \
      -r ${ch_genome} \
-     --module_home ${ch_module} \
-     --TRsearch_dir ${tools_module} \
      --search_struct ${search_struct} \
      --classified_TE_path ${ch_classified_TE}
     """
@@ -581,11 +550,10 @@ process ClassifyLib {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/get_classified_lib.py \
+    get_classified_lib.py \
      --confident_TE_consensus ${lib} \
      -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --classified ${classified} --domain ${domain} --TEClass_home ${ch_classification} \
-     --protein_path ${ch_protein} \
+     --classified ${classified} --domain ${domain} \
      --debug ${debug}
     """
 }
@@ -605,7 +573,7 @@ process AnnotateGenome {
     script:
     cores = task.cpus
     """
-    python3 ${ch_module}/annotate_genome.py \
+    annotate_genome.py \
      -t ${cores} --classified_TE_consensus ${lib} \
      --annotate ${annotate} \
       -r ${ref}
@@ -628,19 +596,17 @@ process Benchmarking {
     cores = task.cpus
     if (file("${EDTA_home}/lib-test.pl").exists()) {
         """
-        python3 ${ch_module}/benchmarking.py \
+        benchmarking.py \
          --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} --BM_HiTE ${BM_HiTE} \
-         -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
-         --rm2_script ${rm2_script} --rm2_strict_script ${rm2_strict_script} \
+         -t ${cores} --TE_lib ${TE_lib} \
          -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
         """
     } else {
         """
-        python3 ${ch_module}/benchmarking.py \
+        benchmarking.py \
          --BM_RM2 ${BM_RM2} \
          --BM_HiTE ${BM_HiTE} \
-         -t ${cores} --lib_module ${lib_module} --TE_lib ${TE_lib} \
-         --rm2_script ${rm2_script} --rm2_strict_script ${rm2_strict_script} \
+         -t ${cores} --TE_lib ${TE_lib} \
          -r ${ref} --species ${species}
         """
     }
@@ -658,67 +624,12 @@ process CleanLib {
 
     script:
     """
-    python3 ${ch_module}/clean_lib.py \
+    clean_lib.py \
      --tmp_output_dir ${tmp_output_dir} \
      --debug ${debug}
     """
 }
 
-process BM_RM2 {
-    tag "${TE}"
-
-    label 'process_high'
-
-    input:
-    path TE
-    path curatedLib
-    path rm2_script
-
-    output:
-    path "${TE}.out"
-    path "res.log"
-
-
-    script:
-    cores = task.cpus
-    """
-    RepeatMasker -lib ${curatedLib} -nolow -pa ${cores} ${TE}
-    mkdir rm2_test
-    cd rm2_test && rm -rf * && sh ../${rm2_script} ../${TE}.out > ../res.log
-    """
-}
-
-process BM_EDTA {
-    tag "${TE}"
-
-    label 'process_high'
-
-    input:
-    path TE
-    path curatedLib
-    val reference
-    val EDTA_home
-
-    output:
-    path "repbase.out"
-    path "HiTE.out"
-    path "HiTE.out.*"
-
-
-    script:
-    cores = task.cpus
-    """
-    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${curatedLib} -cutoff 225 ${tmp_output_dir}/genome.rename.fa
-    mv ${tmp_output_dir}/genome.rename.fa.out repbase.out
-    cp repbase.out ${tmp_output_dir}/
-
-    RepeatMasker -e ncbi -pa ${cores} -q -no_is -norna -nolow -div 40 -lib ${TE} -cutoff 225 ${tmp_output_dir}/genome.rename.fa
-    mv ${tmp_output_dir}/genome.rename.fa.out HiTE.out
-    cp HiTE.out ${tmp_output_dir}/
-
-    perl ${EDTA_home}/lib-test.pl -genome ${tmp_output_dir}/genome.rename.fa -std repbase.out -tst HiTE.out -cat Total
-    """
-}
 
 // allow multi-thread
 process test {

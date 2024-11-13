@@ -1,4 +1,4 @@
-#-- coding: UTF-8 --
+#!/usr/bin/env python
 import argparse
 import os
 import sys
@@ -42,9 +42,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     longest_repeats_flanked_path = args.seqs
     threads = int(args.t)
-    subset_script_path = args.subset_script_path
     tmp_output_dir = args.tmp_output_dir
-    library_dir = args.library_dir
     recover = args.recover
     plant = int(args.plant)
     debug = args.debug
@@ -53,6 +51,9 @@ if __name__ == '__main__':
     is_denovo_nonltr = int(args.is_denovo_nonltr)
     reference = args.r
     prev_TE = args.prev_TE
+
+    subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
+    library_dir = cur_dir + '/library'
 
     reference = os.path.realpath(reference)
 

@@ -1,4 +1,4 @@
-#-- coding: UTF-8 --
+#!/usr/bin/env python
 import argparse
 import os
 import sys
@@ -32,8 +32,6 @@ if __name__ == '__main__':
                         help='Input threads number')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--library_dir', metavar='library_dir',
-                        help='Please enter the directory for non_ltr library. Use an absolute path.')
     parser.add_argument('--recover', metavar='recover',
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
     parser.add_argument('-r', metavar='Reference path',
@@ -43,9 +41,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
-    library_dir = args.library_dir
     recover = args.recover
     reference = args.r
+
+    library_dir = cur_dir + '/library'
 
     reference = os.path.realpath(reference)
 

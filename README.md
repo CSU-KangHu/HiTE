@@ -52,7 +52,7 @@ Recommended OS: (Ubuntu 16.04, CentOS 7, etc.)
 git clone https://github.com/CSU-KangHu/HiTE.git
 # Alternatively, you can download the zip file directly from the repository.
 
-cd HiTE && chmod +x tools/* bin/NeuralTE/tools/* bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder
+cd HiTE && python configure.py
 ```
 
 For common issues related to installation and usage, please visit: [https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)

@@ -1,4 +1,4 @@
-#-- coding: UTF-8 --
+#!/usr/bin/env python
 import argparse
 import os
 import sys
@@ -16,16 +16,6 @@ if __name__ == '__main__':
                         help='Please enter the result of de novo TE searching in HiTE, typically named longest_repeats_*.fa. Please provide the absolute path.')
     parser.add_argument('-t', metavar='threads number',
                         help='Input threads number.')
-    parser.add_argument('--HSDIR', metavar='HSDIR',
-                        help='Input the TrainingSet directory of HelitronScanner.')
-    parser.add_argument('--HSJAR', metavar='HSJAR',
-                        help='Input the jar path of HelitronScanner.')
-    parser.add_argument('--sh_dir', metavar='sh_dir',
-                        help='Please enter the directory where the run_helitron_scanner.sh script is located. Please use the absolute path.')
-    parser.add_argument('--EAHelitron', metavar='EAHelitron',
-                        help='Please enter the directory where the EAHelitron tool is located. Please use the absolute path.')
-    parser.add_argument('--subset_script_path', metavar='subset_script_path',
-                        help='Script to obtain a subset of high-copy TEs. Please provide the absolute path.')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--flanking_len', metavar='flanking_len',
@@ -47,11 +37,6 @@ if __name__ == '__main__':
 
     longest_repeats_flanked_path = args.seqs
     threads = int(args.t)
-    HSDIR = args.HSDIR
-    HSJAR = args.HSJAR
-    sh_dir = args.sh_dir
-    EAHelitron = args.EAHelitron
-    subset_script_path = args.subset_script_path
     tmp_output_dir = args.tmp_output_dir
     ref_index = args.ref_index
     flanking_len = int(args.flanking_len)
@@ -60,6 +45,13 @@ if __name__ == '__main__':
     reference = args.r
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
+
+
+    HSDIR = cur_dir + '/bin/HelitronScanner/TrainingSet'
+    HSJAR = cur_dir + '/bin/HelitronScanner/HelitronScanner.jar'
+    sh_dir = cur_dir + '/bin'
+    EAHelitron = cur_dir + '/bin/EAHelitron-master'
+    subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
 
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)

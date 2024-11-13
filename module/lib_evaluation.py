@@ -1,4 +1,4 @@
-#-- coding: UTF-8 --
+#!/usr/bin/env python
 # This script is used to assess the performance of different TE libraries,
 # incorporating both the full-length characteristics from RepeatModeler2 and specific metrics from EDTA such as TP, FP, and FN.
 import argparse

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # The Util.py file contains many useful functions during development.
 # Some of them are no longer in use, but they are kept for future reference and convenience.
 import codecs

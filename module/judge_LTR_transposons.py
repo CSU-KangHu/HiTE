@@ -1,4 +1,4 @@
-#-- coding: UTF-8 --
+#!/usr/bin/env python
 import argparse
 import os
 import sys
@@ -95,10 +95,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run HiTE LTR module...')
     parser.add_argument('-g', metavar='Genome assembly',
                         help='Input genome assembly path')
-    parser.add_argument('--ltrharvest_home', metavar='ltrharvest_home',
-                        help='Please enter the root directory for ltr_harvest. Use an absolute path.')
-    parser.add_argument('--ltrfinder_home', metavar='ltrfinder_home',
-                        help='Please enter the root directory for ltr_finder. Use an absolute path.')
     parser.add_argument('-t', metavar='threads number',
                         help='Input threads number')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
@@ -107,10 +103,6 @@ if __name__ == '__main__':
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
                         help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
-    parser.add_argument('--NeuralTE_home', metavar='NeuralTE_home',
-                        help='The root directory of NeuralTE')
-    parser.add_argument('--TEClass_home', metavar='TEClass_home',
-                        help='The root directory of TEClass')
     parser.add_argument('--miu', metavar='miu',
                         help='The neutral mutation rate (per bp per ya)')
     parser.add_argument('--is_wicker', metavar='is_wicker',
@@ -119,16 +111,18 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     reference = args.g
-    LTR_harvest_parallel_Home = args.ltrharvest_home
-    LTR_finder_parallel_Home = args.ltrfinder_home
+
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
     use_NeuralTE = int(args.use_NeuralTE)
     miu = args.miu
-    NeuralTE_home = args.NeuralTE_home
-    TEClass_home = args.TEClass_home
     is_wicker = args.is_wicker
+
+    LTR_harvest_parallel_Home = cur_dir + '/bin/LTR_HARVEST_parallel'
+    LTR_finder_parallel_Home = cur_dir + '/bin/LTR_FINDER_parallel-master'
+    NeuralTE_home = cur_dir + '/bin/NeuralTE'
+    TEClass_home = cur_dir + '/classification'
 
     if tmp_output_dir is None:
         tmp_output_dir = os.getcwd()

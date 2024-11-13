@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 import os
 import sys
@@ -20,14 +21,8 @@ if __name__ == '__main__':
                         help='coverage threshold')
     parser.add_argument('-t', metavar='threads number',
                         help='Input threads number.')
-    parser.add_argument('--lib_module', metavar='lib_module',
-                        help='Please enter the directory for library. Use an absolute path.')
     parser.add_argument('--TE_lib', metavar='TE_lib',
                         help='The path of TE library')
-    parser.add_argument('--rm2_script', metavar='rm2_script',
-                        help='The path of BM_RM2 script')
-    parser.add_argument('--rm2_strict_script', metavar='rm2_strict_script',
-                        help='The path of BM_RM2 0.99 threshold script')
     parser.add_argument('-r', metavar='reference',
                         help='e.g., Input reference Path')
     parser.add_argument('--EDTA_home', metavar='EDTA_home',
@@ -43,22 +38,23 @@ if __name__ == '__main__':
     BM_EDTA = args.BM_EDTA
     BM_HiTE = args.BM_HiTE
     threads = int(args.t)
-    lib_module = args.lib_module
     TE_lib = args.TE_lib
-    rm2_script = args.rm2_script
-    rm2_strict_script = args.rm2_strict_script
     reference = args.r
     EDTA_home = args.EDTA_home
     species = args.species
     tmp_output_dir = args.tmp_output_dir
     coverage_threshold = args.coverage_threshold
-
     default_coverage_threshold = 0.95
 
     if coverage_threshold is not None:
         coverage_threshold = float(coverage_threshold)
     else:
         coverage_threshold = default_coverage_threshold
+
+    lib_module = cur_dir + '/library'
+    rm2_script = cur_dir + '/bin/get_family_summary_paper.sh'
+    rm2_strict_script = cur_dir + '/bin/get_family_summary_paper_0.99.sh'
+
 
     if species == "dmel":
         lib_path = lib_module + "/drorep.ref"
