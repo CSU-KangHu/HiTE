@@ -125,7 +125,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  # --thread 40 \
  # --outdir /home/hukang/HiTE/demo/test/
 ```
-For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14013132](https://zenodo.org/records/14013132).
+For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14130355](https://zenodo.org/records/14130355).
 ```sh
 # Load the Docker image
 docker load -i hite_docker_3.2.0.tar
