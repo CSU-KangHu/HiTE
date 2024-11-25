@@ -10,7 +10,7 @@ We are excited to announce a significant update to HiTE, which now includes the 
 ## panHiTE Tutorial
 
 In this tutorial, we'll demonstrate how to use panHiTE with three complete *Arabidopsis thaliana* assemblies, gene annotations, and sequencing data from the following study:
-Kang, Minghui, Haolin Wu, Huanhuan Liu, Wenyu Liu, Mingjia Zhu, Yu Han, Wei Liu et al. *"The pan-genome and local adaptation of Arabidopsis thaliana."* Nature Communications 14, no. 1 (2023): 6259.
+_Kang, Minghui, Haolin Wu, Huanhuan Liu, Wenyu Liu, Mingjia Zhu, Yu Han, Wei Liu et al. "The pan-genome and local adaptation of Arabidopsis thaliana." Nature Communications 14, no. 1 (2023): 6259._
 
 ### 1. Installation via Conda  
 *(Docker and Singularity versions will be available once panHiTE stabilizes.)*
@@ -30,9 +30,12 @@ conda activate HiTE
 
 ### 2. Data Preparation  
 
-Download the [demo data](https://zenodo.org/records/14130355) from Zenodo. Since the dataset includes RNA-seq data, it is relatively large, so please be patient.
+Download the [demo data](https://zenodo.org/records/14189130) from Zenodo. Since the dataset includes RNA-seq data, it is relatively large, so please be patient.
 
-1. **genome_list (Required)**  
+1. **pan_genomes_dir (Required)**  
+   All genome assemblies should be stored in a single directory, which should be specified as the `pan_genomes_dir` parameter.
+
+2. **genome_list (Required)**  
    A tab-delimited file with the following columns:  
    - Column 1: Genome assembly file name  
    - Column 2: Gene annotation file name (optional)  
@@ -40,9 +43,6 @@ Download the [demo data](https://zenodo.org/records/14130355) from Zenodo. Since
 
    Example:  
    ![image](https://github.com/user-attachments/assets/e0ae6a3c-c7e5-44a5-ac11-8c8b47af331d)
-
-2. **pan_genomes_dir (Required)**  
-   All genome assemblies should be stored in a single directory, which should be specified as the `pan_genomes_dir` parameter.
 
 3. **out_dir (Required)**  
    Specify the output directory path.
@@ -60,7 +60,7 @@ Download the [demo data](https://zenodo.org/records/14130355) from Zenodo. Since
 ### 3. Running panHiTE  
 
 #### 3.1 Full Workflow  
-To run panHiTE from start to finish, use the following command:  
+To run panHiTE from start to end, use the following command:  
 ```bash
 python panHiTE.py \
  --pan_genomes_dir ${pan_genomes_dir} \
@@ -125,3 +125,10 @@ python panHiTE.py \
 # --skip_analyze 1 \
 # --miu 7e-9
 ```
+---
+
+### 4. Features Under Development
+
+The current panHiTE pipeline runs HiTE detection on multiple genomes sequentially, generates the panHiTE library, 
+and then annotates each genome sequentially as well. In theory, these steps can be parallelized on an HPC platform. 
+Therefore, we plan to develop an HPC-compatible panHiTE version based on Nextflow, enabling faster and more efficient panHiTE analysis.
