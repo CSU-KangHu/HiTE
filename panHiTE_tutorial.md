@@ -49,7 +49,7 @@ Download the [demo data](https://zenodo.org/records/14189130) from Zenodo. Since
 
 4. **gene_dir (Optional)**  
    Place all gene annotation files in a single directory and set this directory as the `gene_dir` parameter.  
-   **Important**: Ensure that the gene_id in multiple gene annotation files has a consistent name, with the last element separated by an underscore.  
+   **Important**: Ensure that the gene_id in multiple gene annotation files has a **consistent name**, with the last element separated by an `underscore`.  
    For example, in the file 01.col.gtf, a gene_id might be `col_AT1G01010`, and in the file 02.tibet.gtf, the gene_id should be `tibet_AT1G01010`.
 
 5. **RNA_dir (Optional)**  
@@ -70,9 +70,7 @@ python panHiTE.py \
  --out_dir ${out_dir} \
  --thread ${threads} \
  --recover 1 \
- --te_type all \
- --skip_analyze 0 \
- --miu ${miu}
+ --skip_analyze 0
  
 # Example script:
 #source_dir=/public/home/xxx/test/panHiTE

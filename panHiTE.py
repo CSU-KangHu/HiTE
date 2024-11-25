@@ -100,6 +100,8 @@ def main_pipeline():
     # 0. 读取 genomes
     genome_paths = []
     genome_names = []
+    RNA_seq_dict = {}
+    gene_annotation_list = []
     with open(genome_list_path, 'r') as f_r:
         for line in f_r:
             parts = line.replace('\n', '').split('\t')
@@ -114,8 +116,8 @@ def main_pipeline():
                     if not os.path.exists(gene_gtf):
                         log.logger.error('\nCannot find gene annotation path: ' + gene_gtf)
                         exit(-1)
+                    gene_annotation_list.append(gene_gtf)
 
-            RNA_seq_dict = {}
             if len(parts) == 3:
                 is_PE = False
                 raw_RNA = RNA_dir + '/' + parts[2]
@@ -324,23 +326,25 @@ def main_pipeline():
         log.logger.info('Start analysing using TE annotation files...')
         summary_TEs(batch_files, pan_genomes_dir, panTE_lib, output_dir, intact_ltr_paths, recover, log)
 
-        # Step 4. 根据 full_length_TE_gff 和 gene_gtf 获取插入到 gene 上、下游 1Kb、和内部的TE
         gene_te_associations = output_dir + '/gene_te_associations.tsv'
-        find_gene_relation_tes(batch_files, output_dir, recover, log)
+        if len(gene_annotation_list) > 0:
+            # Step 4. 根据 full_length_TE_gff 和 gene_gtf 获取插入到 gene 上、下游 1Kb、和内部的TE
+            find_gene_relation_tes(batch_files, output_dir, recover, log)
 
-        # Step 5. 根据RNA-seq数据比对到基因组生成bam文件
-        RNA_seq_dir = project_dir + '/RNA_seq'
-        new_batch_files = generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log)
+        if len(RNA_seq_dict) > 0:
+            # Step 5. 根据RNA-seq数据比对到基因组生成bam文件
+            RNA_seq_dir = project_dir + '/RNA_seq'
+            new_batch_files = generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log)
 
-        # Step 6. 调用 featureCount 进行定量
-        gene_express_dir = output_dir + '/gene_quantities'
-        gene_express_table = quantitative_gene(new_batch_files, gene_express_dir, threads, recover, log)
+            # Step 6. 调用 featureCount 进行定量
+            gene_express_dir = output_dir + '/gene_quantities'
+            gene_express_table = quantitative_gene(new_batch_files, gene_express_dir, threads, recover, log)
 
-        # step 7. 调用R语言脚本 detect_DE_genes_from_TEs.R 找到由于LTR插入引起的差异表达基因
-        script_dir = project_dir + '/RNA_seq'
-        detect_DE_genes_from_TEs_cmd = 'cd ' + output_dir + ' && Rscript ' + script_dir + '/detect_DE_genes_from_TEs.R ' \
-                                       + gene_express_table + ' ' + gene_te_associations
-        os.system(detect_DE_genes_from_TEs_cmd)
+            # step 7. 调用R语言脚本 detect_DE_genes_from_TEs.R 找到由于LTR插入引起的差异表达基因
+            script_dir = project_dir + '/RNA_seq'
+            detect_DE_genes_from_TEs_cmd = 'cd ' + output_dir + ' && Rscript ' + script_dir + '/detect_DE_genes_from_TEs.R ' \
+                                           + gene_express_table + ' ' + gene_te_associations
+            os.system(detect_DE_genes_from_TEs_cmd)
 
 
 if __name__ == '__main__':
