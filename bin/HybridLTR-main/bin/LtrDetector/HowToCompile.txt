@@ -1,0 +1,38 @@
+Compiling the source code
+
+Requirement: GNU gcc8.2 or higher. Please change the name (CXX) of the compiler 
+	in the Makefile. 
+
+If on MacOS, please uncomment the compiler flags (CXXFLAGS) in the Makefile. (Marked #MacOS). 
+
+On MacOS you may need to run:
+	> brew install libomp
+
+To locate the source directory:
+	> cd src	
+
+The following command makes the required directories: 
+	> make bin
+
+The following command makes the binary that is located under the ``bin'' directory:
+	> make tr -j
+
+To find the binary:
+	> cd ../bin
+
+To find help information:
+	> LtrDetector -help
+
+Example run with the defaults:
+	> LtrDetector -chromDir ~/Data/zmays/Fa -destDir ~/Data/zmays/detector
+
+Example run on 4 cores
+	> LtrDetector -chromDir ~/Data/thaliana/Fa -destDir ~/Data/thaliana/detector -nThreads 4
+
+
+To run visualization tool:
+	Step 1: Run LtrDetector with these three flags -rawScores -cleanedScores -bedFormat 
+	> LtrDetector -chromDir ~/Data/thaliana/Fa -destDir ~/Data/thaliana/detector -rawScores -cleanedScores -bedFormat
+
+	Step 2: To run the visualization tool on chr1, pass LTR-RTs found in chr1 (.bed), output directory where the graphs will be stored, and the scores file (raw or cleaned).
+	> python visualize.py ~/Data/thaliana/detector/chr1Detector.bed ~/Data/thaliana/detector/test ~/Data/thaliana/detector/chr1RawScores.csv

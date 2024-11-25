@@ -5,18 +5,28 @@ import codecs
 import json
 import multiprocessing
 import os
-
+import sys
+from datetime import datetime
 import logging
 import re
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
 from logging import handlers
-from fuzzysearch import find_near_matches
-from collections import Counter
-import Levenshtein
 
+cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(cur_dir)
+
+import numpy as np
+import pandas as pd
+from fuzzysearch import find_near_matches
+from collections import Counter, defaultdict
+import Levenshtein
+import seaborn as sns
 import subprocess
+from PyPDF2 import PdfMerger
+from matplotlib import pyplot as plt
+
 
 class Logger(object):
     level_relations = {
@@ -2765,7 +2775,9 @@ def filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict):
     else:
         tir_len = TIR_len_dict[min_distance_name]
     new_name = orig_query_name + '-tir_' + str(tir_len) + '-tsd_' + str(tsd)
-    res_contigs[new_name] = cur_copies_out_contigs[min_distance_name]
+    # full-length TIR should shorter than 10K bp
+    if len(cur_copies_out_contigs[min_distance_name]) < 10000:
+        res_contigs[new_name] = cur_copies_out_contigs[min_distance_name]
     return res_contigs
 
 def filter_dup_itr_v4(cur_copies_out_contigs):
@@ -2786,25 +2798,26 @@ def filter_dup_itr_v4(cur_copies_out_contigs):
     return res_contigs
 
 def file_exist(resut_file):
-    if os.path.exists(resut_file) and os.path.getsize(resut_file) > 0:
-        if resut_file.endswith('.fa') or resut_file.endswith('.fasta'):
-            names, contigs = read_fasta(resut_file)
-            if len(contigs) > 0:
-                return True
+    if os.path.isfile(resut_file):  # 输入是文件
+        if os.path.getsize(resut_file) > 0:
+            # 如果是FASTA文件类型
+            if resut_file.endswith('.fa') or resut_file.endswith('.fasta'):
+                names, contigs = read_fasta(resut_file)
+                return len(contigs) > 0
             else:
+                # 对非FASTA文件，检查是否包含非注释的有效内容
+                with open(resut_file, 'r') as f_r:
+                    for line in f_r:
+                        if not line.startswith('#') and line.strip():
+                            return True
                 return False
         else:
-            line_count = 0
-            with open(resut_file, 'r') as f_r:
-                for line in f_r:
-                    if line.startswith('#'):
-                        continue
-                    line_count += 1
-                    if line_count > 0:
-                        return True
-            f_r.close()
             return False
+    elif os.path.isdir(resut_file):  # 输入是目录
+        # 检查目录是否非空
+        return len(os.listdir(resut_file)) > 0
     else:
+        # 输入既不是文件也不是目录
         return False
 
 
@@ -6294,8 +6307,12 @@ def get_short_tir_contigs(cur_itr_contigs, plant):
         last_5bp = getReverseSequence(tir_seq[tir_end - 5: tir_end])
         first_3bp = tir_seq[tir_start - 1: tir_start + 2]
         last_3bp = getReverseSequence(tir_seq[tir_end - 3: tir_end])
-        tsd_seq = name.split('-tsd_')[1].split('-')[0]
-        tsd_len = len(tsd_seq)
+        tsd_len = 0
+        parts = name.split('-tsd_')
+        if len(parts) > 1:
+            sub_parts = parts[1].split('-')
+            tsd_seq = sub_parts[0]
+            tsd_len = len(tsd_seq)
 
         if first_5bp == last_5bp:
             # hAT
@@ -7003,9 +7020,11 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
     copy_nums = {}
     true_te_names = set()
     true_tes = {}
+    low_copy_contigs = {}
+    low_copy_path = temp_dir + '/low_copy_elements.fa'
     for job in as_completed(jobs):
         result_info = job.result()
-        cur_name, cur_seq, info = result_info
+        cur_name, cur_seq, info, copy_count = result_info
         if info == 'nb':
             not_found_boundary += 1
         elif info == 'fl1':
@@ -7021,8 +7040,51 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             if TE_type == 'tir':
                 if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
                     continue
-            true_tes[cur_name] = cur_seq
-            true_te_names.add(cur_name)
+                ############################
+                # 对于拷贝数<=2的序列，大概率可能是假阳性，那我们判断它是否具有末端反向重复来过滤
+                if copy_count <= 2:
+                    low_copy_contigs[cur_name] = cur_seq
+                else:
+                    true_tes[cur_name] = cur_seq
+                    true_te_names.add(cur_name)
+                ############################
+            else:
+                true_tes[cur_name] = cur_seq
+                true_te_names.add(cur_name)
+    store_fasta(low_copy_contigs, low_copy_path)
+
+    if TE_type == 'tir':
+        # 找回具有TIR结构的低拷贝TIR
+        cur_temp_dir = temp_dir + '/low_copy_itr'
+        TRsearch_dir = cur_dir + '/tools'
+        with_tir_path, no_tir_path = remove_no_tirs(low_copy_path, plant, TRsearch_dir, cur_temp_dir)
+        with_tir_names, with_tir_contigs = read_fasta(with_tir_path)
+        true_tes.update(with_tir_contigs)
+        # print('recall by TIR structure: ' + str(len(with_tir_contigs)))
+        # print(with_tir_names)
+
+        # 找回具有完整domain的低拷贝TIR
+        temp_dir = temp_dir + '/tir_domain'
+        output_table = no_tir_path + '.tir_domain'
+        tir_protein_db = cur_dir + '/library/TIRPeps.lib'
+        get_domain_info(no_tir_path, tir_protein_db, output_table, threads, temp_dir)
+        has_intact_protein_contigs = {}
+        protein_names, protein_contigs = read_fasta(tir_protein_db)
+        with open(output_table, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i < 2:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                protein_name = parts[1]
+                protein_start = int(parts[4])
+                protein_end = int(parts[5])
+                intact_protein_len = len(protein_contigs[protein_name])
+                if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+                    has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
+        true_tes.update(has_intact_protein_contigs)
+        # print('recall by intact domain structure: ' + str(len(has_intact_protein_contigs)))
+        # print(has_intact_protein_contigs.keys())
     store_fasta(true_tes, real_TEs)
 
     deleted_names = total_names.difference(true_te_names)
@@ -7209,11 +7271,11 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
         cur_blastn2Results_path = job.result()
         os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastnResults_path)
 
-def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads):
+def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp_output_dir):
     subject_path = confident_ltr_cut_path
     query_path = confident_tir_path
     out_path = query_path + '.out'
-    align_command = 'RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path + ' > /dev/null 2>&1'
+    align_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path + ' > /dev/null 2>&1'
     os.system(align_command)
     delete_tir_names = set()
     query_names, query_contigs = read_fasta(query_path)
@@ -8869,12 +8931,12 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     if align_start == -1 or align_end == -1:
         if debug:
             print('not found boundary:' + align_file)
-        return False, 'nb', ''
+        return False, 'nb', '', 0
     align_names, align_contigs = read_fasta(align_file)
     if len(align_names) <= 0:
         if debug:
             print('align file size = 0, ' + align_file)
-        return False, '', ''
+        return False, '', '', 0
 
     # 3. Take the full-length sequence to generate a consensus sequence.
     # There should be bases both up and down by 10bp at the anchor point.
@@ -8907,7 +8969,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     if row_num <= 1:
         if debug:
             print('full length number = 1, ' + align_file)
-        return False, 'fl1', ''
+        return False, 'fl1', '', 1
     matrix = [[''] * col_num for i in range(row_num)]
     for row, name in enumerate(full_length_member_names):
         seq = full_length_member_contigs[name]
@@ -8928,16 +8990,8 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     else:
         homo_threshold = 0.7
 
-    homo_boundary_start = search_boundary_homo_v3(valid_col_threshold, align_start, matrix, row_num,
-                                             col_num, 'start', homo_threshold, debug, sliding_window_size)
-    if homo_boundary_start == -1:
-        return False, '', ''
-
-    homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, row_num,
-                                           col_num, 'end', homo_threshold, debug, sliding_window_size)
-
-    if homo_boundary_end == -1:
-        return False, '', ''
+    ############################################
+    # 我现在想先遍历一遍整个矩阵，找到合法边界的起始和终止位置，如果最终识别到的边界和合法边界有任何一边重叠了，这代表着无法找到同源和非同源边界，说明这是一个假阳性。
 
     # Record the base composition of each column.
     col_base_map = {}
@@ -8956,6 +9010,48 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                 base_map[cur_base] = cur_count
         if not base_map.__contains__('-'):
             base_map['-'] = 0
+
+    # Initialize variables
+    valid_left_boundary = -1
+    valid_right_boundary = -1
+
+    # First, search for the left boundary (valid_left_boundary)
+    for left in range(col_num):
+        base_map_left = col_base_map[left]
+        gap_num_left = base_map_left.get('-', 0)
+        copy_count_left = row_num  # Total number of rows is the total copy count
+        if gap_num_left <= copy_count_left / 2:
+            valid_left_boundary = left
+            break  # Exit once the left boundary is found
+
+    # If left boundary is found, search for the right boundary (valid_right_boundary)
+    if valid_left_boundary != -1:
+        for right in range(col_num - 1, -1, -1):
+            base_map_right = col_base_map[right]
+            gap_num_right = base_map_right.get('-', 0)
+            copy_count_right = row_num  # Total number of rows is the total copy count
+            if gap_num_right <= copy_count_right / 2:
+                valid_right_boundary = right
+                break  # Exit once the right boundary is found
+
+    # Check if the left boundary is less than the right boundary
+    if not (valid_left_boundary != -1 and valid_right_boundary != -1 and valid_left_boundary < valid_right_boundary):
+        valid_left_boundary = -1
+        valid_right_boundary = -1
+    ##################################################
+
+    homo_boundary_start = search_boundary_homo_v3(valid_col_threshold, align_start, matrix, row_num,
+                                             col_num, 'start', homo_threshold, debug, sliding_window_size)
+    if homo_boundary_start == -1:
+        return False, '', '', row_num
+
+    homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, row_num,
+                                           col_num, 'end', homo_threshold, debug, sliding_window_size)
+
+    if homo_boundary_end == -1:
+        return False, '', '', row_num
+
+
     # Generate a consensus sequence.
     model_seq = ''
     if result_type == 'cons':
@@ -8997,64 +9093,68 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     final_boundary_start = -1
     final_boundary_end = -1
     final_cons_seq = ''
-    if TE_type == 'tir':
-        # (TA, TTA, TAA, TTAA)xxxxx...xxxxx(TA, TTA, TAA, TTAA) may lead to incorrect homologous boundaries.
-        first_5bps = []
-        end_5bps = []
-        first_5bps.append((model_seq[0:5], 0))
-        end_5bps.append((model_seq[-5:], 0))
 
-        if model_seq.startswith('A'):
-            first_5bps.append((model_seq[1:6], 1))
-        if model_seq.startswith('AA') or model_seq.startswith('TA'):
-            first_5bps.append((model_seq[2:7], 2))
-        if model_seq.startswith('TAA') or model_seq.startswith('TTA'):
-            first_5bps.append((model_seq[3:8], 3))
-        if model_seq.startswith('TTAA'):
-            first_5bps.append((model_seq[4:9], 4))
+    if homo_boundary_start <= valid_left_boundary or homo_boundary_end >= valid_right_boundary:
+        final_cons_seq = ''
+    else:
+        if TE_type == 'tir':
+            # (TA, TTA, TAA, TTAA)xxxxx...xxxxx(TA, TTA, TAA, TTAA) may lead to incorrect homologous boundaries.
+            first_5bps = []
+            end_5bps = []
+            first_5bps.append((model_seq[0:5], 0))
+            end_5bps.append((model_seq[-5:], 0))
 
-        if model_seq.endswith('T'):
-            end_5bps.append((model_seq[len(model_seq)-6:len(model_seq)-1], 1))
-        if model_seq.endswith('TT') or model_seq.endswith('TA'):
-            end_5bps.append((model_seq[len(model_seq)-7:len(model_seq)-2], 2))
-        if model_seq.endswith('TAA') or model_seq.endswith('TTA'):
-            end_5bps.append((model_seq[len(model_seq)-8:len(model_seq)-3], 3))
-        if model_seq.endswith('TTAA'):
-            end_5bps.append((model_seq[len(model_seq)-9:len(model_seq)-4], 4))
+            if model_seq.startswith('A'):
+                first_5bps.append((model_seq[1:6], 1))
+            if model_seq.startswith('AA') or model_seq.startswith('TA'):
+                first_5bps.append((model_seq[2:7], 2))
+            if model_seq.startswith('TAA') or model_seq.startswith('TTA'):
+                first_5bps.append((model_seq[3:8], 3))
+            if model_seq.startswith('TTAA'):
+                first_5bps.append((model_seq[4:9], 4))
 
-        # Take all valid boundaries, then sort them based on the distance between 'first_5bp' and 'end_5bp' + the number of TSDs.
-        # Smaller distances and more TSDs make it more likely to be a true boundary.
-        all_boundaries = []
-        for first_5bp in first_5bps:
-            for end_5bp in end_5bps:
-                # Determine if there are two or more TSDs in the align file based on the boundary.
-                # If yes, it is a genuine boundary.
-                cur_boundary_start = homo_boundary_start + first_5bp[1]
-                cur_boundary_end = homo_boundary_end - end_5bp[1]
-                tsd_count = 0
-                for name in align_names:
-                    # 1. Verify if there are bases at the boundary.
-                    raw_align_seq = align_contigs[name]
-                    boundary_start_base = raw_align_seq[cur_boundary_start]
-                    boundary_end_base = raw_align_seq[cur_boundary_end]
-                    if boundary_start_base == '-' or boundary_end_base == '-':
-                        continue
-                    # 2. Can TSDs be found at the boundary?
-                    left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
-                    if left_tsd_seq != '':
-                        tsd_count += 1
-                if tsd_count > 0:
-                    edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
-                    all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
-        all_boundaries.sort(key=lambda x: (x[0], -x[1]))
-        if len(all_boundaries) > 0:
-            boundary = all_boundaries[0]
-            final_boundary_start = boundary[2]
-            final_boundary_end = boundary[3]
-            if boundary[5] != 0:
-                final_cons_seq = model_seq[boundary[4]: -boundary[5]]
-            else:
-                final_cons_seq = model_seq[boundary[4]:]
+            if model_seq.endswith('T'):
+                end_5bps.append((model_seq[len(model_seq)-6:len(model_seq)-1], 1))
+            if model_seq.endswith('TT') or model_seq.endswith('TA'):
+                end_5bps.append((model_seq[len(model_seq)-7:len(model_seq)-2], 2))
+            if model_seq.endswith('TAA') or model_seq.endswith('TTA'):
+                end_5bps.append((model_seq[len(model_seq)-8:len(model_seq)-3], 3))
+            if model_seq.endswith('TTAA'):
+                end_5bps.append((model_seq[len(model_seq)-9:len(model_seq)-4], 4))
+
+            # Take all valid boundaries, then sort them based on the distance between 'first_5bp' and 'end_5bp' + the number of TSDs.
+            # Smaller distances and more TSDs make it more likely to be a true boundary.
+            all_boundaries = []
+            for first_5bp in first_5bps:
+                for end_5bp in end_5bps:
+                    # Determine if there are two or more TSDs in the align file based on the boundary.
+                    # If yes, it is a genuine boundary.
+                    cur_boundary_start = homo_boundary_start + first_5bp[1]
+                    cur_boundary_end = homo_boundary_end - end_5bp[1]
+                    tsd_count = 0
+                    for name in align_names:
+                        # 1. Verify if there are bases at the boundary.
+                        raw_align_seq = align_contigs[name]
+                        boundary_start_base = raw_align_seq[cur_boundary_start]
+                        boundary_end_base = raw_align_seq[cur_boundary_end]
+                        if boundary_start_base == '-' or boundary_end_base == '-':
+                            continue
+                        # 2. Can TSDs be found at the boundary?
+                        left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
+                        if left_tsd_seq != '':
+                            tsd_count += 1
+                    if tsd_count > 0:
+                        edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
+                        all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
+            all_boundaries.sort(key=lambda x: (x[0], -x[1]))
+            if len(all_boundaries) > 0:
+                boundary = all_boundaries[0]
+                final_boundary_start = boundary[2]
+                final_boundary_end = boundary[3]
+                if boundary[5] != 0:
+                    final_cons_seq = model_seq[boundary[4]: -boundary[5]]
+                else:
+                    final_cons_seq = model_seq[boundary[4]:]
 
     if final_cons_seq == '':
         is_TE = False
@@ -9063,7 +9163,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
 
     if debug:
         print(align_file, is_TE, final_boundary_start, final_boundary_end)
-    return is_TE, '', final_cons_seq
+    return is_TE, '', final_cons_seq, row_num
 
 
 def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
@@ -9108,13 +9208,13 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
     if align_start == -1 or align_end == -1:
         if debug:
             print('not found boundary:' + align_file)
-        return False, 'nb', ''
+        return False, 'nb', '', 0
 
     align_names, align_contigs = read_fasta(align_file)
     if len(align_names) <= 0:
         if debug:
             print('align file size = 0, ' + align_file)
-        return False, '', ''
+        return False, '', '', 0
 
     # 3. Take the full-length sequence to generate a consensus sequence.
     # There should be bases both up and down by 10bp at the anchor point.
@@ -9147,7 +9247,7 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
     if row_num <= 1:
         if debug:
             print('full length number = 1, ' + align_file)
-        return False, 'fl1', ''
+        return False, 'fl1', '', row_num
     matrix = [[''] * col_num for i in range(row_num)]
     for row, name in enumerate(full_length_member_names):
         seq = full_length_member_contigs[name]
@@ -9171,13 +9271,13 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
     homo_boundary_start = search_boundary_homo_v3(valid_col_threshold, align_start, matrix, row_num,
                                              col_num, 'start', homo_threshold, debug, sliding_window_size)
     if homo_boundary_start == -1:
-        return False, '', ''
+        return False, '', '', row_num
 
     homo_boundary_end = search_boundary_homo_v3(valid_col_threshold, align_end, matrix, row_num,
                                                 col_num, 'end', homo_threshold, debug, sliding_window_size)
 
     if homo_boundary_end == -1:
-        return False, '', ''
+        return False, '', '', row_num
 
     # Iterate through each copy in the multiple sequence alignment, take 15-bp of bases with no gaps above
     # and below the homologous boundary, search for polyA/T within the window, locate the position of polyA/T,
@@ -9296,7 +9396,7 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
 
     if debug:
         print(align_file, is_TE, homo_boundary_start, homo_boundary_end)
-    return is_TE, '', model_seq
+    return is_TE, '', model_seq, row_num
 
 def most_common_element(arr):
     if len(arr) > 0:
@@ -9360,12 +9460,12 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     if align_start == -1 or align_end == -1:
         if debug:
             print('not found boundary:' + align_file)
-        return False, 'nb', ''
+        return False, 'nb', '', 0
     align_names, align_contigs = read_fasta(align_file)
     if len(align_names) <= 0:
         if debug:
             print('align file size = 0, ' + align_file)
-        return False, '', ''
+        return False, '', '', 0
 
     tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
     # 2. For align_start and align_end, take all copies that are not empty at the boundaries.
@@ -9428,7 +9528,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # Starting from the anchor point, extend 20bp on both sides and extract the effective columns. Determine their homology. If it contradicts our rule, it is a false positive sequence.
     # Store the sequence as a matrix for easy traversal and indexing.
     if len(end_member_names) <= 0:
-        return False, '', ''
+        return False, '', '', 0
     first_seq = end_member_contigs[end_member_names[0]]
     col_num = len(first_seq)
     end_row_num = len(end_member_names)
@@ -9464,7 +9564,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     if not end_align_valid:
         if debug:
             print(align_file, end_align_valid)
-        return end_align_valid, '', ''
+        return end_align_valid, '', '', 0
 
     # Store the sequence as a matrix for easy traversal and indexing.
     first_seq = start_member_contigs[start_member_names[0]]
@@ -9522,7 +9622,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     if len(full_length_member_names) <= 0:
         if debug:
             print('full length align file size = 0, ' + align_file)
-        return False, '', ''
+        return False, '', '', 0
 
     # Generate a consensus sequence using full-length copies.
     first_seq = full_length_member_contigs[full_length_member_names[0]]
@@ -9671,7 +9771,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
 
     if debug:
         print(align_file, is_TE, final_boundary_start, final_boundary_end)
-    return is_TE, '', final_cons_seq
+    return is_TE, '', final_cons_seq, row_num
 
 def judge_boundary_v7(cur_seq, align_file, debug, TE_type, plant, result_type):
     # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
@@ -10164,31 +10264,34 @@ def get_full_length_member_batch(query_path, reference, ref_contigs, temp_dir, f
 
 def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
     (query_name, cur_seq, member_file) = batch_member_file
-
     member_names, member_contigs = read_fasta(member_file)
     if len(member_names) > 100:
         sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
         os.system(sub_command)
         member_file += '.rdmSubset.fa'
     if not os.path.exists(member_file):
-        return (None, None, '')
+        return (None, None, '', 0)
     align_file = member_file + '.maf.fa'
     align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
     os.system(align_command)
 
     # Due to the characteristics of TIR, Helitron, and non-LTR elements,
     # their homology filtering methods have slight differences.
+    is_TE = False
+    cons_seq = ''
+    info = None
+    copy_num = 0
     if TE_type == 'tir':
-        is_TE, info, cons_seq = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
+        is_TE, info, cons_seq, copy_num = judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type)
     elif TE_type == 'helitron':
-        is_TE, info, cons_seq = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
+        is_TE, info, cons_seq, copy_num = judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type)
     elif TE_type == 'non_ltr':
-        is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
+        is_TE, info, cons_seq, copy_num = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
 
     if is_TE:
-        return (query_name, cons_seq, info)
+        return (query_name, cons_seq, info, copy_num)
     else:
-        return (None, None, info)
+        return (None, None, info, 0)
 
 
 def FMEA(blastn2Results_path, fixed_extend_base_threshold):
@@ -11135,7 +11238,9 @@ def multiple_alignment_blast_v1(repeats_path, tools_dir, coverage_threshold, cat
 
     return lines
 
-def multi_process_align_v1(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, coverage_threshold, category, is_removed_dir=True):
+def multi_process_align_v1(query_path, subject_path, blastnResults_path,
+                           tmp_blast_dir, threads, coverage_threshold,
+                           category, is_removed_dir=True):
     tools_dir = ''
     if is_removed_dir:
         os.system('rm -rf ' + tmp_blast_dir)
@@ -11219,3 +11324,2344 @@ def multi_process_align_v1(query_path, subject_path, blastnResults_path, tmp_bla
 
     if is_removed_dir:
         os.system('rm -rf ' + tmp_blast_dir)
+
+def ReassignInconsistentLabels(TE_lib):
+    # Set conflicting labels to "Unknown".
+    TE_names, TE_contigs = read_fasta(TE_lib)
+    new_TE_contigs = {}
+    for name in TE_names:
+        parts = name.split('#')
+        raw_name = parts[0]
+        label = parts[1]
+        if ('LTR' in raw_name and 'LTR' not in label) \
+                or ('TIR' in raw_name and 'DNA' not in label) \
+                or ('Helitron' in raw_name and 'Helitron' not in label) \
+                or ('Non_LTR' in raw_name and ('LINE' not in label or 'SINE' not in label)):
+            new_label = 'Unknown'
+            new_name = raw_name + '#' + new_label
+            new_TE_contigs[new_name] = TE_contigs[name]
+        else:
+            new_TE_contigs[name] = TE_contigs[name]
+    store_fasta(new_TE_contigs, TE_lib)
+
+def lib_add_prefix(HiTE_lib, prefix):
+    lib_names, lib_contigs = read_fasta(HiTE_lib)
+    new_lib_contigs = {}
+    for name in lib_names:
+        new_name = prefix + '-' + name
+        new_lib_contigs[new_name] = lib_contigs[name]
+    store_fasta(new_lib_contigs, HiTE_lib)
+    return HiTE_lib
+
+def find_gene_relation_tes(batch_files, output_dir, recover, log):
+    genome_num = len(batch_files)
+    genome_num_threshold = int(0.8 * genome_num)
+
+    te_gene_insertions_list = []
+    for genome_name, reference, gff_path, full_length_gff_path, gene_gtf, RNA_seq_dict in batch_files:
+        if os.path.exists(full_length_gff_path) and os.path.exists(gene_gtf):
+            output_file = output_dir + '/' + genome_name + '.te_gene_insertions.tsv'
+            resut_file = output_file
+            if not recover or not file_exist(resut_file):
+                results = analyze_te_insertions(gene_gtf, full_length_gff_path)
+                save_results(results, resut_file)
+            else:
+                log.logger.info(resut_file + ' exists, skip...')
+            te_gene_insertions_list.append((genome_name, resut_file))
+
+    # 初始化一个字典，gene name为键，每个键的值是一个列表
+    gene_te_associations = defaultdict(list)
+    # 遍历te_gene_insertions_list
+    for genome_name, resut_file in te_gene_insertions_list:
+        results = load_results(resut_file)
+        for _, row in results.iterrows():
+            gene_name = row['Gene_name']
+            gene_name_parts = str(gene_name).split('_')
+            gene_name = gene_name_parts[-1]
+            gene_te_associations[gene_name].append({
+                'Genome_name': genome_name,
+                'TE_name': row['TE_name'],
+                'Chromosome': row['Chromosome'],
+                'TE_start': row['TE_start'],
+                'TE_end': row['TE_end'],
+                'Gene_start': row['Gene_start'],
+                'Gene_end': row['Gene_end'],
+                'Position': row['Position']
+            })
+    output_file = output_dir + '/gene_te_associations.tsv'
+    save_gene_te_associations_to_file(gene_te_associations, output_file)
+
+    # 统计同一个 gene 下，相同的位置，相同的TE 出现了多少次
+    gene_te_stats = {}
+    for gene_name, te_list in gene_te_associations.items():
+        # 初始化gene_te_stats的key值
+        if gene_name not in gene_te_stats:
+            gene_te_stats[gene_name] = defaultdict(lambda: {'count': 0, 'genomes': set()})
+        for te_info in te_list:
+            # 创建唯一标识符：TE的名称 + TE的位置 + TE的染色体
+            te_key = (te_info['Position'], te_info['TE_name'])
+
+            # 更新统计信息
+            gene_te_stats[gene_name][te_key]['count'] += 1
+            gene_te_stats[gene_name][te_key]['genomes'].add(te_info['Genome_name'])
+
+    # 查看结果
+    core_gene_te_list = []
+    softcore_gene_te_list = []
+    dispensable_gene_te_list = []
+    private_gene_te_list = []
+    unknown_gene_te_list = []
+    for gene_name, stats  in gene_te_stats.items():
+        for te_key, info in stats.items():
+            position, te_name = te_key
+            count = info['count']
+            genome_set = info['genomes']
+            if count == genome_num:
+                core_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+            elif genome_num_threshold <= count < genome_num:
+                softcore_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+            elif 2 <= count < genome_num_threshold:
+                dispensable_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+            elif count == 1:
+                private_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+            else:
+                unknown_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+    output_file = output_dir + '/core_gene_te_relations.tsv' # 相同 gene 与 TE 的关系在 所有 基因组上出现
+    save_gene_te_list(core_gene_te_list, output_file)
+    output_file = output_dir + '/softcore_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 绝大部分 基因组上出现
+    save_gene_te_list(softcore_gene_te_list, output_file)
+    output_file = output_dir + '/dispensable_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 少部分 基因组上出现
+    save_gene_te_list(dispensable_gene_te_list, output_file)
+    output_file = output_dir + '/private_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 单个 基因组上出现
+    save_gene_te_list(private_gene_te_list, output_file)
+    output_file = output_dir + '/unknown_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系 没有在任一个  基因组上出现
+    save_gene_te_list(unknown_gene_te_list, output_file)
+
+def save_gene_te_list(core_gene_te_list, output_file):
+    with open(output_file, 'w') as f_save:
+        for item in core_gene_te_list:
+            f_save.write(item[0] + '\t' + item[1] + '\t' + item[2] + '\t' + str(item[3]) + '\t' + str(item[4]) + '\n')
+
+
+def analyze_te_insertions(gene_file, te_file, upstream_downstream=10_000):
+    genes_by_chrom = read_gff(gene_file, feature_type='gene')
+    tes_by_chrom = read_gff(te_file)
+
+    results = []
+
+    for chrom, genes in genes_by_chrom.items():
+        if chrom in tes_by_chrom:
+            tes = tes_by_chrom[chrom]
+            te_index = 0
+
+            for idx, gene in genes.iterrows():
+                gene_name = extract_name(gene['attribute'], file_type='gtf')
+                next_gene = genes.iloc[idx + 1] if idx + 1 < len(genes) else None
+
+                # 剪枝：跳过TE的起始位置小于当前基因的上游范围的TE
+                while te_index < len(tes) and tes.iloc[te_index]['end'] < gene['start'] - upstream_downstream:
+                    te_index += 1
+
+                # 从当前索引开始检查TE
+                current_te_index = te_index
+
+                while current_te_index < len(tes):
+                    te = tes.iloc[current_te_index]
+                    te_name = extract_name(te['attribute'], file_type='gff')
+
+                    # 如果TE的起始位置超过了基因的下游范围，停止检查
+                    if te['start'] > gene['end'] + upstream_downstream:
+                        break
+
+                    # 如果TE和下一个基因有交集了或超过了下一个基因，说明TE和当前基因没有关系了
+                    if (next_gene is not None) and (te['end'] > next_gene['start']):
+                        break
+
+                    # 检查TE与基因的关系
+                    position = check_te_in_gene(te, gene, upstream_downstream)
+                    if position != 'None':
+                        results.append({
+                            'Gene_name': gene_name,
+                            'TE_name': te_name,
+                            'Chromosome': te['chromosome'],
+                            'TE_start': int(te['start']),
+                            'TE_end': int(te['end']),
+                            'Gene_start': int(gene['start']),
+                            'Gene_end': int(gene['end']),
+                            'Position': position
+                        })
+
+                    current_te_index += 1
+
+    return pd.DataFrame(results)
+
+
+def save_results(df, output_file):
+    df.to_csv(output_file, sep='\t', index=False)
+
+
+def load_results(input_file):
+    df = pd.read_csv(input_file, sep='\t')
+    return df
+
+# 读取gff文件，并只保留feature为gene的记录
+def read_gff(file, feature_type=None):
+    df = pd.read_csv(file, sep='\t', header=None,
+                     names=['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute'])
+    if feature_type:
+        df = df[df['feature'] == feature_type]
+
+    # 按染色体分组
+    grouped = df.groupby('chromosome')
+    return {chrom: grouped.get_group(chrom) for chrom in grouped.groups}
+
+def extract_name(attribute, file_type='gff'):
+    if file_type == 'gtf':
+        match = re.search(r'gene_id\s+"([^";]+)"', attribute)
+        if match:
+            return match.group(1)
+        else:
+            return None
+    else:
+        match = re.search(r'(?:Name|name)=([^;]+)', attribute)
+        if match:
+            return match.group(1)
+        else:
+            return None
+
+# 判断TE是否插入到gene的上下游或内部
+def check_te_in_gene(te, gene, upstream_downstream=10_000):
+    gene_start, gene_end, gene_strand = gene['start'], gene['end'], gene['strand']
+    te_start, te_end = te['start'], te['end']
+
+    if te_end < gene_start - upstream_downstream:
+        return 'None'
+    elif te_start >= gene_start and te_end <= gene_end:
+        return 'Inside'
+    elif te_start < gene_start and te_end >= gene_start - upstream_downstream:
+        if gene_strand == '+':
+            return 'Upstream'
+        else:
+            return 'Downstream'
+    elif te_start <= gene_end + upstream_downstream and te_end > gene_end:
+        if gene_strand == '+':
+            return 'Downstream'
+        else:
+            return 'Upstream'
+    else:
+        return 'None'
+
+# 将gene_te_associations转换为DataFrame
+def save_gene_te_associations_to_file(gene_te_associations, output_file):
+    rows = []
+    for gene_name, associations in gene_te_associations.items():
+        for association in associations:
+            row = {
+                'Gene_name': gene_name,
+                'Genome_name': association['Genome_name'],
+                'TE_name': association['TE_name'],
+                'Chromosome': association['Chromosome'],
+                'TE_start': association['TE_start'],
+                'TE_end': association['TE_end'],
+                'Gene_start': association['Gene_start'],
+                'Gene_end': association['Gene_end'],
+                'Position': association['Position']
+            }
+            rows.append(row)
+
+    # 创建DataFrame
+    df = pd.DataFrame(rows)
+
+    # 保存为文件
+    df.to_csv(output_file, sep='\t', index=False)
+
+def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_threshold, debug):
+    starttime = time.time()
+    # We found that performing a direct mafft alignment on the redundant LTR library was too slow.
+    # Therefore, we first need to use Blastn for alignment clustering, and then proceed with mafft processing.
+    tmp_blast_dir = work_dir + '/LTR_blastn_' + str(type)
+    blastnResults_path = work_dir + '/LTR_blastn_' + str(type) + '.out'
+    # 1. Start by performing an all-vs-all comparison using blastn.
+    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True)
+    if not os.path.exists(blastnResults_path):
+        return redundant_ltr
+    # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
+    query_records = {}
+    with open(blastnResults_path, 'r') as f_r:
+        for idx, line in enumerate(f_r):
+            # print('current line idx: %d' % (idx))
+            parts = line.split('\t')
+            query_name = parts[0]
+            subject_name = parts[1]
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+            if query_name == subject_name and q_start == s_start and q_end == s_end:
+                continue
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
+    query_names, query_contigs = read_fasta(redundant_ltr)
+    longest_repeats = FMEA_new(query_contigs, query_records, coverage_threshold)
+
+    # 3. If the combined sequence length constitutes 95% or more of the original individual sequence lengths, we place these two sequences into a cluster.
+    contigNames, contigs = read_fasta(redundant_ltr)
+    keep_clusters = []
+    redundant_ltr_names = set()
+    for query_name in longest_repeats.keys():
+        if query_name in redundant_ltr_names:
+            continue
+        longest_repeats_list = longest_repeats[query_name]
+        cur_cluster = set()
+        cur_cluster.add(query_name)
+        for cur_longest_repeat in longest_repeats_list:
+            query_name = cur_longest_repeat[0]
+            query_len = len(contigs[query_name])
+            q_len = abs(cur_longest_repeat[2] - cur_longest_repeat[1])
+            subject_name = cur_longest_repeat[3]
+            subject_len = len(contigs[subject_name])
+            s_len = abs(cur_longest_repeat[4] - cur_longest_repeat[5])
+            # 我们这里先将跨过 gap 之后的全长拷贝先聚类在一起，后续再使用 cd-hit 将碎片化合并到全长拷贝中
+            if float(q_len) / query_len >= coverage_threshold or float(s_len) / subject_len >= coverage_threshold:
+                # we consider the query and subject to be from the same family.
+                cur_cluster.add(subject_name)
+                redundant_ltr_names.add(subject_name)
+        keep_clusters.append(cur_cluster)
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    # print("Running time of FMEA clustering: %.8s s" % (dtime))
+    if not debug:
+        os.system('rm -f ' + blastnResults_path)
+        os.system('rm -rf ' + tmp_blast_dir)
+
+
+    starttime = time.time()
+    # store cluster
+    all_unique_name = set()
+    raw_cluster_files = []
+    cluster_dir = work_dir + '/raw_ltr_cluster_' + str(type)
+    os.system('rm -rf ' + cluster_dir)
+    if not os.path.exists(cluster_dir):
+        os.makedirs(cluster_dir)
+    for cluster_id, cur_cluster in enumerate(keep_clusters):
+        cur_cluster_path = cluster_dir + '/' + str(cluster_id) + '.fa'
+        cur_cluster_contigs = {}
+        for ltr_name in cur_cluster:
+            cur_cluster_contigs[ltr_name] = contigs[ltr_name]
+            all_unique_name.add(ltr_name)
+        store_fasta(cur_cluster_contigs, cur_cluster_path)
+        raw_cluster_files.append((cluster_id, cur_cluster_path))
+    # We save the sequences that did not appear in any clusters separately. These sequences do not require clustering.
+    uncluster_path = work_dir + '/uncluster_ltr_' + str(type) + '.fa'
+    uncluster_contigs = {}
+    for name in contigNames:
+        if name not in all_unique_name:
+            uncluster_contigs[name] = contigs[name]
+    store_fasta(uncluster_contigs, uncluster_path)
+
+    # 4. The final cluster should encompass all instances from the same family.
+    # We use Ninja to cluster families precisely, and
+    # We then use the mafft+majority principle to generate a consensus sequence for each cluster.
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for cluster_id, cur_cluster_path in raw_cluster_files:
+        job = ex.submit(generate_cons_v1, cluster_id, cur_cluster_path, cluster_dir, 1)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+    all_cons = {}
+    for job in as_completed(jobs):
+        cur_cons_contigs = job.result()
+        all_cons.update(cur_cons_contigs)
+
+    all_cons.update(uncluster_contigs)
+
+    ltr_cons_path = redundant_ltr + '.tmp.cons'
+    store_fasta(all_cons, ltr_cons_path)
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    # print("Running time of MSA cons: %.8s s" % (dtime))
+    if not debug:
+        os.system('rm -f ' + uncluster_path)
+        os.system('rm -rf ' + cluster_dir)
+
+    ltr_cons_cons = redundant_ltr + '.cons'
+    # 调用 cd-hit-est 合并碎片化序列
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(coverage_threshold) \
+                     + ' -G 0 -g 1 -A 80 -i ' + ltr_cons_path + ' -o ' + ltr_cons_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command + ' > /dev/null 2>&1')
+
+    #rename_fasta(ltr_cons_path, ltr_cons_path, 'LTR')
+    return ltr_cons_path
+
+def FMEA_new(query_contigs, query_records, full_length_threshold):
+    # 我们现在尝试新的策略，直接在生成簇的时候进行扩展，同时新的比对片段和所有的扩展片段进行比较，判断是否可以扩展
+    longest_repeats = {}
+    for idx, query_name in enumerate(query_records.keys()):
+        subject_dict = query_records[query_name]
+
+        if query_name not in query_contigs:
+            continue
+        query_len = len(query_contigs[query_name])
+        skip_gap = query_len * (1 - full_length_threshold)
+
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            subject_pos = subject_dict[subject_name]
+
+            # cluster all closed fragments, split forward and reverse records
+            forward_pos = []
+            reverse_pos = []
+            for pos_item in subject_pos:
+                if pos_item[2] > pos_item[3]:
+                    reverse_pos.append(pos_item)
+                else:
+                    forward_pos.append(pos_item)
+            forward_pos.sort(key=lambda x: (x[2], x[3]))
+            reverse_pos.sort(key=lambda x: (-x[2], -x[3]))
+
+            forward_long_frags = {}
+            frag_index_array = []
+            frag_index = 0
+            for k, frag in enumerate(forward_pos):
+                is_update = False
+                cur_subject_start = frag[2]
+                cur_subject_end = frag[3]
+                cur_query_start = frag[0]
+                cur_query_end = frag[1]
+                for cur_frag_index in reversed(frag_index_array):
+                    cur_frag = forward_long_frags[cur_frag_index]
+                    prev_subject_start = cur_frag[2]
+                    prev_subject_end = cur_frag[3]
+                    prev_query_start = cur_frag[0]
+                    prev_query_end = cur_frag[1]
+
+                    if cur_subject_start - prev_subject_end >= skip_gap:
+                        break
+
+                    if cur_subject_end > prev_subject_end:
+                        # forward extend
+                        if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                and cur_subject_start - prev_subject_end < skip_gap:  # \
+                            # extend frag
+                            prev_query_start = prev_query_start if prev_query_start < cur_query_start else cur_query_start
+                            prev_query_end = cur_query_end
+                            prev_subject_start = prev_subject_start if prev_subject_start < cur_subject_start else cur_subject_start
+                            prev_subject_end = cur_subject_end
+                            extend_frag = (prev_query_start, prev_query_end, prev_subject_start, prev_subject_end, subject_name)
+                            forward_long_frags[cur_frag_index] = extend_frag
+                            is_update = True
+                if not is_update:
+                    frag_index_array.append(frag_index)
+                    forward_long_frags[frag_index] = (cur_query_start, cur_query_end, cur_subject_start, cur_subject_end, subject_name)
+                    frag_index += 1
+            longest_queries += list(forward_long_frags.values())
+
+            reverse_long_frags = {}
+            frag_index_array = []
+            frag_index = 0
+            for k, frag in enumerate(reverse_pos):
+                is_update = False
+                cur_subject_start = frag[2]
+                cur_subject_end = frag[3]
+                cur_query_start = frag[0]
+                cur_query_end = frag[1]
+                for cur_frag_index in reversed(frag_index_array):
+                    cur_frag = reverse_long_frags[cur_frag_index]
+                    prev_subject_start = cur_frag[2]
+                    prev_subject_end = cur_frag[3]
+                    prev_query_start = cur_frag[0]
+                    prev_query_end = cur_frag[1]
+
+                    if prev_subject_end - cur_subject_start >= skip_gap:
+                        break
+
+                    # reverse
+                    if cur_subject_end < prev_subject_end:
+                        # reverse extend
+                        if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                and prev_subject_end - cur_subject_start < skip_gap:  # \
+                            # extend frag
+                            prev_query_start = prev_query_start
+                            prev_query_end = cur_query_end
+                            prev_subject_start = prev_subject_start if prev_subject_start > cur_subject_start else cur_subject_start
+                            prev_subject_end = cur_subject_end
+                            extend_frag = (prev_query_start, prev_query_end, prev_subject_start, prev_subject_end, subject_name)
+                            reverse_long_frags[cur_frag_index] = extend_frag
+                            is_update = True
+                if not is_update:
+                    frag_index_array.append(frag_index)
+                    reverse_long_frags[frag_index] = (cur_query_start, cur_query_end, cur_subject_start, cur_subject_end, subject_name)
+                    frag_index += 1
+            longest_queries += list(reverse_long_frags.values())
+
+        if not longest_repeats.__contains__(query_name):
+            longest_repeats[query_name] = []
+        cur_longest_repeats = longest_repeats[query_name]
+        for repeat in longest_queries:
+            # Subject序列处理流程
+            subject_name = repeat[4]
+            old_subject_start_pos = repeat[2] - 1
+            old_subject_end_pos = repeat[3]
+            # Query序列处理流程
+            old_query_start_pos = repeat[0] - 1
+            old_query_end_pos = repeat[1]
+            cur_query_seq_len = abs(old_query_end_pos - old_query_start_pos)
+            cur_longest_repeats.append((query_name, old_query_start_pos, old_query_end_pos, subject_name, old_subject_start_pos, old_subject_end_pos))
+
+    return longest_repeats
+
+def generate_cons_v1(cluster_id, cur_cluster_path, cluster_dir, threads):
+    ltr_terminal_names, ltr_terminal_contigs = read_fasta(cur_cluster_path)
+    temp_cluster_dir = cluster_dir
+    cons_contigs = {}
+    if len(ltr_terminal_contigs) >= 1:
+        align_file = cur_cluster_path + '.maf.fa'
+        align_command = 'cd ' + cluster_dir + ' && mafft --preservecase --quiet --thread ' + str(threads) + ' ' + cur_cluster_path + ' > ' + align_file
+        # align_command = 'cd ' + cluster_dir + ' && famsa -t ' + str(threads) + ' -medoidtree ' + cur_cluster_path + ' ' + align_file + ' > /dev/null 2>&1'
+        os.system(align_command)
+
+        # 调用 Ninja 对多序列比对再次聚类
+        cluster_file = align_file + '.dat'
+        Ninja_command = 'Ninja --in ' + align_file + ' --out ' + cluster_file + ' --out_type c --corr_type m --cluster_cutoff 0.2 --threads ' + str(threads)
+        os.system(Ninja_command + ' > /dev/null 2>&1')
+
+        # 解析聚类文件，生成不同簇
+        Ninja_cluster_dir = temp_cluster_dir + '/Ninja_' + str(cluster_id)
+        if not os.path.exists(Ninja_cluster_dir):
+            os.makedirs(Ninja_cluster_dir)
+        clusters = read_Ninja_clusters(cluster_file)
+        for cur_cluster_id in clusters.keys():
+            cur_cluster_file = Ninja_cluster_dir + '/' + str(cur_cluster_id) + '.fa'
+            cur_cluster_contigs = {}
+            cur_ltr_name = ''
+            for name in clusters[cur_cluster_id]:
+                seq = ltr_terminal_contigs[name]
+                cur_cluster_contigs[name] = seq
+                cur_ltr_name = name
+            store_fasta(cur_cluster_contigs, cur_cluster_file)
+
+            cur_align_file = cur_cluster_file + '.maf.fa'
+            if len(cur_cluster_contigs) >= 1:
+                align_command = 'cd ' + Ninja_cluster_dir + ' && mafft --preservecase --quiet --thread ' + str(threads) + ' ' + cur_cluster_file + ' > ' + cur_align_file
+                # align_command = 'cd ' + Ninja_cluster_dir + ' && famsa -t ' + str(threads) + ' -medoidtree ' + cur_cluster_file + ' ' + cur_align_file + ' > /dev/null 2>&1'
+                os.system(align_command)
+                cons_seq = cons_from_mafft_v1(cur_align_file)
+                cons_contigs[cur_ltr_name] = cons_seq
+    # 如果未能识别到可靠的一致性序列，则使用原始序列代替
+    if len(cons_contigs) > 0:
+        return cons_contigs
+    else:
+        return ltr_terminal_contigs
+
+def read_Ninja_clusters(cluster_file):
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            parts = line.split('\t')
+            cluster_id = int(parts[0])
+            seq_name = parts[1]
+            if cluster_id not in clusters:
+                clusters[cluster_id] = []
+            cur_cluster = clusters[cluster_id]
+            cur_cluster.append(seq_name)
+
+    return clusters
+
+def cons_from_mafft_v1(align_file):
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        return None
+
+    # Generate a consensus sequence using full-length copies.
+    first_seq = align_contigs[align_names[0]]
+    col_num = len(first_seq)
+    row_num = len(align_names)
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(align_names):
+        seq = align_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+    # Record the base composition of each column.
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # Calculate the percentage of each base in the current column.
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    ## Generate a consensus sequence.
+    model_seq = ''
+    for col_index in range(col_num):
+        base_map = col_base_map[col_index]
+        # Identify the most frequently occurring base if it exceeds the threshold valid_col_threshold.
+        max_base_count = 0
+        max_base = ''
+        for cur_base in base_map.keys():
+            if cur_base == '-':
+                continue
+            cur_count = base_map[cur_base]
+            if cur_count > max_base_count:
+                max_base_count = cur_count
+                max_base = cur_base
+        if max_base_count > int(row_num / 2):
+            if max_base != '-':
+                model_seq += max_base
+            else:
+                continue
+    return model_seq
+
+def generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log):
+    new_batch_files = []
+    for genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, RNA_seq_dict in batch_files:
+        if len(RNA_seq_dict) > 0:
+            is_PE = RNA_seq_dict['is_PE']
+            genome_name = os.path.splitext(os.path.basename(reference))[0]
+
+            if is_PE:
+                raw_RNA1 = RNA_seq_dict['raw_RNA1']
+                raw_RNA2 = RNA_seq_dict['raw_RNA2']
+                output_dir = os.path.dirname(raw_RNA1)
+                sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
+                resut_file = sorted_bam
+                if not recover or not os.path.exists(resut_file):
+                    generate_bam(genome_path=reference, genome_annotation_file=gene_gtf,
+                                             output_dir=output_dir, threads=threads, RNA_seq_dir=RNA_seq_dir, is_PE=True, raw_RNA1=raw_RNA1,
+                                             raw_RNA2=raw_RNA2)
+                else:
+                    log.logger.info(resut_file + ' exists, skip...')
+
+            else:
+                raw_RNA = RNA_seq_dict['raw_RNA']
+                output_dir = os.path.dirname(raw_RNA)
+                sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
+                resut_file = sorted_bam
+                if not recover or not os.path.exists(resut_file):
+                    generate_bam(genome_path=reference, genome_annotation_file=gene_gtf,
+                                             output_dir=output_dir, threads=threads, RNA_seq_dir=RNA_seq_dir, is_PE=False, raw_RNA=raw_RNA)
+                else:
+                    log.logger.info(resut_file + ' exists, skip...')
+
+            new_batch_files.append((genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, sorted_bam, RNA_seq_dir, is_PE))
+    return new_batch_files
+
+def generate_bam(genome_path, genome_annotation_file, output_dir, threads, RNA_seq_dir, is_PE=True, **kwargs):
+    # 2. 调用 hisat2 将RNA-seq比对到基因组上
+    genome_dir = os.path.dirname(genome_path)
+    genome_name = os.path.splitext(os.path.basename(genome_path))[0]
+    output_sam = output_dir + '/' + genome_name + '.output.sam'
+    sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
+    hisat2_build = 'cd ' + genome_dir + ' && hisat2-build ' + genome_path + ' ' + genome_name
+
+    # 1. 调用 trimmomatic 去掉低质量和测序adapter
+    if is_PE:
+        raw_RNA1 = kwargs['raw_RNA1']
+        raw_RNA2 = kwargs['raw_RNA2']
+        ILLUMINACLIP_path = '/public/home/hpc194701009/miniconda3/envs/panHiTE/share/trimmomatic/adapters/TruSeq3-PE.fa'
+        paired_trim_RNA1, paired_trim_RNA2 = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads)
+
+        os.system(hisat2_build)
+        hisat2_align = 'cd ' + genome_dir + ' && hisat2 -x ' + genome_name + ' -1 ' + paired_trim_RNA1 + ' -2 ' + paired_trim_RNA2 + ' -S ' + output_sam + ' -p ' + str(threads)
+        os.system(hisat2_align)
+    else:
+        raw_RNA = kwargs['raw_RNA']
+        ILLUMINACLIP_path = '/public/home/hpc194701009/miniconda3/envs/panHiTE/share/trimmomatic/adapters/TruSeq3-SE.fa'
+        trim_RNA = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads)
+
+        os.system(hisat2_build)
+        hisat2_align = 'cd ' + genome_dir + ' && hisat2 -x ' + genome_name + ' -U ' + trim_RNA + ' -S ' + output_sam + ' -p ' + str(threads)
+        os.system(hisat2_align)
+
+    # 3. 排序 sam 文件
+    sorted_command = 'samtools sort -o ' + sorted_bam + ' ' + output_sam
+    os.system(sorted_command)
+    return sorted_bam
+
+def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads):
+    # 1. 先获取文件的名称，以方便后续构建临时文件
+    raw_RNA1_dir = os.path.dirname(raw_RNA1)
+    raw_RNA1_filename = os.path.basename(raw_RNA1)
+    raw_RNA1_name = raw_RNA1_filename.split('.')[0]
+    paired_trim_RNA1 = raw_RNA1_dir + '/' + raw_RNA1_name + '.paired_trim.fq.gz'
+    unpaired_trim_RNA1 = raw_RNA1_dir + '/' + raw_RNA1_name + '.unpaired_trim.fq.gz'
+
+    raw_RNA2_dir = os.path.dirname(raw_RNA2)
+    raw_RNA2_filename = os.path.basename(raw_RNA2)
+    raw_RNA2_name = raw_RNA2_filename.split('.')[0]
+    paired_trim_RNA2 = raw_RNA2_dir + '/' + raw_RNA2_name + '.paired_trim.fq.gz'
+    unpaired_trim_RNA2 = raw_RNA2_dir + '/' + raw_RNA2_name + '.unpaired_trim.fq.gz'
+
+    # 2.调用 trimmomatic 去掉低质量和测序adapter
+    trimmomatic_command = 'trimmomatic PE ' + raw_RNA1 + ' ' + raw_RNA2 + ' ' + paired_trim_RNA1 + ' ' + \
+                          unpaired_trim_RNA1 + ' ' + paired_trim_RNA2 + ' ' + unpaired_trim_RNA2 + ' ' + \
+                          'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
+                          ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33 ' + '-threads ' + str(threads)
+    os.system(trimmomatic_command)
+    return paired_trim_RNA1, paired_trim_RNA2
+
+
+def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
+    # 1. 先获取文件的名称，以方便后续构建临时文件
+    raw_RNA_dir = os.path.dirname(raw_RNA)
+    raw_RNA_filename = os.path.basename(raw_RNA)
+    raw_RNA_name = raw_RNA_filename.split('.')[0]
+    trim_RNA = raw_RNA_dir + '/' + raw_RNA_name + '.trim.fq.gz'
+
+
+    # 2.调用 trimmomatic 去掉低质量和测序adapter
+    trimmomatic_command = 'trimmomatic SE ' + raw_RNA + ' ' + trim_RNA + ' ' + \
+                          'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
+                          ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33 ' + '-threads ' + str(threads)
+    os.system(trimmomatic_command)
+    return trim_RNA
+
+def run_featurecounts(output_dir, RNA_seq_dir, sorted_bam, gene_gtf, genome_name, is_PE, recover, log):
+    gene_express_count = output_dir + '/' + genome_name + '.count'
+    resut_file = gene_express_count
+    if not recover or not os.path.exists(resut_file):
+        featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_seq_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
+                            ' --isPairedEnd ' + str(is_PE)
+        os.system(featurecounts_cmd)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+    return gene_express_count
+
+def quantitative_gene(new_batch_files, output_dir, threads, recover, log):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    job_id = 0
+    ex = ProcessPoolExecutor(threads)
+    objs = []
+    for genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, sorted_bam, RNA_seq_dir, is_PE in new_batch_files:
+        obj = ex.submit(run_featurecounts, output_dir, RNA_seq_dir, sorted_bam, gene_gtf, genome_name, is_PE, recover, log)
+        objs.append(obj)
+        job_id += 1
+    ex.shutdown(wait=True)
+    gene_express_counts = []
+    for obj in as_completed(objs):
+        cur_gene_express_count = obj.result()
+        gene_express_counts.append(cur_gene_express_count)
+
+    output_table = output_dir + '/gene_express.table'
+    merge_gene_express_table(gene_express_counts, output_table)
+    return output_table
+
+def merge_gene_express_table(gene_express_counts, output_table):
+    TE_families = set()
+    samples = set()
+    TE_express = {}
+    for cur_count_file in gene_express_counts:
+        file_name = os.path.basename(cur_count_file)
+        sample_name = file_name.replace('.count', '')
+        samples.add(sample_name)
+        with open(cur_count_file, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i == 0:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                te_name = str(te_name).split('_')[-1]
+                TE_families.add(te_name)
+                counts = parts[1]
+                fpkm = "{:.2f}".format(float(parts[2]))
+                tpm = "{:.2f}".format(float(parts[3]))
+                if te_name not in TE_express:
+                    TE_express[te_name] = {}
+                cur_TE_express = TE_express[te_name]
+                cur_TE_express[sample_name] = counts + ',' + fpkm + ',' + tpm
+
+    with open(output_table, 'w') as f_save:
+        header = 'gene_id\t'
+        for i, sample in enumerate(samples):
+            if i != len(samples) - 1:
+                header += sample + '\t'
+            else:
+                header += sample + '\n'
+        f_save.write(header)
+
+        for te_name in TE_express.keys():
+            f_save.write(te_name + '\t')
+            cur_TE_express = TE_express[te_name]
+            for i, sample_name in enumerate(samples):
+                if sample_name in cur_TE_express:
+                    express_value = cur_TE_express[sample_name]
+                else:
+                    express_value = 'NA,NA,NA'
+                if i != len(samples) - 1:
+                    f_save.write(express_value + '\t')
+                else:
+                    f_save.write(express_value + '\n')
+
+def summary_TEs(batch_files, genome_dir, panTE_lib, output_dir, intact_ltr_paths, recover, log):
+    # 找到 core TEs (出现在100%的基因组)，softcore TEs (出现在80%以上基因组)，dispensable TEs (出现 2个-80%基因组)，private TEs (出现在1个基因组)
+    genome_num = len(batch_files)
+    genome_num_threshold = int(0.8 * genome_num)
+
+    # 获取 TE_name 和 TE_class的对应关系
+    te_classes, new_te_contigs = get_TE_class(panTE_lib)
+
+    # 统计 TE 出现的拷贝次数 和 length coverage
+    pan_te_fl_infos, pan_te_total_infos, pan_te_full_length_annotations = get_panTE_info(batch_files, panTE_lib, te_classes, genome_dir)
+
+    # 获取 TE 出现在多少个不同的基因组
+    te_fl_occur_genomes, te_occur_genomes = get_te_occur_genomes(new_te_contigs, pan_te_fl_infos, pan_te_total_infos)
+
+    # 将 TE 分成 core, softcore, dispensable, private, unknown
+    (core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes, unknown_fl_tes,
+     core_tes, softcore_tes, dispensable_tes, private_tes,
+     unknown_tes) = get_core_softcore_dispensable_private_uknown_TEs(new_te_contigs, te_fl_occur_genomes,
+                                                                     te_occur_genomes, genome_num, genome_num_threshold)
+
+    genome_names = list(pan_te_total_infos.keys())
+    all_class_names = list(set(te_classes.values()))
+
+    pdf_files = []
+    output_full_length_pdf = output_dir + '/TEs_ratio.full_length.pdf'
+    output_pdf = output_dir + '/TEs_ratio.all.pdf'
+    draw_four_types_TE_ratio(core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes,
+                             core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf)
+    pdf_files.append(output_full_length_pdf)
+    pdf_files.append(output_pdf)
+
+
+    output_full_length_pdf = output_dir + '/TEs_coverage.full_length.pdf'
+    output_pdf = output_dir + '/TEs_coverage.all.pdf'
+    draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softcore_fl_tes, dispensable_fl_tes,
+                                private_fl_tes,
+                                pan_te_total_infos, core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf)
+    pdf_files.append(output_full_length_pdf)
+    pdf_files.append(output_pdf)
+
+
+    output_full_length_pdf = output_dir + '/TEclasses_ratio.full_length.pdf'
+    output_pdf = output_dir + '/TEclasses_ratio.all.pdf'
+    draw_four_types_TE_class_ratio(te_classes, core_fl_tes, softcore_fl_tes, dispensable_fl_tes,
+                                  private_fl_tes, unknown_fl_tes, core_tes, softcore_tes, dispensable_tes,
+                                  private_tes, unknown_tes, output_full_length_pdf, output_pdf)
+    pdf_files.append(output_full_length_pdf)
+    pdf_files.append(output_pdf)
+
+
+    output_full_length_pdf = output_dir + '/TEclasses_coverage.full_length.pdf'
+    output_pdf = output_dir + '/TEclasses_coverage.all.pdf'
+    draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes, pan_te_fl_infos, pan_te_total_infos, output_full_length_pdf, output_pdf)
+    pdf_files.append(output_full_length_pdf)
+    pdf_files.append(output_pdf)
+
+    # 计算每个 genome 上的intact LTR插入时间
+    output_pdf = output_dir + '/intact_LTR_insert_time.pdf'
+    draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
+    pdf_files.append(output_pdf)
+
+    # 合并成一个Pdf
+    TE_summary_pdf = output_dir + '/TE_summary.pdf'
+    merger = PdfMerger()
+    for pdf in pdf_files:
+        merger.append(pdf)
+    merger.write(TE_summary_pdf)
+    merger.close()
+
+
+    # 为每个基因组生成一个全长 TE 注释，并且标注出是属于哪一类型的TE (core, softcore, ...)
+    if log is not None:
+        log.logger.info('Start generating full length annotation for each genome...')
+    get_panTE_full_length_annotation(pan_te_full_length_annotations, core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes, output_dir, recover, log)
+
+def draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes,
+                                pan_te_total_infos, core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf):
+    # 计算四种类型的全长 TE 分别覆盖每个基因组的比例，并画出所有基因组上的饼图比例
+    fl_genome_coverage_core = {}
+    fl_genome_coverage_softcore = {}
+    fl_genome_coverage_dispensable = {}
+    fl_genome_coverage_private = {}
+    for genome_name in pan_te_fl_infos.keys():
+        if genome_name not in fl_genome_coverage_core:
+            fl_genome_coverage_core[genome_name] = 0
+        cur_fl_coverage_core = fl_genome_coverage_core[genome_name]
+        if genome_name not in fl_genome_coverage_softcore:
+            fl_genome_coverage_softcore[genome_name] = 0
+        cur_fl_coverage_softcore = fl_genome_coverage_softcore[genome_name]
+        if genome_name not in fl_genome_coverage_dispensable:
+            fl_genome_coverage_dispensable[genome_name] = 0
+        cur_fl_coverage_dispensable = fl_genome_coverage_dispensable[genome_name]
+        if genome_name not in fl_genome_coverage_private:
+            fl_genome_coverage_private[genome_name] = 0
+        cur_fl_coverage_private = fl_genome_coverage_private[genome_name]
+
+        for te_name in core_fl_tes.keys():
+            te_fl_infos = pan_te_fl_infos[genome_name]
+            if te_name in te_fl_infos:
+                cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+                fl_genome_coverage_core[genome_name] = cur_fl_coverage_core + cur_fl_length
+
+        for te_name in softcore_fl_tes.keys():
+            te_fl_infos = pan_te_fl_infos[genome_name]
+            if te_name in te_fl_infos:
+                cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+                fl_genome_coverage_softcore[genome_name] = cur_fl_coverage_softcore + cur_fl_length
+
+        for te_name in dispensable_fl_tes.keys():
+            te_fl_infos = pan_te_fl_infos[genome_name]
+            if te_name in te_fl_infos:
+                cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+                fl_genome_coverage_dispensable[genome_name] = cur_fl_coverage_dispensable + cur_fl_length
+
+        for te_name in private_fl_tes.keys():
+            te_fl_infos = pan_te_fl_infos[genome_name]
+            if te_name in te_fl_infos:
+                cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+                fl_genome_coverage_private[genome_name] = cur_fl_coverage_private + cur_fl_length
+
+    # print(fl_genome_coverage_core)
+    # print(fl_genome_coverage_softcore)
+    # print(fl_genome_coverage_dispensable)
+    # print(fl_genome_coverage_private)
+
+    sizes_list = []
+    labels_list = []
+    genome_names = []
+    title = 'Full length TE Coverage'
+    for genome_name in pan_te_fl_infos.keys():
+        cur_sizes = []
+        cur_labels = []
+        coverage_core = fl_genome_coverage_core[genome_name]
+        cur_sizes.append(coverage_core)
+        cur_labels.append('Core TEs')
+        coverage_softcore = fl_genome_coverage_softcore[genome_name]
+        cur_sizes.append(coverage_softcore)
+        cur_labels.append('Softcore TEs')
+        coverage_dispensable = fl_genome_coverage_dispensable[genome_name]
+        cur_sizes.append(coverage_dispensable)
+        cur_labels.append('Dispensable TEs')
+        coverage_private = fl_genome_coverage_private[genome_name]
+        cur_sizes.append(coverage_private)
+        cur_labels.append('Private TEs')
+        sizes_list.append(cur_sizes)
+        labels_list.append(cur_labels)
+        genome_names.append(genome_name)
+    draw_multiple_pie(genome_num, sizes_list, labels_list, genome_names, title, output_full_length_pdf)
+    # =====================================================================
+    # 计算四种类型的 TE 分别覆盖每个基因组的比例，并画出每个基因组的饼图
+    genome_coverage_core = {}
+    genome_coverage_softcore = {}
+    genome_coverage_dispensable = {}
+    genome_coverage_private = {}
+    for genome_name in pan_te_total_infos.keys():
+        if genome_name not in genome_coverage_core:
+            genome_coverage_core[genome_name] = 0
+        cur_coverage_core = genome_coverage_core[genome_name]
+        if genome_name not in genome_coverage_softcore:
+            genome_coverage_softcore[genome_name] = 0
+        cur_coverage_softcore = genome_coverage_softcore[genome_name]
+        if genome_name not in genome_coverage_dispensable:
+            genome_coverage_dispensable[genome_name] = 0
+        cur_coverage_dispensable = genome_coverage_dispensable[genome_name]
+        if genome_name not in genome_coverage_private:
+            genome_coverage_private[genome_name] = 0
+        cur_coverage_private = genome_coverage_private[genome_name]
+
+        for te_name in core_tes.keys():
+            te_total_infos = pan_te_total_infos[genome_name]
+            if te_name in te_total_infos:
+                cur_copy_num, cur_length = te_total_infos[te_name]
+                genome_coverage_core[genome_name] = cur_coverage_core + cur_length
+
+        for te_name in softcore_tes.keys():
+            te_total_infos = pan_te_total_infos[genome_name]
+            if te_name in te_total_infos:
+                cur_copy_num, cur_length = te_total_infos[te_name]
+                genome_coverage_softcore[genome_name] = cur_coverage_softcore + cur_length
+
+        for te_name in dispensable_tes.keys():
+            te_total_infos = pan_te_total_infos[genome_name]
+            if te_name in te_total_infos:
+                cur_copy_num, cur_length = te_total_infos[te_name]
+                genome_coverage_dispensable[genome_name] = cur_coverage_dispensable + cur_length
+
+        for te_name in private_tes.keys():
+            te_total_infos = pan_te_total_infos[genome_name]
+            if te_name in te_total_infos:
+                cur_copy_num, cur_length = te_total_infos[te_name]
+                genome_coverage_private[genome_name] = cur_coverage_private + cur_length
+
+    # print(genome_coverage_core)
+    # print(genome_coverage_softcore)
+    # print(genome_coverage_dispensable)
+    # print(genome_coverage_private)
+
+    sizes_list = []
+    labels_list = []
+    genome_names = []
+    title = 'TE Coverage'
+    for genome_name in pan_te_total_infos.keys():
+        cur_sizes = []
+        cur_labels = []
+        coverage_core = genome_coverage_core[genome_name]
+        cur_sizes.append(coverage_core)
+        cur_labels.append('Core TEs')
+        coverage_softcore = genome_coverage_softcore[genome_name]
+        cur_sizes.append(coverage_softcore)
+        cur_labels.append('Softcore TEs')
+        coverage_dispensable = genome_coverage_dispensable[genome_name]
+        cur_sizes.append(coverage_dispensable)
+        cur_labels.append('Dispensable TEs')
+        coverage_private = genome_coverage_private[genome_name]
+        cur_sizes.append(coverage_private)
+        cur_labels.append('Private TEs')
+        sizes_list.append(cur_sizes)
+        labels_list.append(cur_labels)
+        genome_names.append(genome_name)
+    draw_multiple_pie(genome_num, sizes_list, labels_list, genome_names, title, output_pdf)
+    return genome_names
+
+def draw_four_types_TE_class_ratio(te_classes, core_fl_tes, softcore_fl_tes, dispensable_fl_tes,
+                                   private_fl_tes, unknown_fl_tes, core_tes, softcore_tes, dispensable_tes,
+                                   private_tes, unknown_tes, output_full_length_pdf, output_pdf):
+    # 统计全长 TEs 中，四种类型的TEs，每一种的 TE class 数量
+    core_te_class_num = {}
+    for te_name in core_fl_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in core_te_class_num:
+            core_te_class_num[cur_class_name] = 0
+        cur_te_class_num = core_te_class_num[cur_class_name]
+        core_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    softcore_te_class_num = {}
+    for te_name in softcore_fl_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in softcore_te_class_num:
+            softcore_te_class_num[cur_class_name] = 0
+        cur_te_class_num = softcore_te_class_num[cur_class_name]
+        softcore_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    dispensable_te_class_num = {}
+    for te_name in dispensable_fl_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in dispensable_te_class_num:
+            dispensable_te_class_num[cur_class_name] = 0
+        cur_te_class_num = dispensable_te_class_num[cur_class_name]
+        dispensable_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    private_te_class_num = {}
+    for te_name in private_fl_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in private_te_class_num:
+            private_te_class_num[cur_class_name] = 0
+        cur_te_class_num = private_te_class_num[cur_class_name]
+        private_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    unknown_te_class_num = {}
+    for te_name in unknown_fl_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in unknown_te_class_num:
+            unknown_te_class_num[cur_class_name] = 0
+        cur_te_class_num = unknown_te_class_num[cur_class_name]
+        unknown_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    # print(core_te_class_num)
+    # print(softcore_te_class_num)
+    # print(dispensable_te_class_num)
+    # print(private_te_class_num)
+    # print(unknown_te_class_num)
+
+    all_class_names = list(set(te_classes.values()))
+    labels = ['Core TEs', 'Softcore TEs', 'Dispensable TEs', 'Private TEs']
+    data_list = []
+    for cur_class_name in all_class_names:
+        cur_data_list = []
+        if cur_class_name in core_te_class_num:
+            core_num = core_te_class_num[cur_class_name]
+        else:
+            core_num = 0
+        cur_data_list.append(core_num)
+        if cur_class_name in softcore_te_class_num:
+            softcore_num = softcore_te_class_num[cur_class_name]
+        else:
+            softcore_num = 0
+        cur_data_list.append(softcore_num)
+        if cur_class_name in dispensable_te_class_num:
+            dispensable_num = dispensable_te_class_num[cur_class_name]
+        else:
+            dispensable_num = 0
+        cur_data_list.append(dispensable_num)
+        if cur_class_name in private_te_class_num:
+            private_num = private_te_class_num[cur_class_name]
+        else:
+            private_num = 0
+        cur_data_list.append(private_num)
+        data_list.append(cur_data_list)
+    draw_stacked_bar_chart(labels, data_list, all_class_names, 'Full length TE Classes Ratio', output_full_length_pdf)
+
+    # 统计所有 TEs 中，四种类型的TEs，每一种的 TE class 数量
+    core_te_class_num = {}
+    for te_name in core_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in core_te_class_num:
+            core_te_class_num[cur_class_name] = 0
+        cur_te_class_num = core_te_class_num[cur_class_name]
+        core_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    softcore_te_class_num = {}
+    for te_name in softcore_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in softcore_te_class_num:
+            softcore_te_class_num[cur_class_name] = 0
+        cur_te_class_num = softcore_te_class_num[cur_class_name]
+        softcore_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    dispensable_te_class_num = {}
+    for te_name in dispensable_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in dispensable_te_class_num:
+            dispensable_te_class_num[cur_class_name] = 0
+        cur_te_class_num = dispensable_te_class_num[cur_class_name]
+        dispensable_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    private_te_class_num = {}
+    for te_name in private_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in private_te_class_num:
+            private_te_class_num[cur_class_name] = 0
+        cur_te_class_num = private_te_class_num[cur_class_name]
+        private_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    unknown_te_class_num = {}
+    for te_name in unknown_tes.keys():
+        cur_class_name = te_classes[te_name]
+        if cur_class_name not in unknown_te_class_num:
+            unknown_te_class_num[cur_class_name] = 0
+        cur_te_class_num = unknown_te_class_num[cur_class_name]
+        unknown_te_class_num[cur_class_name] = cur_te_class_num + 1
+
+    # print(core_te_class_num)
+    # print(softcore_te_class_num)
+    # print(dispensable_te_class_num)
+    # print(private_te_class_num)
+    # print(unknown_te_class_num)
+
+    all_class_names = list(set(te_classes.values()))
+    labels = ['Core TEs', 'Softcore TEs', 'Dispensable TEs', 'Private TEs']
+    data_list = []
+    for cur_class_name in all_class_names:
+        cur_data_list = []
+        if cur_class_name in core_te_class_num:
+            core_num = core_te_class_num[cur_class_name]
+        else:
+            core_num = 0
+        cur_data_list.append(core_num)
+        if cur_class_name in softcore_te_class_num:
+            softcore_num = softcore_te_class_num[cur_class_name]
+        else:
+            softcore_num = 0
+        cur_data_list.append(softcore_num)
+        if cur_class_name in dispensable_te_class_num:
+            dispensable_num = dispensable_te_class_num[cur_class_name]
+        else:
+            dispensable_num = 0
+        cur_data_list.append(dispensable_num)
+        if cur_class_name in private_te_class_num:
+            private_num = private_te_class_num[cur_class_name]
+        else:
+            private_num = 0
+        cur_data_list.append(private_num)
+        data_list.append(cur_data_list)
+    draw_stacked_bar_chart(labels, data_list, all_class_names, 'TE Classes Ratio', output_pdf)
+    return all_class_names
+
+def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes, pan_te_fl_infos, pan_te_total_infos, output_full_length_pdf, output_pdf):
+    # 统计每个基因组的各种类型的全长TE的占比,绘制横向堆叠柱状图
+    genome_fl_te_class_coverages = {}
+    for genome_name in pan_te_fl_infos.keys():
+        if genome_name not in genome_fl_te_class_coverages:
+            genome_fl_te_class_coverages[genome_name] = {}
+        cur_genome_fl_te_class_coverage = genome_fl_te_class_coverages[genome_name]
+        te_fl_infos = pan_te_fl_infos[genome_name]
+        for te_name in te_fl_infos.keys():
+            cur_class_name = te_classes[te_name]
+            cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+
+            if cur_class_name not in cur_genome_fl_te_class_coverage:
+                cur_genome_fl_te_class_coverage[cur_class_name] = 0
+            cur_class_coverage = cur_genome_fl_te_class_coverage[cur_class_name]
+            cur_genome_fl_te_class_coverage[cur_class_name] = cur_class_coverage + cur_fl_length
+    # print(genome_fl_te_class_coverages)
+    labels = genome_names
+    data_list = []
+    for cur_class_name in all_class_names:
+        cur_data_list = []
+        for genome_name in genome_names:
+            cur_genome_fl_te_class_coverage = genome_fl_te_class_coverages[genome_name]
+            if cur_class_name in cur_genome_fl_te_class_coverage:
+                cur_class_coverage = cur_genome_fl_te_class_coverage[cur_class_name]
+            else:
+                cur_class_coverage = 0
+            cur_data_list.append(cur_class_coverage / 1000000)
+        data_list.append(cur_data_list)
+    draw_horizontal_stacked_bar_chart(labels, data_list, all_class_names, 'Full length TE Classes Coverage', output_full_length_pdf)
+
+    # 统计每个基因组的各种类型的TE的占比,绘制横向堆叠柱状图
+    genome_te_class_coverages = {}
+    for genome_name in pan_te_total_infos.keys():
+        if genome_name not in genome_te_class_coverages:
+            genome_te_class_coverages[genome_name] = {}
+        cur_genome_te_class_coverage = genome_te_class_coverages[genome_name]
+        te_total_infos = pan_te_total_infos[genome_name]
+        for te_name in te_total_infos.keys():
+            cur_class_name = te_classes[te_name]
+            cur_copy_num, cur_length = te_total_infos[te_name]
+
+            if cur_class_name not in cur_genome_te_class_coverage:
+                cur_genome_te_class_coverage[cur_class_name] = 0
+            cur_class_coverage = cur_genome_te_class_coverage[cur_class_name]
+            cur_genome_te_class_coverage[cur_class_name] = cur_class_coverage + cur_length
+    # print(genome_te_class_coverages)
+    labels = genome_names
+    data_list = []
+    for cur_class_name in all_class_names:
+        cur_data_list = []
+        for genome_name in genome_names:
+            cur_genome_te_class_coverage = genome_te_class_coverages[genome_name]
+            if cur_class_name in cur_genome_te_class_coverage:
+                cur_class_coverage = cur_genome_te_class_coverage[cur_class_name]
+            else:
+                cur_class_coverage = 0
+            cur_data_list.append(cur_class_coverage / 1000000)
+        data_list.append(cur_data_list)
+    draw_horizontal_stacked_bar_chart(labels, data_list, all_class_names, 'TE Classes Coverage', output_pdf)
+
+def get_panTE_full_length_annotation(pan_te_full_length_annotations, core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes, output_dir, recover, log):
+    for genome_name in pan_te_full_length_annotations.keys():
+        full_length_gff_path = output_dir + '/' + genome_name + '.full_length.gff'
+        resut_file = full_length_gff_path
+        if not recover or not os.path.exists(resut_file):
+            full_length_annotations = pan_te_full_length_annotations[genome_name]
+            TE_gff = output_dir + '/' + genome_name + '.temp.gff'
+            intact_count = 0
+            with open(TE_gff, 'w') as f_save:
+                for query_name in full_length_annotations.keys():
+                    if query_name in core_fl_tes:
+                        type = 'Core_TEs'
+                    elif query_name in softcore_fl_tes:
+                        type = 'Softcore_TEs'
+                    elif query_name in dispensable_fl_tes:
+                        type = 'Dispensable_TEs'
+                    elif query_name in private_fl_tes:
+                        type = 'Private_TEs'
+                    else:
+                        type = 'Unknown_TEs'
+                    for copy_annotation in full_length_annotations[query_name]:
+                        classification = copy_annotation[0]
+                        chr_name = copy_annotation[1]
+                        chr_start = str(copy_annotation[2] + 1)
+                        chr_end = str(copy_annotation[3])
+                        intact_count += 1
+                        update_annotation = 'id=te_intact_' + str(
+                            intact_count) + ';name=' + query_name + ';classification=' + classification + ';type=' + type
+                        f_save.write(
+                            chr_name + '\t' + 'HiTE' + '\t' + classification + '\t' + chr_start + '\t' + chr_end + '\t' + '.\t' +
+                            str(copy_annotation[4]) + '\t' + '.\t' + update_annotation + '\n')
+
+            os.system('sort -k1,1 -k4n ' + TE_gff + ' > ' + full_length_gff_path)
+            gff_lines = []
+            with open(full_length_gff_path, 'r') as f_r:
+                for line in f_r:
+                    if line.startswith('#'):
+                        continue
+                    gff_lines.append(line)
+
+            date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+            header = (
+                "##gff-version 3\n"
+                f"##date {date}\n"
+            )
+            with open(full_length_gff_path, "w") as gff_file:
+                gff_file.write(header)
+                for line in gff_lines:
+                    gff_file.write(line)
+            os.remove(TE_gff)
+        else:
+            if log is not None:
+                log.logger.info(resut_file + ' exists, skip...')
+
+def draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf):
+    # 初始化列表，用于存储每个 genome_name 的插入时间数据
+    all_data = []
+    for file in intact_ltr_paths:
+        directory_name = os.path.basename(os.path.dirname(file))
+        genome_name = directory_name.replace('HiTE_', '')
+
+        # 读取 CSV 文件并跳过 # 注释行
+        df = pd.read_csv(file, sep='\t', comment='#',
+                         names=['LTR_loc', 'Motif', 'TSD', 'Internal', 'Identity', 'Insertion_Time', 'Classification'])
+
+        df['Insertion_Time'] = pd.to_numeric(df['Insertion_Time'], errors='coerce')
+
+        # 计算插入时间并转换为百万年，忽略 NaN
+        df['Insertion_Time'] = df['Insertion_Time'] / 1_000_000
+
+        # 为每个 genome_name 添加 Copia 和 Gypsy 的插入时间及分类信息
+        for classification in ['LTR/Copia', 'LTR/Gypsy']:
+            filtered_df = df[df['Classification'] == classification]
+            for insertion_time in filtered_df['Insertion_Time']:
+                all_data.append([genome_name, insertion_time, classification])
+
+    # 将数据转换为 DataFrame
+    all_data_df = pd.DataFrame(all_data, columns=['Genome', 'Insertion_Time', 'Classification'])
+    print('all_data_df:')
+    print(all_data_df)
+
+    # 绘制箱线图，使用 hue 区分 LTR/Copia 和 LTR/Gypsy
+    plt.figure(figsize=(15, 15))
+    medianprops = {'color': 'black', 'linewidth': 2.5}  # 中位数线样式
+    ax = sns.boxplot(x='Genome', y='Insertion_Time', hue='Classification', data=all_data_df,
+                     showfliers=False, medianprops=medianprops)
+
+    # 图形调整
+    plt.ylabel('Million years ago (Mya)')
+    plt.title('Insertion Time for LTR/Copia and LTR/Gypsy across Genomes')
+    plt.xticks(rotation=90)  # 如果 genome_name 太长，可以旋转 x 轴标签
+    plt.tight_layout()
+
+    # 保存图表
+    plt.savefig(output_pdf)
+    plt.close()
+
+def get_TE_class(panTE_lib):
+    te_classes = {}
+    te_names, te_contigs = read_fasta(panTE_lib)
+    new_te_contigs = {}
+    for name in te_names:
+        parts = name.split('#')
+        raw_name = parts[0]
+        class_name = parts[1]
+        new_te_contigs[raw_name] = te_contigs[name]
+        te_classes[raw_name] = class_name
+    return te_classes, new_te_contigs
+
+def get_panTE_info(gff_paths, panTE_lib, te_classes, genome_dir):
+    pan_te_fl_infos = {}
+    pan_te_total_infos = {}
+    pan_te_full_length_annotations = {}
+    for genome_name, reference, gff_path, full_length_gff_path, gene_gtf, RNA_seq_dict in gff_paths:
+        genome_path = genome_dir + '/' + genome_name
+        te_fl_infos, te_total_infos, full_length_annotations = get_copy_and_length_from_gff(gff_path, panTE_lib, te_classes, genome_path)
+        pan_te_fl_infos[genome_name] = te_fl_infos
+        pan_te_total_infos[genome_name] = te_total_infos
+        pan_te_full_length_annotations[genome_name] = full_length_annotations
+    return pan_te_fl_infos, pan_te_total_infos, pan_te_full_length_annotations
+
+def get_te_occur_genomes(new_te_contigs, pan_te_fl_infos, pan_te_total_infos):
+    te_fl_occur_genomes = {}
+    te_occur_genomes = {}
+    for te_name in new_te_contigs.keys():
+        for genome_name in pan_te_total_infos.keys():
+            te_fl_infos = pan_te_fl_infos[genome_name]
+            te_total_infos = pan_te_total_infos[genome_name]
+            if te_name in te_fl_infos:
+                if te_name not in te_fl_occur_genomes:
+                    te_fl_occur_genomes[te_name] = 0
+                occur_genome_count = te_fl_occur_genomes[te_name]
+                te_fl_occur_genomes[te_name] = occur_genome_count + 1
+
+            if te_name in te_total_infos:
+                if te_name not in te_occur_genomes:
+                    te_occur_genomes[te_name] = 0
+                occur_genome_count = te_occur_genomes[te_name]
+                te_occur_genomes[te_name] = occur_genome_count + 1
+    return te_fl_occur_genomes, te_occur_genomes
+
+def get_core_softcore_dispensable_private_uknown_TEs(new_te_contigs, te_fl_occur_genomes, te_occur_genomes, genome_num, genome_num_threshold):
+    core_fl_tes = {}
+    softcore_fl_tes = {}
+    dispensable_fl_tes = {}
+    private_fl_tes = {}
+    unknown_fl_tes = {}
+
+    core_tes = {}
+    softcore_tes = {}
+    dispensable_tes = {}
+    private_tes = {}
+    unknown_tes = {}
+    for te_name in new_te_contigs.keys():
+        if te_name in te_fl_occur_genomes:
+            cur_occur_num = te_fl_occur_genomes[te_name]
+            if cur_occur_num == genome_num:
+                core_fl_tes[te_name] = cur_occur_num
+            elif genome_num_threshold <= cur_occur_num < genome_num:
+                softcore_fl_tes[te_name] = cur_occur_num
+            elif 2 <= cur_occur_num < genome_num_threshold:
+                dispensable_fl_tes[te_name] = cur_occur_num
+            elif cur_occur_num == 1:
+                private_fl_tes[te_name] = cur_occur_num
+            else:
+                unknown_fl_tes[te_name] = cur_occur_num
+        else:
+            unknown_fl_tes[te_name] = 0
+
+        if te_name in te_occur_genomes:
+            cur_occur_num = te_occur_genomes[te_name]
+            if cur_occur_num == genome_num:
+                core_tes[te_name] = cur_occur_num
+            elif genome_num_threshold <= cur_occur_num < genome_num:
+                softcore_tes[te_name] = cur_occur_num
+            elif 2 <= cur_occur_num < genome_num_threshold:
+                dispensable_tes[te_name] = cur_occur_num
+            elif cur_occur_num == 1:
+                private_tes[te_name] = cur_occur_num
+            else:
+                unknown_tes[te_name] = cur_occur_num
+        else:
+            unknown_tes[te_name] = 0
+
+
+
+    # print('core_fl_tes:' + str(core_fl_tes))
+    # print('softcore_fl_tes:' + str(softcore_fl_tes))
+    # print('dispensable_fl_tes:' + str(dispensable_fl_tes))
+    # print('private_fl_tes:' + str(private_fl_tes))
+    # print('unknown_fl_tes:' + str(unknown_fl_tes))
+    # print('===========================================================================')
+    # print('core_tes:' + str(core_tes))
+    # print('softcore_tes:' + str(softcore_tes))
+    # print('dispensable_tes:' + str(dispensable_tes))
+    # print('private_tes:' + str(private_tes))
+    # print('unknown_tes:' + str(unknown_tes))
+    return (core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes, unknown_fl_tes,
+            core_tes, softcore_tes, dispensable_tes, private_tes, unknown_tes)
+
+def draw_four_types_TE_ratio(core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes,
+                             core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf):
+    # 统计四种类型的全长TE数量 占 总体TE数量的比例，并画出饼图
+    core_fl_tes_num = len(core_fl_tes)
+    softcore_fl_tes_num = len(softcore_fl_tes)
+    dispensable_fl_tes_num = len(dispensable_fl_tes)
+    private_fl_tes_num = len(private_fl_tes)
+    total_num = core_fl_tes_num + softcore_fl_tes_num + dispensable_fl_tes_num + private_fl_tes_num
+    labels = ['Core TEs', 'Softcore TEs', 'Dispensable TEs', 'Private TEs']
+    sizes = [float(core_fl_tes_num) * 100 / total_num,
+             float(softcore_fl_tes_num) * 100 / total_num,
+             float(dispensable_fl_tes_num) * 100 / total_num,
+             float(private_fl_tes_num) * 100 / total_num]
+    draw_pie(sizes, labels, output_full_length_pdf, title='Full length TEs Ratio', is_percent=True)
+
+    core_tes_num = len(core_tes)
+    softcore_tes_num = len(softcore_tes)
+    dispensable_tes_num = len(dispensable_tes)
+    private_tes_num = len(private_tes)
+    total_num = core_tes_num + softcore_tes_num + dispensable_tes_num + private_tes_num
+    labels = ['Core TEs', 'Softcore TEs', 'Dispensable TEs', 'Private TEs']
+    sizes = [float(core_tes_num) * 100 / total_num,
+             float(softcore_tes_num) * 100 / total_num,
+             float(dispensable_tes_num) * 100 / total_num,
+             float(private_tes_num) * 100 / total_num]
+    draw_pie(sizes, labels, output_pdf, title='TEs Ratio', is_percent=True)
+
+def draw_multiple_pie(sub_num, sizes_list, labels_list, genome_names, title, output_pdf):
+    # colors = ['#D53E4F', '#FC8D59', '#3288BD', '#FEE08B', '#FFFFBF', '#E6F598', '#ABDDA4', '#66C2A5', '#3288BD',
+    #           '#4A90E2', '#E94E77', '#F5A623', '#7ED321', '#BD10E0', '#003366', '#D0D0D0', '#00274D', '#F7E04C',
+    #           '#6B8E23', '#0033A0', '#E50000', '#228B22', '#C2B280', '#5B3A29', '#1E90FF', '#FF4500']
+    # colors = ['gold', 'yellowgreen', 'lightcoral', 'lightskyblue']
+
+    colors = [
+        '#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3',
+        '#ff69b4', '#00fa9a', '#add8e6', '#ff6347', '#dcdcdc', '#ff4500', '#ffb6c1', '#87ceeb',
+        '#b0e57c', '#ff8c00', '#f08080', '#ffb000', '#90ee90', '#20b2aa', '#b0c4de', '#d8bfd8',
+        '#f5deb3', '#ff1493', '#40e0d0', '#ff6347', '#ffb6c1', '#ff4500'
+    ]
+
+    k = 3 # 一行最多显示3个子图
+    num_rows = (sub_num + k - 1) // k  # 计算需要多少行
+
+    # 创建图形和子图
+    fig, axs = plt.subplots(num_rows, k, figsize=(5 * k, 5 * num_rows))
+    axs = axs.flatten()  # 展平二维数组以方便访问
+
+    for i in range(sub_num):
+        wedges, texts, autotexts = axs[i].pie(sizes_list[i], colors=colors, autopct='%1.1f%%', startangle=140)
+        axs[i].set_title(genome_names[i])
+        axs[i].legend(wedges, labels_list[i], loc="best", fontsize='small')
+
+    # 隐藏多余的子图
+    for j in range(sub_num, len(axs)):
+        axs[j].axis('off')
+
+    fig.suptitle(title, y=1, fontweight='bold')
+    # 调整布局
+    plt.tight_layout(rect=[0, 0, 0.98, 0.95])
+    plt.savefig(output_pdf)
+
+    # 显示图形
+    # plt.show()
+
+def draw_stacked_bar_chart(labels, data_list, all_class_names, title, output_pdf):
+    # colors = ['#D53E4F', '#FC8D59', '#3288BD', '#FEE08B', '#FFFFBF', '#E6F598', '#ABDDA4', '#66C2A5', '#3288BD',
+    #           '#4A90E2', '#E94E77', '#F5A623', '#7ED321', '#BD10E0', '#003366', '#D0D0D0', '#00274D', '#F7E04C',
+    #           '#6B8E23', '#0033A0', '#E50000', '#228B22', '#C2B280', '#5B3A29', '#1E90FF', '#FF4500']
+
+    # colors = sns.color_palette("husl", 28)
+
+    colors = [
+        '#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3',
+        '#ff69b4', '#00fa9a', '#add8e6', '#ff6347', '#dcdcdc', '#ff4500', '#ffb6c1', '#87ceeb',
+        '#b0e57c', '#ff8c00', '#f08080', '#ffb000', '#90ee90', '#20b2aa', '#b0c4de', '#d8bfd8',
+        '#f5deb3', '#ff1493', '#40e0d0', '#ff6347', '#ffb6c1', '#ff4500'
+    ]
+
+    # 设置柱子的宽度
+    bar_width = 0.5
+
+    # 设置x轴的位置
+    x = np.arange(len(labels))
+
+    # 绘制柱状图
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    bottom_data = np.zeros(len(x))
+    for i in range(len(data_list)):
+        # 绘制第一组数据
+        bars1 = ax.bar(x, data_list[i], bar_width, bottom=bottom_data, label=all_class_names[i], color=colors[i])
+        bottom_data += np.array(data_list[i])
+
+    # 添加标签
+    ax.set_ylabel('PanTE family number')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
+    plt.title(title, pad=20, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(output_pdf)
+    # 显示图形
+    # plt.show()
+
+def draw_horizontal_stacked_bar_chart(labels, data_list, all_class_names, title, output_pdf):
+    # colors = ['#D53E4F', '#FC8D59', '#3288BD', '#FEE08B', '#FFFFBF', '#E6F598', '#ABDDA4', '#66C2A5', '#3288BD',
+    #           '#4A90E2', '#E94E77', '#F5A623', '#7ED321', '#BD10E0', '#003366', '#D0D0D0', '#00274D', '#F7E04C',
+    #           '#6B8E23', '#0033A0', '#E50000', '#228B22', '#C2B280', '#5B3A29', '#1E90FF', '#FF4500']
+
+    # colors = sns.color_palette("husl", 28)
+
+    colors = [
+        '#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3',
+        '#ff69b4', '#00fa9a', '#add8e6', '#ff6347', '#dcdcdc', '#ff4500', '#ffb6c1', '#87ceeb',
+        '#b0e57c', '#ff8c00', '#f08080', '#ffb000', '#90ee90', '#20b2aa', '#b0c4de', '#d8bfd8',
+        '#f5deb3', '#ff1493', '#40e0d0', '#ff6347', '#ffb6c1', '#ff4500'
+    ]
+
+    # 示例数据
+    y = np.arange(len(labels))  # y 轴位置（条形图的类别）
+
+    fig, ax = plt.subplots(figsize=(15, 7))
+
+    # 初始化 left_data 为与数据长度相同的零数组
+    left_data = np.zeros(len(y))
+
+    for i in range(len(data_list)):
+        # 绘制每组数据的条形图
+        bars = ax.barh(y, data_list[i], height=0.5, left=left_data, label=all_class_names[i], color=colors[i])
+        # 更新 left_data，用于堆叠效果
+        left_data += np.array(data_list[i])
+
+    # 添加图例和标题
+    ax.set_xlabel('Length (Mb)')
+    ax.set_ylabel('Genomes')
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
+    ax.legend(loc='best')
+    plt.title(title, pad=20, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(output_pdf)
+    # plt.show()
+
+
+def get_full_length_copies_from_gff_v1(TE_lib, reference, gff_path, full_length_threshold, te_classes):
+    ref_names, ref_contigs = read_fasta(reference)
+
+    query_names, query_contigs = read_fasta(TE_lib)
+    new_query_contigs = {}
+    for name in query_names:
+        new_query_contigs[name.split('#')[0]] = query_contigs[name]
+    query_contigs = new_query_contigs
+
+    query_records = {}
+    with open(gff_path, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            parts = line.split('\t')
+            query_name = parts[8].split(' ')[1].replace('"', '').split(':')[1]
+            subject_name = parts[0]
+            info_parts = parts[8].split(' ')
+            q_start = int(info_parts[2])
+            q_end = int(info_parts[3])
+            s_start = int(parts[3])
+            s_end = int(parts[4])
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+
+    longest_repeats = FMEA_new(query_contigs, query_records, full_length_threshold)
+
+    if str(query_name).__contains__('Helitron'):
+        flanking_len = 5
+    else:
+        flanking_len = 50
+
+    full_length_annotations = {}
+    full_length_copies = {}
+    flank_full_length_copies = {}
+    for query_name in longest_repeats.keys():
+        cur_longest_repeats = longest_repeats[query_name]
+        query_len = len(query_contigs[query_name])
+        annotations = []
+        query_copies = {}
+        flank_query_copies = {}
+        for repeat in cur_longest_repeats:
+            cur_query_len = abs(repeat[2] - repeat[1])
+            if cur_query_len < full_length_threshold * query_len:
+                continue
+            # Subject
+            subject_name = repeat[3]
+            subject_chr_start = 0
+            if repeat[4] > repeat[5]:
+                direct = '-'
+                old_subject_start_pos = repeat[5]
+                old_subject_end_pos = repeat[4]
+            else:
+                direct = '+'
+                old_subject_start_pos = repeat[4]
+                old_subject_end_pos = repeat[5]
+            subject_start_pos = subject_chr_start + old_subject_start_pos
+            subject_end_pos = subject_chr_start + old_subject_end_pos
+            subject_pos = subject_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+            subject_seq = ref_contigs[subject_name][subject_start_pos: subject_end_pos]
+            flank_subject_seq = ref_contigs[subject_name][subject_start_pos - flanking_len: subject_end_pos + flanking_len]
+            query_copies[subject_pos] = subject_seq
+            flank_query_copies[subject_pos] = flank_subject_seq
+            annotations.append((te_classes[query_name], subject_name, subject_start_pos, subject_end_pos, direct))
+        full_length_copies[query_name] = query_copies
+        flank_full_length_copies[query_name] = flank_query_copies
+        full_length_annotations[query_name] = annotations
+    return full_length_copies, flank_full_length_copies, full_length_annotations
+
+def get_copy_and_length_from_gff(gff_path, panTE_lib, te_classes, reference):
+    full_length_threshold = 0.95
+    full_length_copies, flank_full_length_copies, full_length_annotations = get_full_length_copies_from_gff_v1(panTE_lib, reference, gff_path, full_length_threshold, te_classes)
+    te_names, te_contigs = read_fasta(panTE_lib)
+    new_te_contigs = {}
+    for name in te_names:
+        raw_name = name.split('#')[0]
+        new_te_contigs[raw_name] = te_contigs[name]
+
+    te_fl_infos = {}
+    for te_name in full_length_copies.keys():
+        te_cons_len = len(new_te_contigs[te_name])
+        query_copies = full_length_copies[te_name]
+        for subject_pos in query_copies.keys():
+            subject_seq = query_copies[subject_pos]
+            if len(subject_seq) / te_cons_len > 0.95:
+                if te_name not in te_fl_infos:
+                    te_fl_infos[te_name] = (0, 0)
+                cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+                cur_copy_num += 1
+                cur_fl_length += len(subject_seq)
+                te_fl_infos[te_name] = (cur_copy_num, cur_fl_length)
+
+    te_total_infos = {}
+    with open(gff_path, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            parts = line.split('\t')
+            chr_start = int(parts[3])
+            chr_end = int(parts[4])
+            te_info = parts[8]
+            te_parts = te_info.split(' ')
+            te_name = te_parts[1].replace('"', '').split(':')[1]
+            if te_name not in te_total_infos:
+                te_total_infos[te_name] = (0, 0)
+            cur_copy_num, cur_total_length = te_total_infos[te_name]
+            cur_copy_num += 1
+            cur_total_length += abs(chr_end - chr_start + 1)
+            te_total_infos[te_name] = (cur_copy_num, cur_total_length)
+
+    return te_fl_infos, te_total_infos, full_length_annotations
+
+def draw_pie(sizes, labels, output_pdf, title, is_percent):
+    fig = plt.figure(figsize=(10, 5))
+    # 数据
+    # colors = ['#D53E4F', '#FC8D59', '#3288BD', '#FEE08B', '#FFFFBF', '#E6F598', '#ABDDA4', '#66C2A5', '#3288BD',
+    #           '#4A90E2', '#E94E77', '#F5A623', '#7ED321', '#BD10E0', '#003366', '#D0D0D0', '#00274D', '#F7E04C',
+    #           '#6B8E23', '#0033A0', '#E50000', '#228B22', '#C2B280', '#5B3A29', '#1E90FF', '#FF4500']
+    # colors = ['gold', 'yellowgreen', 'lightcoral', 'lightskyblue']
+    colors = [
+        '#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3',
+        '#ff69b4', '#00fa9a', '#add8e6', '#ff6347', '#dcdcdc', '#ff4500', '#ffb6c1', '#87ceeb',
+        '#b0e57c', '#ff8c00', '#f08080', '#ffb000', '#90ee90', '#20b2aa', '#b0c4de', '#d8bfd8',
+        '#f5deb3', '#ff1493', '#40e0d0', '#ff6347', '#ffb6c1', '#ff4500'
+    ]
+
+    if is_percent:
+        # 绘制饼图
+        plt.pie(sizes, colors=colors, autopct='%1.1f%%', shadow=False, startangle=140)
+    else:
+        plt.pie(sizes, colors=colors, shadow=False, startangle=140)
+    # 使饼图为圆形
+    plt.axis('equal')
+    plt.legend(labels, loc="best")
+    plt.title(title, pad=20, fontweight='bold')
+    plt.savefig(output_pdf)
+    # 显示图表
+    # plt.show()
+
+def convertGeneAnnotation2GTF(genome_paths, script_dir, output_dir, log):
+    log.logger.info("Start convert Gene annotation Files")
+    gtf_output_dir = output_dir + '/gene_gtf_files'
+    input_files = ''
+    new_genome_paths = []
+    for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
+        input_files += gene_gtf + ' '
+        base_name = os.path.basename(gene_gtf)
+        new_gene_gtf = os.path.join(gtf_output_dir, os.path.splitext(base_name)[0] + ".gtf")
+        new_genome_paths.append((genome_name, reference, TE_gff, new_gene_gtf, RNA_seq_dict))
+    command = 'python ' + script_dir + '/makeCleanGeneGTF.py --input_files ' + input_files + ' --output_dir ' + gtf_output_dir
+    log.logger.debug(command)
+    os.system(command)
+    return new_genome_paths
+
+def run_HybridLTR(reference, tmp_output_dir, HybridLTR_home, threads, miu, recover, debug, is_output_lib, log):
+    starttime = time.time()
+    log.logger.debug('start HybridLTR detection...')
+    HybridLTR_command = 'cd ' + HybridLTR_home + ' && python main.py --genome ' + reference \
+                            + ' --out_dir ' + tmp_output_dir + ' --thread ' + str(threads) + ' --miu ' + str(miu) \
+                        + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --is_output_lib ' + str(is_output_lib)
+    log.logger.debug(HybridLTR_command)
+    os.system(HybridLTR_command)
+    endtime = time.time()
+    dtime = endtime - starttime
+    log.logger.debug("HybridLTR running time: %.8s s" % (dtime))
+
+def assign_label_to_lib(lib, intact_LTR_labels):
+    ltr_names, ltr_contigs = read_fasta(lib)
+    no_label_ltr_names = []
+    no_label_ltr_contigs = {}
+    for name in ltr_names:
+        seq = ltr_contigs[name]
+        name = name.split('#')[0].replace('-lLTR', '-LTR').replace('-rLTR', '-LTR')
+        no_label_ltr_names.append(name)
+        no_label_ltr_contigs[name] = seq
+
+    # Assign identical IDs to the same LTR and INT.
+    ltr_index = 0
+    stored_names = set()
+    confident_ltr_cut_contigs = {}
+    for name in no_label_ltr_names:
+        if name in stored_names:
+            continue
+        seq = no_label_ltr_contigs[name]
+        intact_ltr_name = name[:-4]
+        label = intact_LTR_labels[intact_ltr_name]
+        ltr_type = name[-4:]
+        new_name = 'LTR_' + str(ltr_index) + ltr_type + '#' + label
+        confident_ltr_cut_contigs[new_name] = seq
+
+        # find the other type
+        if ltr_type == '_LTR':
+            other_ltr_type = '_INT'
+        else:
+            other_ltr_type = '_LTR'
+        other_name = intact_ltr_name + other_ltr_type
+        if no_label_ltr_contigs.__contains__(other_name):
+            new_name = 'LTR_' + str(ltr_index) + other_ltr_type + '#' + label
+            confident_ltr_cut_contigs[new_name] = no_label_ltr_contigs[other_name]
+            stored_names.add(other_name)
+
+        ltr_index += 1
+    store_fasta(confident_ltr_cut_contigs, lib)
+
+def remove_no_tirs(confident_tir_path, plant, TRsearch_dir, temp_dir):
+    tir_names, tir_contigs = read_fasta(confident_tir_path)
+    # keep sequence with short tir
+    short_itr_contigs = get_short_tir_contigs(tir_contigs, plant)
+
+    # The remaining sequence is handed over to itrsearch for TIR structure searching.
+    temp_tir_path = confident_tir_path + '.no_short_tir.fa'
+    for name in short_itr_contigs.keys():
+        del tir_contigs[name]
+
+    store_fasta(tir_contigs, temp_tir_path)
+    all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, temp_tir_path, temp_dir)
+    all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
+    all_copies_out_contigs.update(short_itr_contigs)
+    temp_tir_path = confident_tir_path + '.all_tir.fa'
+    store_fasta(all_copies_out_contigs, temp_tir_path)
+
+    no_tir_contigs = {}
+    no_tir_path = confident_tir_path + '.no_tir.fa'
+    for name in tir_names:
+        if name not in all_copies_out_contigs:
+            no_tir_contigs[name] = tir_contigs[name]
+    store_fasta(no_tir_contigs, no_tir_path)
+    return temp_tir_path, no_tir_path
+
+def map_fragment(start, end, chunk_size):
+    start_chunk = start // chunk_size
+    end_chunk = end // chunk_size
+
+    if start_chunk == end_chunk:
+        return start_chunk
+    elif abs(end_chunk * chunk_size - start) < abs(end - end_chunk * chunk_size):
+        return end_chunk
+    else:
+        return start_chunk
+
+
+def multi_process_align_v2(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, chrom_length, coverage_threshold, category, is_full_length, is_removed_dir=True):
+    tools_dir = ''
+    if is_removed_dir:
+        os.system('rm -rf ' + tmp_blast_dir)
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+
+    if os.path.exists(blastnResults_path):
+        os.remove(blastnResults_path)
+
+    orig_names, orig_contigs = read_fasta(query_path)
+
+    # blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
+    # os.system(blast_db_command)
+
+    ref_names, ref_contigs = read_fasta(subject_path)
+    # Sequence alignment consumes a significant amount of memory and disk space. Therefore, we also split the target sequences into individual sequences to reduce the memory required for each alignment, avoiding out of memory errors.
+    # It is important to calculate the total number of bases in the sequences, and it must meet a sufficient threshold to increase CPU utilization.
+    base_threshold = 10000000  # 10Mb
+    target_files = []
+    file_index = 0
+    base_count = 0
+    cur_contigs = {}
+    for name in ref_names:
+        cur_seq = ref_contigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
+            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+            store_fasta(cur_contigs, cur_target)
+            target_files.append(cur_target)
+            makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
+            os.system(makedb_command)
+            cur_contigs = {}
+            file_index += 1
+            base_count = 0
+    if len(cur_contigs) > 0:
+        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
+        store_fasta(cur_contigs, cur_target)
+        target_files.append(cur_target)
+        makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
+        os.system(makedb_command)
+
+
+    longest_repeat_files = []
+    # 为了保证处理大型library时，blastn比对结果不会过大，我们保证每个簇里的序列数量为固定值
+    avg_cluster_size = 50
+    cluster_num = int(len(orig_names) / avg_cluster_size) + 1
+    segments_cluster = divided_array(list(orig_contigs.items()), cluster_num)
+    for partition_index, cur_segments in enumerate(segments_cluster):
+        if len(cur_segments) <= 0:
+            continue
+        single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
+        #print('current partition_index: ' + str(partition_index))
+        if not os.path.exists(single_tmp_dir):
+            os.makedirs(single_tmp_dir)
+        split_repeat_file = single_tmp_dir + '/repeats_split.fa'
+        cur_contigs = {}
+        for item in cur_segments:
+            cur_contigs[item[0]] = item[1]
+        store_fasta(cur_contigs, split_repeat_file)
+        repeats_path = (split_repeat_file, target_files, single_tmp_dir + '/temp.out',
+                        single_tmp_dir + '/full_length.out', single_tmp_dir + '/tmp',
+                        subject_path)
+        longest_repeat_files.append(repeats_path)
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for file in longest_repeat_files:
+        job = ex.submit(multiple_alignment_blast_v2, file, tools_dir, coverage_threshold, category, chrom_length, is_full_length)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    # 合并所有进程的结果，总体去除冗余
+    chr_segments_list = []
+    for job in as_completed(jobs):
+        cur_chr_segments = job.result()
+        chr_segments_list.append(cur_chr_segments)
+
+    # 由于可能会有多个序列比对到同一个位置，因此我们对于基因组上的某一个位置，我们只取一条比对
+    segment_len = 100000  # 100K
+    # chr_segments -> {chr1: {seg0: [(start, end, status)], seg1: []}}
+    # Status: 0 indicates that the fragment is not marked as found, while 1 indicates that the fragment is marked as found.
+    prev_chr_segments = {}
+    total_chr_len = 0
+    # Divide the chromosome evenly into N segments to store fragments in segments and reduce retrieval time.
+    for chr_name in chrom_length.keys():
+        chr_len = chrom_length[chr_name]
+        total_chr_len += chr_len
+        if not prev_chr_segments.__contains__(chr_name):
+            prev_chr_segments[chr_name] = {}
+        prev_chr_segment_list = prev_chr_segments[chr_name]
+        num_segments = chr_len // segment_len
+        if chr_len % segment_len != 0:
+            num_segments += 1
+        for i in range(num_segments):
+            prev_chr_segment_list[i] = []
+
+    for cur_chr_segments in chr_segments_list:
+        # Map the fragments to the corresponding segment,
+        # and check if there is an overlap of over 95% with the fragment in the segment.
+        for chr_name in cur_chr_segments.keys():
+            cur_chr_segment_dict = cur_chr_segments[chr_name]
+            prev_chr_segment_list = prev_chr_segments[chr_name]
+            for seg_index in cur_chr_segment_dict.keys():
+                cur_segment_frags = cur_chr_segment_dict[seg_index]
+                for cur_frag in cur_segment_frags:
+                    start = cur_frag[0]
+                    end = cur_frag[1]
+                    seq_name = cur_frag[2]
+                    coverage = cur_frag[3]
+                    seg_index = map_fragment(start, end, segment_len)
+
+                    prev_segment_frags = prev_chr_segment_list[seg_index]
+                    # Check if there is an overlap of over 95% between the fragment in the segment and the test fragment.
+                    is_found = False
+                    for prev_frag in prev_segment_frags:
+                        overlap_len = get_overlap_len(prev_frag, cur_frag)
+                        if overlap_len / abs(prev_frag[1] - prev_frag[0]) >= coverage_threshold and overlap_len / abs(
+                                end - start) >= coverage_threshold:
+                            is_found = True
+                            break
+                    if not is_found:
+                        prev_segment_frags.append([start, end, seq_name, coverage])
+
+    with open(blastnResults_path, 'w') as f_save:
+        for chr_name in prev_chr_segments.keys():
+            cur_chr_segments = prev_chr_segments[chr_name]
+            for seg_index in cur_chr_segments.keys():
+                segment_frags = cur_chr_segments[seg_index]
+                for frag in segment_frags:
+                    new_line = frag[2] + '\t' + chr_name + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + '-1' + '\t' + str(frag[0]) + '\t' + str(frag[1]) + '\t' + str(frag[3]) + '\t' + '-1' + '\n'
+                    f_save.write(new_line)
+
+    if is_removed_dir:
+        os.system('rm -rf ' + tmp_blast_dir)
+
+
+def multiple_alignment_blast_v2(repeats_path, tools_dir, coverage_threshold, category, chrom_length, is_full_length):
+    split_repeats_path = repeats_path[0]
+    target_files = repeats_path[1]
+    blastn2Results_path = repeats_path[2]
+    full_length_out = repeats_path[3]
+    tmp_dir = repeats_path[4]
+    genome_path = repeats_path[5]
+    os.system('rm -f ' + blastn2Results_path)
+    for target_file in target_files:
+        align_command = 'blastn -db ' + target_file + ' -num_threads ' \
+                        + str(1) + ' -query ' + split_repeats_path + ' -evalue 1e-20 -outfmt 6 >> ' + blastn2Results_path
+        os.system(align_command)
+
+    # invoke the function to retrieve the full-length copies.
+    lines = generate_full_length_out_v2(blastn2Results_path, full_length_out, split_repeats_path, genome_path, tmp_dir, tools_dir,
+                             coverage_threshold, category, is_full_length)
+
+    # 去除冗余的影响
+    lines = list(lines)
+    sorted_lines = sorted(lines, key=lambda x: (x[1], x[2], x[3]))
+    test_fragments = {}
+    for line in sorted_lines:
+        seq_name = line[0]
+        chr_name = line[1]
+        chr_start = line[2]
+        chr_end = line[3]
+        coverage = line[4]
+        if chr_name not in test_fragments:
+            test_fragments[chr_name] = []
+        fragments = test_fragments[chr_name]
+        fragments.append((chr_start, chr_end, seq_name, coverage))
+
+    # 由于可能会有多个序列比对到同一个位置，因此我们对于基因组上的某一个位置，我们只取一条比对
+    segment_len = 100000  # 100K
+    # chr_segments -> {chr1: {seg0: [(start, end, status)], seg1: []}}
+    # Status: 0 indicates that the fragment is not marked as found, while 1 indicates that the fragment is marked as found.
+    chr_segments = {}
+    total_chr_len = 0
+    # Divide the chromosome evenly into N segments to store fragments in segments and reduce retrieval time.
+    for chr_name in chrom_length.keys():
+        chr_len = chrom_length[chr_name]
+        total_chr_len += chr_len
+        if not chr_segments.__contains__(chr_name):
+            chr_segments[chr_name] = {}
+        cur_chr_segments = chr_segments[chr_name]
+        num_segments = chr_len // segment_len
+        if chr_len % segment_len != 0:
+            num_segments += 1
+        for i in range(num_segments):
+            cur_chr_segments[i] = []
+
+    # Map the fragments to the corresponding segment,
+    # and check if there is an overlap of over 95% with the fragment in the segment.
+    for chr_name in test_fragments.keys():
+        fragments = test_fragments[chr_name]
+        cur_chr_segments = chr_segments[chr_name]
+        for cur_frag in fragments:
+            start = cur_frag[0]
+            end = cur_frag[1]
+            seq_name = cur_frag[2]
+
+            # if seq_name == 'chr_11_15708136-15719185-lLTR' and chr_name == 'Chr14' and start == 21886838 and end == 21890006:
+            #     print('h')
+
+            coverage = cur_frag[3]
+            seg_index = map_fragment(start, end, segment_len)
+            segment_frags = cur_chr_segments[seg_index]
+            # Check if there is an overlap of over 95% between the fragment in the segment and the test fragment.
+            is_found = False
+            for prev_frag in segment_frags:
+                overlap_len = get_overlap_len(prev_frag, cur_frag)
+                if overlap_len / abs(prev_frag[1] - prev_frag[0]) >= coverage_threshold and overlap_len / abs(
+                        end - start) >= coverage_threshold:
+                    is_found = True
+                    break
+            if not is_found:
+                segment_frags.append([start, end, seq_name, coverage])
+
+    return chr_segments
+
+
+def generate_full_length_out_v2(BlastnOut, full_length_out, TE_lib, reference, tmp_output_dir, tools_dir, full_length_threshold, category, is_full_length):
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
+    filter_tmp_out = filter_out_by_category(BlastnOut, tmp_output_dir, category)
+
+    threads = 1
+    divergence_threshold = 20
+    search_struct = False
+    full_length_annotations, copies_direct, all_query_copies = get_full_length_copies_from_blastn_v2(TE_lib, reference, filter_tmp_out,
+                                                                             tmp_output_dir, threads,
+                                                                             divergence_threshold,
+                                                                             full_length_threshold,
+                                                                             search_struct, tools_dir)
+    lines = set()
+    if not is_full_length:
+        for query_name in all_query_copies.keys():
+            query_copies = all_query_copies[query_name]
+            for subject_pos in query_copies.keys():
+                chr_name, chr_start, chr_end, coverage = query_copies[subject_pos]
+                new_line = (query_name, chr_name, chr_start, chr_end, coverage)
+                lines.add(new_line)
+    else:
+        for query_name in full_length_annotations.keys():
+            query_name = str(query_name)
+            for copy_annotation in full_length_annotations[query_name]:
+                chr_pos = copy_annotation[0]
+                annotation = copy_annotation[1]
+                parts = chr_pos.split(':')
+                chr_name = parts[0]
+                chr_pos_parts = parts[1].split('-')
+                chr_start = int(chr_pos_parts[0]) + 1
+                chr_end = int(chr_pos_parts[1])
+                new_line = (query_name, chr_name, chr_start, chr_end, -1)
+                lines.add(new_line)
+
+    return lines
+
+
+def get_full_length_copies_from_blastn_v2(TE_lib, reference, blastn_out, tmp_output_dir, threads, divergence_threshold,
+                                    full_length_threshold, search_struct, tools_dir):
+    ref_names, ref_contigs = read_fasta(reference)
+
+    query_names, query_contigs = read_fasta(TE_lib)
+    new_query_contigs = {}
+    for name in query_names:
+        new_query_contigs[name.split('#')[0]] = query_contigs[name]
+    query_contigs = new_query_contigs
+
+    query_records = {}
+    with open(blastn_out, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            info_parts = line.split('\t')
+            query_name = info_parts[0].split('#')[0]
+            subject_name = info_parts[1]
+            q_start = int(info_parts[6])
+            q_end = int(info_parts[7])
+            s_start = int(info_parts[8])
+            s_end = int(info_parts[9])
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+
+    all_query_copies = {}
+    full_length_copies = {}
+    flank_full_length_copies = {}
+    copies_direct = {}
+    for idx, query_name in enumerate(query_records.keys()):
+        subject_dict = query_records[query_name]
+        if query_name not in query_contigs:
+            continue
+        query_len = len(query_contigs[query_name])
+        skip_gap = query_len * (1 - 0.95)
+
+        if str(query_name).__contains__('Helitron'):
+            flanking_len = 5
+        else:
+            flanking_len = 50
+
+        # if there are more than one longest query overlap with the final longest query over 90%,
+        # then it probably the true TE
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            subject_pos = subject_dict[subject_name]
+
+            # cluster all closed fragments, split forward and reverse records
+            forward_pos = []
+            reverse_pos = []
+            for pos_item in subject_pos:
+                if pos_item[2] > pos_item[3]:
+                    reverse_pos.append(pos_item)
+                else:
+                    forward_pos.append(pos_item)
+            forward_pos.sort(key=lambda x: (x[2], x[3]))
+            reverse_pos.sort(key=lambda x: (-x[2], -x[3]))
+
+            clusters = {}
+            cluster_index = 0
+            for k, frag in enumerate(forward_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (cur_subject_start - prev_subject_end < skip_gap and cur_query_end > prev_query_end):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            cluster_index += 1
+            for k, frag in enumerate(reverse_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (prev_subject_end - cur_subject_start < skip_gap and cur_query_end > prev_query_end):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            for cluster_index in clusters.keys():
+                cur_cluster = clusters[cluster_index]
+                cur_cluster.sort(key=lambda x: (x[0], x[1]))
+
+                # print('subject pos size: %d' %(len(cur_cluster)))
+                # record visited fragments
+                visited_frag = {}
+                for i in range(len(cur_cluster)):
+                    # keep a longest query start from each fragment
+                    prev_frag = cur_cluster[i]
+                    if visited_frag.__contains__(prev_frag):
+                        continue
+                    prev_query_start = prev_frag[0]
+                    prev_query_end = prev_frag[1]
+                    prev_subject_start = prev_frag[2]
+                    prev_subject_end = prev_frag[3]
+                    prev_query_seq = (min(prev_query_start, prev_query_end), max(prev_query_start, prev_query_end))
+                    prev_subject_seq = (
+                        min(prev_subject_start, prev_subject_end), max(prev_subject_start, prev_subject_end))
+                    prev_query_len = abs(prev_query_end - prev_query_start)
+                    prev_subject_len = abs(prev_subject_end - prev_subject_start)
+                    cur_longest_query_len = prev_query_len
+
+                    cur_extend_num = 0
+                    visited_frag[prev_frag] = 1
+                    # try to extend query
+                    for j in range(i + 1, len(cur_cluster)):
+                        cur_frag = cur_cluster[j]
+                        if visited_frag.__contains__(cur_frag):
+                            continue
+                        cur_query_start = cur_frag[0]
+                        cur_query_end = cur_frag[1]
+                        cur_subject_start = cur_frag[2]
+                        cur_subject_end = cur_frag[3]
+                        cur_query_seq = (min(cur_query_start, cur_query_end), max(cur_query_start, cur_query_end))
+                        cur_subject_seq = (min(cur_subject_start, cur_subject_end), max(cur_subject_start, cur_subject_end))
+
+                        # could extend
+                        # extend right
+                        if cur_query_end > prev_query_end:
+                            # judge subject direction
+                            if prev_subject_start < prev_subject_end and cur_subject_start < cur_subject_end:
+                                # +
+                                if cur_subject_end > prev_subject_end:
+                                    # forward extend
+                                    if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and cur_subject_start - prev_subject_end < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
+                                        # update the longest path
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start < cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
+                                        break
+                            elif prev_subject_start > prev_subject_end and cur_subject_start > cur_subject_end:
+                                # reverse
+                                if cur_subject_end < prev_subject_end:
+                                    # reverse extend
+                                    if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and prev_subject_end - cur_subject_start < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
+                                        # update the longest path
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start > cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
+                                        break
+                    # keep this longest query
+                    if cur_longest_query_len != -1:
+                        longest_queries.append(
+                            (prev_query_start, prev_query_end, cur_longest_query_len, prev_subject_start,
+                             prev_subject_end, abs(prev_subject_end - prev_subject_start), subject_name,
+                             cur_extend_num))
+
+        # To determine whether each copy has a coverage exceeding the full_length_threshold with respect
+        # to the consensus sequence, retaining full-length copies.
+        full_length_query_copies = {}
+        full_length_flank_query_copies = {}
+        query_copies = {}
+        orig_query_len = len(query_contigs[query_name])
+        for repeat in longest_queries:
+            # Subject
+            subject_name = repeat[6]
+            subject_chr_start = 0
+
+            if repeat[3] > repeat[4]:
+                direct = '-'
+                old_subject_start_pos = repeat[4] - 1
+                old_subject_end_pos = repeat[3]
+            else:
+                direct = '+'
+                old_subject_start_pos = repeat[3] - 1
+                old_subject_end_pos = repeat[4]
+            subject_start_pos = subject_chr_start + old_subject_start_pos
+            subject_end_pos = subject_chr_start + old_subject_end_pos
+
+            subject_pos = subject_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+            subject_seq = ref_contigs[subject_name][subject_start_pos: subject_end_pos]
+
+            flank_subject_seq = ref_contigs[subject_name][
+                                subject_start_pos - flanking_len: subject_end_pos + flanking_len]
+            copies_direct[subject_pos] = direct
+            cur_query_len = repeat[2]
+            coverage = float(cur_query_len) / orig_query_len
+            if coverage >= full_length_threshold:
+                full_length_query_copies[subject_pos] = subject_seq
+                full_length_flank_query_copies[subject_pos] = flank_subject_seq
+            query_copies[subject_pos] = (subject_name, subject_start_pos, subject_end_pos, coverage)
+        full_length_copies[query_name] = full_length_query_copies
+        flank_full_length_copies[query_name] = full_length_flank_query_copies
+        all_query_copies[query_name] = query_copies
+
+    # The candidate full-length copies and the consensus are then clustered using cd-hit-est,
+    # retaining copies that belong to the same cluster as the consensus.
+    split_files = []
+    cluster_dir = tmp_output_dir + '/cluster'
+    os.system('rm -rf ' + cluster_dir)
+    if not os.path.exists(cluster_dir):
+        os.makedirs(cluster_dir)
+
+    for query_name in full_length_copies.keys():
+        query_copies = full_length_copies[query_name]
+        flank_query_copies = flank_full_length_copies[query_name]
+        fc_path = cluster_dir + '/' + query_name + '.fa'
+        store_fasta(query_copies, fc_path)
+        split_files.append((fc_path, query_name, query_copies, flank_query_copies))
+
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for ref_index, cur_file in enumerate(split_files):
+        input_file = cur_file[0]
+        query_name = cur_file[1]
+        query_copies = cur_file[2]
+        flank_query_copies = cur_file[3]
+        job = ex.submit(get_structure_info, input_file, query_name, query_copies,
+                        flank_query_copies, cluster_dir, search_struct, tools_dir)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    full_length_annotations = {}
+    for job in as_completed(jobs):
+        annotations = job.result()
+        full_length_annotations.update(annotations)
+    return full_length_annotations, copies_direct, all_query_copies

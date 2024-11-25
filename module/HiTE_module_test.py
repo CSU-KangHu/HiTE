@@ -44,7 +44,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     flanking_seq, multi_process_helitronscanner, split_fasta, get_longest_repeats_v4, \
     process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, search_confident_tir_v4, \
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
-    multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9
+    multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8
 
 
 def filter_repbase_nonTE():
@@ -1950,6 +1950,218 @@ def run_find_members(cur_file, reference, temp_dir, script_path):
     else:
         return (None, None)
 
+def get_mask_regions(std_out):
+    chr_masks = {}
+    te_masks = {}
+    with open(std_out, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            parts = line.split('\t')
+            chr_name = parts[0]
+            chr_start = int(parts[1])
+            chr_end = int(parts[2])
+            te_name = parts[3].split(';')[9]
+            if chr_name not in chr_masks:
+                chr_masks[chr_name] = []
+            segs = chr_masks[chr_name]
+            segs.append((chr_start, chr_end, te_name))
+
+            if te_name not in te_masks:
+                te_masks[te_name] = {}
+            chr_dict = te_masks[te_name]
+            if chr_name not in chr_dict:
+                chr_dict[chr_name] = []
+            chr_segs = chr_dict[chr_name]
+            chr_segs.append((chr_start, chr_end))
+    return chr_masks, te_masks
+
+def BM_EDTA():
+    # 自己编写程序，尝试获得和BM_EDTA一致的结果
+    work_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/panHiTE_serial_output'
+    genome = work_dir + '/genome.rename.fa'
+    std_out = work_dir + '/repbase.edta.out'
+    test_out = work_dir + '/HiTE.edta.out'
+    # Convert .out file to .bed file
+    convert2bed_command = 'perl ' + cur_dir + '/tools/RMout_to_bed.pl ' + std_out + ' base1'
+    os.system(convert2bed_command)
+    convert2bed_command = 'perl ' + cur_dir + '/tools/RMout_to_bed.pl ' + test_out + ' base1'
+    os.system(convert2bed_command)
+    std_out += '.bed'
+    test_out += '.bed'
+    std_chr_masks, std_te_masks = get_mask_regions(std_out)
+    test_chr_masks, test_te_masks = get_mask_regions(test_out)
+    # print(std_chr_masks)
+    # print(std_te_masks)
+    # print(test_chr_masks)
+    # print(test_te_masks)
+
+    # 计算TP,FP,FN,TN等指标
+    # 我们获取基因组的base，然后分别把比对mask上去，那我们就可以知道哪些碱基是TP和FP了。
+    # 由于我们有碱基与 te_name 的对应关系，我们可以获得每个 te 对应的TP,FP数量
+    ref_names, ref_contigs = read_fasta(genome)
+    base_masked = {}
+    for name in ref_names:
+        ref_seq = ref_contigs[name]
+        ref_arr = [0] * len(ref_seq)
+        base_masked[name] = ref_arr
+    # 将金标准覆盖碱基，将覆盖区域置为1
+    # 将测试覆盖碱基，将有>=1的区域置为2，否则置为-1
+    # 目前有 0， 1， 2，-1 四种组成，TP: 2; TN: 0; FP: -1; FN: 1
+    for chr_name in std_chr_masks.keys():
+        ref_arr = base_masked[chr_name]
+        for seg in std_chr_masks[chr_name]:
+            chr_start = seg[0]
+            chr_end = seg[1]
+            for i in range(chr_start - 1, chr_end):
+                ref_arr[i] = 1
+    for chr_name in test_chr_masks.keys():
+        ref_arr = base_masked[chr_name]
+        for seg in test_chr_masks[chr_name]:
+            chr_start = seg[0]
+            chr_end = seg[1]
+            for i in range(chr_start - 1, chr_end):
+                if ref_arr[i] >= 1:
+                    ref_arr[i] = 2
+                else:
+                    ref_arr[i] = -1
+    TP = 0
+    TN = 0
+    FP = 0
+    FN = 0
+    for chr_name in base_masked.keys():
+        ref_arr = base_masked[chr_name]
+        for i in range(len(ref_arr)):
+            if ref_arr[i] == 2:
+                TP += 1
+            elif ref_arr[i] == 0:
+                TN += 1
+            elif ref_arr[i] == -1:
+                FP += 1
+            elif ref_arr[i] == 1:
+                FN += 1
+    print('TP:' + str(TP))
+    print('FN:' + str(FN))
+    print('TN:' + str(TN))
+    print('FP:' + str(FP))
+
+    sens = float(TP) / (TP + FN)
+    spec = float(TN) / (FP + TN)
+    accu = float(TP + TN) / (TP + TN + FP + FN)
+    prec = float(TP) / (TP + FP)
+    FDR = float(FP) / (TP + FP)
+    F1 = float(2 * TP) / (2 * TP + FP + FN)
+    print('Sensitivity: ' + str(sens))
+    print('Specificity: ' + str(spec))
+    print('Accuracy: ' + str(accu))
+    print('Precision: ' + str(prec))
+    print('FDR: ' + str(FDR))
+    print('F1 measure: ' + str(F1))
+
+    # 计算每个TE 对应的 TP, FP, FN
+    FP_ind = {}
+    for te_name in test_te_masks.keys():
+        TP = 0
+        FP = 0
+        FN = 0
+        chr_dict = test_te_masks[te_name]
+        for chr_name in chr_dict.keys():
+            ref_arr = base_masked[chr_name]
+            for seg in chr_dict[chr_name]:
+                chr_start = seg[0]
+                chr_end = seg[1]
+                for i in range(chr_start - 1, chr_end):
+                    if ref_arr[i] == 2:
+                        TP += 1
+                    elif ref_arr[i] == -1:
+                        FP += 1
+                    elif ref_arr[i] == 1:
+                        FN += 1
+        FP_ind[te_name] = (TP, FP, FN)
+    sorted_FP_ind = sorted(FP_ind.items(), key=lambda item: item[1][1], reverse=True)
+
+    # 序列化字典并保存到文件
+    FP_ind_json = work_dir + '/FP_ind.json'
+    with open(FP_ind_json, 'w', encoding='utf-8') as f:
+        json.dump(sorted_FP_ind, f, ensure_ascii=False, indent=4)
+
+    # 计算每个 TE 对应的 TP, FP, FN
+    FN_ind = {}
+    for te_name in std_te_masks.keys():
+        TP = 0
+        FP = 0
+        FN = 0
+        chr_dict = std_te_masks[te_name]
+        for chr_name in chr_dict.keys():
+            ref_arr = base_masked[chr_name]
+            for seg in chr_dict[chr_name]:
+                chr_start = seg[0]
+                chr_end = seg[1]
+                for i in range(chr_start - 1, chr_end):
+                    if ref_arr[i] == 2:
+                        TP += 1
+                    elif ref_arr[i] == -1:
+                        FP += 1
+                    elif ref_arr[i] == 1:
+                        FN += 1
+        FN_ind[te_name] = (TP, FP, FN)
+    sorted_FN_ind = sorted(FN_ind.items(), key=lambda item: item[1][2], reverse=True)
+
+    # 序列化字典并保存到文件
+    FN_ind_json = work_dir + '/FN_ind.json'
+    with open(FN_ind_json, 'w', encoding='utf-8') as f:
+        json.dump(sorted_FN_ind, f, ensure_ascii=False, indent=4)
+
+    # with open(te_ind_json, 'r', encoding='utf-8') as f:
+    #     sorted_te_ind = json.load(f)
+    # print(sorted_te_ind)
+
+def BM_HiTE():
+    # 统计一下哪些序列贡献的FP最多
+    work_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/panHiTE_serial_output'
+    FP_file = work_dir + '/FP.blastn.out'
+    FP_count = {}
+    with open(FP_file, 'r') as f_r:
+        for line in f_r:
+            parts = line.split('\t')
+            seq_name = parts[0]
+            chr_start = int(parts[2])
+            chr_end = int(parts[3])
+            cover_len = abs(chr_end-chr_start)
+            if seq_name not in FP_count:
+                FP_count[seq_name] = 0
+            cur_cover_len = FP_count[seq_name]
+            cur_cover_len += cover_len
+            FP_count[seq_name] = cur_cover_len
+    sorted_FP_count = sorted(FP_count.items(), key=lambda item: -item[1])
+
+    file_path = work_dir + '/sorted_FP_count.txt'
+    # 将排序后的结果写入文件
+    with open(file_path, 'w') as file:
+        for key, value in sorted_FP_count:
+            file.write(f"{key}: {value}\n")
+
+    FN_file = work_dir + '/FN.blastn.out'
+    FN_count = {}
+    with open(FN_file, 'r') as f_r:
+        for line in f_r:
+            parts = line.split('\t')
+            seq_name = parts[0]
+            chr_start = int(parts[2])
+            chr_end = int(parts[3])
+            cover_len = abs(chr_end - chr_start)
+            if seq_name not in FN_count:
+                FN_count[seq_name] = 0
+            cur_cover_len = FN_count[seq_name]
+            cur_cover_len += cover_len
+            FN_count[seq_name] = cur_cover_len
+    sorted_FN_count = sorted(FN_count.items(), key=lambda item: -item[1])
+
+    file_path = work_dir + '/sorted_FN_count.txt'
+    # 将排序后的结果写入文件
+    with open(file_path, 'w') as file:
+        for key, value in sorted_FN_count:
+            file.write(f"{key}: {value}\n")
+
 def is_only_chars(s, target_char):
     return all(c == target_char for c in s)
 
@@ -3653,10 +3865,13 @@ def get_logo_seq(ltr_copies):
         tail_logos[name] = tail_seq
     return start_logos, tail_logos
 
-work_dir = '/homeb/hukang/KmerRepFinder_test/library/HiTE_lib/mouse_bak'
-log = Logger(work_dir + '/HiTE_Non_LTR.log', level='debug')
+work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
+log = Logger(work_dir + '/HiTE.log', level='debug')
 
 if __name__ == '__main__':
+    # BM_EDTA()
+    # BM_HiTE()
+
     # # 将RepeatModeler2中的non-ltr抽取出来
     # work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/human'
     # te_path = work_dir + '/human.lib'
@@ -3683,30 +3898,33 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/home/hukang/test1/HiTE/demo/David_suggestion'
-    candidate_tir_path = work_dir + '/mAntPal2.1.pri_TIR_373-_rep.fa'
+    work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
+    candidate_tir_path = work_dir + '/test.fa'
     confident_tir_path = work_dir + '/test_tir.fa'
     flanking_len = 50
-    reference = work_dir + '/GCA_027563665.1_DD_ASM_mAP_20210503_genomic.fna'
-    test_home = '/home/hukang/test1/HiTE/module'
+    reference = work_dir + '/genome.rename.fa'
+    # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
+    # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
+    test_home = '/home/hukang/test/HiTE/module'
     tmp_output_dir = work_dir + '/outdir'
     chrom_seg_length = 100000
     chunk_size = 400
-    # split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
-    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
-    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    #os.system(split_genome_command)
+    split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
+                           + reference + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    # os.system(split_genome_command)
 
     TE_type = 'tir'
     split_ref_dir = tmp_output_dir + '/ref_chr'
     threads = 40
     ref_index = 0
-    subset_script_path = '/home/hukang/test1/HiTE/tools/ready_for_MSA.sh'
+    subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
     plant = 0
     debug = 1
     flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
                           TE_type, work_dir, threads, ref_index, log, subset_script_path,
                           plant, debug, 0, result_type='cons')
+
 
 
     # # 将candidate_non_ltr.fa进行分类，抽取出LINE/SINE标签

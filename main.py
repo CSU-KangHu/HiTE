@@ -42,10 +42,12 @@ if __name__ == '__main__':
     default_domain = 0
     default_miu = str(1.3e-8)
     default_remove_nested = 1
+    default_use_HybridLTR = 1
     default_use_NeuralTE = 1
     default_is_wicker = 0
+    default_is_output_LTR_lib = 1
 
-    version_num = '3.2'
+    version_num = '3.3'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
@@ -84,8 +86,10 @@ if __name__ == '__main__':
     parser.add_argument('--skip_HiTE', metavar='skip_HiTE', help='Whether to skip_HiTE, 1: true, 0: false. default = [ ' + str(default_skip_HiTE) + ' ]')
     parser.add_argument('--is_denovo_nonltr', metavar='is_denovo_nonltr', help='Whether to detect non-ltr de novo, 1: true, 0: false. default = [ ' + str(default_is_denovo_nonltr) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
+    parser.add_argument('--use_HybridLTR', metavar='use_HybridLTR', help='Whether to use HybridLTR to identify LTRs, 1: true, 0: false. default = [' + str(default_use_HybridLTR) + ' ]')
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [' + str(default_use_NeuralTE) + ' ]')
     parser.add_argument('--is_wicker', metavar='is_wicker', help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [ ' + str(default_is_wicker) + ' ]')
+    parser.add_argument('--is_output_LTR_lib', metavar='is_output_LTR_lib', help='Whether to output LTR library. default = [ ' + str(default_is_output_LTR_lib) + ' ]')
 
     parser.add_argument('--flanking_len', metavar='flanking_len', help='The flanking length of candidates to find the true boundaries, default = [ ' + str(default_flanking_len) + ' ]')
     parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold', help='The length of variation can be tolerated during pairwise alignment, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
@@ -124,8 +128,10 @@ if __name__ == '__main__':
     skip_HiTE = args.skip_HiTE
     is_denovo_nonltr = args.is_denovo_nonltr
     debug = args.debug
+    use_HybridLTR = args.use_HybridLTR
     use_NeuralTE = args.use_NeuralTE
     is_wicker = args.is_wicker
+    is_output_LTR_lib = args.is_output_LTR_lib
 
     i = datetime.datetime.now()
     # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
@@ -157,6 +163,11 @@ if __name__ == '__main__':
         threads = int(default_threads)
     else:
         threads = int(threads)
+
+    if use_HybridLTR is None:
+        use_HybridLTR = int(default_use_HybridLTR)
+    else:
+        use_HybridLTR = int(use_HybridLTR)
 
     if use_NeuralTE is None:
         use_NeuralTE = int(default_use_NeuralTE)
@@ -203,10 +214,10 @@ if __name__ == '__main__':
     else:
         curated_lib = curated_lib
 
-    # if classified is None:
-    #     classified = default_classified
-    # else:
-    #     classified = int(classified)
+    if is_output_LTR_lib is None:
+        is_output_LTR_lib = default_is_output_LTR_lib
+    else:
+        is_output_LTR_lib = int(is_output_LTR_lib)
 
     if remove_nested is None:
         remove_nested = default_remove_nested
@@ -356,6 +367,7 @@ if __name__ == '__main__':
                     '  [Setting] coverage_threshold = [ ' + str(coverage_threshold) + ' ]  Default( ' + str(default_coverage_threshold) + ' )\n'
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
                     '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
+                    '  [Setting] use_HybridLTR = [ ' + str(use_HybridLTR) + ' ]  Default( ' + str(default_use_HybridLTR) + ' )\n'                                                                                                                                    
                     '  [Setting] use_NeuralTE = [ ' + str(use_NeuralTE) + ' ]  Default( ' + str(default_use_NeuralTE) + ' )\n'
                     '  [Setting] is_wicker = [ ' + str(is_wicker) + ' ]  Default( ' + str(default_is_wicker) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
@@ -398,7 +410,9 @@ if __name__ == '__main__':
                 LTR_identification_command = 'judge_LTR_transposons.py ' \
                                              + ' -g ' + reference + ' -t ' + str(threads) \
                                              + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
-                                             + ' --miu ' + str(miu) + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker)
+                                             + ' --miu ' + str(miu) + ' --use_HybridLTR ' + str(use_HybridLTR) \
+                                             + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
+                                             + ' --is_output_lib ' + str(is_output_LTR_lib) + ' --debug ' + str(debug)
                 log.logger.info(LTR_identification_command)
                 os.system(LTR_identification_command)
                 endtime = time.time()
@@ -651,7 +665,7 @@ if __name__ == '__main__':
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
                             + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) \
                             + ' --TE_lib ' + str(confident_TE_consensus) \
-                            + ' -r ' + reference
+                            + ' -r ' + reference + ' --recover ' + str(recover)
         if EDTA_home is not None and EDTA_home.strip() != '':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
         if species is None or species.strip() == '':

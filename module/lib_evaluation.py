@@ -4,8 +4,7 @@
 import argparse
 import os
 
-from Util import read_fasta, get_overlap_len, get_gap_len, merge_same_fragments, get_chr_pos, store_fasta, get_full_length_copies_from_blastn, multi_process_align, generate_full_length_out, \
-    multi_process_align_v1
+from Util import read_fasta, get_overlap_len, map_fragment, multi_process_align_v2
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(current_folder, ".")
@@ -172,29 +171,13 @@ def get_FN_evaluation(repbase_BlastnOut, test_BlastnOut, FN_BlastnOut, FP_Blastn
     print('FDR:', FDR)
     print('F1:', F1)
 
-def get_evaluation_sample(genome_path, standard_lib_out, test_lib_out, work_dir, coverage_threshold):
-    # Step 0. Obtaining the length of the genome
-    names, contigs = read_fasta(genome_path)
-    chrom_length = {}
-    for i, name in enumerate(names):
-        chr_len = len(contigs[name])
-        chrom_length[name] = chr_len
-
+def get_evaluation_sample(genome_path, standard_lib_out, test_lib_out, work_dir, chrom_length, coverage_threshold):
     print('test libray:')
     FN_BlastnOut = work_dir + '/FN.blastn.out'
     FP_BlastnOut = work_dir + '/FP.blastn.out'
     get_FN_evaluation(standard_lib_out, test_lib_out, FN_BlastnOut, FP_BlastnOut, chrom_length, coverage_threshold)
 
-def map_fragment(start, end, chunk_size):
-    start_chunk = start // chunk_size
-    end_chunk = end // chunk_size
 
-    if start_chunk == end_chunk:
-        return start_chunk
-    elif abs(end_chunk * chunk_size - start) < abs(end - end_chunk * chunk_size):
-        return end_chunk
-    else:
-        return start_chunk
 
 def sort_blastn_out(lib_out):
     chr_list = {}
@@ -234,6 +217,8 @@ if __name__ == '__main__':
                         help='Finding thresholds for full-length copies. Three common thresholds: 0.80, 0.95, and 0.99.')
     parser.add_argument('--cat', metavar='TE category',
                         help='TE category: LTR|LINE|SINE|DNA|Helitron|Total')
+    parser.add_argument('--is_full_length', metavar='is_full_length',
+                        help='Should only full-length copies be calculated? 1 for yes, 0 for no.')
 
     args = parser.parse_args()
     genome_path = args.g
@@ -244,9 +229,11 @@ if __name__ == '__main__':
     coverage_threshold = args.coverage_threshold
     category = args.cat
     skip_blastn = args.skip_blastn
+    is_full_length = args.is_full_length
 
     default_skip_blastn = 0
     default_coverage_threshold = 0.95
+    default_is_full_length = 0
 
     if skip_blastn is not None:
         skip_blastn = int(skip_blastn)
@@ -258,19 +245,38 @@ if __name__ == '__main__':
     else:
         coverage_threshold = default_coverage_threshold
 
+    if is_full_length is not None:
+        is_full_length = float(is_full_length)
+    else:
+        is_full_length = default_is_full_length
+
     std_tmp_blast_dir = work_dir + '/std_blastn'
     standard_lib_out = work_dir + '/std_full_length.out'
 
     test_tmp_blast_dir = work_dir + '/test_blastn'
     test_lib_out = work_dir + '/test_full_length.out'
 
+    # Step 0. Obtaining the length of the genome
+    names, contigs = read_fasta(genome_path)
+    chrom_length = {}
+    for i, name in enumerate(names):
+        chr_len = len(contigs[name])
+        chrom_length[name] = chr_len
+
+    if category != 'Total':
+        print('Warning: you are using the parameter "--cat ' + str(category) + '". The program will only calculate transposons that include the label "' + str(category) + '". Please make sure to check the labels in "--standard_lib" and "--test_lib" to avoid miscalculations. For example, if you want to assess the performance of TIR transposons using "--cat DNA", please ensure that all types of TIR transposon labels follow the pattern "xxx#DNA/xxx", and that no non-TIR transposon labels contain "DNA".')
 
     if skip_blastn != 1:
         # Due to RepeatMasker sometimes skipping large gaps, which leads to inaccurate alignment and affects our evaluation results,
         # we opted to employ blastn for alignment. Additionally, we noticed issues with oversized test libraries causing blastn output to balloon.
         # To address this, we initially invoke the function to retrieve full-length copies in a single thread, before consolidating all full-length copies.
-        multi_process_align_v1(standard_lib, genome_path, standard_lib_out, std_tmp_blast_dir, thread, coverage_threshold, category, is_removed_dir=True)
-        multi_process_align_v1(test_lib, genome_path, test_lib_out, test_tmp_blast_dir, thread, coverage_threshold, category, is_removed_dir=True)
+        tools_dir = project_dir + '/tools'
+        multi_process_align_v2(standard_lib, genome_path, standard_lib_out, std_tmp_blast_dir, thread, chrom_length,
+                               coverage_threshold, category, is_full_length, is_removed_dir=True)
+        multi_process_align_v2(test_lib, genome_path, test_lib_out, test_tmp_blast_dir, thread, chrom_length,
+                               coverage_threshold, category, is_full_length, is_removed_dir=True)
 
-    tools_dir = project_dir + '/tools'
-    get_evaluation_sample(genome_path, standard_lib_out, test_lib_out, work_dir, coverage_threshold)
+        # multi_process_align_v2(standard_lib, genome_path, standard_lib_out, std_tmp_blast_dir, thread, chrom_length, coverage_threshold, category, tools_dir, is_removed_dir = False)
+        # multi_process_align_v2(test_lib, genome_path, test_lib_out, test_tmp_blast_dir, thread, chrom_length, coverage_threshold, category, tools_dir, is_removed_dir = False)
+
+    get_evaluation_sample(genome_path, standard_lib_out, test_lib_out, work_dir, chrom_length, coverage_threshold)

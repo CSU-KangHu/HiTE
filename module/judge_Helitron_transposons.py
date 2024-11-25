@@ -113,9 +113,9 @@ if __name__ == '__main__':
         for i in range(iter_num):
             result_type = 'cons'
             output_file = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
-            resut_file = output_file
+            cur_resut_file = output_file
             delete_files.append(output_file)
-            if not is_recover or not file_exist(resut_file):
+            if not is_recover or not file_exist(cur_resut_file):
                 flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir, TE_type,
                                       tmp_output_dir, threads,
                                       ref_index, log, subset_script_path, 1, debug, i, result_type)
@@ -134,8 +134,10 @@ if __name__ == '__main__':
         for delete_file in delete_files:
             if os.path.exists(delete_file):
                 os.remove(delete_file)
+
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
 
     os.system('cat ' + resut_file + ' >> ' + prev_TE)
+

@@ -6,7 +6,8 @@ import sys
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir, get_domain_info
+from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir, get_domain_info, \
+    ReassignInconsistentLabels
 
 if __name__ == '__main__':
     # 1.parse args
@@ -100,7 +101,7 @@ if __name__ == '__main__':
     rename_fasta(confident_non_ltr_cons, final_confident_non_ltr_path, 'Denovo_Non_LTR')
 
     # Remove TIR elements containing LTR
-    remove_ltr_from_tir(confident_ltr_cut_path, final_confident_tir_path, threads)
+    remove_ltr_from_tir(confident_ltr_cut_path, final_confident_tir_path, threads, tmp_output_dir)
 
     # Merge all TE types (TIR+Helitron+Non_LTR+Other)
     confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
@@ -147,6 +148,9 @@ if __name__ == '__main__':
         curated_lib = os.path.realpath(curated_lib)
         if os.path.exists(curated_lib):
             os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
+
+    # Reassign Inconsistent Classification Labels
+    ReassignInconsistentLabels(confident_TE_path)
 
     # # Unpack nested TEs within TEs
     # clean_TE_path = tmp_output_dir + '/confident_TE.clean.fa'

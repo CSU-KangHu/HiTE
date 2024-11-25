@@ -49,8 +49,10 @@ def helpMessage() {
       --skip_HiTE                       Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
       --is_denovo_nonltr                Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
+      --use_HybridLTR                   Whether to use HybridLTR to identify LTRs, 1: true, 0: false. default = [1]
       --use_NeuralTE                    Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1]
       --is_wicker                       Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [0]
+      --is_output_LTR_lib               Whether to output LTR library. default = [1]
 
       --flanking_len                    The flanking length of candidates to find the true boundaries, default = [ 50 ]
       --fixed_extend_base_threshold     The length of variation can be tolerated during pairwise alignment, default = [ 1000 ]
@@ -82,6 +84,7 @@ def printSetting() {
       [Setting] is_denovo_nonltr = [ $params.is_denovo_nonltr ]
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.outdir ]
+      [Setting] use_HybridLTR = [ $params.use_HybridLTR ]
       [Setting] use_NeuralTE = [ $params.use_NeuralTE ]
       [Setting] is_wicker = [ $params.is_wicker ]
 
@@ -136,7 +139,9 @@ debug = "${params.debug}"
 is_denovo_nonltr = "${params.is_denovo_nonltr}"
 miu = "${params.miu}"
 ref = "${params.genome}"
+use_HybridLTR = "${params.use_HybridLTR}"
 use_NeuralTE = "${params.use_NeuralTE}"
+is_output_LTR_lib = "${params.is_output_LTR_lib}"
 is_wicker = "${params.is_wicker}"
 search_struct = "${params.search_struct}"
 //parameters of Evaluation
@@ -432,9 +437,10 @@ process LTR {
     cores = task.cpus
     """
     judge_LTR_transposons.py \
-     -g ${ref} \
-     -t ${cores} --recover ${recover} --use_NeuralTE ${use_NeuralTE} --miu ${miu} \
-     --is_wicker ${is_wicker}
+     -g ${ref} -t ${cores} --recover ${recover} \
+     --use_HybridLTR ${use_HybridLTR} \
+     --use_NeuralTE ${use_NeuralTE} --miu ${miu} \
+     --is_wicker ${is_wicker} --is_output_lib ${is_output_LTR_lib}
     """
 }
 
@@ -599,7 +605,7 @@ process Benchmarking {
         benchmarking.py \
          --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} --BM_HiTE ${BM_HiTE} \
          -t ${cores} --TE_lib ${TE_lib} \
-         -r ${ref} --species ${species} --EDTA_home ${EDTA_home}
+         -r ${ref} --species ${species} --EDTA_home ${EDTA_home} --recover ${recover}
         """
     } else {
         """
@@ -607,7 +613,7 @@ process Benchmarking {
          --BM_RM2 ${BM_RM2} \
          --BM_HiTE ${BM_HiTE} \
          -t ${cores} --TE_lib ${TE_lib} \
-         -r ${ref} --species ${species}
+         -r ${ref} --species ${species} --recover ${recover}
         """
     }
 }

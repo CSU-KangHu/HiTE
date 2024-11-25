@@ -6,7 +6,7 @@ import sys
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import Logger, rename_reference, multi_process_align
+from Util import Logger, rename_reference, multi_process_align, file_exist
 
 if __name__ == '__main__':
     # 1.parse args
@@ -31,6 +31,8 @@ if __name__ == '__main__':
                         help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
     parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
                         help='Please enter the directory for output. Use an absolute path.')
+    parser.add_argument('--recover', metavar='is_recover',
+                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
 
 
     args = parser.parse_args()
@@ -44,6 +46,8 @@ if __name__ == '__main__':
     species = args.species
     tmp_output_dir = args.tmp_output_dir
     coverage_threshold = args.coverage_threshold
+    recover = int(args.recover)
+
     default_coverage_threshold = 0.95
 
     if coverage_threshold is not None:
@@ -124,35 +128,66 @@ if __name__ == '__main__':
         os.system(rm_command)
         if not os.path.exists(rm2_test_dir):
             os.makedirs(rm2_test_dir)
-        result_command = 'cd ' + rm2_test_dir + ' && sh ' + rm2_script + ' ' + TE_lib + '.out >> ' + rm2_out
+        result_command = 'cd ' + rm2_test_dir + ' && sh ' + rm2_script + ' ' + TE_lib + '.out ' + ' >> ' + rm2_out
         log.logger.debug(result_command)
         os.system(result_command)
+
+        # if os.path.exists(rm2_test_dir):
+        #     os.system('rm -rf ' + rm2_test_dir)
+        # if not os.path.exists(rm2_test_dir):
+        #     os.makedirs(rm2_test_dir)
+        # result_command = 'cd ' + rm2_test_dir + ' && sh ' + rm2_script_improved + ' ' + TE_lib + '.out ' + curated_lib + ' ' + TE_lib + ' >> ' + rm2_out
+        # log.logger.debug(result_command)
+        # os.system(result_command)
     else:
         log.logger.debug('Skip benchmarking of RepeatModeler2')
 
+    if is_BM_HiTE:
+        divergence_threshold = (1 - coverage_threshold) * 100
+
+        parent_dir = os.path.dirname(lib_module)
+        HiTE_home = parent_dir
+
+        bm_hite_command = 'cd ' + parent_dir + ' && python ' + parent_dir + '/module/lib_evaluation.py -g ' \
+                          + reference + ' --standard_lib ' + lib_path \
+                          + ' --test_lib ' + TE_lib + ' --work_dir ' + tmp_output_dir \
+                          + ' --coverage_threshold ' + str(coverage_threshold) + ' --thread ' + str(threads) \
+                          + ' ' + ' --cat Total ' + ' --is_full_length 1 ' + ' >> ' + hite_out
+        log.logger.debug(bm_hite_command)
+        os.system(bm_hite_command)
+    else:
+        log.logger.debug('Skip benchmarking of HiTE')
+
     if is_BM_EDTA:
         repbase_out = tmp_output_dir + '/repbase.edta.out'
+        result_file = repbase_out
+        if not recover or not file_exist(result_file):
+            RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                                   + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + curated_lib + ' -cutoff 225 ' \
+                                   + reference
+            log.logger.debug(RepeatMasker_command)
+            os.system(RepeatMasker_command)
+
+            mv_file_command = 'mv ' + reference + '.out ' + repbase_out
+            log.logger.debug(mv_file_command)
+            os.system(mv_file_command)
+        else:
+            log.logger.info(result_file + ' exists, skip...')
+
         test_out = tmp_output_dir + '/HiTE.edta.out'
+        result_file = test_out
+        if not recover or not file_exist(result_file):
+            RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+                                   + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + TE_lib + ' -cutoff 225 ' \
+                                   + reference
+            log.logger.debug(RepeatMasker_command)
+            os.system(RepeatMasker_command)
 
-        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-                               + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + curated_lib + ' -cutoff 225 ' \
-                               + reference
-        log.logger.debug(RepeatMasker_command)
-        os.system(RepeatMasker_command)
-
-        mv_file_command = 'mv ' + reference + '.out ' + repbase_out
-        log.logger.debug(mv_file_command)
-        os.system(mv_file_command)
-
-        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-                               + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + TE_lib + ' -cutoff 225 ' \
-                               + reference
-        log.logger.debug(RepeatMasker_command)
-        os.system(RepeatMasker_command)
-
-        mv_file_command = 'mv ' + reference + '.out ' + test_out
-        log.logger.debug(mv_file_command)
-        os.system(mv_file_command)
+            mv_file_command = 'mv ' + reference + '.out ' + test_out
+            log.logger.debug(mv_file_command)
+            os.system(mv_file_command)
+        else:
+            log.logger.info(result_file + ' exists, skip...')
 
         # remove old report
         os.system('rm -f ' + tmp_output_dir + '/HiTE.edta.out.*.report')
@@ -166,21 +201,5 @@ if __name__ == '__main__':
         os.system(mv_file_command)
     else:
         log.logger.debug('Skip benchmarking of EDTA')
-
-    if is_BM_HiTE:
-        divergence_threshold = (1 - coverage_threshold) * 100
-
-        parent_dir = os.path.dirname(lib_module)
-        HiTE_home = parent_dir
-
-        bm_hite_command = 'cd ' + parent_dir + ' && python ' + parent_dir + '/module/lib_evaluation.py -g ' \
-                          + reference + ' --standard_lib ' + lib_path \
-                          + ' --test_lib ' + TE_lib + ' --work_dir ' + tmp_output_dir \
-                          + ' --coverage_threshold ' + str(coverage_threshold) + ' --thread ' + str(threads) \
-                          + ' ' + ' --cat Total ' + ' >> ' + hite_out
-        log.logger.debug(bm_hite_command)
-        os.system(bm_hite_command)
-    else:
-        log.logger.debug('Skip benchmarking of HiTE')
 
 

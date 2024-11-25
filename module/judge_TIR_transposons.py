@@ -7,7 +7,7 @@ import time
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, multi_process_tsd, rename_fasta, file_exist, \
-    run_itrsearch, get_short_tir_contigs, flank_region_align_v5, multi_process_tsd_v1
+    run_itrsearch, get_short_tir_contigs, flank_region_align_v5, multi_process_tsd_v1, remove_no_tirs
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant,
@@ -36,32 +36,6 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
 
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
     delete_files.append(confident_tir_path)
-    tir_names, tir_contigs = read_fasta(confident_tir_path)
-    for name in tir_names:
-        seq = tir_contigs[name]
-        # Remove 'TA' or 'AT' at the beginning and end of the sequence.
-        while seq.startswith("TATA") or seq.startswith("ATAT"):
-            seq = seq[4:]
-        while seq.endswith("TATA") or seq.endswith("ATAT"):
-            seq = seq[:-4]
-        tir_contigs[name] = seq
-    store_fasta(tir_contigs, confident_tir_path)
-
-
-    # # keep sequence with short tir
-    # short_itr_contigs = get_short_tir_contigs(tir_contigs, plant)
-    #
-    # # The remaining sequence is handed over to itrsearch for TIR structure searching.
-    # confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.no_short_tir.fa'
-    # for name in short_itr_contigs.keys():
-    #     del tir_contigs[name]
-    #
-    # store_fasta(tir_contigs, confident_tir_path)
-    # all_copies_out, all_copies_log = run_itrsearch(TRsearch_dir, confident_tir_path, tmp_output_dir)
-    # all_copies_out_name, all_copies_out_contigs = read_fasta(all_copies_out)
-    # all_copies_out_contigs.update(short_itr_contigs)
-    # confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num - 1) + '.all_tir.fa'
-    # store_fasta(all_copies_out_contigs, confident_tir_path)
 
     final_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
     rename_fasta(confident_tir_path, final_confident_tir_path, 'TIR_' + str(ref_index))

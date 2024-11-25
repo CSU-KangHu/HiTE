@@ -1,0 +1,169 @@
+#!/usr/bin/perl
+
+#AUTHORS
+# Kaining Hu (c) 2017
+# Compare EAHelitron GFF with refGenome GTF.(CompareGFF) v1.0000 2017/04/27
+# hukaining@gmail.com
+#
+use strict;
+use warnings;
+#use 5.010;
+use Getopt::Long;
+use Pod::Usage;
+use Time::HiRes 'time';
+#use Parallel::ForkManager;
+#our $MAX_processes=2;
+#my $pm=Parallel::ForkManager->new($MAX_processes);
+use re 'eval';
+our $opfn="";
+our $ipfn="";
+my $verbose;
+our $refgtf="";
+our $sortID="gene_id";
+our $feature="gene";
+
+#our $seqfilename ='';
+#GetOptions("i=s"=>\$seqfilename,"o=s" => \$opfn,"verbose"=>\$verbose)
+#or die("Error in command line arguments\n perl Searchhelitron -o <outputfile> (inputfile)\n");
+GetOptions("o=s" => \$opfn,"verbose"=>\$verbose,"i=s"=>\$ipfn,"g=s"=>\$refgtf,"f=s"=>\$feature,"s=s"=>\$sortID)
+or die("Error in command line arguments\nUsage:\n	 perl CompareGFF [options] -g <refGenome GTF> -i <input EAHelitron GFF>\n
+	 options:\n
+	 [-o outprefix default: gffcompared]\n
+	 [-s string|Specify attribute type in GTF annotation for sorting. default: gene_id]\n
+	 [-f string|Specify feature type in GTF annotation.default: gene]\n
+	 Note: Compare EAHelitron GFF with refGenome GTF.(CompareGFF) v1.0000 2017/04/27\n");
+
+open IN, "$ipfn" or die ("[-] Error: Can't open the EAHelitron output GFF File.");
+open REFGTF, "$refgtf" or die ("[-] Error: Can't open the RefGenome GTF File.");
+
+if ($opfn eq ""){
+	$opfn="gffcompared";
+	print "Output file:$opfn.txt \n";
+}else{
+	print "Output file:$opfn.txt \n";
+}
+
+open OUT, "> $opfn.txt" or die ("[-] Error: Can't open or creat $opfn.txt\n");
+print OUT "HelitronID\tChr\t",'[+/-]',"\tStart\tEnd\tInsertPos\t$sortID $feature\tStrand\tZones\tZoneID\tZonestart\tZoneEnd\n";
+#our $loadingstarttime=time();
+#say "Start loading genomeic sequence.";
+print "Feature: $feature\n";
+print "SortID: $sortID\n";
+our $Hcount=0;
+#our @Chrname=();
+#our @Chrseq=();
+our (%HChr,%Hpm,%Hstart,%Hend);
+our @HIDS=();
+
+our $loadingstarttime=time();
+
+print "Start loading input GFF.\n";
+while(defined(our $inrow = <IN>)){
+#while(our $seq = <SEQFILENAME>){
+	if ($inrow =~ m/^\#/) {next;}
+	our @tmp = split (/\t/,$inrow);
+	our @tmp2 =split (/\;/,$tmp[8]);
+	if ($tmp2[0] =~ m/H\d+\.5/) {
+		next;
+		}elsif ($tmp2[0] =~ m/Name\=(.+H\d+)\.3/i){
+			our $HID=$1;
+			#print "$1\n";
+			push @HIDS,$HID;
+			$Hcount++;
+			$HChr{$HID}=$tmp[0];
+			$Hpm{$HID}=$tmp[6];
+			$Hstart{$HID}=$tmp[3];
+			$Hend{$HID}=$tmp[4]; 
+		
+	}
+
+}
+close IN;
+our $helitrons = keys %HChr;
+print "Finished loading $opfn $helitrons helitrons\n";
+
+
+our (%RChr,%Rpm,%Rstart,%Rend,%Rzone);
+
+print "Start loading REF GTF.\n";
+while (defined(my $refrow=<REFGTF>)){
+	chomp $refrow;
+	if ($refrow =~ m/^\#/) {next;}
+	our @tmp3 = split (/\t/,$refrow);
+	#print "$tmp3[2]\n";
+	if ($tmp3[2] ne $feature) {next;}
+	our @tmp4 =split (/\;/,$tmp3[8]);
+	foreach my $sortid (@tmp4){
+		if ($sortid =~ m/$sortID\s\"(.+)\"/i){
+			#print "$1\n";
+			our $refid=$1;
+			#our $refids="$1$tmp3[7]";
+			#print "$refids\n";
+			$RChr{$refid}=$tmp3[0];
+			$Rpm{$refid}=$tmp3[6];
+			$Rstart{$refid}=$tmp3[3];
+			$Rend{$refid}=$tmp3[4];
+			$Rzone{$refid}.="$tmp3[3];$tmp3[4];";
+			#print "$Rzone{$refid}\n";
+		}
+		
+		
+	}
+	
+	
+}
+
+our $loadingendtime=time();
+our $genes = keys %RChr;
+print "Finished loading! $genes $sortID\n";
+printf "%g Sec %g Min\n",$loadingendtime-$loadingstarttime,($loadingendtime-$loadingstarttime)/60;
+
+
+our $starttime=time();
+our $insertpos;
+our ($insertstart,$insertend,$insertnumber,$insertgene,$insertgenepm,$exonnumber);
+foreach my $H (@HIDS){
+	chomp $H;
+	if ($Hpm{$H} eq "+"){
+		 $insertpos=$Hend{$H};
+		}else{
+		 $insertpos=$Hstart{$H};
+	}
+	
+	#print "$insertpos\n";
+	($insertstart,$insertend,$insertnumber,$insertgene,$insertgenepm,$exonnumber)=("","","","","","");
+	while ((our $key, our $value)=each %RChr){
+		#print "$key $value\n";
+		if ($value ne $HChr{$H}){next;}
+		our @tmpzone=();
+		@tmpzone=split(/\;/,$Rzone{$key});
+		our $l =@tmpzone;
+		#print "$l\n";
+		 
+		for (our $i = 0; $i <= $l-1; $i=$i+2) {
+			#print "$tmpzone[$i] $tmpzone[$i+1]\n";
+			 if ($insertpos >= $tmpzone[$i] and $insertpos <= $tmpzone[$i+1]) {
+			 	($insertstart,$insertend,$insertnumber,$insertgene,$insertgenepm,$exonnumber)=($tmpzone[$i],$tmpzone[$i+1],($i+2)/2,$key,$Rpm{$key},$l/2);
+			 	if ($insertgenepm eq "-") {
+			 		$insertnumber=$exonnumber-$insertnumber+1;
+			 	}
+			 	print "matched $H in $insertgene\n";
+			 	last;
+			 }else{next;}
+			 
+		}
+		
+		if ($insertgene ne "") {
+			last;
+		}
+	}
+	
+	
+	print OUT "$H\t$HChr{$H}\t$Hpm{$H}\t$Hstart{$H}\t$Hend{$H}\t$insertpos\t$insertgene\t$insertgenepm\t$exonnumber\t$insertnumber\t$insertstart\t$insertend\n";
+}
+
+
+close OUT;
+our $endtime=time();
+printf "Done! %g Sec %g Min\n",$endtime-$starttime,($endtime-$starttime)/60;
+

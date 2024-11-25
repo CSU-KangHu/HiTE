@@ -46,13 +46,27 @@ def main():
         os.path.join(project_root, "tools/*"),
         os.path.join(project_root, "module/*"),
         os.path.join(project_root, "bin/NeuralTE/tools/*"),
-        os.path.join(project_root, "bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder")
+        os.path.join(project_root, "bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder"),
+        os.path.join(project_root, "bin/HybridLTR-main/tools/*")
     ]
 
     # 为每个文件添加执行权限
     for pattern in file_patterns:
         for file in glob.glob(pattern):  # 使用 glob 处理通配符
             add_execute_permission([file])
+
+    # 对LtrDetector进行重新编译
+    print(f"Recompile LtrDetector...")
+    project_root = os.path.abspath(os.path.dirname(__file__))
+    LtrDetector_dir = project_root + '/bin/HybridLTR-main/bin/LtrDetector'
+    LtrDetector_exe = LtrDetector_dir + '/bin/LtrDetector'
+    if os.path.exists(LtrDetector_dir):
+        recompile_cmd = 'cd ' + LtrDetector_dir + ' && rm -rf bin && cd src && make bin && make tr -j'
+        os.system(recompile_cmd)
+        if os.path.exists(LtrDetector_exe):
+            print(f"finish recompile LtrDetector: {LtrDetector_exe}")
+        else:
+            print(f"fail to recompile LtrDetector: {LtrDetector_exe}")
 
 
 if __name__ == "__main__":
