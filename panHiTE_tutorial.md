@@ -5,9 +5,6 @@ We are excited to announce a significant update to HiTE, which now includes the 
 1. **Improved LTR Detection**: The original `LTR_retriever` has been replaced with our new tool, `FiLTR`, offering improved **accuracy and completeness** in LTR detection.
 2. **Introducing panHiTE**: This new workflow is designed for population genomics, facilitating TE annotation and analysis across multiple genomes. panHiTE accepts `RNA-seq` data, enabling the detection of gene expression changes associated with **specific TE insertions**, making it ideal for exploring individual-specific traits.
 
-## panHiTE Performance
-We compared panHiTE to [panEDTA](https://github.com/oushujun/EDTA) in benchmark tests, and panHiTE demonstrated superior performance.
-
 ---
 
 ## panHiTE Tutorial
