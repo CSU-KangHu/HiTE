@@ -100,7 +100,7 @@ def main_pipeline():
     # 0. 读取 genomes
     genome_paths = []
     genome_names = []
-    RNA_seq_dict = {}
+    is_RNA_analyze = False
     gene_annotation_list = []
     with open(genome_list_path, 'r') as f_r:
         for line in f_r:
@@ -118,6 +118,7 @@ def main_pipeline():
                         exit(-1)
                     gene_annotation_list.append(gene_gtf)
 
+            RNA_seq_dict = {}
             if len(parts) == 3:
                 is_PE = False
                 raw_RNA = RNA_dir + '/' + parts[2]
@@ -126,6 +127,7 @@ def main_pipeline():
                     exit(-1)
                 RNA_seq_dict['raw_RNA'] = raw_RNA
                 RNA_seq_dict['is_PE'] = is_PE
+                is_RNA_analyze = True
             elif len(parts) == 4:
                 is_PE = True
                 raw_RNA1 = RNA_dir + '/' + parts[2]
@@ -139,6 +141,7 @@ def main_pipeline():
                 RNA_seq_dict['raw_RNA1'] = raw_RNA1
                 RNA_seq_dict['raw_RNA2'] = raw_RNA2
                 RNA_seq_dict['is_PE'] = is_PE
+                is_RNA_analyze = True
 
             cur_genome_path = pan_genomes_dir + '/' + genome_name
             TE_gff = output_dir + '/' + genome_name + '.gff'
@@ -150,7 +153,6 @@ def main_pipeline():
                 exit(-1)
             genome_paths.append((genome_name, cur_genome_path, TE_gff, gene_gtf, RNA_seq_dict))
             genome_names.append(genome_name)
-
 
     # 将gene注释文件转为标准的gtf格式，并去除非编码基因
     script_dir = project_dir + '/RNA_seq'
@@ -331,7 +333,7 @@ def main_pipeline():
             # Step 4. 根据 full_length_TE_gff 和 gene_gtf 获取插入到 gene 上、下游 1Kb、和内部的TE
             find_gene_relation_tes(batch_files, output_dir, recover, log)
 
-        if len(RNA_seq_dict) > 0:
+        if is_RNA_analyze:
             # Step 5. 根据RNA-seq数据比对到基因组生成bam文件
             RNA_seq_dir = project_dir + '/RNA_seq'
             new_batch_files = generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log)

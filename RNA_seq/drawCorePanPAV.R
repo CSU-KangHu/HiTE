@@ -156,7 +156,7 @@ print(summary(model.c), digits = 10)
 
 
 # 假设C > Pan.mean
-c.1 <- min(dsum$Pan.mean)*1.1
+c.1 <- min(dsum$Pan.mean)*1.2
 model.1 <- lm(log(c.1 - Pan.mean) ~ log(sampleNum), data=dsum)
 start.1 <- list(a = -as.numeric(exp(coef(model.1)[1])), 
                 b = as.numeric(coef(model.1)[2]), 

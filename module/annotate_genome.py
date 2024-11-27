@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # annotate the genome
     if annotate is not None and int(annotate) == 1:
         RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-                               + ' -gff -lib ' + classified_TE_consensus + ' -cutoff 225 ' \
+                               + ' -no_is -norna -nolow -gff -lib ' + classified_TE_consensus + ' -cutoff 225 ' \
                                + reference
         log.logger.debug(RepeatMasker_command)
         os.system(RepeatMasker_command)

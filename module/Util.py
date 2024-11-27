@@ -7228,7 +7228,7 @@ def multi_process_align_and_get_copies(query_path, subject_path, tmp_blast_dir, 
     return all_copies
 
 
-def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True):
+def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True, is_remove_index=False):
     tools_dir = ''
     if is_removed_dir:
         os.system('rm -rf ' + tmp_blast_dir)
@@ -7270,6 +7270,9 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
     for job in as_completed(jobs):
         cur_blastn2Results_path = job.result()
         os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastnResults_path)
+
+    if is_remove_index:
+        os.system('rm -f ' + subject_path + '.*')
 
 def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp_output_dir):
     subject_path = confident_ltr_cut_path
@@ -11582,7 +11585,7 @@ def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_thre
     tmp_blast_dir = work_dir + '/LTR_blastn_' + str(type)
     blastnResults_path = work_dir + '/LTR_blastn_' + str(type) + '.out'
     # 1. Start by performing an all-vs-all comparison using blastn.
-    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True)
+    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True, is_remove_index=True)
     if not os.path.exists(blastnResults_path):
         return redundant_ltr
     # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
@@ -12050,6 +12053,7 @@ def run_featurecounts(output_dir, RNA_seq_dir, sorted_bam, gene_gtf, genome_name
     if not recover or not os.path.exists(resut_file):
         featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_seq_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
                             ' --isPairedEnd ' + str(is_PE)
+        log.logger.debug(featurecounts_cmd)
         os.system(featurecounts_cmd)
     else:
         log.logger.info(resut_file + ' exists, skip...')
@@ -12133,7 +12137,7 @@ def summary_TEs(batch_files, genome_dir, panTE_lib, output_dir, intact_ltr_paths
     pan_te_fl_infos, pan_te_total_infos, pan_te_full_length_annotations = get_panTE_info(batch_files, panTE_lib, te_classes, genome_dir)
 
     # 生成一个 PAV.tsv 表格，行表示TE family，列表示基因组名称
-    generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir)
+    generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log)
 
     # 获取 TE 出现在多少个不同的基因组
     te_fl_occur_genomes, te_occur_genomes = get_te_occur_genomes(new_te_contigs, pan_te_fl_infos, pan_te_total_infos)
@@ -12193,6 +12197,9 @@ def summary_TEs(batch_files, genome_dir, panTE_lib, output_dir, intact_ltr_paths
     merger.write(TE_summary_pdf)
     merger.close()
 
+    if os.path.exists(TE_summary_pdf):
+        for pdf in pdf_files:
+            os.remove(pdf)
 
     # 为每个基因组生成一个全长 TE 注释，并且标注出是属于哪一类型的TE (core, softcore, ...)
     if log is not None:
@@ -13679,7 +13686,7 @@ def get_full_length_copies_from_blastn_v2(TE_lib, reference, blastn_out, tmp_out
         full_length_annotations.update(annotations)
     return full_length_annotations, copies_direct, all_query_copies
 
-def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir):
+def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
     pav_table = output_dir + '/panHiTE_PAV.tsv'
     lines = []
     first_line = 'TE_families\t'
@@ -13714,7 +13721,8 @@ def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir):
 
     # 调用 drawCorePanPAV.R 生成TE饱和曲线图
     script_path = cur_dir + '/RNA_seq/drawCorePanPAV.R'
-    cmd = 'Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
+    cmd = 'cd ' + output_dir + ' && Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
+    log.logger.debug(cmd)
     os.system(cmd)
 
     return te_fl_occur_genomes
