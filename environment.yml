@@ -1,39 +1,40 @@
 name: HiTE
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
   - r
   - pytorch
 dependencies:
-  - python=3.8.16=h7a1cb2a_2
+  - python=3.9
   - java-jdk
   - pytorch
   - cpuonly
-  - tensorflow=2.6.0
-  - keras=2.6.0=pyhd3eb1b0_0
-  - numpy=1.19.5=py38h8246c76_3
-  - pandas=1.4.4=py38h47df419_0
-  - biopython=1.78=py38h7f8727e_0
-  - scikit-learn=1.2.0=py38h6a678d5_1
+  - tensorflow=2.12.1
+  - numpy=1.24.4
+  - pandas=2.2.2
+  - biopython
+  - scikit-learn
   - seaborn
   - matplotlib
   - openpyxl
   - rmblast=2.14.0
   - repeatmasker=4.1.1
   - repeatmodeler=2.0.1=pl526_0
-  - bedtools=2.30.0
-  - cd-hit=4.8.1
+  - bedtools
+  - cd-hit
   - samtools
   - fuzzysearch
   - mafft
   - ninja-nj
   - emboss
-  - r-base=3.6.3=hbcea092_8
+  - r-base=4.2.3
   - hisat2
   - trimmomatic
   - gffread
   - pygtftk
+  - bioconductor-rsubread
+  - r-mass
   - tqdm
   - pip
   - pip:

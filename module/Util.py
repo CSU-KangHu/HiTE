@@ -11977,7 +11977,7 @@ def generate_bam(genome_path, genome_annotation_file, output_dir, threads, RNA_s
         raw_RNA1 = kwargs['raw_RNA1']
         raw_RNA2 = kwargs['raw_RNA2']
         ILLUMINACLIP_path = '/public/home/hpc194701009/miniconda3/envs/panHiTE/share/trimmomatic/adapters/TruSeq3-PE.fa'
-        paired_trim_RNA1, paired_trim_RNA2 = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads)
+        paired_trim_RNA1, paired_trim_RNA2, temp_files = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads)
 
         os.system(hisat2_build)
         hisat2_align = 'cd ' + genome_dir + ' && hisat2 -x ' + genome_name + ' -1 ' + paired_trim_RNA1 + ' -2 ' + paired_trim_RNA2 + ' -S ' + output_sam + ' -p ' + str(threads)
@@ -11985,30 +11985,39 @@ def generate_bam(genome_path, genome_annotation_file, output_dir, threads, RNA_s
     else:
         raw_RNA = kwargs['raw_RNA']
         ILLUMINACLIP_path = '/public/home/hpc194701009/miniconda3/envs/panHiTE/share/trimmomatic/adapters/TruSeq3-SE.fa'
-        trim_RNA = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads)
+        trim_RNA, temp_files = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads)
 
         os.system(hisat2_build)
         hisat2_align = 'cd ' + genome_dir + ' && hisat2 -x ' + genome_name + ' -U ' + trim_RNA + ' -S ' + output_sam + ' -p ' + str(threads)
         os.system(hisat2_align)
 
+    for tmp_file in temp_files:
+        if os.path.exists(tmp_file):
+            os.remove(tmp_file)
+
     # 3. 排序 sam 文件
-    sorted_command = 'samtools sort -o ' + sorted_bam + ' ' + output_sam
+    sorted_command = 'samtools sort -o ' + sorted_bam + ' ' + output_sam + ' && rm -f ' + output_sam
     os.system(sorted_command)
     return sorted_bam
 
 def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads):
+    temp_files = []
     # 1. 先获取文件的名称，以方便后续构建临时文件
     raw_RNA1_dir = os.path.dirname(raw_RNA1)
     raw_RNA1_filename = os.path.basename(raw_RNA1)
     raw_RNA1_name = raw_RNA1_filename.split('.')[0]
     paired_trim_RNA1 = raw_RNA1_dir + '/' + raw_RNA1_name + '.paired_trim.fq.gz'
     unpaired_trim_RNA1 = raw_RNA1_dir + '/' + raw_RNA1_name + '.unpaired_trim.fq.gz'
+    temp_files.append(paired_trim_RNA1)
+    temp_files.append(unpaired_trim_RNA1)
 
     raw_RNA2_dir = os.path.dirname(raw_RNA2)
     raw_RNA2_filename = os.path.basename(raw_RNA2)
     raw_RNA2_name = raw_RNA2_filename.split('.')[0]
     paired_trim_RNA2 = raw_RNA2_dir + '/' + raw_RNA2_name + '.paired_trim.fq.gz'
     unpaired_trim_RNA2 = raw_RNA2_dir + '/' + raw_RNA2_name + '.unpaired_trim.fq.gz'
+    temp_files.append(paired_trim_RNA2)
+    temp_files.append(unpaired_trim_RNA2)
 
     # 2.调用 trimmomatic 去掉低质量和测序adapter
     trimmomatic_command = 'trimmomatic PE ' + raw_RNA1 + ' ' + raw_RNA2 + ' ' + paired_trim_RNA1 + ' ' + \
@@ -12016,23 +12025,24 @@ def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads):
                           'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
                           ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33 ' + '-threads ' + str(threads)
     os.system(trimmomatic_command)
-    return paired_trim_RNA1, paired_trim_RNA2
+    return paired_trim_RNA1, paired_trim_RNA2, temp_files
 
 
 def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
+    temp_files = []
     # 1. 先获取文件的名称，以方便后续构建临时文件
     raw_RNA_dir = os.path.dirname(raw_RNA)
     raw_RNA_filename = os.path.basename(raw_RNA)
     raw_RNA_name = raw_RNA_filename.split('.')[0]
     trim_RNA = raw_RNA_dir + '/' + raw_RNA_name + '.trim.fq.gz'
-
+    temp_files.append(trim_RNA)
 
     # 2.调用 trimmomatic 去掉低质量和测序adapter
     trimmomatic_command = 'trimmomatic SE ' + raw_RNA + ' ' + trim_RNA + ' ' + \
                           'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
                           ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33 ' + '-threads ' + str(threads)
     os.system(trimmomatic_command)
-    return trim_RNA
+    return trim_RNA, temp_files
 
 def run_featurecounts(output_dir, RNA_seq_dir, sorted_bam, gene_gtf, genome_name, is_PE, recover, log):
     gene_express_count = output_dir + '/' + genome_name + '.count'
@@ -12121,6 +12131,9 @@ def summary_TEs(batch_files, genome_dir, panTE_lib, output_dir, intact_ltr_paths
 
     # 统计 TE 出现的拷贝次数 和 length coverage
     pan_te_fl_infos, pan_te_total_infos, pan_te_full_length_annotations = get_panTE_info(batch_files, panTE_lib, te_classes, genome_dir)
+
+    # 生成一个 PAV.tsv 表格，行表示TE family，列表示基因组名称
+    generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir)
 
     # 获取 TE 出现在多少个不同的基因组
     te_fl_occur_genomes, te_occur_genomes = get_te_occur_genomes(new_te_contigs, pan_te_fl_infos, pan_te_total_infos)
@@ -13665,3 +13678,46 @@ def get_full_length_copies_from_blastn_v2(TE_lib, reference, blastn_out, tmp_out
         annotations = job.result()
         full_length_annotations.update(annotations)
     return full_length_annotations, copies_direct, all_query_copies
+
+def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir):
+    pav_table = output_dir + '/panHiTE_PAV.tsv'
+    lines = []
+    first_line = 'TE_families\t'
+    genome_names = pan_te_fl_infos.keys()
+    for i, genome_name in enumerate(genome_names):
+        first_line += genome_name
+        if i != len(genome_names) - 1:
+            first_line += '\t'
+        else:
+            first_line += '\n'
+    lines.append(first_line)
+
+    te_fl_occur_genomes = {}
+    for te_name in new_te_contigs.keys():
+        cur_line = te_name + '\t'
+        for i, genome_name in enumerate(genome_names):
+            te_fl_infos = pan_te_fl_infos[genome_name]
+            if te_name in te_fl_infos:
+                cur_copy_num, cur_fl_length = te_fl_infos[te_name]
+            else:
+                cur_copy_num = 0
+            cur_line += str(cur_copy_num)
+            if i != len(genome_names) - 1:
+                cur_line += '\t'
+            else:
+                cur_line += '\n'
+        lines.append(cur_line)
+
+    with open(pav_table, 'w') as f_save:
+        for line in lines:
+            f_save.write(line)
+
+    # 调用 drawCorePanPAV.R 生成TE饱和曲线图
+    script_path = cur_dir + '/RNA_seq/drawCorePanPAV.R'
+    cmd = 'Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
+    os.system(cmd)
+
+    return te_fl_occur_genomes
+
+
+

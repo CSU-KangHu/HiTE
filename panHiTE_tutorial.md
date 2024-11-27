@@ -1,4 +1,5 @@
 # HiTE Now Includes panHiTE Support!
+![Version](https://img.shields.io/badge/version-0.0.1--beta-orange)
 
 We are excited to announce a significant update to HiTE, which now includes the powerful panHiTE functionality. This release introduces the following key features:
 
@@ -26,9 +27,37 @@ conda env create --name HiTE -f environment.yml
 conda activate HiTE
 ```
 
+### 2. Installing Required R Packages
+To install R packages, you may need to configure the CRAN mirror first. For example, to use the default CRAN mirror, add the following configuration to your `~/.Rprofile` file:
+
+```R
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+```
+
+We provide a script to install all necessary R dependencies in one step:  
+```bash
+conda activate HiTE
+Rscript RNA_seq/install_R_dependencies.R
+```
+
+If the installation completes successfully, the following R packages will be installed within the `HiTE` environment:  
+- **argparser**  
+- **tibble**  
+- **dplyr**  
+- **minpack.lm**  
+- **readr**  
+- **stringr**  
+- **tidyr**  
+- **Rsubread**
+- **limma** 
+- **edgeR**
+- **ggplot2**
+
+If the script fails to install the packages, you can also install them manually.
+
 ---
 
-### 2. Data Preparation  
+### 3. Data Preparation  
 
 Download the [demo data](https://zenodo.org/records/14189130) from Zenodo. Since the dataset includes RNA-seq data, it is relatively large, so please be patient.
 
@@ -57,11 +86,12 @@ Download the [demo data](https://zenodo.org/records/14189130) from Zenodo. Since
 
 ---
 
-### 3. Running panHiTE  
+### 4. Running panHiTE  
 
-#### 3.1 Full Workflow  
+#### 4.1 Full Workflow  
 To run panHiTE from start to end, use the following command:  
 ```bash
+# Make sure to replace the `${}` placeholders with your actual paths.
 python panHiTE.py \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
@@ -93,7 +123,7 @@ python panHiTE.py \
 ```
 - **`--recover 1`**: This option detects existing intermediate files and resumes from the last checkpoint, saving time.
 
-#### 3.2 skip downstream analysis 
+#### 4.2 skip downstream analysis 
 If you only need the panLTR library and the annotation for each genome, you can choose to skip the downstream analysis by setting `--skip_analyze 1`.
 ```bash
 python panHiTE.py \
@@ -125,7 +155,7 @@ python panHiTE.py \
 ```
 ---
 
-### 4. Features Under Development
+### 5. Features Under Development
 
 The current panHiTE pipeline runs HiTE detection on multiple genomes sequentially, generates the panHiTE library, 
 and then annotates each genome sequentially as well. In theory, these steps can be parallelized on an HPC platform. 

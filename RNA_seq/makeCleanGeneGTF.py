@@ -7,6 +7,7 @@ import sys
 import concurrent.futures
 import tempfile
 import shutil
+import pandas as pd
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(cur_dir)
@@ -55,63 +56,50 @@ def convert_gff_to_gtf(input_gff, output_gtf, temp_dir):
 #     return temp_coding_gtf
 
 
-def parse_gtf_attributes(attribute_string):
-    """
-    Parse the attribute column of a GTF file into a dictionary.
-
-    Parameters:
-        attribute_string (str): The attribute column from a GTF line.
-
-    Returns:
-        dict: Parsed attributes as key-value pairs.
-    """
-    attributes = {}
-    # Use regex to extract key-value pairs like key "value";
-    for match in re.finditer(r'(\S+) "([^"]+)"', attribute_string):
-        key, value = match.groups()
-        attributes[key] = value
-    return attributes
-
-def extract_coding_genes(input_gtf, temp_dir):
-    """
-    Extract coding genes directly to a temporary GTF file.
-    """
-    temp_coding_mapid = os.path.join(temp_dir, "temp_coding_mapid.txt")
-    temp_coding_gtf = os.path.join(temp_dir, "temp_coding.gtf")
-    temp_cds_gtf = os.path.join(temp_dir, "temp_cds.gtf")
-
-    # Extract lines with feature 'CDS' and write to temp_cds_gtf
-    with open(input_gtf, 'r') as infile, open(temp_cds_gtf, 'w') as outfile:
-        for line in infile:
-            if line.strip() and not line.startswith('#'):
-                fields = line.strip().split('\t')
-                if fields[2] == 'CDS':  # Feature is in the third column
-                    outfile.write(line)
-
-        # Create a map of transcript_id to gene_id from the CDS entries
-        transcript_to_gene = {}
-        with open(temp_cds_gtf, 'r') as cds_file:
-            for line in cds_file:
-                if line.strip() and not line.startswith('#'):
-                    attributes = line.strip().split('\t')[8]  # Attributes are in the 9th column
-                    attr_dict = parse_gtf_attributes(attributes)
-                    if 'transcript_id' in attr_dict and 'gene_id' in attr_dict:
-                        transcript_to_gene[attr_dict['transcript_id']] = attr_dict['gene_id']
-
-    # Write the transcript_id to gene_id map to temp_coding_mapid
-    with open(temp_coding_mapid, 'w') as mapid_file:
-        for transcript_id, gene_id in transcript_to_gene.items():
-            mapid_file.write(f"{transcript_id}\t{gene_id}\n")
-
-    run_command(f"perl " + cur_dir + f"/gtf_extract.pl {input_gtf} {temp_coding_mapid} > {temp_coding_gtf}")
-
-    return temp_coding_gtf
-
 def extract_longest_transcripts(input_gtf, output_gtf):
     """
     Extract longest transcripts from the input GTF file to the output GTF.
     """
     run_command(f"gtftk short_long -g -l -i {input_gtf} > {output_gtf}")
+
+
+# Parse attributes to extract transcript ID and gene ID
+def parse_attributes(attr_str):
+    print(attr_str)
+    attrs = {}
+    for item in attr_str.strip(';').split('; '):
+        if ' ' in item:
+            key, value = item.split(' ', 1)
+            attrs[key] = value.strip('"')  # 移除引号
+    return attrs
+
+def extract_longest_transcripts(input_gtf, output_gtf):
+    """
+    Extract longest transcripts from the input GTF file to the output GTF.
+    This implementation reads the GTF file, identifies the longest transcript for each gene,
+    and writes it back to a new GTF file.
+    """
+    # Read GTF file into a pandas DataFrame
+    column_names = [
+        "seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"
+    ]
+    gtf = pd.read_csv(input_gtf, sep='\t', comment='#', names=column_names, low_memory=False)
+
+    # Filter for transcript features
+    transcripts = gtf[gtf["feature"] == "transcript"]
+
+    transcripts[["transcript_id", "gene_id"]] = transcripts["attribute"].apply(parse_attributes).apply(pd.Series)
+
+    # Calculate transcript lengths and find the longest for each gene
+    transcripts["length"] = transcripts["end"] - transcripts["start"]
+    longest_transcripts = transcripts.loc[transcripts.groupby("gene_id")["length"].idxmax()]
+
+    # Filter the original GTF file to include only the longest transcripts
+    longest_ids = set(longest_transcripts["transcript_id"])
+    longest_gtf = gtf[gtf["attribute"].str.contains('|'.join(longest_ids))]
+
+    # Write to the output GTF file
+    longest_gtf.to_csv(output_gtf, sep='\t', header=False, index=False)
 
 
 def process_gtf(input_file, output_dir):
