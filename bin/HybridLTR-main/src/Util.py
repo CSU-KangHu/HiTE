@@ -3971,20 +3971,23 @@ def get_LTR_seq_from_scn(genome, scn_path, ltr_terminal, ltr_internal, ltr_intac
         cur_name = chr_name + '-' + str(lLTR_start) + '-' + str(lLTR_end)
         if (len(lLTR_seq) > 0 and len(rLTR_seq) > 0 and len(LTR_int_seq) > 0
                 and 'NNNNNNNNNN' not in lLTR_seq and 'NNNNNNNNNN' not in rLTR_seq and 'NNNNNNNNNN' not in LTR_int_seq):
-            lLTR_name = chr_name + '_' + str(LTR_start) + '-' + str(LTR_end) + '-lLTR' + '#LTR'
+            lLTR_name = chr_name + ':' + str(LTR_start) + '..' + str(LTR_end) + '-lLTR' + '#LTR'
             LTR_terminals[lLTR_name] = lLTR_seq
-            rLTR_name = chr_name + '_' + str(LTR_start) + '-' + str(LTR_end) + '-rLTR' + '#LTR'
+            rLTR_name = chr_name + ':' + str(LTR_start) + '..' + str(LTR_end) + '-rLTR' + '#LTR'
             LTR_terminals[rLTR_name] = rLTR_seq
-            intact_name = chr_name + '_' + str(LTR_start) + '-' + str(LTR_end)
+            intact_name = chr_name + ':' + str(LTR_start) + '..' + str(LTR_end)
             LTR_intacts[intact_name] = intact_seq
             # 如果当前是dirty (内部序列包含其他full-length LTR)，就过滤该内部序列
             if cur_name not in dirty_dicts:
-                LTR_int_name = chr_name + '_' + str(LTR_start) + '-' + str(LTR_end) + '-int' + '#LTR'
+                LTR_int_name = chr_name + ':' + str(LTR_start) + '..' + str(LTR_end) + '-int' + '#LTR'
                 LTR_ints[LTR_int_name] = LTR_int_seq
     store_fasta(LTR_ints, ltr_internal)
     store_fasta(LTR_terminals, ltr_terminal)
     store_fasta(LTR_intacts, ltr_intact)
 
+    # 生成LTR_retriever .pass.list格式
+    # #LTR_loc        Category        Motif   TSD     5_TSD 3_TSD       Internal        Identity      Strand  SuperFamily  TE_type     Insertion_Time
+    # chr_1:146286..139837    pass    motif:TGCA      TSD:GTATA       139832..139836  146287..146291  IN:140816..145316       1.0000  -       Copia   LTR     0
     with open(ltr_intact_list, 'w') as f_save:
         header = '#LTR_loc\tMotif\tTSD\tInternal\tIdentity\tInsertion_Time'
         f_save.write(header + '\n')
@@ -4000,12 +4003,14 @@ def get_LTR_seq_from_scn(genome, scn_path, ltr_terminal, ltr_internal, ltr_intac
             rLTR_end = int(parts[7])
             identity = float(parts[9]) / 100
             insertion_time = int(estimate_insert_time(identity, float(miu)))
-            ltr_name = chr_name + '_' + str(LTR_start) + '-' + str(LTR_end)
+            ltr_name = chr_name + ':' + str(LTR_start) + '..' + str(LTR_end)
             ltr_name, has_structure, tsd_seq = is_ltr_has_structure(ltr_name, line, ref_seq)
             motif = ref_seq[lLTR_start - 1: lLTR_start - 1 + 2] + ref_seq[rLTR_end - 2: rLTR_end]
             if tsd_seq == '':
                 tsd_seq = 'NA'
-            cur_record = ltr_name + '\t' + motif + '\t' + tsd_seq + '\t' + str(lLTR_end) + '-' + str(rLTR_start - 1) + '\t' + str(identity) + '\t' + str(insertion_time)
+            cur_record = ltr_name + '\t' + 'pass' + '\t' + 'motif:' + motif + '\t' + 'TSD:' + tsd_seq + '\t' \
+                         + 'NA..NA\tNA..NA\t' + 'IN:' + str(lLTR_end) + '..' + str(rLTR_start - 1) + '\t' \
+                         + str(identity) + '\t.\tNA\tNA' + '\t' + str(insertion_time)
             f_save.write(cur_record + '\n')
 
 def estimate_insert_time(identity, miu):
@@ -5927,112 +5932,6 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
 
     if not debug:
         os.system('rm -f ' + single_copy_internals_file)
-
-def filter_single_copy_ltr_v1(output_path, single_copy_internals_file, ltr_copies, internal_ltrs,
-                           ltr_protein_db, other_protein_db, tmp_output_dir, threads,
-                           reference, leftLtr2Candidates, ltr_lines, log):
-    # # 我们只保留具有 TSD + TG...CA 结构的单拷贝 或者 内部具有完整protein的。
-    # 我们只保留内部具有完整或 >=100 bp protein
-
-    # 判断单拷贝的内部序列是否有完整的蛋白质
-    single_copy_internals = {}
-    for name in ltr_copies.keys():
-        if len(ltr_copies[name]) <= 1:
-            single_copy_internals[name] = internal_ltrs[name]
-    store_fasta(single_copy_internals, single_copy_internals_file)
-
-    temp_dir = tmp_output_dir + '/ltr_domain'
-    output_table = single_copy_internals_file + '.ltr_domain'
-    get_domain_info(single_copy_internals_file, ltr_protein_db, output_table, threads, temp_dir)
-    is_single_ltr_has_intact_protein = {}
-    protein_names, protein_contigs = read_fasta(ltr_protein_db)
-    with open(output_table, 'r') as f_r:
-        for i, line in enumerate(f_r):
-            if i < 2:
-                continue
-            parts = line.split('\t')
-            te_name = parts[0]
-            protein_name = parts[1]
-            protein_start = int(parts[4])
-            protein_end = int(parts[5])
-            intact_protein_len = len(protein_contigs[protein_name])
-            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
-                is_single_ltr_has_intact_protein[te_name] = True
-
-    temp_dir = tmp_output_dir + '/other_domain'
-    output_table = single_copy_internals_file + '.other_domain'
-    get_domain_info(single_copy_internals_file, other_protein_db, output_table, threads, temp_dir)
-    is_single_ltr_has_intact_other_protein = {}
-    protein_names, protein_contigs = read_fasta(other_protein_db)
-    with open(output_table, 'r') as f_r:
-        for i, line in enumerate(f_r):
-            if i < 2:
-                continue
-            parts = line.split('\t')
-            te_name = parts[0]
-            protein_name = parts[1]
-            protein_start = int(parts[4])
-            protein_end = int(parts[5])
-            intact_protein_len = len(protein_contigs[protein_name])
-            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
-                is_single_ltr_has_intact_other_protein[te_name] = True
-
-    # query_protein_types = get_domain_info_v2(single_copy_internals_file, protein_db, threads, temp_dir, tool_dir)
-
-    # 判断单拷贝LTR是否有TSD结构
-    is_single_ltr_has_structure = {}
-    no_structure_single_count = 0
-    ref_names, ref_contigs = read_fasta(reference)
-    for ltr_name in single_copy_internals.keys():
-        candidate_index = leftLtr2Candidates[ltr_name]
-        line = ltr_lines[candidate_index]
-        parts = line.split(' ')
-        chr_name = parts[11]
-        ref_seq = ref_contigs[chr_name]
-        ltr_name, has_structure = is_ltr_has_structure(ltr_name, line, ref_seq)
-        is_single_ltr_has_structure[ltr_name] = has_structure
-        if not has_structure:
-            no_structure_single_count += 1
-    if log is not None:
-        log.logger.info('Filter the number of no structure single copy LTR: ' + str(no_structure_single_count) + ', remaining single copy LTR num: ' + str(len(single_copy_internals)-no_structure_single_count))
-
-    remain_intact_count = 0
-    filtered_intact_count = 0
-    with open(output_path, 'w') as f_save:
-        for name in ltr_copies.keys():
-            if len(ltr_copies[name]) >= 2:
-                cur_is_ltr = 1
-                remain_intact_count += 1
-            else:
-                if name in is_single_ltr_has_intact_other_protein and is_single_ltr_has_intact_other_protein[name]:
-                    cur_is_ltr = 0
-                    filtered_intact_count += 1
-                else:
-                    if (name in is_single_ltr_has_intact_protein and is_single_ltr_has_intact_protein[name]) \
-                            and (name in is_single_ltr_has_structure and is_single_ltr_has_structure[name]):
-                        cur_is_ltr = 1
-                        remain_intact_count += 1
-                    else:
-                        cur_is_ltr = 0
-                        filtered_intact_count += 1
-
-                # # 如果单拷贝LTR的内部序列有蛋白质、且蛋白质类型单一就认为是真实的LTR
-                # # if name in is_single_ltr_has_intact_protein and is_single_ltr_has_intact_protein[name]:
-                # if name in query_protein_types:
-                #     protein_types = query_protein_types[name]
-                #     first_protein = next(iter(protein_types))
-                #     if len(protein_types) == 1 and 'LTR' in first_protein:
-                #         cur_is_ltr = 1
-                #         remain_intact_count += 1
-                #     else:
-                #         cur_is_ltr = 0
-                #         filtered_intact_count += 1
-                # else:
-                #     cur_is_ltr = 0
-                #     filtered_intact_count += 1
-            f_save.write(name + '\t' + str(cur_is_ltr) + '\n')
-    if log is not None:
-        log.logger.info('Filter the number of non-intact LTR: ' + str(filtered_intact_count) + ', remaining LTR num: ' + str(remain_intact_count))
 
 def filter_ltr_by_copy_num(output_path, leftLtr2Candidates, ltr_lines, reference, tmp_output_dir, split_ref_dir, threads, full_length_threshold, debug):
     true_ltrs = {}

@@ -139,7 +139,6 @@ if __name__ == '__main__':
         f"##date {date}\n"
         "##ltr_identity: Sequence identity (0-1) between the left and right LTR region.\n"
         "##tir_identity: Sequence identity (0-1) between the left and right TIR region.\n"
-        "##tsd: target site duplication\n"
     )
     with open(all_sorted_gff, "w") as gff_file:
         gff_file.write(header)

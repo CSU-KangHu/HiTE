@@ -61,12 +61,12 @@ while (<List>){
 #	my $info = "Name=$id;motif=$motif;tsd=$TSD;ltr_identity=$sim;Method=structural";
 	my $info = "name=$id;classification=LTR/$supfam";
 	my $info2 = "ltr_identity=$sim;motif=$motif;tsd=$TSD";
-	print GFF "$chr\t$annotator\trepeat_region\t$element_start\t$element_end\t.\t$strand\t.\tid=repeat_region_$i;$info;$info2\n";
-	print GFF "$chr\t$annotator\ttarget_site_duplication\t$lTSD\t.\t$strand\t.\tid=lTSD_$i;parent=repeat_region_$i;$info;$info2\n" unless $TSD eq "NA";
+	# print GFF "$chr\t$annotator\trepeat_region\t$element_start\t$element_end\t.\t$strand\t.\tid=repeat_region_$i;$info;$info2\n";
+	# print GFF "$chr\t$annotator\ttarget_site_duplication\t$lTSD\t.\t$strand\t.\tid=lTSD_$i;parent=repeat_region_$i;$info;$info2\n" unless $TSD eq "NA";
 	print GFF "$chr\t$annotator\tlong_terminal_repeat\t$lLTR_start\t$lLTR_end\t.\t$strand\t.\tid=lLTR_$i;parent=repeat_region_$i;$info;$info2\n";
 	print GFF "$chr\t$annotator\t$so\t$lLTR_start\t$rLTR_end\t.\t$strand\t.\tid=LTRRT_$i;parent=repeat_region_$i;$info;$info2\n";
 	print GFF "$chr\t$annotator\tlong_terminal_repeat\t$rLTR_start\t$rLTR_end\t.\t$strand\t.\tid=rLTR_$i;parent=repeat_region_$i;$info;$info2\n";
-	print GFF "$chr\t$annotator\ttarget_site_duplication\t$rTSD\t.\t$strand\t.\tid=rTSD_$i;parent=repeat_region_$i;$info;$info2\n" unless $TSD eq "NA";
+	# print GFF "$chr\t$annotator\ttarget_site_duplication\t$rTSD\t.\t$strand\t.\tid=rTSD_$i;parent=repeat_region_$i;$info;$info2\n" unless $TSD eq "NA";
 	print GFF "###\n";
 	$i++;
 	}

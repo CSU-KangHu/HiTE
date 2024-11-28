@@ -305,16 +305,13 @@ if __name__ == '__main__':
                 writer = csv.writer(outfile, delimiter='\t')
 
                 for row in reader:
-                    if row[0].startswith('#'):
-                        # 在注释行最后一列添加 Classification 列名
-                        writer.writerow(row + ['Classification'])
-                    else:
+                    if not row[0].startswith('#'):
                         # 将分类标签添加到 LTR_loc 对应的行
                         LTR_loc = row[0]
                         label = intact_LTR_labels.get(LTR_loc, 'NA')  # 如果没有找到分类标签，则写入 'NA'
 
-                        # 写入新的行：在最后添加标签列
-                        writer.writerow(row + [label])
+                        # 写入新的行：在倒数第二列插入标签列
+                        writer.writerow(row[:-1] + [label] + row[-1:])
             # 替换原始文件为带有分类标签的新文件
             os.replace(temp_file, confident_intact_ltr_list)
 
