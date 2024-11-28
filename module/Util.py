@@ -11356,89 +11356,94 @@ def lib_add_prefix(HiTE_lib, prefix):
     store_fasta(new_lib_contigs, HiTE_lib)
     return HiTE_lib
 
-def find_gene_relation_tes(batch_files, output_dir, recover, log):
-    genome_num = len(batch_files)
-    genome_num_threshold = int(0.8 * genome_num)
+def find_gene_relation_tes(genome_info_list, gene_annotation_list, output_dir, recover, log):
+    if len(gene_annotation_list) > 0:
+        genome_num = len(genome_info_list)
+        genome_num_threshold = int(0.8 * genome_num)
 
-    te_gene_insertions_list = []
-    for genome_name, reference, gff_path, full_length_gff_path, gene_gtf, RNA_seq_dict in batch_files:
-        if os.path.exists(full_length_gff_path) and os.path.exists(gene_gtf):
-            output_file = output_dir + '/' + genome_name + '.te_gene_insertions.tsv'
-            resut_file = output_file
-            if not recover or not file_exist(resut_file):
-                results = analyze_te_insertions(gene_gtf, full_length_gff_path)
-                save_results(results, resut_file)
-            else:
-                log.logger.info(resut_file + ' exists, skip...')
-            te_gene_insertions_list.append((genome_name, resut_file))
+        te_gene_insertions_list = []
+        for genome_info in genome_info_list:
+            genome_name = genome_info["genome_name"]
+            gene_gtf = genome_info["gene_gtf"]
+            full_length_TE_gff = genome_info["full_length_TE_gff"]
 
-    # 初始化一个字典，gene name为键，每个键的值是一个列表
-    gene_te_associations = defaultdict(list)
-    # 遍历te_gene_insertions_list
-    for genome_name, resut_file in te_gene_insertions_list:
-        results = load_results(resut_file)
-        for _, row in results.iterrows():
-            gene_name = row['Gene_name']
-            gene_name_parts = str(gene_name).split('_')
-            gene_name = gene_name_parts[-1]
-            gene_te_associations[gene_name].append({
-                'Genome_name': genome_name,
-                'TE_name': row['TE_name'],
-                'Chromosome': row['Chromosome'],
-                'TE_start': row['TE_start'],
-                'TE_end': row['TE_end'],
-                'Gene_start': row['Gene_start'],
-                'Gene_end': row['Gene_end'],
-                'Position': row['Position']
-            })
-    output_file = output_dir + '/gene_te_associations.tsv'
-    save_gene_te_associations_to_file(gene_te_associations, output_file)
+            if os.path.exists(full_length_TE_gff) and os.path.exists(gene_gtf):
+                output_file = output_dir + '/' + genome_name + '.te_gene_insertions.tsv'
+                resut_file = output_file
+                if not recover or not file_exist(resut_file):
+                    results = analyze_te_insertions(gene_gtf, full_length_TE_gff)
+                    save_results(results, resut_file)
+                else:
+                    log.logger.info(resut_file + ' exists, skip...')
+                te_gene_insertions_list.append((genome_name, resut_file))
 
-    # 统计同一个 gene 下，相同的位置，相同的TE 出现了多少次
-    gene_te_stats = {}
-    for gene_name, te_list in gene_te_associations.items():
-        # 初始化gene_te_stats的key值
-        if gene_name not in gene_te_stats:
-            gene_te_stats[gene_name] = defaultdict(lambda: {'count': 0, 'genomes': set()})
-        for te_info in te_list:
-            # 创建唯一标识符：TE的名称 + TE的位置 + TE的染色体
-            te_key = (te_info['Position'], te_info['TE_name'])
+        # 初始化一个字典，gene name为键，每个键的值是一个列表
+        gene_te_associations = defaultdict(list)
+        # 遍历te_gene_insertions_list
+        for genome_name, resut_file in te_gene_insertions_list:
+            results = load_results(resut_file)
+            for _, row in results.iterrows():
+                gene_name = row['Gene_name']
+                gene_name_parts = str(gene_name).split('_')
+                gene_name = gene_name_parts[-1]
+                gene_te_associations[gene_name].append({
+                    'Genome_name': genome_name,
+                    'TE_name': row['TE_name'],
+                    'Chromosome': row['Chromosome'],
+                    'TE_start': row['TE_start'],
+                    'TE_end': row['TE_end'],
+                    'Gene_start': row['Gene_start'],
+                    'Gene_end': row['Gene_end'],
+                    'Position': row['Position']
+                })
+        output_file = output_dir + '/gene_te_associations.tsv'
+        save_gene_te_associations_to_file(gene_te_associations, output_file)
 
-            # 更新统计信息
-            gene_te_stats[gene_name][te_key]['count'] += 1
-            gene_te_stats[gene_name][te_key]['genomes'].add(te_info['Genome_name'])
+        # 统计同一个 gene 下，相同的位置，相同的TE 出现了多少次
+        gene_te_stats = {}
+        for gene_name, te_list in gene_te_associations.items():
+            # 初始化gene_te_stats的key值
+            if gene_name not in gene_te_stats:
+                gene_te_stats[gene_name] = defaultdict(lambda: {'count': 0, 'genomes': set()})
+            for te_info in te_list:
+                # 创建唯一标识符：TE的名称 + TE的位置 + TE的染色体
+                te_key = (te_info['Position'], te_info['TE_name'])
 
-    # 查看结果
-    core_gene_te_list = []
-    softcore_gene_te_list = []
-    dispensable_gene_te_list = []
-    private_gene_te_list = []
-    unknown_gene_te_list = []
-    for gene_name, stats  in gene_te_stats.items():
-        for te_key, info in stats.items():
-            position, te_name = te_key
-            count = info['count']
-            genome_set = info['genomes']
-            if count == genome_num:
-                core_gene_te_list.append((gene_name, te_name, position, count, genome_set))
-            elif genome_num_threshold <= count < genome_num:
-                softcore_gene_te_list.append((gene_name, te_name, position, count, genome_set))
-            elif 2 <= count < genome_num_threshold:
-                dispensable_gene_te_list.append((gene_name, te_name, position, count, genome_set))
-            elif count == 1:
-                private_gene_te_list.append((gene_name, te_name, position, count, genome_set))
-            else:
-                unknown_gene_te_list.append((gene_name, te_name, position, count, genome_set))
-    output_file = output_dir + '/core_gene_te_relations.tsv' # 相同 gene 与 TE 的关系在 所有 基因组上出现
-    save_gene_te_list(core_gene_te_list, output_file)
-    output_file = output_dir + '/softcore_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 绝大部分 基因组上出现
-    save_gene_te_list(softcore_gene_te_list, output_file)
-    output_file = output_dir + '/dispensable_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 少部分 基因组上出现
-    save_gene_te_list(dispensable_gene_te_list, output_file)
-    output_file = output_dir + '/private_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 单个 基因组上出现
-    save_gene_te_list(private_gene_te_list, output_file)
-    output_file = output_dir + '/unknown_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系 没有在任一个  基因组上出现
-    save_gene_te_list(unknown_gene_te_list, output_file)
+                # 更新统计信息
+                gene_te_stats[gene_name][te_key]['count'] += 1
+                gene_te_stats[gene_name][te_key]['genomes'].add(te_info['Genome_name'])
+
+        # 查看结果
+        core_gene_te_list = []
+        softcore_gene_te_list = []
+        dispensable_gene_te_list = []
+        private_gene_te_list = []
+        unknown_gene_te_list = []
+        for gene_name, stats  in gene_te_stats.items():
+            for te_key, info in stats.items():
+                position, te_name = te_key
+                count = info['count']
+                genome_set = info['genomes']
+                if count == genome_num:
+                    core_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+                elif genome_num_threshold <= count < genome_num:
+                    softcore_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+                elif 2 <= count < genome_num_threshold:
+                    dispensable_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+                elif count == 1:
+                    private_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+                else:
+                    unknown_gene_te_list.append((gene_name, te_name, position, count, genome_set))
+        output_file = output_dir + '/core_gene_te_relations.tsv' # 相同 gene 与 TE 的关系在 所有 基因组上出现
+        save_gene_te_list(core_gene_te_list, output_file)
+        output_file = output_dir + '/softcore_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 绝大部分 基因组上出现
+        save_gene_te_list(softcore_gene_te_list, output_file)
+        output_file = output_dir + '/dispensable_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 少部分 基因组上出现
+        save_gene_te_list(dispensable_gene_te_list, output_file)
+        output_file = output_dir + '/private_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系在 单个 基因组上出现
+        save_gene_te_list(private_gene_te_list, output_file)
+        output_file = output_dir + '/unknown_gene_te_relations.tsv'  # 相同 gene 与 TE 的关系 没有在任一个  基因组上出现
+        save_gene_te_list(unknown_gene_te_list, output_file)
 
 def save_gene_te_list(core_gene_te_list, output_file):
     with open(output_file, 'w') as f_save:
@@ -11933,12 +11938,18 @@ def cons_from_mafft_v1(align_file):
                 continue
     return model_seq
 
-def generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log):
+def generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_seq_dir, log):
     new_batch_files = []
-    for genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, RNA_seq_dict in batch_files:
+    for genome_info in genome_info_list:
+        genome_name = genome_info["genome_name"]
+        reference = genome_info["reference"]
+        TE_gff = genome_info["TE_gff"]
+        gene_gtf = genome_info["gene_gtf"]
+        RNA_seq_dict = genome_info["RNA_seq"]
+        full_length_TE_gff = genome_info["full_length_TE_gff"]
+
         if len(RNA_seq_dict) > 0:
             is_PE = RNA_seq_dict['is_PE']
-            genome_name = os.path.splitext(os.path.basename(reference))[0]
 
             if is_PE:
                 raw_RNA1 = RNA_seq_dict['raw_RNA1']
@@ -11964,7 +11975,7 @@ def generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log):
                 else:
                     log.logger.info(resut_file + ' exists, skip...')
 
-            new_batch_files.append((genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, sorted_bam, RNA_seq_dir, is_PE))
+            new_batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, sorted_bam, RNA_seq_dir, is_PE))
     return new_batch_files
 
 def generate_bam(genome_path, genome_annotation_file, output_dir, threads, RNA_seq_dir, is_PE=True, **kwargs):
@@ -11975,11 +11986,16 @@ def generate_bam(genome_path, genome_annotation_file, output_dir, threads, RNA_s
     sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
     hisat2_build = 'cd ' + genome_dir + ' && hisat2-build ' + genome_path + ' ' + genome_name
 
+    conda_prefix = os.getenv("CONDA_PREFIX")  # 获取当前激活的Conda环境根目录
+    if not conda_prefix:
+        raise RuntimeError("No active Conda environment found.")
+
     # 1. 调用 trimmomatic 去掉低质量和测序adapter
     if is_PE:
         raw_RNA1 = kwargs['raw_RNA1']
         raw_RNA2 = kwargs['raw_RNA2']
-        ILLUMINACLIP_path = '/public/home/hpc194701009/miniconda3/envs/panHiTE/share/trimmomatic/adapters/TruSeq3-PE.fa'
+
+        ILLUMINACLIP_path = os.path.join(conda_prefix, 'share/trimmomatic/adapters/TruSeq3-PE.fa')
         paired_trim_RNA1, paired_trim_RNA2, temp_files = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads)
 
         os.system(hisat2_build)
@@ -11987,7 +12003,7 @@ def generate_bam(genome_path, genome_annotation_file, output_dir, threads, RNA_s
         os.system(hisat2_align)
     else:
         raw_RNA = kwargs['raw_RNA']
-        ILLUMINACLIP_path = '/public/home/hpc194701009/miniconda3/envs/panHiTE/share/trimmomatic/adapters/TruSeq3-SE.fa'
+        ILLUMINACLIP_path = os.path.join(conda_prefix, 'share/trimmomatic/adapters/TruSeq3-SE.fa')
         trim_RNA, temp_files = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads)
 
         os.system(hisat2_build)
@@ -12125,16 +12141,16 @@ def merge_gene_express_table(gene_express_counts, output_table):
                 else:
                     f_save.write(express_value + '\n')
 
-def summary_TEs(batch_files, genome_dir, panTE_lib, output_dir, intact_ltr_paths, recover, log):
+def summary_TEs(genome_info_list, genome_dir, panTE_lib, output_dir, intact_ltr_paths, recover, log):
     # 找到 core TEs (出现在100%的基因组)，softcore TEs (出现在80%以上基因组)，dispensable TEs (出现 2个-80%基因组)，private TEs (出现在1个基因组)
-    genome_num = len(batch_files)
+    genome_num = len(genome_info_list)
     genome_num_threshold = int(0.8 * genome_num)
 
     # 获取 TE_name 和 TE_class的对应关系
     te_classes, new_te_contigs = get_TE_class(panTE_lib)
 
     # 统计 TE 出现的拷贝次数 和 length coverage
-    pan_te_fl_infos, pan_te_total_infos, pan_te_full_length_annotations = get_panTE_info(batch_files, panTE_lib, te_classes, genome_dir)
+    pan_te_fl_infos, pan_te_total_infos, pan_te_full_length_annotations = get_panTE_info(genome_info_list, panTE_lib, te_classes, genome_dir)
 
     # 生成一个 PAV.tsv 表格，行表示TE family，列表示基因组名称
     generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log)
@@ -12677,13 +12693,15 @@ def get_TE_class(panTE_lib):
         te_classes[raw_name] = class_name
     return te_classes, new_te_contigs
 
-def get_panTE_info(gff_paths, panTE_lib, te_classes, genome_dir):
+def get_panTE_info(genome_info_list, panTE_lib, te_classes, genome_dir):
     pan_te_fl_infos = {}
     pan_te_total_infos = {}
     pan_te_full_length_annotations = {}
-    for genome_name, reference, gff_path, full_length_gff_path, gene_gtf, RNA_seq_dict in gff_paths:
+    for genome_info in genome_info_list:
+        genome_name = genome_info["genome_name"]
+        TE_gff = genome_info["TE_gff"]
         genome_path = genome_dir + '/' + genome_name
-        te_fl_infos, te_total_infos, full_length_annotations = get_copy_and_length_from_gff(gff_path, panTE_lib, te_classes, genome_path)
+        te_fl_infos, te_total_infos, full_length_annotations = get_copy_and_length_from_gff(TE_gff, panTE_lib, te_classes, genome_path)
         pan_te_fl_infos[genome_name] = te_fl_infos
         pan_te_total_infos[genome_name] = te_total_infos
         pan_te_full_length_annotations[genome_name] = full_length_annotations

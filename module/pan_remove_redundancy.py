@@ -1,6 +1,10 @@
+#!/usr/bin/env python
 import os
 import time
 import sys
+
+current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+project_dir = os.path.join(current_folder, ".")
 
 from Util import Logger, deredundant_for_LTR_v5, ReassignInconsistentLabels
 
@@ -54,6 +58,7 @@ if __name__ == "__main__":
     if output_dir is None:
         output_dir = os.getcwd()
     output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 调用冗余去除和库合并函数

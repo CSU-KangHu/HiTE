@@ -1,17 +1,19 @@
+#!/usr/bin/env python
 import os
 import sys
 import time
 import json
-import argparse
-from Util import file_exist, lib_add_prefix, Logger
-
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
+
+from Util import file_exist, lib_add_prefix, Logger
+
+
 
 def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log):
     """对单个基因组运行 HiTE"""
     raw_name = genome_name.split('.')[0]
-    HiTE_output_dir = os.path.join(output_dir, f"HiTE_{raw_name}")
+    HiTE_output_dir = output_dir
 
     # 定义所需的文件路径
     ltr_intact_list = os.path.join(HiTE_output_dir, "intact_LTR.list")
@@ -108,5 +110,6 @@ if __name__ == "__main__":
     if output is None:
         output = os.getcwd()
     output = os.path.abspath(output)
+    os.makedirs(output, exist_ok=True)
     log = Logger(output + '/panHiTE.log', level='debug')
     main(genome_name, reference, output, threads, te_type, miu, debug, recover, log)

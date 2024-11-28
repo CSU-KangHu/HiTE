@@ -1,5 +1,9 @@
+#!/usr/bin/env python
 import os
 import sys
+
+current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+project_dir = os.path.join(current_folder, ".")
 
 from Util import Logger
 
@@ -20,7 +24,7 @@ def run_repeat_masker(result_file, output_dir, threads, panTE_lib, reference, ge
 
 if __name__ == "__main__":
     # 使用 sys.argv 获取命令行参数
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 8:
         print("Usage: python pan_annotate_genome.py <output_dir> <threads> <panTE_lib> <reference> <genome_name> <recover>")
         sys.exit(1)
 
@@ -35,7 +39,8 @@ if __name__ == "__main__":
     if output_dir is None:
         output_dir = os.getcwd()
     output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 调用 RepeatMasker 函数
-    run_repeat_masker(result_file, output_dir, threads, panTE_lib, reference, genome_name, recover)
+    run_repeat_masker(result_file, output_dir, threads, panTE_lib, reference, genome_name, recover, log)

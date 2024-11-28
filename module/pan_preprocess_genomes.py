@@ -1,10 +1,12 @@
+#!/usr/bin/env python
 import os
 import sys
 import json
-from Util import convertGeneAnnotation2GTF, read_fasta, store_fasta, Logger
 
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
+
+from Util import convertGeneAnnotation2GTF, read_fasta, store_fasta, Logger
 
 def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, output_dir, log):
     genome_paths = []
@@ -75,6 +77,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
     for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
         raw_name = genome_name.split('.')[0]
         ref_names, ref_contigs = read_fasta(reference)
+        full_length_TE_gff = output_dir + '/' + genome_name + '.full_length.gff'
         for name in ref_names:
             new_name = f'{raw_name}-{name}'
             new_ref_contigs[new_name] = ref_contigs[name]
@@ -84,6 +87,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
             "reference": reference,
             "TE_gff": TE_gff,
             "gene_gtf": gene_gtf,
+            "full_length_TE_gff": full_length_TE_gff,
             "RNA_seq": RNA_seq_dict
         })
     store_fasta(new_ref_contigs, total_genome)
@@ -114,7 +118,7 @@ if __name__ == '__main__':
         output_dir = os.getcwd()
 
     output_dir = os.path.abspath(output_dir)
-
+    os.makedirs(output_dir, exist_ok=True)
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, output_dir, log)

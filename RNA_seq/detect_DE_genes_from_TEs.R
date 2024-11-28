@@ -53,7 +53,7 @@ gene_te_associations <- read_delim(args$gene_te_associations_file,
 # Process gene-TE associations to add species and calculate distance
 gene_te_associations <- gene_te_associations %>%
   mutate(
-    Species = str_remove(Genome_name, "\\.fa$"),
+    Species = Genome_name,
     Distance = if_else(
       TE_end >= Gene_start & TE_start <= Gene_end,  # If TE is inside the gene
       0,  # Set distance to 0
