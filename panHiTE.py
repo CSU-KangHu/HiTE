@@ -1,8 +1,10 @@
 import argparse
+import json
 import os
 import sys
 import time
 from multiprocessing import cpu_count
+import subprocess
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(current_folder, ".")
@@ -97,216 +99,113 @@ def main_pipeline():
         log.logger.error('Specified an invalid TE type: ' + te_type + '. Please choose from ' + str(all_te_types))
         sys.exit(-1)
 
-    # 0. 读取 genomes
-    genome_paths = []
-    genome_names = []
-    is_RNA_analyze = False
-    gene_annotation_list = []
-    with open(genome_list_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.replace('\n', '').split('\t')
-            genome_name = parts[0]
-            gene_gtf = None
-            if len(parts) >= 2:
-                gene_name = parts[1]
-                if gene_name != '':
-                    gene_gtf = genes_dir + '/' + gene_name
-                    if not os.path.isabs(gene_gtf):
-                        gene_gtf = os.path.abspath(gene_gtf)
-                    if not os.path.exists(gene_gtf):
-                        log.logger.error('\nCannot find gene annotation path: ' + gene_gtf)
-                        exit(-1)
-                    gene_annotation_list.append(gene_gtf)
+    # 1. 预处理步骤
+    output_metadata = os.path.join(output_dir, 'genome_metadata.json')
+    resut_file = output_metadata
+    if not recover or not file_exist(resut_file):
+        starttime = time.time()
+        pan_preprocess_cmd = 'pan_preprocess_genomes.py ' + genome_list_path + ' ' + genes_dir \
+                             + ' ' + RNA_dir + ' ' + pan_genomes_dir + ' ' + output_dir
+        log.logger.info(pan_preprocess_cmd)
+        os.system(pan_preprocess_cmd)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of step1: %.8s s" % (dtime))
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
-            RNA_seq_dict = {}
-            if len(parts) == 3:
-                is_PE = False
-                raw_RNA = RNA_dir + '/' + parts[2]
-                if not os.path.exists(raw_RNA):
-                    log.logger.error('\nCannot find RNA-seq path: ' + raw_RNA)
-                    exit(-1)
-                RNA_seq_dict['raw_RNA'] = raw_RNA
-                RNA_seq_dict['is_PE'] = is_PE
-                is_RNA_analyze = True
-            elif len(parts) == 4:
-                is_PE = True
-                raw_RNA1 = RNA_dir + '/' + parts[2]
-                if not os.path.exists(raw_RNA1):
-                    log.logger.error('\nCannot find RNA-seq path: ' + raw_RNA1)
-                    exit(-1)
-                raw_RNA2 = RNA_dir + '/' + parts[3]
-                if not os.path.exists(raw_RNA2):
-                    log.logger.error('\nCannot find RNA-seq path: ' + raw_RNA2)
-                    exit(-1)
-                RNA_seq_dict['raw_RNA1'] = raw_RNA1
-                RNA_seq_dict['raw_RNA2'] = raw_RNA2
-                RNA_seq_dict['is_PE'] = is_PE
-                is_RNA_analyze = True
+    # Load the metadata
+    with open(output_metadata, 'r') as f:
+        genome_data = json.load(f)
+    total_genome = genome_data["total_genome"]
+    genome_info_list = genome_data["genome_info"]
+    gene_annotation_list = genome_data["gene_annotations"]
+    is_RNA_analyze = genome_data["is_RNA_analyze"]
 
-            cur_genome_path = pan_genomes_dir + '/' + genome_name
-            TE_gff = output_dir + '/' + genome_name + '.gff'
 
-            if not os.path.isabs(cur_genome_path):
-                cur_genome_path = os.path.abspath(cur_genome_path)
-            if not os.path.exists(cur_genome_path):
-                log.logger.error('\nCannot find genome path: ' + cur_genome_path)
-                exit(-1)
-            genome_paths.append((genome_name, cur_genome_path, TE_gff, gene_gtf, RNA_seq_dict))
-            genome_names.append(genome_name)
-
-    # 将gene注释文件转为标准的gtf格式，并去除非编码基因
-    script_dir = project_dir + '/RNA_seq'
-    genome_paths = convertGeneAnnotation2GTF(genome_paths, script_dir, output_dir, log)
-
-    # 生成一个 total_genome.fa 用来进行 BM_EDTA 和 BM_HiTE 评估
-    total_genome = output_dir + '/total_genome.fa'
-    new_ref_contigs = {}
-    for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
-        raw_name = genome_name.split('.')[0]
-        ref_names, ref_contigs = read_fasta(reference)
-        for name in ref_names:
-            new_name = raw_name + '-' + name
-            new_ref_contigs[new_name] = ref_contigs[name]
-    store_fasta(new_ref_contigs, total_genome)
-
+    # 2. 遍历每个基因组，并调用HiTE进行TE识别
     intact_ltr_paths = []
-    pan_terminal_tmp_lib = output_dir + '/pan_terminal.tmp.fa'
-    pan_internal_tmp_lib = output_dir + '/pan_internal.tmp.fa'
-    panTE_lib = output_dir + '/panTE.fa'
+    pan_terminal_tmp_lib = os.path.join(output_dir, 'pan_terminal.tmp.fa')
+    pan_internal_tmp_lib = os.path.join(output_dir, 'pan_internal.tmp.fa')
+    panTE_lib = os.path.join(output_dir, 'panTE.fa')
+
     resut_file = panTE_lib
-    if not recover or not os.path.exists(resut_file):
-        os.system('rm -f ' + pan_terminal_tmp_lib)
-        os.system('rm -f ' + pan_internal_tmp_lib)
-        # 3. 利用 panTE 注释每个基因组
-        for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
-            raw_name = genome_name.split('.')[0]
+    if not recover or not file_exist(resut_file):
+        starttime = time.time()
+        for genome_info in genome_info_list:
+            genome_name = genome_info["genome_name"]
+            raw_name = genome_info["raw_name"]
+            reference = genome_info["reference"]
+
+            TE_gff = genome_info["TE_gff"]
+            gene_gtf = genome_info["gene_gtf"]
+            RNA_seq_dict = genome_info["RNA_seq"]
+
             HiTE_output_dir = output_dir + '/HiTE_' + str(raw_name)
-            ltr_intact_list = HiTE_output_dir + '/intact_LTR.list'
+            single_result_path = os.path.join(output_dir, f"{genome_name}_hite_result.json")
+            pan_run_hite_single_cmd = 'pan_run_hite_single.py ' + genome_name + ' ' + reference \
+                                      + ' ' + HiTE_output_dir + ' ' + str(threads) + ' ' + te_type \
+                                      + ' ' + str(miu) +' ' + str(debug) + ' ' + str(recover)
+            log.logger.info(pan_run_hite_single_cmd)
+            os.system(pan_run_hite_single_cmd)
+
+            # Load the metadata
+            with open(single_result_path, 'r') as f:
+                single_result = json.load(f)
+
+            confident_ltr_terminal = single_result["confident_ltr_terminal"]
+            confident_ltr_internal = single_result["confident_ltr_internal"]
+            confident_TE = single_result["confident_TE"]
+            ltr_intact_list = single_result["ltr_intact_list"]
             intact_ltr_paths.append(ltr_intact_list)
-            confident_ltr_terminal = HiTE_output_dir + '/confident_ltr.terminal.fa'
-            confident_ltr_internal = HiTE_output_dir + '/confident_ltr.internal.fa'
-            confident_helitron = HiTE_output_dir + '/confident_helitron.fa'
-            confident_non_ltr = HiTE_output_dir + '/confident_non_ltr.fa'
-            confident_other = HiTE_output_dir + '/confident_other.fa'
-            confident_tir = HiTE_output_dir + '/confident_tir.fa'
-            confident_TE = HiTE_output_dir + '/confident_TE.cons.fa'
+            confident_helitron = single_result["confident_helitron"]
+            confident_non_ltr = single_result["confident_non_ltr"]
+            confident_other = single_result["confident_other"]
+            confident_tir = single_result["confident_tir"]
 
-            check_files = []
-            is_rerun = True
-            if te_type == 'all':
-                if file_exist(confident_ltr_terminal) \
-                        and file_exist(confident_ltr_internal) \
-                        and file_exist(confident_helitron) \
-                        and file_exist(confident_non_ltr) \
-                        and file_exist(confident_other) \
-                        and file_exist(confident_tir) \
-                        and file_exist(confident_TE):
-                    is_rerun = False
-                    check_files.append(confident_ltr_terminal)
-                    check_files.append(confident_ltr_internal)
-                    check_files.append(confident_helitron)
-                    check_files.append(confident_non_ltr)
-                    check_files.append(confident_other)
-                    check_files.append(confident_tir)
-                    check_files.append(confident_TE)
-            elif te_type == 'ltr':
-                if file_exist(confident_ltr_terminal) \
-                        and file_exist(confident_ltr_internal):
-                    is_rerun = False
-                    check_files.append(confident_ltr_terminal)
-                    check_files.append(confident_ltr_internal)
-            elif te_type == 'tir':
-                if file_exist(confident_tir):
-                    is_rerun = False
-                    check_files.append(confident_tir)
-            elif te_type == 'helitron':
-                if file_exist(confident_tir):
-                    is_rerun = False
-                    check_files.append(confident_helitron)
-            elif te_type == 'non-ltr':
-                if file_exist(confident_other) \
-                        and file_exist(confident_non_ltr):
-                    is_rerun = False
-                    check_files.append(confident_non_ltr)
-                    check_files.append(confident_other)
-
-            if not recover or is_rerun:
-                if os.path.exists(reference):
-                    # Step 2. 利用 HiTE 从泛基因组中检测TEs
-                    HiTE_command = 'python ' + project_dir + '/main.py --genome ' + reference + ' --outdir ' + \
-                                   HiTE_output_dir + ' --thread ' + str(threads) + ' --annotate 0 --te_type ' + \
-                                   str(te_type) + ' --miu ' + str(miu) + ' --is_output_LTR_lib 0 ' + ' --debug ' + str(debug) + \
-                                   ' --recover ' + str(recover)
-                    log.logger.debug(HiTE_command)
-                    starttime = time.time()
-                    os.system(HiTE_command)
-                    endtime = time.time()
-                    dtime = endtime - starttime
-                    log.logger.info("Running time of step2: %.4s m" % (dtime / 60))
-                else:
-                    log.logger.error('Cannot find Genome: ' + reference)
-            else:
-                for check_file in check_files:
-                    log.logger.info(check_file + ' exists, skip...')
-
-
-            # 对 library 加上前缀
-            confident_ltr_terminal = lib_add_prefix(confident_ltr_terminal, raw_name)
-            confident_ltr_internal = lib_add_prefix(confident_ltr_internal, raw_name)
-            confident_TE = lib_add_prefix(confident_TE, raw_name)
-
+            # 2.3 将每个基因组生成的library合并
             os.system('cat ' + confident_ltr_terminal + ' >> ' + pan_terminal_tmp_lib)
             os.system('cat ' + confident_ltr_internal + ' >> ' + pan_internal_tmp_lib)
             os.system('cat ' + confident_TE + ' >> ' + pan_terminal_tmp_lib)
 
-            # # 删除临时目录
-            # if not debug:
-            #     os.system('rm -rf ' + HiTE_output_dir)
+        pan_remove_redundancy_cmd = 'pan_remove_redundancy.py ' + pan_terminal_tmp_lib + ' ' + pan_internal_tmp_lib \
+                                  + ' ' + output_dir + ' ' + str(threads) + ' ' + panTE_lib
+        log.logger.info(pan_remove_redundancy_cmd)
+        os.system(pan_remove_redundancy_cmd)
 
-        # 对所有基因组的LTR终端和内部序列合集去冗余
-        pan_terminal_tmp_lib_cons = pan_terminal_tmp_lib + '.cons'
-        terminal_coverage_threshold = 0.95
-        # Step7. Remove redundancy from the LTR terminal results.
-        starttime = time.time()
-        log.logger.info('Start step6: Remove LTR terminal redundancy')
-        type = 'terminal'
-        # 对于 terminal 而言，其内部不太可能出现太大的插入删除变异，因此我们只是利用已识别的LTR终端序列去冗余，不再获取拷贝支持
-        deredundant_for_LTR_v5(pan_terminal_tmp_lib, output_dir, threads, type, terminal_coverage_threshold,
-                               debug=0)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step6: %.8s s" % (dtime))
-
-
-        pan_internal_tmp_lib_cons = pan_internal_tmp_lib + '.cons'
-        internal_coverage_threshold = 0.8
-        # Step7. Remove redundancy from the LTR internal results.
-        starttime = time.time()
-        log.logger.info('Start step6: Remove LTR internal redundancy')
-        type = 'internal'
-        # 对于 internal 而言，其内部可能出现较大的插入删除变异，因此我们要求比较宽松的0.8阈值
-        deredundant_for_LTR_v5(pan_internal_tmp_lib, output_dir, threads, type, internal_coverage_threshold,
-                               debug=0)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step6: %.8s s" % (dtime))
-
-        # Step8. 生成一致性library
-        os.system('cat ' + pan_terminal_tmp_lib_cons + ' ' + pan_internal_tmp_lib_cons + ' > ' + panTE_lib)
-        # Reassign Inconsistent Classification Labels
-        ReassignInconsistentLabels(panTE_lib)
-
+        log.logger.info("Running time of step1: %.8s s" % (dtime))
     else:
         log.logger.info(resut_file + ' exists, skip...')
-        for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
-            raw_name = genome_name.split('.')[0]
+        for genome_info in genome_info_list:
+            raw_name = genome_info["raw_name"]
             HiTE_output_dir = output_dir + '/HiTE_' + str(raw_name)
             ltr_intact_list = HiTE_output_dir + '/intact_LTR.list'
             intact_ltr_paths.append(ltr_intact_list)
 
     batch_files = []
     if not skip_analyze:
-        # 3. 利用 panTE 注释每个基因组
+        # 4. 利用 panTE 注释每个基因组
+        for genome_info in genome_info_list:
+            genome_name = genome_info["genome_name"]
+            raw_name = genome_info["raw_name"]
+            reference = genome_info["reference"]
+
+            TE_gff = genome_info["TE_gff"]
+            gene_gtf = genome_info["gene_gtf"]
+            RNA_seq_dict = genome_info["RNA_seq"]
+
+            HiTE_output_dir = output_dir + '/HiTE_' + str(raw_name)
+            single_result_path = os.path.join(output_dir, f"{genome_name}_hite_result.json")
+            pan_run_hite_single_cmd = 'pan_run_hite_single.py ' + genome_name + ' ' + reference \
+                                      + ' ' + HiTE_output_dir + ' ' + str(threads) + ' ' + te_type \
+                                      + ' ' + str(miu) + ' ' + str(debug) + ' ' + str(recover)
+            log.logger.info(pan_run_hite_single_cmd)
+            os.system(pan_run_hite_single_cmd)
+
+
+
         for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
             full_length_TE_gff = output_dir + '/' + genome_name + '.full_length.gff'
             batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, RNA_seq_dict))
@@ -324,25 +223,26 @@ def main_pipeline():
                 log.logger.info(resut_file + ' exists, skip...')
 
 
-        # Step 3. 根据注释好的 annotation 文件，进行常见TE分析
+        # 5. 根据注释好的 annotation 文件，进行常见TE分析
         log.logger.info('Start analysing using TE annotation files...')
         summary_TEs(batch_files, pan_genomes_dir, panTE_lib, output_dir, intact_ltr_paths, recover, log)
 
         gene_te_associations = output_dir + '/gene_te_associations.tsv'
         if len(gene_annotation_list) > 0:
-            # Step 4. 根据 full_length_TE_gff 和 gene_gtf 获取插入到 gene 上、下游 1Kb、和内部的TE
+            # 6. 根据 full_length_TE_gff 和 gene_gtf 获取插入到 gene 上、下游 1Kb、和内部的TE
             find_gene_relation_tes(batch_files, output_dir, recover, log)
 
+        # 7. 根据RNA-seq数据识别由于LTR插入引起的差异表达基因
         if is_RNA_analyze:
-            # Step 5. 根据RNA-seq数据比对到基因组生成bam文件
+            # 7.1 根据RNA-seq数据比对到基因组生成bam文件
             RNA_seq_dir = project_dir + '/RNA_seq'
             new_batch_files = generate_bam_for_RNA_seq(batch_files, threads, recover, RNA_seq_dir, log)
 
-            # Step 6. 调用 featureCount 进行定量
+            # 7.2 调用 featureCount 进行定量
             gene_express_dir = output_dir + '/gene_quantities'
             gene_express_table = quantitative_gene(new_batch_files, gene_express_dir, threads, recover, log)
 
-            # step 7. 调用R语言脚本 detect_DE_genes_from_TEs.R 找到由于LTR插入引起的差异表达基因
+            # 7.3 调用R语言脚本 detect_DE_genes_from_TEs.R 找到由于LTR插入引起的差异表达基因
             script_dir = project_dir + '/RNA_seq'
             detect_DE_genes_from_TEs_cmd = 'cd ' + output_dir + ' && Rscript ' + script_dir + '/detect_DE_genes_from_TEs.R ' \
                                            + gene_express_table + ' ' + gene_te_associations

@@ -56,6 +56,7 @@ if __name__ == '__main__':
                     'HiTE.out',
                     'HiTE.tbl',
                     'HiTE.gff',
+                    'HiTE.cat.gz',
                     'HiTE_intact.sorted.gff3',
                     'BM_RM2.log',
                     'BM_EDTA.log',

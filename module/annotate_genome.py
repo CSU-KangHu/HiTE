@@ -50,7 +50,8 @@ if __name__ == '__main__':
 
         mv_file_command = 'mv ' + reference + '.out ' + tmp_output_dir + '/HiTE.out && mv ' \
                           + reference + '.tbl ' + tmp_output_dir + '/HiTE.tbl && mv ' \
-                          + reference + '.out.gff ' + tmp_output_dir + '/HiTE.gff'
+                          + reference + '.out.gff ' + tmp_output_dir + '/HiTE.gff && mv ' \
+                          + reference + '.cat.gz ' + tmp_output_dir + '/HiTE.cat.gz'
         log.logger.debug(mv_file_command)
         os.system(mv_file_command)
 

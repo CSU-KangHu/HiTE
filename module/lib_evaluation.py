@@ -6,7 +6,7 @@ import os
 
 from Util import read_fasta, get_overlap_len, map_fragment, multi_process_align_v2
 
-current_folder = os.path.dirname(os.path.abspath(__file__))
+current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
 def get_chr_fragments(BlastnOut):
