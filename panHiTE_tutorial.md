@@ -182,7 +182,7 @@ If the script fails to install the packages, you can also install them manually.
 
 ### 3. Data Preparation  
 
-Download the [demo data](https://zenodo.org/records/14189130) from Zenodo. Since the dataset includes RNA-seq data, it is relatively large, so please be patient.
+Download the [demo data](https://zenodo.org/records/14235586) from Zenodo. Since the dataset includes RNA-seq data, it is relatively large, so please be patient.
 
 1. **pan_genomes_dir (Required)**  
    All genome assemblies should be stored in a single directory, which should be specified as the `pan_genomes_dir` parameter.
