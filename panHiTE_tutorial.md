@@ -133,8 +133,7 @@ Statistical summaries of core, softcore, dispensable, and private TEs in the pan
 
 ## panHiTE Tutorial
 
-In this tutorial, we'll demonstrate how to use panHiTE with three complete *Arabidopsis thaliana* assemblies, gene annotations, and sequencing data from the following study:
-_Kang, Minghui, Haolin Wu, Huanhuan Liu, Wenyu Liu, Mingjia Zhu, Yu Han, Wei Liu et al. "The pan-genome and local adaptation of Arabidopsis thaliana." Nature Communications 14, no. 1 (2023): 6259._
+In this tutorial, we'll demonstrate how to use panHiTE with a demo data.
 
 ### 1. Installation via Conda  
 *(Docker and Singularity versions will be available once panHiTE stabilizes.)*
@@ -194,7 +193,11 @@ Download the [demo data](https://zenodo.org/records/14235586) from Zenodo. Since
    - Columns 3 & 4: Paths to RNA-seq data (optional, single-end data in column 3, paired-end data in columns 3 & 4)  
 
    Example:  
-   ![image](https://github.com/user-attachments/assets/e0ae6a3c-c7e5-44a5-ac11-8c8b47af331d)
+   ```markdown
+    44.ket_10.fa    44.ket_10.gff   CRR624282_Chr1_f1.fq.gz CRR624282_Chr1_r2.fq.gz
+    02.tibet.fa     02.tibet.gff    CRR624279_Chr1_f1.fq.gz CRR624279_Chr1_r2.fq.gz
+    25.per_1.fa     25.per_1.gff    SRR748686_Chr1.fq.gz
+    ```
 
 3. **out_dir (Required)**  
    Specify the output directory path.
