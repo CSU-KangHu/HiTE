@@ -615,7 +615,7 @@ if __name__ == '__main__':
         starttime = time.time()
         log.logger.info('Start step4: get full-length TE annotation')
         chr_name_map = tmp_output_dir + '/chr_name.map'
-        ltr_list = tmp_output_dir + '/genome.rename.fa.pass.list'
+        ltr_list = tmp_output_dir + '/intact_LTR.list'
         confident_tir_path = tmp_output_dir + '/confident_tir.fa'
         confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
         confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr.fa'

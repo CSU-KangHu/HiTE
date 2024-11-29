@@ -41,14 +41,15 @@ process preprocess_genomes {
 // Step 3: HiTE 并行处理每个基因组
 process run_hite_single {
     input:
-    tuple val(genome_name), val(raw_name), path(reference), val(out_dir), val(threads), val(te_type), val(miu), val(debug), val(recover)
+    tuple val(genome_name), val(raw_name), path(reference), val(threads), val(te_type), val(miu), val(debug), val(recover)
 
     output:
-    file("${out_dir}/HiTE_${raw_name}/${genome_name}_hite_result.json")
+    path "HiTE_${raw_name}/${genome_name}_hite_result.json"
 
     script:
     """
-    pan_run_hite_single.py ${genome_name} ${reference} ${threads} ${te_type} ${miu} ${debug} ${recover}
+    pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${threads} \
+    --te_type ${te_type} --miu ${miu} --debug ${debug} --recover ${recover}
     """
 }
 
@@ -204,9 +205,9 @@ import groovy.json.JsonSlurper
 // 定义工作流
 workflow {
     // Step 1: 预处理
-    genome_metadata_out = preprocess_genomes(params.genome_list, params.genes_dir, params.RNA_dir, params.pan_genomes_dir, params.out_dir)
+    //genome_metadata_out = preprocess_genomes(params.genome_list, params.genes_dir, params.RNA_dir, params.pan_genomes_dir, params.out_dir)
 
-    //Channel.fromPath('/home/hukang/test/HiTE/demo/demo/panHiTE_output_demo_nf/genome_metadata.json', type: 'any', checkIfExists: true).set{ genome_metadata_out }
+    Channel.fromPath('/home/hukang/test/HiTE/demo/demo/panHiTE_output_demo_nf/genome_metadata.json', type: 'any', checkIfExists: true).set{ genome_metadata_out }
 
     // Step 2: 从 genome_metadata.json 加载 genome_info_list
     genome_info_list = genome_metadata_out
@@ -216,14 +217,14 @@ workflow {
             genome_json.genome_info.collect { [it.genome_name, it.raw_name, it.reference] }
         }
 
-//     // Step 3: HiTE 并行处理每个基因组
-//     hite_input = genome_info_list
-//         .map { genome_name, raw_name, reference ->
-//             [genome_name, raw_name, reference, params.out_dir, params.threads, params.te_type, params.miu, params.debug, params.recover]
-//         }
-//         .set { hite_input_channel }
-//
-//     hite_out = run_hite_single(hite_input_channel)
+    // Step 3: HiTE 并行处理每个基因组
+    hite_input = genome_info_list
+        .map { genome_name, raw_name, reference ->
+            [genome_name, raw_name, reference, params.threads, params.te_type, params.miu, params.debug, params.recover]
+        }
+        .set { hite_input_channel }
+
+    hite_out = run_hite_single(hite_input_channel)
 //
 //     // Step 4: 合并 HiTE 结果（提取文件并合并）
 //     merged_hite_files = merge_hite_results(hite_out)

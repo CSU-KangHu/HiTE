@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import os
 import sys
 import time
@@ -97,19 +98,31 @@ def main(genome_name, reference, output_dir, threads, te_type, miu, debug, recov
     log.logger.info(f"Result saved to: {result_path}")
 
 if __name__ == "__main__":
-    # 接收命令行参数
-    genome_name = sys.argv[1]
-    reference = sys.argv[2]
-    threads = sys.argv[3]
-    te_type = sys.argv[4]
-    miu = sys.argv[5]
-    debug = sys.argv[6]
-    recover = sys.argv[7]
-    output = sys.argv[8]
+    # 创建解析器
+    parser = argparse.ArgumentParser(description="panHiTE run single genome.")
+    parser.add_argument("--genome_name", type=str, help="Name of the genome.")
+    parser.add_argument("--reference", type=str, help="Path to the reference file.")
+    parser.add_argument("--threads", type=int, help="Number of threads to use.")
+    parser.add_argument("--te_type", type=str, help="Type of transposable element (TE).")
+    parser.add_argument("--miu", type=float, help="Parameter miu for the process.")
+    parser.add_argument("--debug", type=int, help="Enable or disable debug mode (True/False).")
+    parser.add_argument("--recover", type=int, help="Enable or disable recovery mode (True/False).")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
+                        help="Output directory (default: current working directory).")
 
-    if output is None:
-        output = os.getcwd()
-    output = os.path.abspath(output)
-    os.makedirs(output, exist_ok=True)
-    log = Logger(output + '/panHiTE.log', level='debug')
-    main(genome_name, reference, output, threads, te_type, miu, debug, recover, log)
+    # 解析参数
+    args = parser.parse_args()
+    genome_name = args.genome_name
+    reference = args.reference
+    threads = args.threads
+    te_type = args.te_type
+    miu = args.miu
+    debug = args.debug
+    recover = args.recover
+
+    # 处理输出目录
+    output_dir = os.path.abspath(args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    log = Logger(output_dir + '/panHiTE.log', level='debug')
+    main(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log)

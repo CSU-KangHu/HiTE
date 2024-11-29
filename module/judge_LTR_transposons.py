@@ -164,13 +164,13 @@ if __name__ == '__main__':
     confident_intact_ltr_list = tmp_output_dir + '/intact_LTR.list'
     intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
 
-    LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
-    confident_ltr = LTR_output_dir + '/confident_ltr.fa'
-    Hybrid_ltr_terminal = LTR_output_dir + '/confident_ltr.terminal.fa'
-    Hybrid_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
-    Hybrid_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
-    HybridLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
     if use_HybridLTR:
+        LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
+        confident_ltr = LTR_output_dir + '/confident_ltr.fa'
+        Hybrid_ltr_terminal = LTR_output_dir + '/confident_ltr.terminal.fa'
+        Hybrid_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
+        Hybrid_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
+        HybridLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
         check_files = []
         is_rerun = True
         if is_output_lib:
@@ -196,6 +196,16 @@ if __name__ == '__main__':
                 log.logger.info(check_file + ' exists, skip...')
         if file_exist(HybridLTR_intact_LTR_path):
             os.system('cp ' + HybridLTR_intact_LTR_path + ' ' + intact_LTR_path)
+        if file_exist(Hybrid_ltr_terminal):
+            os.system('cp ' + Hybrid_ltr_terminal + ' ' + confident_ltr_terminal)
+        if file_exist(Hybrid_ltr_internal):
+            os.system('cp ' + Hybrid_ltr_internal + ' ' + confident_ltr_internal)
+        if file_exist(Hybrid_intact_ltr_list):
+            os.system('cp ' + Hybrid_intact_ltr_list + ' ' + confident_intact_ltr_list)
+        if file_exist(confident_ltr):
+            os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
+        else:
+            log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
     else:
         resut_file = ref_rename_path + '.LTRlib.fa'
         if not is_recover or not file_exist(resut_file):
@@ -246,18 +256,12 @@ if __name__ == '__main__':
                 else:
                     filter_intact_ltr_contigs[intact_ltr_name] = seq
             store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
-
-    if file_exist(Hybrid_ltr_terminal):
-        os.system('cp ' + Hybrid_ltr_terminal + ' ' + confident_ltr_terminal)
-    if file_exist(Hybrid_ltr_internal):
-        os.system('cp ' + Hybrid_ltr_internal + ' ' + confident_ltr_internal)
-    if file_exist(Hybrid_intact_ltr_list):
-        os.system('cp ' + Hybrid_intact_ltr_list + ' ' + confident_intact_ltr_list)
-    if file_exist(confident_ltr):
-        os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
-    else:
-        log.logger.info(
-            'No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
+        if file_exist(ltr_list):
+            os.system('cp ' + ltr_list + ' ' + confident_intact_ltr_list)
+        if file_exist(resut_file):
+            os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
+        else:
+            log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
 
     if os.path.exists(intact_LTR_path):
         # classify intact-LTRs
