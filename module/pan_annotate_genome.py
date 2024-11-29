@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 import os
 import sys
 
@@ -22,6 +23,10 @@ def run_repeat_masker(result_file, output_dir, threads, panTE_lib, reference, ge
     else:
         log.logger.info(f'{result_file} exists, skipping RepeatMasker.')
 
+    return {
+        "genome_name": f"{output_dir}/{genome_name}.gff"
+    }
+
 if __name__ == "__main__":
     # 使用 sys.argv 获取命令行参数
     if len(sys.argv) != 8:
@@ -43,4 +48,10 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 调用 RepeatMasker 函数
-    run_repeat_masker(result_file, output_dir, threads, panTE_lib, reference, genome_name, recover, log)
+    result = run_repeat_masker(result_file, output_dir, threads, panTE_lib, reference, genome_name, recover, log)
+
+    # 保存结果到 JSON
+    result_path = os.path.join(output_dir, f"{genome_name}_annotation.json")
+    with open(result_path, 'w') as f:
+        json.dump(result, f, indent=4)
+    log.logger.info(f"Result saved to: {result_path}")

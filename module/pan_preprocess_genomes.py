@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import os
 import sys
 import json
@@ -107,18 +108,27 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
 
 
 if __name__ == '__main__':
-    # 接收命令行参数
-    genome_list_path = sys.argv[1]
-    genes_dir = sys.argv[2]
-    RNA_dir = sys.argv[3]
-    pan_genomes_dir = sys.argv[4]
-    output_dir = sys.argv[5]
+    # 创建解析器
+    parser = argparse.ArgumentParser(description="panHiTE preprocess genomes and gff annotations.")
+    parser.add_argument("--genome_list", type=str, help="Path to the genome list file.")
+    parser.add_argument("--genes_dir", type=str, help="Path to the directory containing gene files.")
+    parser.add_argument("--RNA_dir", type=str, help="Path to the directory containing RNA files.")
+    parser.add_argument("--pan_genomes_dir", type=str, help="Path to the directory containing pan-genomes.")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
+                        help="Path to the output directory (default: current working directory).")
 
-    if output_dir is None:
-        output_dir = os.getcwd()
-
-    output_dir = os.path.abspath(output_dir)
+    # 解析参数
+    args = parser.parse_args()
+    # 处理输出目录
+    output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
+
+    # 接收命令行参数
+    genome_list = args.genome_list
+    genes_dir = args.genes_dir
+    RNA_dir = args.RNA_dir
+    pan_genomes_dir = args.pan_genomes_dir
+
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
-    preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, output_dir, log)
+    preprocess_genomes(genome_list, genes_dir, RNA_dir, pan_genomes_dir, output_dir, log)

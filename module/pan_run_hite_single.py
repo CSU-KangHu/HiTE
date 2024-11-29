@@ -100,12 +100,12 @@ if __name__ == "__main__":
     # 接收命令行参数
     genome_name = sys.argv[1]
     reference = sys.argv[2]
-    output = sys.argv[3]
-    threads = sys.argv[4]
-    te_type = sys.argv[5]
-    miu = sys.argv[6]
-    debug = sys.argv[7]
-    recover = sys.argv[8]
+    threads = sys.argv[3]
+    te_type = sys.argv[4]
+    miu = sys.argv[5]
+    debug = sys.argv[6]
+    recover = sys.argv[7]
+    output = sys.argv[8]
 
     if output is None:
         output = os.getcwd()

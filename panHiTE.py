@@ -171,17 +171,17 @@ def main_pipeline():
     with open(intact_ltr_paths_file, 'w') as f:
         json.dump(intact_ltr_paths, f, indent=4)
 
-    if not skip_analyze:
-        # 4. 利用 panTE 注释每个基因组
-        for genome_info in genome_info_list:
-            genome_name = genome_info["genome_name"]
-            reference = genome_info["reference"]
-            TE_gff = genome_info["TE_gff"]
-            pan_annotate_genome_cmd = 'pan_annotate_genome.py ' + TE_gff + ' ' + output_dir + ' ' + str(threads) \
-                                      + ' ' + panTE_lib + ' ' + reference + ' ' + genome_name + ' ' + str(recover)
-            log.logger.info(pan_annotate_genome_cmd)
-            os.system(pan_annotate_genome_cmd)
+    # 4. 利用 panTE 注释每个基因组
+    for genome_info in genome_info_list:
+        genome_name = genome_info["genome_name"]
+        reference = genome_info["reference"]
+        TE_gff = genome_info["TE_gff"]
+        pan_annotate_genome_cmd = 'pan_annotate_genome.py ' + TE_gff + ' ' + output_dir + ' ' + str(threads) \
+                                  + ' ' + panTE_lib + ' ' + reference + ' ' + genome_name + ' ' + str(recover)
+        log.logger.info(pan_annotate_genome_cmd)
+        os.system(pan_annotate_genome_cmd)
 
+    if not skip_analyze:
         # 5. 根据注释好的 annotation 文件，进行常见TE分析
         pan_summary_TEs_cmd = 'pan_summary_TEs.py ' + genome_metadata + ' ' + pan_genomes_dir + ' ' + panTE_lib \
                                   + ' ' + output_dir + ' ' + intact_ltr_paths_file + ' ' + str(recover)
