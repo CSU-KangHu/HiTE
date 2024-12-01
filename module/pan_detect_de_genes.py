@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import os
 import sys
 import json
@@ -8,55 +9,56 @@ from Util import Logger, generate_bam_for_RNA_seq, quantitative_gene
 
 
 if __name__ == "__main__":
-    # 检查命令行参数数量
-    if len(sys.argv) != 6:
-        print("Usage: python detect_de_genes.py <genome_info_list_file> <threads> <recover (0 or 1)> <output_dir>")
-        sys.exit(1)
+    # 创建解析器
+    parser = argparse.ArgumentParser(description="panHiTE detect de genes.")
+    parser.add_argument("--genome_info_json", type=str, help="genome info json.")
+    parser.add_argument("--gene_te_associations", type=str, help="gene te association file.")
+    parser.add_argument("--RNA_dir", type=str, help="RNA sequence data directory.")
+    parser.add_argument("--threads", type=int, help="Number of threads to use.")
+    parser.add_argument("--recover", type=int, help="is recover.")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
+                        help="Output directory (default: current working directory).")
 
-    # 获取命令行参数
-    genome_metadata = sys.argv[1]
-    threads = int(sys.argv[2])
-    recover = int(sys.argv[3])  # 0 为 False，1 为 True
-    output_dir = sys.argv[4]
-    gene_te_associations = sys.argv[5]
+    # 解析参数
+    args = parser.parse_args()
+    genome_info_json = args.genome_info_json
+    gene_te_associations = args.gene_te_associations
+    RNA_dir = args.RNA_dir
+    threads = args.threads
+    recover = args.recover
 
-    # 设置日志
-    if output_dir is None:
-        output_dir = os.getcwd()
-    output_dir = os.path.abspath(output_dir)
+    # 处理输出目录
+    output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
+
     log = Logger(output_dir + '/detect_de_genes.log', level='debug')
 
     # Load the metadata
-    with open(genome_metadata, 'r') as f:
-        genome_data = json.load(f)
-    genome_info_list = genome_data["genome_info"]
-    gene_annotation_list = genome_data["gene_annotations"]
-    is_RNA_analyze = genome_data["is_RNA_analyze"]
+    with open(genome_info_json, 'r') as f:
+        genome_info_list = json.load(f)
 
-    if is_RNA_analyze:
-        # Step 7.1: 生成 BAM 文件
-        log.logger.info("Start generating BAM files for RNA-seq data...")
-        RNA_seq_dir = os.path.join(project_dir, 'RNA_seq')
-        new_batch_files = generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_seq_dir, log)
-        log.logger.info("BAM file generation completed.")
+    # Step 7.1: 生成 BAM 文件
+    log.logger.info("Start generating BAM files for RNA-seq data...")
+    new_batch_files = generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_dir, log)
+    log.logger.info("BAM file generation completed.")
 
-        # Step 7.2: 基因定量
-        log.logger.info("Start gene quantification using featureCounts...")
-        gene_express_dir = os.path.join(output_dir, 'gene_quantities')
-        os.makedirs(gene_express_dir, exist_ok=True)
-        gene_express_table = quantitative_gene(new_batch_files, gene_express_dir, threads, recover, log)
-        log.logger.info(f"Gene quantification completed. Results saved to {gene_express_table}.")
+    # Step 7.2: 基因定量
+    log.logger.info("Start gene quantification using featureCounts...")
+    gene_express_dir = os.path.join(output_dir, 'gene_quantities')
+    os.makedirs(gene_express_dir, exist_ok=True)
+    RNA_tool_dir = os.path.join(project_dir, 'RNA_seq')
+    gene_express_table = quantitative_gene(new_batch_files, RNA_tool_dir, gene_express_dir, threads, recover, log)
+    log.logger.info(f"Gene quantification completed. Results saved to {gene_express_table}.")
 
-        # Step 7.3: 差异表达基因检测
-        log.logger.info("Start detecting DE genes associated with LTR insertions...")
-        script_dir = os.path.join(project_dir, 'RNA_seq')
-        detect_DE_genes_from_TEs_cmd = (
-            f"cd {output_dir} && Rscript {script_dir}/detect_DE_genes_from_TEs.R {gene_express_table} {gene_te_associations}"
-        )
-        log.logger.debug(detect_DE_genes_from_TEs_cmd)
-        exit_code = os.system(detect_DE_genes_from_TEs_cmd)
-        if exit_code == 0:
-            log.logger.info("DE gene detection completed successfully.")
-        else:
-            log.logger.error("Error occurred during DE gene detection.")
+    # Step 7.3: 差异表达基因检测
+    log.logger.info("Start detecting DE genes associated with LTR insertions...")
+    script_dir = os.path.join(project_dir, 'RNA_seq')
+    detect_DE_genes_from_TEs_cmd = (
+        f"cd {output_dir} && Rscript {script_dir}/detect_DE_genes_from_TEs.R {gene_express_table} {gene_te_associations}"
+    )
+    log.logger.debug(detect_DE_genes_from_TEs_cmd)
+    exit_code = os.system(detect_DE_genes_from_TEs_cmd)
+    if exit_code == 0:
+        log.logger.info("DE gene detection completed successfully.")
+    else:
+        log.logger.error("Error occurred during DE gene detection.")

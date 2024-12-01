@@ -1,7 +1,7 @@
 #!/usr/bin/env python
+import argparse
 import os
 import time
-import sys
 
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
@@ -9,7 +9,8 @@ project_dir = os.path.join(current_folder, ".")
 from Util import Logger, deredundant_for_LTR_v5, ReassignInconsistentLabels
 
 
-def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, panTE_lib, log):
+def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, log):
+    panTE_lib = os.path.join(output_dir, 'panTE.fa')
     """
     对所有基因组生成的 TE library 去冗余并合并最终库
     """
@@ -43,23 +44,25 @@ def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, th
 
 
 if __name__ == "__main__":
-    # 使用 sys.argv 获取命令行参数
-    if len(sys.argv) != 6:
-        print(
-            "Usage: python remove_redundancy.py <pan_terminal_tmp_lib> <pan_internal_tmp_lib> <output_dir> <threads> <panTE_lib>")
-        sys.exit(1)
+    # 创建解析器
+    parser = argparse.ArgumentParser(description="panHiTE remove redundancy.")
+    parser.add_argument("--pan_terminal_tmp_lib", type=str, help="pan terminal lib.")
+    parser.add_argument("--pan_internal_tmp_lib", type=str, help="pan internal lib.")
+    parser.add_argument("--threads", type=int, help="Number of threads to use.")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
+                        help="Output directory (default: current working directory).")
 
-    pan_terminal_tmp_lib = sys.argv[1]
-    pan_internal_tmp_lib = sys.argv[2]
-    output_dir = sys.argv[3]
-    threads = int(sys.argv[4])
-    panTE_lib = sys.argv[5]
+    # 解析参数
+    args = parser.parse_args()
+    pan_terminal_tmp_lib = args.pan_terminal_tmp_lib
+    pan_internal_tmp_lib = args.pan_internal_tmp_lib
+    threads = args.threads
 
-    if output_dir is None:
-        output_dir = os.getcwd()
-    output_dir = os.path.abspath(output_dir)
+    # 处理输出目录
+    output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
+
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 调用冗余去除和库合并函数
-    remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, panTE_lib, log)
+    remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, log)

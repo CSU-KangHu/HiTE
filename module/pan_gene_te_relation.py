@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import os
 import sys
 import json
@@ -8,30 +9,28 @@ project_dir = os.path.join(current_folder, ".")
 from Util import Logger, find_gene_relation_tes
 
 if __name__ == "__main__":
-    # 检查命令行参数数量
-    if len(sys.argv) != 4:
-        print("Usage: python find_gene_relation_tes.py <genome_info_list_file> <gene_annotation_list_file> <output_dir> <recover (0 or 1)>")
-        sys.exit(1)
+    # 创建解析器
+    parser = argparse.ArgumentParser(description="panHiTE find gene te relations.")
+    parser.add_argument("--genome_info_json", type=str, help="genome info json.")
+    parser.add_argument("--recover", type=int, help="is recover.")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
+                        help="Output directory (default: current working directory).")
 
-    # 获取命令行参数
-    genome_metadata = sys.argv[1]
-    output_dir = sys.argv[2]
-    recover = int(sys.argv[3])  # 0 为 False，1 为 True
+    # 解析参数
+    args = parser.parse_args()
+    genome_info_json = args.genome_info_json
+    recover = args.recover
 
-    # 设置输出目录
-    if output_dir is None:
-        output_dir = os.getcwd()
-    output_dir = os.path.abspath(output_dir)
+    # 处理输出目录
+    output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
+
     log = Logger(output_dir + '/find_gene_relation_tes.log', level='debug')
 
     # Load the metadata
-    with open(genome_metadata, 'r') as f:
-        genome_data = json.load(f)
-    genome_info_list = genome_data["genome_info"]
-    gene_annotation_list = genome_data["gene_annotations"]
+    with open(genome_info_json, 'r') as f:
+        genome_info_list = json.load(f)
 
     # 调用 find_gene_relation_tes 函数
     log.logger.info('Start finding gene-TE relations...')
-    find_gene_relation_tes(genome_info_list, gene_annotation_list, output_dir, recover, log)
-    log.logger.info('Gene-TE relation analysis completed.')
+    find_gene_relation_tes(genome_info_list, output_dir, recover, log)

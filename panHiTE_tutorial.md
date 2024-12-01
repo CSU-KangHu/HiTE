@@ -86,7 +86,7 @@ Statistical summaries of core, softcore, dispensable, and private TEs in the pan
   - **(i) Insertion time distributions of Copia and Gypsy TEs** across samples (default mutation rate: 1.3e-8):
   
   <div style="text-align: left;">
-    <img src="https://github.com/user-attachments/assets/8071213d-f306-4ecf-a103-19ae257609ff" alt="TE Family Proportion" width="400"/>
+    <img src="https://github.com/user-attachments/assets/8071213d-f306-4ecf-a103-19ae257609ff" alt="TE Family Proportion" width="600"/>
   </div>
 
 ---

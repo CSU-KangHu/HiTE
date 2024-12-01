@@ -56,7 +56,6 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
                 is_RNA_analyze = True
 
             cur_genome_path = os.path.join(pan_genomes_dir, genome_name)
-            TE_gff = os.path.join(output_dir, f'{genome_name}.gff')
 
             if not os.path.isabs(cur_genome_path):
                 cur_genome_path = os.path.abspath(cur_genome_path)
@@ -64,7 +63,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
                 log.logger.error(f'Cannot find genome path: {cur_genome_path}')
                 sys.exit(-1)
 
-            genome_paths.append((genome_name, cur_genome_path, TE_gff, gene_gff, RNA_seq_dict))
+            genome_paths.append((genome_name, cur_genome_path, gene_gff, RNA_seq_dict))
             genome_names.append(genome_name)
 
     # 1.2. 将 gene 注释文件转为标准的 gtf 格式，并去除非编码基因
@@ -75,10 +74,9 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
     total_genome = os.path.join(output_dir, 'total_genome.fa')
     new_ref_contigs = {}
     genome_info_list = []
-    for genome_name, reference, TE_gff, gene_gtf, RNA_seq_dict in genome_paths:
+    for genome_name, reference, gene_gtf, RNA_seq_dict in genome_paths:
         raw_name = genome_name.split('.')[0]
         ref_names, ref_contigs = read_fasta(reference)
-        full_length_TE_gff = output_dir + '/' + genome_name + '.full_length.gff'
         for name in ref_names:
             new_name = f'{raw_name}-{name}'
             new_ref_contigs[new_name] = ref_contigs[name]
@@ -86,9 +84,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
             "genome_name": genome_name,
             "raw_name": raw_name,
             "reference": reference,
-            "TE_gff": TE_gff,
             "gene_gtf": gene_gtf,
-            "full_length_TE_gff": full_length_TE_gff,
             "RNA_seq": RNA_seq_dict
         })
     store_fasta(new_ref_contigs, total_genome)
@@ -99,7 +95,6 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
         json.dump({
             "total_genome": total_genome,
             "genome_info": genome_info_list,
-            "gene_annotations": gene_annotation_list,
             "is_RNA_analyze": is_RNA_analyze
         }, f_out, indent=4)
 
