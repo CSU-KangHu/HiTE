@@ -328,7 +328,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 ### <a name="cmd"></a>5. Usage
 Type `nextflow run panHiTE.nf --help` for help.
 ```
-panHiTE - Nextflow PIPELINE (v1.0dev)
+panHiTE - Nextflow PIPELINE (v0.0.1)
 =================================
 Usage:
 The typical command is as follows:
@@ -339,6 +339,7 @@ Mandatory arguments:
   --genome_list          A text file with genome and gene names. Each line represents a pair of genome and gene names, separated by a tab (	). The genome name is mandatory, while the gene name is optional. If a gene name is provided, the genes_dir parameter must also be specified.
   --out_dir              Output directory
 General options:
+  --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
   --gene_dir             A directory containing the gene annotation files, gff format.
   --RNA_dir              A directory containing the RNA-seq files.
   --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]

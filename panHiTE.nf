@@ -25,6 +25,7 @@ params.RNA_dir = '/dev/RNA'
 params.out_dir = './output'
 params.te_type = 'all'
 params.skip_analyze = 0
+params.softcore_threshold = 0.8
 params.recover = 0
 params.debug = 0
 params.threads = 10
@@ -50,6 +51,7 @@ def helpMessage() {
       --genome_list          A text file with genome and gene names. Each line represents a pair of genome and gene names, separated by a tab (\t). The genome name is mandatory, while the gene name is optional. If a gene name is provided, the genes_dir parameter must also be specified.
       --out_dir              Output directory
     General options:
+      --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
       --gene_dir             A directory containing the gene annotation files, gff format.
       --RNA_dir              A directory containing the RNA-seq files.
       --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
@@ -158,6 +160,7 @@ process summarize_tes {
     path genome_info_json
     path pan_genomes_dir
     path panTE_lib
+    val softcore_threshold
     val recover
 
     output:
@@ -168,7 +171,7 @@ process summarize_tes {
     script:
     """
     pan_summary_TEs.py --genome_info_json ${genome_info_json} --pan_genomes_dir ${pan_genomes_dir} \
-    --panTE_lib ${panTE_lib} --recover ${recover}
+    --panTE_lib ${panTE_lib} --softcore_threshold ${softcore_threshold} --recover ${recover}
     """
 }
 
@@ -282,7 +285,7 @@ workflow {
 
     if (!params.skip_analyze) {
          // Step 7: 对检测到的 TE 进行统计分析
-        te_summary_out = summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_lib, params.recover)
+        te_summary_out = summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_lib, params.softcore_threshold, params.recover)
         te_summary_out.ch_te_summary.collectFile(name: "${params.out_dir}/TE_summary.pdf")
         te_summary_out.ch_corepan_model.collectFile(name: "${params.out_dir}/panHiTE.CorePan_fitmodel.pdf")
         te_summary_out.ch_corepan_smodel.collectFile(name: "${params.out_dir}/panHiTE.CorePan_fitsmooth.pdf")

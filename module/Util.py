@@ -12139,10 +12139,10 @@ def merge_gene_express_table(gene_express_counts, output_table):
                 else:
                     f_save.write(express_value + '\n')
 
-def summary_TEs(genome_info_list, panTE_lib, output_dir, recover, log):
+def summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, recover, log):
     # 找到 core TEs (出现在100%的基因组)，softcore TEs (出现在80%以上基因组)，dispensable TEs (出现 2个-80%基因组)，private TEs (出现在1个基因组)
     genome_num = len(genome_info_list)
-    genome_num_threshold = int(0.8 * genome_num)
+    genome_num_threshold = int(softcore_threshold * genome_num)
 
     # 获取 TE_name 和 TE_class的对应关系
     te_classes, new_te_contigs = get_TE_class(panTE_lib)
