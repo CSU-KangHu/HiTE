@@ -23,7 +23,7 @@ This file contains TEs inserted upstream, downstream, or inside genes, which sig
 ...
 ```
 
-Column Descriptions:
+_Column Descriptions_:
   1. `Gene_name`: Gene name.
   2. `NoInsertion (mean_TPM)`: Mean expression (TPM) of the gene with no TE insertion.
   3. `Upstream (mean_TPM)`: Mean expression (TPM) of the gene with a TE inserted upstream.
@@ -34,6 +34,13 @@ Column Descriptions:
   8. `Downstream_vs_NoInsertion_logFoldChange`: Log2 fold change of downstream insertion compared to no insertion.  
 Positive fold changes indicate upregulation, while negative values indicate downregulation. The formula for fold change is:  
 `Upstream_vs_NoInsertion_logFoldChange = log2(Upstream + 1) - log2(NoInsertion + 1)`.
+
+_Result Interpretation_:
+
+"AT4G34410" 562.145 NA 1.14 NA NA NA -8.03975183205617  
+
+The average expression level (TPM) of gene AT4G34410 without TE insertion is 562.145. In specific samples (one or more), a TE insertion is present downstream of this gene, which results in an average expression level of 1.14 after the insertion. The log fold change is -8.03, indicating that the gene is downregulated due to the TE insertion.  
+You can further examine the `all_gene_TEs_details.tsv` file to identify which samples contain the TE insertion for this gene, the distance between the TE insertion and the gene, expression levels in specific samples, and other related information.
 
 
 - **all_gene_TEs_details.tsv**  
