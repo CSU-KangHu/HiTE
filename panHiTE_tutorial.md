@@ -99,17 +99,25 @@ In this tutorial, we'll demonstrate how to use panHiTE with a demo data.
 *(Docker and Singularity versions will be available once panHiTE stabilizes.)*
 
 ```bash
+# 1. Install Nextflow
+conda create -n nextflow -c conda-forge -c bioconda nextflow==22.10.6
+
+# 2. Download HiTE
 git clone https://github.com/CSU-KangHu/HiTE.git
 
+# 3. Grant execution permissions for the required tools.
 cd HiTE && python configure.py
 
+# 4. Create the HiTE environment and record the environment path
 source ~/.bashrc # or open a new terminal
-
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
+which python 
+# For example, the output might be: /public/home/xxx/miniconda3/envs/HiTE/bin/python. 
+# Record this path as it will be used later: /public/home/xxx/miniconda3/envs/HiTE
 ```
 
-### 2. Installing Required R Packages
+### 2. Install Required R Packages
 To install R packages, you may need to configure the CRAN mirror first. For example, to use the default CRAN mirror, add the following configuration to your `~/.Rprofile` file:
 
 ```R
@@ -122,7 +130,7 @@ conda activate HiTE
 Rscript RNA_seq/install_R_dependencies.R
 ```
 
-If the installation completes successfully, the following R packages will be installed within the `HiTE` environment:  
+If the installation completes successfully, the following R packages will be installed:  
 - **argparser**  
 - **tibble**  
 - **dplyr**  
@@ -136,6 +144,23 @@ If the installation completes successfully, the following R packages will be ins
 - **ggplot2**
 
 If the script fails to install the packages, you can also install them manually.
+We recommend that you follow the steps below to ensure the required R packages are correctly installed:
+```sh
+R
+# R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
+# ...
+> library(argparser)
+> library(tibble)
+> library(dplyr)
+> library(minpack.lm)
+> library(readr)
+> library(stringr)
+> library(tidyr)
+> library(Rsubread)
+> library(limma)
+> library(edgeR)
+> library(ggplot2)
+```
 
 ---
 
@@ -172,77 +197,111 @@ Download the [demo data](https://zenodo.org/records/14235586) from Zenodo. Since
 
 ---
 
-### 4. Running panHiTE  
+### 4. Running panHiTE through Nextflow
 
 #### 4.1 Full Workflow  
 To run panHiTE from start to end, use the following command:  
 ```bash
-# Make sure to replace the `${}` placeholders with your actual paths.
-python panHiTE.py \
+# 1. activate nextflow
+conda activate nextflow
+
+# 2. Write the execution script
+# Make sure to replace the `xxx` placeholders with your actual paths.
+source_dir=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+RNA_dir=xxx
+genome_list=xxx
+out_dir=xxx
+conda_name=/public/home/xxx/miniconda3/envs/HiTE  # You need to replace the previously recorded HiTE conda environment path here
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile conda --conda_name ${conda_name} \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --genes_dir ${gene_dir} \
  --RNA_dir ${RNA_dir} \
  --out_dir ${out_dir} \
- --thread ${threads} \
- --recover 1 \
+ --threads ${threads} \
  --skip_analyze 0
- 
+
+
 # Example script:
 #source_dir=/public/home/xxx/test/panHiTE
 #pan_genomes_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genomes
 #gene_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/gtf_files
 #RNA_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/RNA_seq_files
 #genome_list=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genome_list
-#out_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/panHiTE_serial_output
-#cd $source_dir && /usr/bin/time -v python panHiTE.py \
+#out_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/panHiTE_output
+#cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+# -profile conda --conda_name /public/home/xxx/miniconda3/envs/HiTE \
 # --pan_genomes_dir ${pan_genomes_dir} \
 # --genome_list ${genome_list} \
 # --genes_dir ${gene_dir} \
 # --RNA_dir ${RNA_dir} \
 # --out_dir ${out_dir} \
-# --thread 40 \
-# --recover 1 \
-# --te_type all \
-# --skip_analyze 0 \
-# --miu 7e-9
+# --threads 40 \
+# --miu 7e-9 \
+# --skip_analyze 0
 ```
-- **`--recover 1`**: This option detects existing intermediate files and resumes from the last checkpoint, saving time.
 
 #### 4.2 skip downstream analysis 
-If you only need the panLTR library and the annotation for each genome, you can choose to skip the downstream analysis by setting `--skip_analyze 1`.
+If you only need the panTE library and the TE annotation for each genome, you can choose to skip the downstream analysis by setting `--skip_analyze 1`.
 ```bash
-python panHiTE.py \
+source_dir=xxx
+pan_genomes_dir=xxx
+genome_list=xxx
+out_dir=xxx
+conda_name=/public/home/xxx/miniconda3/envs/HiTE  # You need to replace the previously recorded HiTE conda environment path here
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile conda --conda_name ${conda_name} \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --out_dir ${out_dir} \
- --thread ${threads} \
- --recover 1 \
- --te_type all \
- --skip_analyze 1 \
- --miu ${miu}
-
-# Example script:
-#source_dir=/public/home/xxx/test/panHiTE
-#pan_genomes_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genomes
-#gene_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/gtf_files
-#RNA_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/RNA_seq_files
-#genome_list=/public/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genome_list
-#out_dir=/public/home/xxx/ath_pan_genome/pan_genome/ath/panHiTE_serial_output
-#cd $source_dir && /usr/bin/time -v python panHiTE.py \
-# --pan_genomes_dir ${pan_genomes_dir} \
-# --genome_list ${genome_list} \
-# --out_dir ${out_dir} \
-# --thread 40 \
-# --recover 1 \
-# --te_type all \
-# --skip_analyze 1 \
-# --miu 7e-9
+ --threads ${threads} \
+ --skip_analyze 1
 ```
----
 
-### 5. Features Under Development
+#### 4.3 Running on HPC Platform
+Run HiTE for each genome and annotate each genome using the panTE library. These two steps can be parallelized on the HPC platform to effectively reduce runtime. We tested this on an HPC platform managed by Slurm, and the key step is to provide the correct HPC configuration.
 
-The current panHiTE pipeline runs HiTE detection on multiple genomes sequentially, generates the panHiTE library, 
-and then annotates each genome sequentially as well. In theory, these steps can be parallelized on an HPC platform. 
-Therefore, we plan to develop an HPC-compatible panHiTE version based on Nextflow, enabling faster and more efficient panHiTE analysis.
+1. Modify the `HiTE/nextflow.config` file
+```markdown
+// HPC with singularity-loading, adapted from nanome
+hpc { // general HPC configuration
+    params {
+        // HPC Slurm default parameters
+        qos = 'resq'
+        partition = 'resQ'
+        queue = partition
+        processors = 40
+        memory = '100.GB'
+        time = '50.h'
+        ...
+        account = 'xxx'
+        ...
+    }
+}
+
+# Please consult your HPC platform to modify the above parameters
+```
+
+2. Run panHiTE using conda and HPC
+```bash
+# Add the hpc option in the -profile section
+source_dir=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+RNA_dir=xxx
+genome_list=xxx
+out_dir=xxx
+conda_name=/public/home/xxx/miniconda3/envs/HiTE  # Here, replace with the previously recorded HiTE conda environment name
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile conda,hpc --conda_name ${conda_name} \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --RNA_dir ${RNA_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads} \
+ --skip_analyze 0
+```

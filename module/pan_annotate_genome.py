@@ -22,12 +22,12 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, recover, lo
 def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, recover, log):
     RepeatMasker_command = f'cd {output_dir} && RepeatMasker -e ncbi -no_is -norna -nolow -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
     log.logger.info(f"Running command: {RepeatMasker_command}")
-    #os.system(RepeatMasker_command)
+    os.system(RepeatMasker_command)
 
     # 移动 RepeatMasker 生成的结果文件
     mv_file_command = f'cp -f {reference}.out.gff {output_dir}/{genome_name}.gff && cp -f {reference}.tbl {output_dir}/{genome_name}.tbl && cp -f {reference}.out {output_dir}/{genome_name}.out'
     log.logger.info(f"Running command: {mv_file_command}")
-    #os.system(mv_file_command)
+    os.system(mv_file_command)
 
     # 生成全长TE注释文件
     # 获取 TE_name 和 TE_class的对应关系
