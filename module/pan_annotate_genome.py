@@ -2,12 +2,14 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1
+from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1, run_command
+
 
 def for_test(output_dir, threads, panTE_lib, reference, genome_name, recover, log):
     full_length_copies_path = f'{output_dir}/{genome_name}.full_length.copies'
@@ -20,12 +22,12 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, recover, lo
 def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, recover, log):
     RepeatMasker_command = f'cd {output_dir} && RepeatMasker -e ncbi -no_is -norna -nolow -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
     log.logger.info(f"Running command: {RepeatMasker_command}")
-    os.system(RepeatMasker_command)
+    #os.system(RepeatMasker_command)
 
     # 移动 RepeatMasker 生成的结果文件
     mv_file_command = f'cp -f {reference}.out.gff {output_dir}/{genome_name}.gff && cp -f {reference}.tbl {output_dir}/{genome_name}.tbl && cp -f {reference}.out {output_dir}/{genome_name}.out'
     log.logger.info(f"Running command: {mv_file_command}")
-    os.system(mv_file_command)
+    #os.system(mv_file_command)
 
     # 生成全长TE注释文件
     # 获取 TE_name 和 TE_class的对应关系
@@ -39,6 +41,7 @@ def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, re
         json.dump(full_length_copies, f, indent=4)
 
     full_length_tmp_gff_path = f'{output_dir}/{genome_name}.full_length.tmp.gff'
+    full_length_tmp_sort_gff_path = f'{output_dir}/{genome_name}.full_length.tmp.sort.gff'
     full_length_gff_path = f'{output_dir}/{genome_name}.full_length.gff'
     intact_count = 0
     with open(full_length_tmp_gff_path, 'w') as f_save:
@@ -51,28 +54,26 @@ def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, re
                 intact_count += 1
                 update_annotation = 'id=te_intact_' + str(
                     intact_count) + ';name=' + query_name + ';classification=' + classification
-                f_save.write(
-                    chr_name + '\t' + 'HiTE' + '\t' + classification + '\t' + chr_start + '\t' + chr_end + '\t' + '.\t' +
-                    str(copy_annotation[4]) + '\t' + '.\t' + update_annotation + '\n')
+                f_save.write(chr_name + '\t' + 'HiTE' + '\t' + classification + '\t' + chr_start + '\t' + chr_end + '\t' + '.\t' + str(copy_annotation[4]) + '\t' + '.\t' + update_annotation + '\n')
+    os.system('sort -k1,1 -k4n ' + full_length_tmp_gff_path + ' > ' + full_length_tmp_sort_gff_path)
+    gff_lines = []
+    with open(full_length_tmp_sort_gff_path, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            gff_lines.append(line)
 
-        os.system('sort -k1,1 -k4n ' + full_length_tmp_gff_path + ' > ' + full_length_gff_path)
-        gff_lines = []
-        with open(full_length_gff_path, 'r') as f_r:
-            for line in f_r:
-                if line.startswith('#'):
-                    continue
-                gff_lines.append(line)
-
-        date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
-        header = (
-            "##gff-version 3\n"
-            f"##date {date}\n"
-        )
-        with open(full_length_gff_path, "w") as gff_file:
-            gff_file.write(header)
-            for line in gff_lines:
-                gff_file.write(line)
-        os.remove(full_length_tmp_gff_path)
+    date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    header = (
+        "##gff-version 3\n"
+        f"##date {date}\n"
+    )
+    with open(full_length_gff_path, "w") as gff_file:
+        gff_file.write(header)
+        for line in gff_lines:
+            gff_file.write(line)
+    os.remove(full_length_tmp_gff_path)
+    os.remove(full_length_tmp_sort_gff_path)
 
 if __name__ == "__main__":
     # 创建解析器

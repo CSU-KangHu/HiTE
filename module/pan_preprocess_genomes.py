@@ -107,8 +107,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="panHiTE preprocess genomes and gff annotations.")
     parser.add_argument("--genome_list", type=str, help="Path to the genome list file.")
     parser.add_argument("--genes_dir", type=str, help="Path to the directory containing gene files.")
-    parser.add_argument("--RNA_dir", type=str, help="Path to the directory containing RNA files.")
     parser.add_argument("--pan_genomes_dir", type=str, help="Path to the directory containing pan-genomes.")
+    parser.add_argument("--RNA_dir", nargs="?", default='', help="Path to the directory containing RNA files.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Path to the output directory (default: current working directory).")
 

@@ -11365,8 +11365,10 @@ def find_gene_relation_tes(genome_info_list, output_dir, recover, log):
         genome_name = genome_info["genome_name"]
         gene_gtf = genome_info["gene_gtf"]
         full_length_TE_gff = genome_info["full_length_TE_gff"]
-
-        if os.path.exists(full_length_TE_gff) and os.path.exists(gene_gtf):
+        if full_length_TE_gff is not None \
+                and os.path.exists(full_length_TE_gff) \
+                and gene_gtf is not None \
+                and os.path.exists(gene_gtf):
             output_file = output_dir + '/' + genome_name + '.te_gene_insertions.tsv'
             resut_file = output_file
             if not recover or not file_exist(resut_file):
@@ -13069,13 +13071,17 @@ def convertGeneAnnotation2GTF(genome_paths, script_dir, output_dir, log):
     input_files = ''
     new_genome_paths = []
     for genome_name, reference, gene_gtf, RNA_seq_dict in genome_paths:
-        input_files += gene_gtf + ' '
-        base_name = os.path.basename(gene_gtf)
-        new_gene_gtf = os.path.join(gtf_output_dir, os.path.splitext(base_name)[0] + ".gtf")
-        new_genome_paths.append((genome_name, reference, new_gene_gtf, RNA_seq_dict))
-    command = 'python ' + script_dir + '/makeCleanGeneGTF.py --input_files ' + input_files + ' --output_dir ' + gtf_output_dir
-    log.logger.debug(command)
-    os.system(command)
+        if gene_gtf is not None:
+            input_files += gene_gtf + ' '
+            base_name = os.path.basename(gene_gtf)
+            new_gene_gtf = os.path.join(gtf_output_dir, os.path.splitext(base_name)[0] + ".gtf")
+            new_genome_paths.append((genome_name, reference, new_gene_gtf, RNA_seq_dict))
+        else:
+            new_genome_paths.append((genome_name, reference, gene_gtf, RNA_seq_dict))
+    if input_files != '':
+        command = 'python ' + script_dir + '/makeCleanGeneGTF.py --input_files ' + input_files + ' --output_dir ' + gtf_output_dir
+        log.logger.debug(command)
+        os.system(command)
     return new_genome_paths
 
 def run_HybridLTR(reference, tmp_output_dir, HybridLTR_home, threads, miu, recover, debug, is_output_lib, log):

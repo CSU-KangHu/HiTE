@@ -4,13 +4,13 @@ import groovy.json.JsonOutput
 // 定义用户输入参数
 params.pan_genomes_dir = ''
 params.genome_list = ''
-params.genes_dir = ''
-params.RNA_dir = ''
+params.genes_dir = '/dev/gene'
+params.RNA_dir = '/dev/RNA'
 params.out_dir = './output'
 params.te_type = 'ltr'
-params.skip_analyze = false
-params.recover = false
-params.debug = false
+params.skip_analyze = 0
+params.recover = 0
+params.debug = 0
 params.threads = 4
 params.miu = 0.1
 params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
@@ -95,15 +95,17 @@ process pan_remove_redundancy {
 // Step 3: 注释基因组
 process annotate_genomes {
     input:
-    tuple val(genome_name), path(reference), val(output_dir), val(threads), val(recover), path(panTE_lib)
+    tuple val(genome_name), path(reference), val(threads), val(recover), path(panTE_lib)
 
     output:
-    tuple val(genome_name), path("${output_dir}/${genome_name}.gff"), path("${output_dir}/${genome_name}.full_length.gff"), path("${output_dir}/${genome_name}.full_length.copies"), emit: annotate_out
+    tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
+
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*.gff"
 
     script:
     """
     pan_annotate_genome.py --threads ${threads} --panTE_lib ${panTE_lib} --reference ${reference} \
-    --genome_name ${genome_name} --recover ${recover} --output_dir ${output_dir}
+    --genome_name ${genome_name} --recover ${recover}
     """
 }
 
@@ -198,7 +200,7 @@ workflow {
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-        [genome_name, reference, params.out_dir, params.threads, params.recover]
+        [genome_name, reference, params.threads, params.recover]
     }.combine(panTE_lib).set { annotate_input_channel }
 
     // Step 6: 并行注释每个基因组
