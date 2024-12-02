@@ -12,7 +12,7 @@ We are excited to announce a significant update to HiTE, which now includes the 
 - [Output Preview](#output_preview)
 - [panHiTE Tutorial](#tutorial)
   - [Installation via Conda](#install_conda)
-  - [Install Required R Packages](#install_R)
+  - [Install Required R Packages](#install_R_packages)
   - [Data Preparation](#data)
   - [Running panHiTE through Nextflow](#run)
     - [Full Workflow](#full_workflow)
@@ -136,7 +136,7 @@ which python
 # Record this path as it will be used later: /public/home/xxx/miniconda3/envs/HiTE
 ```
 
-### <a name="install_R"></a>2. Install Required R Packages
+### <a name="install_R_packages"></a>2. Install Required R Packages
 To install R packages, you may need to configure the CRAN mirror first. For example, to use the default CRAN mirror, add the following configuration to your `~/.Rprofile` file:
 
 ```R
