@@ -1,3 +1,19 @@
+#!/usr/bin/env nextflow
+/*
+========================================================================================
+    panHiTE
+========================================================================================
+    Github : https://github.com/CSU-KangHu/HiTE
+----------------------------------------------------------------------------------------
+*/
+
+nextflow.enable.dsl=2
+
+/*
+========================================================================================
+    NAMED WORKFLOW FOR PIPELINE
+========================================================================================
+*/
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
@@ -7,12 +23,12 @@ params.genome_list = ''
 params.genes_dir = '/dev/gene'
 params.RNA_dir = '/dev/RNA'
 params.out_dir = './output'
-params.te_type = 'ltr'
+params.te_type = 'all'
 params.skip_analyze = 0
 params.recover = 0
 params.debug = 0
-params.threads = 4
-params.miu = 0.1
+params.threads = 10
+params.miu = 1.3e-8
 params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
 
 // 验证 TE 类型是否合法
@@ -20,6 +36,33 @@ if (!params.all_te_types.contains(params.te_type)) {
     error "Invalid TE type: ${params.te_type}. Please choose from ${params.all_te_types}"
 }
 
+
+def helpMessage() {
+    log.info"""
+    panHiTE - Nextflow PIPELINE (v$workflow.manifest.version)
+    =================================
+    Usage:
+    The typical command is as follows:
+    nextflow run panHiTE.nf --pan_genomes_dir xxx --genome_list xxx --genes_dir xxx --RNA_dir xxx --out_dir xxx --threads 40 --skip_analyze 0 --miu 7e-9
+
+    Mandatory arguments:
+      --pan_genomes_dir      A directory containing the pan-genomes
+      --genome_list          A text file with genome and gene names. Each line represents a pair of genome and gene names, separated by a tab (\t). The genome name is mandatory, while the gene name is optional. If a gene name is provided, the genes_dir parameter must also be specified.
+      --out_dir              Output directory
+    General options:
+      --gene_dir             A directory containing the gene annotation files, gff format.
+      --RNA_dir              A directory containing the RNA-seq files.
+      --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
+      --threads              Input thread num. default = [ 10 ]
+      --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
+      --miu                  The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
+    """.stripIndent()
+}
+
+if (params.help){
+    helpMessage()
+    exit 0
+}
 
 process preprocess_genomes {
     input:

@@ -8,7 +8,19 @@ We are excited to announce a significant update to HiTE, which now includes the 
 
 ---
 
-### Output Preview
+## Table of Contents
+- [Output Preview](#output_preview)
+- [panHiTE Tutorial](#tutorial)
+  - [Installation via Conda](#install_conda)
+  - [Install Required R Packages](#install_R)
+  - [Data Preparation](#data)
+  - [Running panHiTE through Nextflow](#run)
+    - [Full Workflow](#full_workflow)
+    - [Skip downstream analysis](#skip_analysis)
+    - [Running on HPC Platform](#run_hpc)
+  - [Usage](#cmd)
+
+## <a name="output_preview"></a>Output Preview
 
 - **DE_genes_from_TEs.tsv**  
 This file contains TEs inserted upstream, downstream, or inside genes, which significantly alter gene expression levels across populations.  
@@ -98,11 +110,11 @@ Statistical summaries of core, softcore, dispensable, and private TEs in the pan
 
 ---
 
-## panHiTE Tutorial
+## <a name="tutorial"></a>panHiTE Tutorial
 
 In this tutorial, we'll demonstrate how to use panHiTE with a demo data.
 
-### 1. Installation via Conda  
+### <a name="install_conda"></a>1. Installation via Conda
 *(Docker and Singularity versions will be available once panHiTE stabilizes.)*
 
 ```bash
@@ -124,7 +136,7 @@ which python
 # Record this path as it will be used later: /public/home/xxx/miniconda3/envs/HiTE
 ```
 
-### 2. Install Required R Packages
+### <a name="install_R"></a>2. Install Required R Packages
 To install R packages, you may need to configure the CRAN mirror first. For example, to use the default CRAN mirror, add the following configuration to your `~/.Rprofile` file:
 
 ```R
@@ -171,7 +183,7 @@ R
 
 ---
 
-### 3. Data Preparation  
+### <a name="data"></a>3. Data Preparation
 
 Download the [demo data](https://zenodo.org/records/14235586) from Zenodo. Since the dataset includes RNA-seq data, it is relatively large, so please be patient.
 
@@ -204,9 +216,9 @@ Download the [demo data](https://zenodo.org/records/14235586) from Zenodo. Since
 
 ---
 
-### 4. Running panHiTE through Nextflow
+### <a name="run"></a>4. Running panHiTE through Nextflow
 
-#### 4.1 Full Workflow  
+#### <a name="full_workflow"></a>4.1 Full Workflow
 To run panHiTE from start to end, use the following command:  
 ```bash
 # 1. activate nextflow
@@ -251,7 +263,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 # --skip_analyze 0
 ```
 
-#### 4.2 skip downstream analysis 
+#### <a name="skip_analysis"></a>4.2 Skip downstream analysis
 If you only need the panTE library and the TE annotation for each genome, you can choose to skip the downstream analysis by setting `--skip_analyze 1`.
 ```bash
 source_dir=xxx
@@ -268,7 +280,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --skip_analyze 1
 ```
 
-#### 4.3 Running on HPC Platform
+#### <a name="run_hpc"></a>4.3 Running on HPC Platform
 Run HiTE for each genome and annotate each genome using the panTE library. These two steps can be parallelized on the HPC platform to effectively reduce runtime. We tested this on an HPC platform managed by Slurm, and the key step is to provide the correct HPC configuration.
 
 1. Modify the `HiTE/nextflow.config` file
@@ -311,4 +323,26 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --out_dir ${out_dir} \
  --threads ${threads} \
  --skip_analyze 0
+```
+
+### <a name="cmd"></a>5. Usage
+Type `nextflow run panHiTE.nf --help` for help.
+```
+panHiTE - Nextflow PIPELINE (v1.0dev)
+=================================
+Usage:
+The typical command is as follows:
+nextflow run panHiTE.nf --pan_genomes_dir xxx --genome_list xxx --genes_dir xxx --RNA_dir xxx --out_dir xxx --threads 40 --skip_analyze 0 --miu 7e-9
+
+Mandatory arguments:
+  --pan_genomes_dir      A directory containing the pan-genomes
+  --genome_list          A text file with genome and gene names. Each line represents a pair of genome and gene names, separated by a tab (	). The genome name is mandatory, while the gene name is optional. If a gene name is provided, the genes_dir parameter must also be specified.
+  --out_dir              Output directory
+General options:
+  --gene_dir             A directory containing the gene annotation files, gff format.
+  --RNA_dir              A directory containing the RNA-seq files.
+  --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
+  --threads              Input thread num. default = [ 10 ]
+  --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
+  --miu                  The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
 ```

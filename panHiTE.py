@@ -26,7 +26,7 @@ def main_pipeline():
     parser = argparse.ArgumentParser(description=describe_info)
     parser.add_argument('--pan_genomes_dir', required=True, metavar='pan_genomes_dir', help='A directory containing the pangenome.')
     parser.add_argument('--genome_list', required=True, metavar='genome_list', help='A text file with genome and gene names. Each line represents a pair of genome and gene names, separated by a tab (\t). The genome name is mandatory, while the gene name is optional. If a gene name is provided, the genes_dir parameter must also be specified.')
-    parser.add_argument('--genes_dir', required=False, metavar='genes_dir', help='A directory containing the sorted gene annotation files, gff or gtf format.')
+    parser.add_argument('--genes_dir', required=False, metavar='genes_dir', help='A directory containing the gene annotation files, gff or gtf format.')
     parser.add_argument('--RNA_dir', required=False, metavar='RNA_dir', help='A directory containing the RNA-seq files.')
 
     parser.add_argument('--out_dir', required=True, metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
