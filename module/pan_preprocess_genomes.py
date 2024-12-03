@@ -40,7 +40,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
                 if not os.path.exists(raw_RNA):
                     log.logger.error(f'Cannot find RNA-seq path: {raw_RNA}')
                     sys.exit(-1)
-                RNA_seq_dict['raw_RNA'] = raw_RNA
+                RNA_seq_dict['raw_RNA'] = parts[2]
                 RNA_seq_dict['is_PE'] = is_PE
                 is_RNA_analyze = True
             elif len(parts) == 4:
@@ -50,8 +50,8 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
                 if not os.path.exists(raw_RNA1) or not os.path.exists(raw_RNA2):
                     log.logger.error(f'Cannot find RNA-seq path: {raw_RNA1}, {raw_RNA2}')
                     sys.exit(-1)
-                RNA_seq_dict['raw_RNA1'] = raw_RNA1
-                RNA_seq_dict['raw_RNA2'] = raw_RNA2
+                RNA_seq_dict['raw_RNA1'] = parts[2]
+                RNA_seq_dict['raw_RNA2'] = parts[3]
                 RNA_seq_dict['is_PE'] = is_PE
                 is_RNA_analyze = True
 

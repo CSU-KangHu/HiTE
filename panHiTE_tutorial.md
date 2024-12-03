@@ -55,6 +55,7 @@ options(repos = c(CRAN = "https://cloud.r-project.org/"))
 
 We provide a script to install all necessary R dependencies in one step:  
 ```bash
+cd HiTE
 conda activate HiTE
 Rscript RNA_seq/install_R_dependencies.R
 ```
@@ -73,7 +74,7 @@ If the installation completes successfully, the following R packages will be ins
 - **ggplot2**
 
 If the script fails to install the packages, you can also install them manually.
-We recommend that you follow the steps below to ensure the required R packages are correctly installed:
+We strongly recommend that you follow the steps below to ensure the required R packages are correctly installed:
 ```sh
 R
 # R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
