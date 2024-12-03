@@ -95,7 +95,7 @@ R
 
 ### <a name="data"></a>3. Data Preparation
 
-Download the [demo data](https://zenodo.org/records/14235586) from Zenodo.
+Download the [demo data](https://zenodo.org/records/14263297) from Zenodo.
 A complete genome assembly, annotation, and RNA-seq reads data were downloaded from the publication: _Kang M, Wu H, Liu H, Liu W, Zhu M, Han Y, Liu W, Chen C, Song Y, Tan L, Yin K. *The pan-genome and local adaptation of Arabidopsis thaliana.* Nature Communications. 2023 Oct 6;14(1):6259_.
 
 1. **pan_genomes_dir (Required)**  
