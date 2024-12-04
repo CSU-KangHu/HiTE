@@ -11951,14 +11951,13 @@ def generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_dir, log):
 
         if len(RNA_seq_dict) > 0:
             is_PE = RNA_seq_dict['is_PE']
-
             if is_PE:
                 raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
                 raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])
                 sorted_bam = RNA_dir + '/' + genome_name + '.output.sorted.bam'
                 resut_file = sorted_bam
                 if not recover or not os.path.exists(resut_file):
-                    generate_bam(genome_path=reference, genome_annotation_file=gene_gtf,
+                    generate_bam(genome_path=reference, genome_name=genome_name, genome_annotation_file=gene_gtf,
                                              output_dir=RNA_dir, threads=threads, is_PE=True, raw_RNA1=raw_RNA1,
                                              raw_RNA2=raw_RNA2)
                 else:
@@ -11969,17 +11968,17 @@ def generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_dir, log):
                 sorted_bam = RNA_dir + '/' + genome_name + '.output.sorted.bam'
                 resut_file = sorted_bam
                 if not recover or not os.path.exists(resut_file):
-                    generate_bam(genome_path=reference, output_dir=RNA_dir, threads=threads, is_PE=False, raw_RNA=raw_RNA)
+                    generate_bam(genome_path=reference, genome_name=genome_name, output_dir=RNA_dir,
+                                 threads=threads, is_PE=False, raw_RNA=raw_RNA)
                 else:
                     log.logger.info(resut_file + ' exists, skip...')
 
             new_batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, sorted_bam, is_PE))
     return new_batch_files
 
-def generate_bam(genome_path, output_dir, threads, is_PE=True, **kwargs):
+def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kwargs):
     # 2. 调用 hisat2 将RNA-seq比对到基因组上
     genome_dir = os.path.dirname(genome_path)
-    genome_name = os.path.splitext(os.path.basename(genome_path))[0]
     output_sam = output_dir + '/' + genome_name + '.output.sam'
     sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
     hisat2_build = 'cd ' + genome_dir + ' && hisat2-build ' + genome_path + ' ' + genome_name
