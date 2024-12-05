@@ -11,7 +11,7 @@ project_dir = os.path.join(current_folder, ".")
 from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1, run_command
 
 
-def for_test(output_dir, threads, panTE_lib, reference, genome_name, recover, log):
+def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
     full_length_copies_path = f'{output_dir}/{genome_name}.full_length.copies'
     full_length_gff_path = f'{output_dir}/{genome_name}.full_length.gff'
     gff_path = f'{output_dir}/{genome_name}.gff'
@@ -19,7 +19,7 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, recover, lo
     os.system('touch ' + full_length_gff_path)
     os.system('touch ' + gff_path)
 
-def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, recover, log):
+def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, log):
     RepeatMasker_command = f'cd {output_dir} && RepeatMasker -e ncbi -no_is -norna -nolow -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
     log.logger.info(f"Running command: {RepeatMasker_command}")
     os.system(RepeatMasker_command)
@@ -82,7 +82,6 @@ if __name__ == "__main__":
     parser.add_argument("--reference", type=str, help="the reference path.")
     parser.add_argument("--genome_name", type=str, help="genome name.")
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
-    parser.add_argument("--recover", type=int, help="is recover.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
 
@@ -91,7 +90,6 @@ if __name__ == "__main__":
     panTE_lib = args.panTE_lib
     reference = args.reference
     genome_name = args.genome_name
-    recover = args.recover
     threads = args.threads
 
     # 处理输出目录
@@ -102,6 +100,6 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 调用 RepeatMasker 函数
-    run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, recover, log)
+    run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, log)
 
-    # for_test(output_dir, threads, panTE_lib, reference, genome_name, recover, log)
+    # for_test(output_dir, threads, panTE_lib, reference, genome_name, log)

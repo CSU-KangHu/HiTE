@@ -723,19 +723,19 @@ if __name__ == '__main__':
             if not debug:
                 confident_ltr_terminal = tmp_output_dir + '/confident_ltr.terminal.fa'
                 confident_ltr_internal = tmp_output_dir + '/confident_ltr.internal.fa'
-                os.system('rm -f ' + confident_ltr_terminal + '*')
-                os.system('rm -f ' + confident_ltr_internal + '*')
+                os.system('rm -f ' + confident_ltr_terminal + '.*')
+                os.system('rm -f ' + confident_ltr_internal + '.*')
         else:
             log.logger.info(result_file + ' exists, skip...')
 
-        # Step9. 调用评估方法
-        evaluation_command = 'cd ' + project_dir + ' && python ' + src_dir + '/benchmarking.py --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) + ' -t ' + \
-                          str(threads) + ' --TE_lib ' + confident_ltr_path + ' -r ' + reference + \
-                          ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover)
-        if EDTA_home is not None and EDTA_home != '':
-            evaluation_command += ' --EDTA_home ' + EDTA_home
-        if species is not None:
-            evaluation_command += ' --species ' + species
-        log.logger.debug(evaluation_command)
-        os.system(evaluation_command)
+        # # Step9. 调用评估方法
+        # evaluation_command = 'cd ' + project_dir + ' && python ' + src_dir + '/benchmarking.py --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) + ' -t ' + \
+        #                   str(threads) + ' --TE_lib ' + confident_ltr_path + ' -r ' + reference + \
+        #                   ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover)
+        # if EDTA_home is not None and EDTA_home != '':
+        #     evaluation_command += ' --EDTA_home ' + EDTA_home
+        # if species is not None:
+        #     evaluation_command += ' --species ' + species
+        # log.logger.debug(evaluation_command)
+        # os.system(evaluation_command)
 

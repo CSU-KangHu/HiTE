@@ -12,14 +12,12 @@ if __name__ == "__main__":
     # 创建解析器
     parser = argparse.ArgumentParser(description="panHiTE find gene te relations.")
     parser.add_argument("--genome_info_json", type=str, help="genome info json.")
-    parser.add_argument("--recover", type=int, help="is recover.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
 
     # 解析参数
     args = parser.parse_args()
     genome_info_json = args.genome_info_json
-    recover = args.recover
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -33,4 +31,4 @@ if __name__ == "__main__":
 
     # 调用 find_gene_relation_tes 函数
     log.logger.info('Start finding gene-TE relations...')
-    find_gene_relation_tes(genome_info_list, output_dir, recover, log)
+    find_gene_relation_tes(genome_info_list, output_dir, log)

@@ -10,7 +10,7 @@ project_dir = os.path.join(current_folder, ".")
 from Util import file_exist, lib_add_prefix, Logger, store_fasta
 
 
-def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log):
+def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
     """对单个基因组运行 HiTE"""
     raw_name = genome_name.split('.')[0]
     HiTE_output_dir = output_dir
@@ -32,7 +32,7 @@ def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, r
     store_fasta(contigs, confident_TE)
     os.system('echo aaaa > ' + ltr_intact_list)
 
-def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log):
+def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
     """对单个基因组运行 HiTE"""
     raw_name = genome_name.split('.')[0]
     HiTE_output_dir = output_dir
@@ -67,40 +67,37 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
     is_rerun = not all(file_exist(f) for f in check_files)
 
     # 运行 HiTE
-    if not recover or is_rerun:
-        if file_exist(reference):
-            HiTE_command = (
-                f"python {project_dir}/main.py --genome {reference} --outdir {HiTE_output_dir} "
-                f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 0 "
-                f"--debug {debug} --recover {recover}"
-            )
-            log.logger.info(f"Executing: {HiTE_command}")
-            start_time = time.time()
-            os.system(HiTE_command)
-            end_time = time.time()
-            log.logger.info(f"Running time for {genome_name}: {(end_time - start_time) / 60:.2f} minutes")
+    if file_exist(reference):
+        HiTE_command = (
+            f"python {project_dir}/main.py --genome {reference} --outdir {HiTE_output_dir} "
+            f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 1 "
+            f"--debug {debug}"
+        )
+        log.logger.info(f"Executing: {HiTE_command}")
+        start_time = time.time()
+        os.system(HiTE_command)
+        end_time = time.time()
+        log.logger.info(f"Running time for {genome_name}: {(end_time - start_time) / 60:.2f} minutes")
 
-            # 为文件加前缀
-            if file_exist(confident_ltr_terminal):
-                lib_add_prefix(confident_ltr_terminal, raw_name)
-            if file_exist(confident_ltr_internal):
-                lib_add_prefix(confident_ltr_internal, raw_name)
-            if file_exist(confident_TE):
-                lib_add_prefix(confident_TE, raw_name)
-        else:
-            log.logger.error(f"Cannot find genome: {reference}")
+        # 为文件加前缀
+        if file_exist(confident_ltr_terminal):
+            lib_add_prefix(confident_ltr_terminal, raw_name)
+        if file_exist(confident_ltr_internal):
+            lib_add_prefix(confident_ltr_internal, raw_name)
+        if file_exist(confident_TE):
+            lib_add_prefix(confident_TE, raw_name)
     else:
-        for check_file in check_files:
-            log.logger.info(f"{check_file} exists, skipping HiTE run...")
+        log.logger.error(f"Cannot find genome: {reference}")
 
 
 
-def main(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log):
+
+def main(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
     """主函数"""
     # 运行单个基因组的 HiTE 检测
-    run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log)
+    run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, log)
 
-    # for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log)
+    # for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, log)
 
 if __name__ == "__main__":
     # 创建解析器
@@ -111,7 +108,6 @@ if __name__ == "__main__":
     parser.add_argument("--te_type", type=str, help="Type of transposable element (TE).")
     parser.add_argument("--miu", type=float, help="Parameter miu for the process.")
     parser.add_argument("--debug", type=int, help="Enable or disable debug mode (True/False).")
-    parser.add_argument("--recover", type=int, help="Enable or disable recovery mode (True/False).")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
 
@@ -123,11 +119,10 @@ if __name__ == "__main__":
     te_type = args.te_type
     miu = args.miu
     debug = args.debug
-    recover = args.recover
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
-    main(genome_name, reference, output_dir, threads, te_type, miu, debug, recover, log)
+    main(genome_name, reference, output_dir, threads, te_type, miu, debug, log)

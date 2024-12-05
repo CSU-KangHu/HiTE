@@ -15,7 +15,6 @@ if __name__ == "__main__":
     parser.add_argument("--pan_genomes_dir", type=str, help="pan genomes directory.")
     parser.add_argument("--panTE_lib", type=str, help="panTE library.")
     parser.add_argument("--softcore_threshold", type=float, default=0.8, help="The rate value of softcore.")
-    parser.add_argument("--recover", type=int, help="is recover.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
 
@@ -25,7 +24,6 @@ if __name__ == "__main__":
     pan_genomes_dir = args.pan_genomes_dir
     panTE_lib = args.panTE_lib
     softcore_threshold = args.softcore_threshold
-    recover = args.recover
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -39,4 +37,4 @@ if __name__ == "__main__":
 
     # 调用 summary_TEs 函数
     log.logger.info('Start analysing using TE annotation files...')
-    summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, recover, log)
+    summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, log)

@@ -11356,7 +11356,7 @@ def lib_add_prefix(HiTE_lib, prefix):
     store_fasta(new_lib_contigs, HiTE_lib)
     return HiTE_lib
 
-def find_gene_relation_tes(genome_info_list, output_dir, recover, log):
+def find_gene_relation_tes(genome_info_list, output_dir, log):
     genome_num = len(genome_info_list)
     genome_num_threshold = int(0.8 * genome_num)
 
@@ -11370,13 +11370,9 @@ def find_gene_relation_tes(genome_info_list, output_dir, recover, log):
                 and gene_gtf is not None \
                 and os.path.exists(gene_gtf):
             output_file = output_dir + '/' + genome_name + '.te_gene_insertions.tsv'
-            resut_file = output_file
-            if not recover or not file_exist(resut_file):
-                results = analyze_te_insertions(gene_gtf, full_length_TE_gff)
-                save_results(results, resut_file)
-            else:
-                log.logger.info(resut_file + ' exists, skip...')
-            te_gene_insertions_list.append((genome_name, resut_file))
+            results = analyze_te_insertions(gene_gtf, full_length_TE_gff)
+            save_results(results, output_file)
+            te_gene_insertions_list.append((genome_name, output_file))
 
     # 初始化一个字典，gene name为键，每个键的值是一个列表
     gene_te_associations = defaultdict(list)
@@ -11939,7 +11935,7 @@ def cons_from_mafft_v1(align_file):
                 continue
     return model_seq
 
-def generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_dir, log):
+def generate_bam_for_RNA_seq(genome_info_list, threads, RNA_dir, log):
     new_batch_files = []
     for genome_info in genome_info_list:
         genome_name = genome_info["genome_name"]
@@ -11955,23 +11951,15 @@ def generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_dir, log):
                 raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
                 raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])
                 sorted_bam = RNA_dir + '/' + genome_name + '.output.sorted.bam'
-                resut_file = sorted_bam
-                if not recover or not os.path.exists(resut_file):
-                    generate_bam(genome_path=reference, genome_name=genome_name, genome_annotation_file=gene_gtf,
-                                             output_dir=RNA_dir, threads=threads, is_PE=True, raw_RNA1=raw_RNA1,
-                                             raw_RNA2=raw_RNA2)
-                else:
-                    log.logger.info(resut_file + ' exists, skip...')
+                generate_bam(genome_path=reference, genome_name=genome_name, genome_annotation_file=gene_gtf,
+                             output_dir=RNA_dir, threads=threads, is_PE=True, raw_RNA1=raw_RNA1,
+                             raw_RNA2=raw_RNA2)
 
             else:
                 raw_RNA = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA'])
                 sorted_bam = RNA_dir + '/' + genome_name + '.output.sorted.bam'
-                resut_file = sorted_bam
-                if not recover or not os.path.exists(resut_file):
-                    generate_bam(genome_path=reference, genome_name=genome_name, output_dir=RNA_dir,
-                                 threads=threads, is_PE=False, raw_RNA=raw_RNA)
-                else:
-                    log.logger.info(resut_file + ' exists, skip...')
+                generate_bam(genome_path=reference, genome_name=genome_name, output_dir=RNA_dir,
+                             threads=threads, is_PE=False, raw_RNA=raw_RNA)
 
             new_batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, sorted_bam, is_PE))
     return new_batch_files
@@ -12060,26 +12048,23 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
     os.system(trimmomatic_command)
     return trim_RNA, temp_files
 
-def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, recover, log):
+def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log):
     gene_express_count = output_dir + '/' + genome_name + '.count'
     resut_file = gene_express_count
-    if not recover or not os.path.exists(resut_file):
-        featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
-                            ' --isPairedEnd ' + str(is_PE)
-        log.logger.debug(featurecounts_cmd)
-        os.system(featurecounts_cmd)
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
+                        ' --isPairedEnd ' + str(is_PE)
+    log.logger.debug(featurecounts_cmd)
+    os.system(featurecounts_cmd)
     return gene_express_count
 
-def quantitative_gene(new_batch_files, RNA_tool_dir, output_dir, threads, recover, log):
+def quantitative_gene(new_batch_files, RNA_tool_dir, output_dir, threads, log):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
     for genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, sorted_bam, is_PE in new_batch_files:
-        obj = ex.submit(run_featurecounts, output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, recover, log)
+        obj = ex.submit(run_featurecounts, output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
@@ -12138,7 +12123,7 @@ def merge_gene_express_table(gene_express_counts, output_table):
                 else:
                     f_save.write(express_value + '\n')
 
-def summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, recover, log):
+def summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, log):
     # 找到 core TEs (出现在100%的基因组)，softcore TEs (出现在80%以上基因组)，dispensable TEs (出现 2个-80%基因组)，private TEs (出现在1个基因组)
     genome_num = len(genome_info_list)
     genome_num_threshold = int(softcore_threshold * genome_num)

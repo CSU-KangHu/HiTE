@@ -164,6 +164,8 @@ if __name__ == '__main__':
     confident_intact_ltr_list = tmp_output_dir + '/intact_LTR.list'
     intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
 
+    # 初始化文件检查列表
+    check_files = []
     if use_HybridLTR:
         LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
         confident_ltr = LTR_output_dir + '/confident_ltr.fa'
@@ -171,44 +173,41 @@ if __name__ == '__main__':
         Hybrid_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
         Hybrid_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
         HybridLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
-        check_files = []
-        is_rerun = True
-        if is_output_lib:
-            if file_exist(confident_ltr_cut_path) and file_exist(confident_ltr):
-                is_rerun = False
-                check_files.append(confident_ltr_cut_path)
-                check_files.append(confident_ltr)
-        else:
-            if file_exist(confident_ltr_terminal) \
-                    and file_exist(confident_ltr_internal) \
-                    and file_exist(confident_intact_ltr_list) \
-                    and file_exist(intact_LTR_path):
-                is_rerun = False
-                check_files.append(confident_ltr_terminal)
-                check_files.append(confident_ltr_internal)
-                check_files.append(confident_intact_ltr_list)
-                check_files.append(intact_LTR_path)
+
+        check_files = [
+            confident_ltr_terminal, confident_ltr_internal, confident_ltr_cut_path,
+            confident_intact_ltr_list, intact_LTR_path
+        ]
+
+        # 判断是否需要重新运行 LTR 模块
+        is_rerun = not all(file_exist(f) for f in check_files)
         if not is_recover or is_rerun:
             run_HybridLTR(ref_rename_path, LTR_output_dir, HybridLTR_home, threads, miu, recover, debug, is_output_lib,
                           log)
+            if file_exist(HybridLTR_intact_LTR_path):
+                os.system('cp ' + HybridLTR_intact_LTR_path + ' ' + intact_LTR_path)
+            if file_exist(Hybrid_ltr_terminal):
+                os.system('cp ' + Hybrid_ltr_terminal + ' ' + confident_ltr_terminal)
+            if file_exist(Hybrid_ltr_internal):
+                os.system('cp ' + Hybrid_ltr_internal + ' ' + confident_ltr_internal)
+            if file_exist(Hybrid_intact_ltr_list):
+                os.system('cp ' + Hybrid_intact_ltr_list + ' ' + confident_intact_ltr_list)
+            if file_exist(confident_ltr):
+                os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
+            else:
+                log.logger.info(
+                    'No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
         else:
             for check_file in check_files:
                 log.logger.info(check_file + ' exists, skip...')
-        if file_exist(HybridLTR_intact_LTR_path):
-            os.system('cp ' + HybridLTR_intact_LTR_path + ' ' + intact_LTR_path)
-        if file_exist(Hybrid_ltr_terminal):
-            os.system('cp ' + Hybrid_ltr_terminal + ' ' + confident_ltr_terminal)
-        if file_exist(Hybrid_ltr_internal):
-            os.system('cp ' + Hybrid_ltr_internal + ' ' + confident_ltr_internal)
-        if file_exist(Hybrid_intact_ltr_list):
-            os.system('cp ' + Hybrid_intact_ltr_list + ' ' + confident_intact_ltr_list)
-        if file_exist(confident_ltr):
-            os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
-        else:
-            log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
+
     else:
-        resut_file = ref_rename_path + '.LTRlib.fa'
-        if not is_recover or not file_exist(resut_file):
+        check_files = [
+            confident_ltr_cut_path, confident_intact_ltr_list, intact_LTR_path
+        ]
+        # 判断是否需要重新运行 LTR 模块
+        is_rerun = not all(file_exist(f) for f in check_files)
+        if not is_recover or is_rerun:
             ltrharvest_output = ref_rename_path + '.harvest.combine.scn'
             ltrfinder_output = ref_rename_path + '.finder.combine.scn'
             if not is_recover or not file_exist(ltrharvest_output) or not file_exist(ltrfinder_output):
@@ -230,40 +229,50 @@ if __name__ == '__main__':
 
             starttime = time.time()
             log.logger.info('Start step0.2: run LTR_retriever to get confident LTR')
+            confident_ltr = ref_rename_path + '.LTRlib.fa'
             run_LTR_retriever(ref_rename_path, tmp_output_dir, threads, miu, log)
             endtime = time.time()
             dtime = endtime - starttime
             log.logger.info("Running time of step0.2: %.8s s" % (dtime))
+
+            # get intact LTR from LTR_retriever pass list
+            ltr_list = ref_rename_path + '.pass.list'
+            if os.path.exists(ltr_list):
+                segmentLTRs = get_intact_ltr(ref_rename_path, ltr_list, intact_LTR_path)
+
+                # 1. recover intact-LTRs from 'ltr_cons_path'
+                # 2. classify intact-LTRs and assign label to 'ltr_cons_path'
+                ltr_names, ltr_contigs = read_fasta(confident_ltr_cut_path)
+                intact_ltr_names, intact_ltr_contigs = read_fasta(intact_LTR_path)
+                filter_intact_ltr_contigs = {}
+                for name in ltr_names:
+                    seq = ltr_contigs[name]
+                    name = name.split('#')[0]
+                    intact_ltr_name = name[:-4]
+                    if intact_ltr_contigs.__contains__(intact_ltr_name):
+                        filter_intact_ltr_contigs[intact_ltr_name] = intact_ltr_contigs[intact_ltr_name]
+                    else:
+                        filter_intact_ltr_contigs[intact_ltr_name] = seq
+                store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
+            if file_exist(ltr_list):
+                os.system('cp ' + ltr_list + ' ' + confident_intact_ltr_list)
+            if file_exist(confident_ltr):
+                os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
+            else:
+                log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
         else:
-            log.logger.info(resut_file + ' exists, skip...')
+            for check_file in check_files:
+                log.logger.info(check_file + ' exists, skip...')
 
-        # get intact LTR from LTR_retriever pass list
-        ltr_list = ref_rename_path + '.pass.list'
-        if os.path.exists(ltr_list):
-            segmentLTRs = get_intact_ltr(ref_rename_path, ltr_list, intact_LTR_path)
 
-            # 1. recover intact-LTRs from 'ltr_cons_path'
-            # 2. classify intact-LTRs and assign label to 'ltr_cons_path'
-            ltr_names, ltr_contigs = read_fasta(confident_ltr_cut_path)
-            intact_ltr_names, intact_ltr_contigs = read_fasta(intact_LTR_path)
-            filter_intact_ltr_contigs = {}
-            for name in ltr_names:
-                seq = ltr_contigs[name]
-                name = name.split('#')[0]
-                intact_ltr_name = name[:-4]
-                if intact_ltr_contigs.__contains__(intact_ltr_name):
-                    filter_intact_ltr_contigs[intact_ltr_name] = intact_ltr_contigs[intact_ltr_name]
-                else:
-                    filter_intact_ltr_contigs[intact_ltr_name] = seq
-            store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
-        if file_exist(ltr_list):
-            os.system('cp ' + ltr_list + ' ' + confident_intact_ltr_list)
-        if file_exist(resut_file):
-            os.system('cp ' + resut_file + ' ' + confident_ltr_cut_path)
-        else:
-            log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
-
-    if os.path.exists(intact_LTR_path):
+    # 初始化文件检查列表
+    classified_TE_path = intact_LTR_path + '.classified'
+    check_files = [
+        intact_LTR_path, classified_TE_path
+    ]
+    # 判断是否需要重新运行 LTR 模块
+    is_rerun = not all(file_exist(f) for f in check_files)
+    if not is_recover or is_rerun:
         # classify intact-LTRs
         if use_NeuralTE:
             # classify LTR using NeuralTE
@@ -277,7 +286,6 @@ if __name__ == '__main__':
             log.logger.debug(NeuralTE_command)
             os.system(NeuralTE_command + ' > /dev/null 2>&1')
             NeuralTE_output = NeuralTE_output_dir + '/classified_TE.fa'
-            classified_TE_path = intact_LTR_path + '.classified'
             os.system('cp ' + NeuralTE_output + ' ' + classified_TE_path)
         else:
             # classify LTR using RepeatClassifier
@@ -288,36 +296,38 @@ if __name__ == '__main__':
                 threads) + ' -o ' + tmp_output_dir
             log.logger.debug(TEClass_command)
             os.system(TEClass_command)
-            classified_TE_path = intact_LTR_path + '.classified'
+    else:
+        for check_file in check_files:
+            log.logger.info(check_file + ' exists, skip...')
 
-        # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
-        classified_names, classified_contigs = read_fasta(classified_TE_path)
-        intact_LTR_labels = {}
-        for name in classified_names:
-            parts = name.split('#')
-            intact_LTR_labels[parts[0]] = parts[1]
+    # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
+    classified_names, classified_contigs = read_fasta(classified_TE_path)
+    intact_LTR_labels = {}
+    for name in classified_names:
+        parts = name.split('#')
+        intact_LTR_labels[parts[0]] = parts[1]
 
-        assign_label_to_lib(confident_ltr_cut_path, intact_LTR_labels)
-        assign_label_to_lib(confident_ltr_terminal, intact_LTR_labels)
-        assign_label_to_lib(confident_ltr_internal, intact_LTR_labels)
+    assign_label_to_lib(confident_ltr_cut_path, intact_LTR_labels)
+    assign_label_to_lib(confident_ltr_terminal, intact_LTR_labels)
+    assign_label_to_lib(confident_ltr_internal, intact_LTR_labels)
 
-        # add classified labels to intact_ltr.list
-        if os.path.exists(confident_intact_ltr_list):
-            temp_file = confident_intact_ltr_list + '.temp.tsv'
-            with open(confident_intact_ltr_list, 'r') as infile, open(temp_file, 'w', newline='') as outfile:
-                reader = csv.reader(infile, delimiter='\t')
-                writer = csv.writer(outfile, delimiter='\t')
+    # add classified labels to intact_ltr.list
+    if os.path.exists(confident_intact_ltr_list):
+        temp_file = confident_intact_ltr_list + '.temp.tsv'
+        with open(confident_intact_ltr_list, 'r') as infile, open(temp_file, 'w', newline='') as outfile:
+            reader = csv.reader(infile, delimiter='\t')
+            writer = csv.writer(outfile, delimiter='\t')
 
-                for row in reader:
-                    if not row[0].startswith('#'):
-                        # 将分类标签添加到 LTR_loc 对应的行
-                        LTR_loc = row[0]
-                        label = intact_LTR_labels.get(LTR_loc, 'NA')  # 如果没有找到分类标签，则写入 'NA'
+            for row in reader:
+                if not row[0].startswith('#'):
+                    # 将分类标签添加到 LTR_loc 对应的行
+                    LTR_loc = row[0]
+                    label = intact_LTR_labels.get(LTR_loc, 'NA')  # 如果没有找到分类标签，则写入 'NA'
 
-                        # 写入新的行：在倒数第二列插入标签列
-                        writer.writerow(row[:-1] + [label] + row[-1:])
-            # 替换原始文件为带有分类标签的新文件
-            os.replace(temp_file, confident_intact_ltr_list)
+                    # 写入新的行：在倒数第二列插入标签列
+                    writer.writerow(row[:-1] + [label] + row[-1:])
+        # 替换原始文件为带有分类标签的新文件
+        os.replace(temp_file, confident_intact_ltr_list)
 
 
 

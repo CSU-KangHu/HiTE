@@ -26,7 +26,6 @@ params.out_dir = './output'
 params.te_type = 'all'
 params.skip_analyze = 0
 params.softcore_threshold = 0.8
-params.recover = 0
 params.debug = 0
 params.threads = 10
 params.miu = 1.3e-8
@@ -52,7 +51,7 @@ def helpMessage() {
       --out_dir              Output directory
     General options:
       --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
-      --gene_dir             A directory containing the gene annotation files, gff format.
+      --genes_dir            A directory containing the gene annotation files, gff format.
       --RNA_dir              A directory containing the RNA-seq files.
       --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
       --threads              Input thread num. default = [ 10 ]
@@ -67,6 +66,8 @@ if (params.help){
 }
 
 process preprocess_genomes {
+    storeDir "${params.out_dir}/preprocess_genomes"
+
     input:
     path genome_list
     path genes_dir
@@ -86,8 +87,10 @@ process preprocess_genomes {
 
 // Step 3: HiTE 并行处理每个基因组
 process run_hite_single {
+    storeDir "${params.out_dir}/run_hite_single/${genome_name}"
+
     input:
-    tuple val(genome_name), val(raw_name), path(reference), val(threads), val(te_type), val(miu), val(debug), val(recover)
+    tuple val(genome_name), val(raw_name), path(reference), val(threads), val(te_type), val(miu), val(debug)
 
     output:
     tuple val(genome_name), path("intact_LTR.list"), emit: ch_intact_ltr_list, optional: true
@@ -102,7 +105,7 @@ process run_hite_single {
     script:
     """
     pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${threads} \
-    --te_type ${te_type} --miu ${miu} --debug ${debug} --recover ${recover}
+    --te_type ${te_type} --miu ${miu} --debug ${debug}
     """
 }
 
@@ -139,8 +142,10 @@ process pan_remove_redundancy {
 
 // Step 3: 注释基因组
 process annotate_genomes {
+    storeDir "${params.out_dir}/annotate_genomes/${genome_name}"
+
     input:
-    tuple val(genome_name), path(reference), val(threads), val(recover), path(panTE_lib)
+    tuple val(genome_name), path(reference), val(threads), path(panTE_lib)
 
     output:
     tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
@@ -150,62 +155,71 @@ process annotate_genomes {
     script:
     """
     pan_annotate_genome.py --threads ${threads} --panTE_lib ${panTE_lib} --reference ${reference} \
-    --genome_name ${genome_name} --recover ${recover}
+    --genome_name ${genome_name}
     """
 }
 
 // Step 4: 汇总 TE 数据
 process summarize_tes {
+    storeDir "${params.out_dir}/summarize_tes"
+
     input:
     path genome_info_json
     path pan_genomes_dir
     path panTE_lib
     val softcore_threshold
-    val recover
 
     output:
     path "TE_summary.pdf", emit: ch_te_summary
     path "panHiTE.CorePan_fitmodel.pdf", emit: ch_corepan_model, optional: true
     path "panHiTE.CorePan_fitsmooth.pdf", emit: ch_corepan_smodel, optional: true
 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*.pdf"
+
     script:
     """
     pan_summary_TEs.py --genome_info_json ${genome_info_json} --pan_genomes_dir ${pan_genomes_dir} \
-    --panTE_lib ${panTE_lib} --softcore_threshold ${softcore_threshold} --recover ${recover}
+    --panTE_lib ${panTE_lib} --softcore_threshold ${softcore_threshold}
     """
 }
 
 
 process pan_gene_te_relation {
+    storeDir "${params.out_dir}/pan_gene_te_relation"
+
     input:
     path genome_info_json
-    val recover
 
     output:
     path "gene_te_associations.tsv"
 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "gene_te_associations.tsv"
+
     script:
     """
-    pan_gene_te_relation.py --genome_info_json ${genome_info_json} --recover ${recover}
+    pan_gene_te_relation.py --genome_info_json ${genome_info_json}
     """
 }
 
 process pan_detect_de_genes {
+    storeDir "${params.out_dir}/pan_detect_de_genes"
+
     input:
     path genome_info_json
     path gene_te_associations
     val RNA_dir
     val threads
-    val recover
 
     output:
     path "DE_genes_from_TEs.tsv", emit: ch_de_genes, optional: true
     path "all_gene_TEs_details.tsv", emit: ch_all_genes, optional: true
 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "DE_genes_from_TEs.tsv, all_gene_TEs_details.tsv"
+
     script:
     """
     pan_detect_de_genes.py --genome_info_json ${genome_info_json} --gene_te_associations ${gene_te_associations} \
-    --RNA_dir ${RNA_dir} --threads ${threads} --recover ${recover}
+    --RNA_dir ${RNA_dir} --threads ${threads}
     """
 }
 
@@ -214,7 +228,6 @@ process pan_detect_de_genes {
 workflow {
     // Step 1: 预处理，生成json格式的输入文件路径
     genome_metadata_out = preprocess_genomes(params.genome_list, params.genes_dir, params.RNA_dir, params.pan_genomes_dir)
-    genome_metadata_out.collectFile(name: "${params.out_dir}/genome_metadata.json")
 
     // Step 2: 解析Step1的json文件，准备HiTE输入channel
     genome_info_list = genome_metadata_out
@@ -224,7 +237,7 @@ workflow {
             genome_json.genome_info.collect { [it.genome_name, it.raw_name, it.reference, it.gene_gtf, it.RNA_seq] }
         }
     genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-            [genome_name, raw_name, reference, params.threads, params.te_type, params.miu, params.debug, params.recover]
+            [genome_name, raw_name, reference, params.threads, params.te_type, params.miu, params.debug]
         }.set { hite_input_channel }
 
 
@@ -246,7 +259,7 @@ workflow {
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-        [genome_name, reference, params.threads, params.recover]
+        [genome_name, reference, params.threads]
     }.combine(panTE_lib).set { annotate_input_channel }
 
     // Step 6: 并行注释每个基因组
@@ -285,18 +298,12 @@ workflow {
 
     if (!params.skip_analyze) {
          // Step 7: 对检测到的 TE 进行统计分析
-        te_summary_out = summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_lib, params.softcore_threshold, params.recover)
-        te_summary_out.ch_te_summary.collectFile(name: "${params.out_dir}/TE_summary.pdf")
-        te_summary_out.ch_corepan_model.collectFile(name: "${params.out_dir}/panHiTE.CorePan_fitmodel.pdf")
-        te_summary_out.ch_corepan_smodel.collectFile(name: "${params.out_dir}/panHiTE.CorePan_fitsmooth.pdf")
+        summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_lib, params.softcore_threshold)
 
         // Step 8: 基因和 TE 关系
-        gene_te_associations_out = pan_gene_te_relation(genome_info_json, params.recover)
-        gene_te_associations_out.collectFile(name: "${params.out_dir}/gene_te_associations.tsv")
+        gene_te_associations_out = pan_gene_te_relation(genome_info_json)
 
         // Step 9: 检测差异表达基因
-        detected_de_genes_out = pan_detect_de_genes(genome_info_json, gene_te_associations_out, params.RNA_dir, params.threads, params.recover)
-        detected_de_genes_out.ch_de_genes.collectFile(name: "${params.out_dir}/DE_genes_from_TEs.tsv")
-        detected_de_genes_out.ch_all_genes.collectFile(name: "${params.out_dir}/all_gene_TEs_details.tsv")
+        detected_de_genes_out = pan_detect_de_genes(genome_info_json, gene_te_associations_out, params.RNA_dir, params.threads)
     }
 }

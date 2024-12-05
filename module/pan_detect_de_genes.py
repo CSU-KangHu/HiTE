@@ -15,7 +15,6 @@ if __name__ == "__main__":
     parser.add_argument("--gene_te_associations", type=str, help="gene te association file.")
     parser.add_argument("--RNA_dir", type=str, help="RNA sequence data directory.")
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
-    parser.add_argument("--recover", type=int, help="is recover.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
 
@@ -25,7 +24,6 @@ if __name__ == "__main__":
     gene_te_associations = args.gene_te_associations
     RNA_dir = args.RNA_dir
     threads = args.threads
-    recover = args.recover
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -39,7 +37,7 @@ if __name__ == "__main__":
 
     # Step 7.1: 生成 BAM 文件
     log.logger.info("Start generating BAM files for RNA-seq data...")
-    new_batch_files = generate_bam_for_RNA_seq(genome_info_list, threads, recover, RNA_dir, log)
+    new_batch_files = generate_bam_for_RNA_seq(genome_info_list, threads, RNA_dir, log)
     log.logger.info("BAM file generation completed.")
 
     # Step 7.2: 基因定量
@@ -47,7 +45,7 @@ if __name__ == "__main__":
     gene_express_dir = os.path.join(output_dir, 'gene_quantities')
     os.makedirs(gene_express_dir, exist_ok=True)
     RNA_tool_dir = os.path.join(project_dir, 'RNA_seq')
-    gene_express_table = quantitative_gene(new_batch_files, RNA_tool_dir, gene_express_dir, threads, recover, log)
+    gene_express_table = quantitative_gene(new_batch_files, RNA_tool_dir, gene_express_dir, threads, log)
     log.logger.info(f"Gene quantification completed. Results saved to {gene_express_table}.")
 
     # Step 7.3: 差异表达基因检测

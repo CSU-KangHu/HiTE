@@ -17,6 +17,7 @@ We are excited to announce a significant update to HiTE, which now includes the 
     - [Full Workflow](#full_workflow)
     - [Skip downstream analysis](#skip_analysis)
     - [Running on HPC Platform](#run_hpc)
+    - [Checkpoint Recovery](#nextflow_restore)
   - [Usage](#cmd)
 - [Output Preview](#output_preview)
 
@@ -99,32 +100,47 @@ R
 Download the [demo data](https://zenodo.org/records/14263297) from Zenodo.
 A complete genome assembly, annotation, and RNA-seq reads data were downloaded from the publication: _Kang M, Wu H, Liu H, Liu W, Zhu M, Han Y, Liu W, Chen C, Song Y, Tan L, Yin K. *The pan-genome and local adaptation of Arabidopsis thaliana.* Nature Communications. 2023 Oct 6;14(1):6259_.
 
-1. **pan_genomes_dir (Required)**  
+1. `pan_genomes_dir` (Required)  
    All genome assemblies should be stored in a single directory, which should be specified as the `pan_genomes_dir` parameter.
 
-2. **genome_list (Required)**  
+2. `genome_list` (Required)  
    A tab-delimited file with the following columns:  
    - Column 1: Genome assembly file name  
    - Column 2: Gene annotation file name (optional)  
    - Columns 3 & 4: Paths to RNA-seq data (optional, single-end data in column 3, paired-end data in columns 3 & 4)  
-
-   Example:  
-   ```markdown
-    44.ket_10.fa    44.ket_10.gff   CRR624282_Chr1_f1.fq.gz CRR624282_Chr1_r2.fq.gz
-    02.tibet.fa     02.tibet.gff    CRR624279_Chr1_f1.fq.gz CRR624279_Chr1_r2.fq.gz
-    25.per_1.fa     25.per_1.gff    SRR748686_Chr1.fq.gz
+    
+    2.1. A Complete Example:
+    ```markdown
+    # genome_name   gene_annotation_name    is_paired (1:True/0:False)      RNA-seq reads (tab-delimited)
+    44.ket_10.fa    44.ket_10.gff   1       CRR624282_Chr1_f1.fq.gz CRR624282_Chr1_r2.fq.gz
+    02.tibet.fa     02.tibet.gff    1       CRR624279_Chr1_f1.fq.gz CRR624279_Chr1_r2.fq.gz
+    25.per_1.fa     25.per_1.gff    0       SRR748686_Chr1.fq.gz    SRR748686_Chr1.copy.fq.gz
+    ```
+    
+    2.2 Example Without Gene Expression Analysis:
+    ```markdown
+    # genome_name   gene_annotation_name
+    44.ket_10.fa    44.ket_10.gff
+    02.tibet.fa     02.tibet.gff
+    25.per_1.fa     25.per_1.gff
+    ```
+    
+    2.3 Example for panTE Detection and Annotation Only (No Gene Association Analysis):
+    ```markdown
+    # genome_name
+    44.ket_10.fa
+    02.tibet.fa
+    25.per_1.fa
     ```
 
-3. **out_dir (Required)**  
-   Specify the output directory path.
 
-4. **gene_dir (Optional)**  
-   Place all gene annotation files in a single directory and set this directory as the `gene_dir` parameter.  
+3. `out_dir` (Required): Specify the output directory path.
+
+4. `gene_dir` (Optional, required for analyses in example 2.1 and 2.2): Place all gene annotation files in a single directory and set this directory as the `gene_dir` parameter.  
    **Important**: Ensure that the gene_id in multiple gene annotation files has a **consistent name**, with the last element separated by an `underscore`.  
    For example, in the file `44.ket_10.gff`, a gene_id might be `ket_10_AT1G01010`, and in the file 02.tibet.gff, the gene_id should be `tibet_AT1G01010`.
 
-5. **RNA_dir (Optional)**  
-   Set this as the parent directory for RNA-seq reads. The paths listed in columns 3 & 4 of the `genome_list` should be accessible via this directory.
+5. `RNA_dir` (Optional, required for analysis in example 2.1): Set this as the parent directory for RNA-seq reads. The paths listed in columns 3 & 4 of the `genome_list` should be accessible via this directory.
 
 ---
 
@@ -237,6 +253,24 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --skip_analyze 0
 ```
 
+#### <a name="nextflow_restore"></a>4.4 Checkpoint Recovery
+
+The panHiTE pipeline consists of 8 processes: 
+* `preprocess_genomes`
+* `run_hite_single`
+* `merge_terminal_te`
+* `pan_remove_redundancy`
+* `annotate_genomes`
+* `summarize_tes`
+* `pan_gene_te_relation`
+* `pan_detect_de_genes`  
+
+To ensure smooth execution, the pipeline stores the output files of time-intensive processes. If the program is interrupted for any reason, simply rerun the pipeline. Nextflow will automatically detect these intermediate files and skip the completed processes, making it particularly efficient for large-scale pangenome analyses.  
+
+If you need to rerun a specific process and its downstream processes, you can delete the corresponding `process_name` directory within the output directory specified by the `--out_dir` parameter.
+
+![image](https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376)
+
 ### <a name="cmd"></a>5. Usage
 Type `nextflow run panHiTE.nf --help` for help.
 ```
@@ -252,7 +286,7 @@ Mandatory arguments:
   --out_dir              Output directory
 General options:
   --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
-  --gene_dir             A directory containing the gene annotation files, gff format.
+  --genes_dir            A directory containing the gene annotation files, gff format.
   --RNA_dir              A directory containing the RNA-seq files.
   --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
   --threads              Input thread num. default = [ 10 ]
@@ -348,5 +382,3 @@ Statistical summaries of core, softcore, dispensable, and private TEs in the pan
   <div style="text-align: left;">
     <img src="https://github.com/user-attachments/assets/8071213d-f306-4ecf-a103-19ae257609ff" alt="TE Family Proportion" width="600"/>
   </div>
-
----
