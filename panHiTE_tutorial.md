@@ -15,7 +15,7 @@ We are excited to announce a significant update to HiTE, which now includes the 
   - [Data Preparation](#data)
   - [Running panHiTE through Nextflow](#run)
     - [Full Workflow](#full_workflow)
-    - [Skip downstream analysis](#skip_analysis)
+    - [Skipping Differential Gene Detection Workflow](#skip_de)
     - [Running on HPC Platform](#run_hpc)
     - [Checkpoint Recovery](#nextflow_restore)
   - [Usage](#cmd)
@@ -100,16 +100,16 @@ R
 Download the [demo data](https://zenodo.org/records/14263297) from Zenodo.
 A complete genome assembly, annotation, and RNA-seq reads data were downloaded from the publication: _Kang M, Wu H, Liu H, Liu W, Zhu M, Han Y, Liu W, Chen C, Song Y, Tan L, Yin K. *The pan-genome and local adaptation of Arabidopsis thaliana.* Nature Communications. 2023 Oct 6;14(1):6259_.
 
-1. `pan_genomes_dir` (Required)  
+1. `pan_genomes_dir` (**Required**)  
    All genome assemblies should be stored in a single directory, which should be specified as the `pan_genomes_dir` parameter.
 
-2. `genome_list` (Required)  
+2. `genome_list` (**Required**)  
    A tab-delimited file with the following columns:  
    - Column 1: Genome assembly file name  
    - Column 2: Gene annotation file name (optional)  
    - Columns 3 & 4: Paths to RNA-seq data (optional, single-end data in column 3, paired-end data in columns 3 & 4)  
     
-    2.1. A Complete Example:
+    2.1. A Complete Example (_genome_list_):
     ```markdown
     # genome_name   gene_annotation_name    is_paired (1:True/0:False)      RNA-seq reads (tab-delimited)
     44.ket_10.fa    44.ket_10.gff   1       CRR624282_Chr1_f1.fq.gz CRR624282_Chr1_r2.fq.gz
@@ -117,7 +117,7 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
     25.per_1.fa     25.per_1.gff    0       SRR748686_Chr1.fq.gz    SRR748686_Chr1.copy.fq.gz
     ```
     
-    2.2 Example Without Gene Expression Analysis:
+    2.2 Example Without Gene Expression Analysis (_genome_list_no_RNA_):
     ```markdown
     # genome_name   gene_annotation_name
     44.ket_10.fa    44.ket_10.gff
@@ -125,7 +125,7 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
     25.per_1.fa     25.per_1.gff
     ```
     
-    2.3 Example for panTE Detection and Annotation Only (No Gene Association Analysis):
+    2.3 Example for panTE Detection and Annotation Only (_genome_list_no_RNA_no_gene_):
     ```markdown
     # genome_name
     44.ket_10.fa
@@ -134,7 +134,7 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
     ```
 
 
-3. `out_dir` (Required): Specify the output directory path.
+3. `out_dir` (**Required**): Specify the output directory path.
 
 4. `gene_dir` (Optional, required for analyses in example 2.1 and 2.2): Place all gene annotation files in a single directory and set this directory as the `gene_dir` parameter.  
    **Important**: Ensure that the gene_id in multiple gene annotation files has a **consistent name**, with the last element separated by an `underscore`.  
@@ -168,8 +168,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --genes_dir ${gene_dir} \
  --RNA_dir ${RNA_dir} \
  --out_dir ${out_dir} \
- --threads ${threads} \
- --skip_analyze 0
+ --threads ${threads}
 
 
 # Example script:
@@ -187,25 +186,28 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 # --RNA_dir ${RNA_dir} \
 # --out_dir ${out_dir} \
 # --threads 40 \
-# --miu 7e-9 \
-# --skip_analyze 0
+# --miu 7e-9 
 ```
 
-#### <a name="skip_analysis"></a>4.2 Skip downstream analysis
-If you only need the panTE library and the TE annotation for each genome, you can choose to skip the downstream analysis by setting `--skip_analyze 1`.
+#### <a name="skip_de"></a>4.2 Skipping Differential Gene Detection Workflow
+
+If you only require the panTE library and TE annotation for each genome without performing differential gene detection caused by TEs, you do not need to specify the `--RNA_dir` parameter. Additionally, the `--genome_list` input file only needs to include two columns: `genome_name` and `gene_annotation_name`. Refer to the example file `demo/genome_list_no_RNA`.  
+
 ```bash
 source_dir=xxx
 pan_genomes_dir=xxx
+gene_dir=xxx
 genome_list=xxx
 out_dir=xxx
-conda_name=/home/xxx/miniconda3/envs/HiTE  # You need to replace the previously recorded HiTE conda environment path here
+conda_name=/home/xxx/miniconda3/envs/HiTE  # Replace this with the path to your HiTE conda environment
+
 cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  -profile conda --conda_name ${conda_name} \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
  --out_dir ${out_dir} \
- --threads ${threads} \
- --skip_analyze 1
+ --threads ${threads}
 ```
 
 #### <a name="run_hpc"></a>4.3 Running on HPC Platform
@@ -269,7 +271,9 @@ To ensure smooth execution, the pipeline stores the output files of time-intensi
 
 If you need to rerun a specific process and its downstream processes, you can delete the corresponding `process_name` directory within the output directory specified by the `--out_dir` parameter.
 
-![image](https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376)
+<div style="text-align: left;">
+    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="TE Family Proportion" width="600"/>
+  </div>
 
 ### <a name="cmd"></a>5. Usage
 Type `nextflow run panHiTE.nf --help` for help.
