@@ -19,7 +19,7 @@ We are excited to announce a significant update to HiTE, which now includes the 
     - [Running on HPC Platform](#run_hpc)
     - [Checkpoint Recovery](#nextflow_restore)
   - [Usage](#cmd)
-- [Output Preview](#output_preview)
+  - [Output Preview](#output_preview)
 
 ## <a name="tutorial"></a>panHiTE Tutorial
 
@@ -93,7 +93,6 @@ R
 > library(ggplot2)
 ```
 
----
 
 ### <a name="data"></a>3. Data Preparation
 
@@ -142,7 +141,6 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
 
 5. `RNA_dir` (Optional, required for analysis in example 2.1): Set this as the parent directory for RNA-seq reads. The paths listed in columns 3 & 4 of the `genome_list` should be accessible via this directory.
 
----
 
 ### <a name="run"></a>4. Running panHiTE through Nextflow
 
@@ -299,7 +297,7 @@ General options:
 ```
 ---
 
-## <a name="output_preview"></a>Output Preview
+### <a name="output_preview"></a>6. Output Preview
 
 - **DE_genes_from_TEs.tsv**  
 This file contains TEs inserted upstream, downstream, or inside genes, which significantly alter gene expression levels across populations.  
