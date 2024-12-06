@@ -15,7 +15,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
     genome_names = []
     is_RNA_analyze = False
     gene_annotation_list = []
-
+    log.logger.debug('start..')
     # 1.1. 读取 genomes, gff, RNA-seq reads
     with open(genome_list_path, 'r') as f_r:
         for line in f_r:
@@ -53,17 +53,26 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
                     RNA_seq_dict['is_PE'] = is_PE
                     is_RNA_analyze = True
                 else:
-                    cur_merge_fq = os.path.join(RNA_dir, genome_name + '.merge.fq.gz')
-                    with gzip.open(cur_merge_fq, 'wb') as outfile:
+                    # 检查文件数量并处理
+                    if len(parts[3:]) > 1:
+                        file_name = genome_name + '.merge.fq.gz'
+                        cur_merge_fq = os.path.join(RNA_dir, file_name)
+                        merge_cmd = 'cat '
                         for raw_RNA_name in parts[3:]:
                             raw_RNA = os.path.join(RNA_dir, raw_RNA_name)
                             if not os.path.exists(raw_RNA):
                                 log.logger.error(f'Cannot find RNA-seq path: {raw_RNA}')
                                 sys.exit(-1)
-                            # 将文件内容追加到输出文件
-                            with gzip.open(raw_RNA, 'rb') as infile:
-                                outfile.write(infile.read())
-                    RNA_seq_dict['raw_RNA'] = genome_name + '.merge.fq.gz'
+                            merge_cmd += raw_RNA + ' '
+                        merge_cmd += ' > ' + cur_merge_fq
+                        os.system(merge_cmd)
+                    else:
+                        file_name = parts[3]
+                        raw_RNA = os.path.join(RNA_dir, file_name)
+                        if not os.path.exists(raw_RNA):
+                            log.logger.error(f'Cannot find RNA-seq path: {raw_RNA}')
+                            sys.exit(-1)
+                    RNA_seq_dict['raw_RNA'] = file_name
                     RNA_seq_dict['is_PE'] = is_PE
                     is_RNA_analyze = True
 
@@ -78,9 +87,11 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
             genome_paths.append((genome_name, cur_genome_path, gene_gff, RNA_seq_dict))
             genome_names.append(genome_name)
 
+    log.logger.debug('start convertGeneAnnotation2GTF')
     # 1.2. 将 gene 注释文件转为标准的 gtf 格式，并去除非编码基因
     script_dir = os.path.join(project_dir, 'RNA_seq')
     genome_paths = convertGeneAnnotation2GTF(genome_paths, script_dir, output_dir, log)
+    log.logger.debug('end convertGeneAnnotation2GTF')
 
     # 1.3. 生成 total_genome.fa
     # total_genome = os.path.join(output_dir, 'total_genome.fa')

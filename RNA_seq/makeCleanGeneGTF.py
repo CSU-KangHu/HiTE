@@ -100,6 +100,9 @@ def main():
     # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
 
+    # for input_file in args.input_files:
+    #     process_gtf(input_file, args.output_dir)
+
     # Use ThreadPoolExecutor to run the processing in parallel for each input file
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Map input files to the processing function

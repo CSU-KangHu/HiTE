@@ -96,7 +96,7 @@ R
 
 ### <a name="data"></a>3. Data Preparation
 
-Download the [demo data](https://zenodo.org/records/14263297) from Zenodo.
+Download the [demo data](https://zenodo.org/records/14280542) from Zenodo.
 A complete genome assembly, annotation, and RNA-seq reads data were downloaded from the publication: _Kang M, Wu H, Liu H, Liu W, Zhu M, Han Y, Liu W, Chen C, Song Y, Tan L, Yin K. *The pan-genome and local adaptation of Arabidopsis thaliana.* Nature Communications. 2023 Oct 6;14(1):6259_.
 
 1. `pan_genomes_dir` (**Required**)  
@@ -110,7 +110,7 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
     
     2.1. A Complete Example (_genome_list_):
     ```markdown
-    # genome_name   gene_annotation_name    is_paired (1:True/0:False)      RNA-seq reads (tab-delimited)
+    # genome_name   gene_annotation_name    is_paired (1:True/0:False)      Illumina RNA-seq reads (tab-delimited)
     44.ket_10.fa    44.ket_10.gff   1       CRR624282_Chr1_f1.fq.gz CRR624282_Chr1_r2.fq.gz
     02.tibet.fa     02.tibet.gff    1       CRR624279_Chr1_f1.fq.gz CRR624279_Chr1_r2.fq.gz
     25.per_1.fa     25.per_1.gff    0       SRR748686_Chr1.fq.gz    SRR748686_Chr1.copy.fq.gz
@@ -136,8 +136,10 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
 3. `out_dir` (**Required**): Specify the output directory path.
 
 4. `gene_dir` (Optional, required for analyses in example 2.1 and 2.2): Place all gene annotation files in a single directory and set this directory as the `gene_dir` parameter.  
-   **Important**: Ensure that the gene_id in multiple gene annotation files has a **consistent name**, with the last element separated by an `underscore`.  
-   For example, in the file `44.ket_10.gff`, a gene_id might be `ket_10_AT1G01010`, and in the file 02.tibet.gff, the gene_id should be `tibet_AT1G01010`.
+   **Important**:
+   1. Please ensure that the chromosome names in the genome assembly are consistent with those in the genome annotation GFF file to avoid errors. For example, using `CM072657.1` in the genome assembly while using `Chr1` in the annotation file is not allowed. It is recommended to use a unified naming convention, such as `Chr1`, across both files.
+   2. Ensure that the gene_id in multiple gene annotation files has a **consistent name**, with the last element separated by an `underscore`.  
+      For example, in the file `44.ket_10.gff`, a gene_id might be `ket_10_AT1G01010`, and in the file 02.tibet.gff, the gene_id should be `tibet_AT1G01010`.
 
 5. `RNA_dir` (Optional, required for analysis in example 2.1): Set this as the parent directory for RNA-seq reads. The paths listed in columns 3 & 4 of the `genome_list` should be accessible via this directory.
 
@@ -225,6 +227,7 @@ hpc { // general HPC configuration
         time = '50.h'
         ...
         account = 'xxx'
+        queueSize = 5	// max number of job submit
         ...
     }
 }
@@ -295,7 +298,6 @@ General options:
   --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
   --miu                  The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
 ```
----
 
 ### <a name="output_preview"></a>6. Output Preview
 

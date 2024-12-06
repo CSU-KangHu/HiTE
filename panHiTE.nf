@@ -100,7 +100,7 @@ process run_hite_single {
     path "confident_non_ltr.fa", emit: ch_non_ltr, optional: true
     path "confident_other.fa", emit: ch_other, optional: true
     path "confident_tir.fa", emit: ch_tir, optional: true
-    path "confident_TE.cons.fa", emit: ch_te, optional: true
+    path "confident_TE.cons.fa", emit: ch_te
 
     script:
     """
@@ -150,7 +150,7 @@ process annotate_genomes {
     output:
     tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
 
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*.gff"
+    // publishDir "${params.out_dir}", mode: 'copy', pattern: "*.gff"
 
     script:
     """

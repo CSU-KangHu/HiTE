@@ -2825,7 +2825,7 @@ def run_remove_TR(target_file, trf_dir):
     if not os.path.exists(trf_dir):
         os.makedirs(trf_dir)
     # 1. Use TRF to search for tandem repeats in the target file.
-    trf_command = 'cd ' + trf_dir + ' && trf ' + target_file + ' 2 7 7 80 10 50 500 -f -d -m'
+    trf_command = 'cd ' + trf_dir + ' && trf ' + target_file + ' 2 7 7 80 10 50 500 -f -d -m -h'
     os.system(trf_command + ' > /dev/null 2>&1')
 
     (repeat_dir, repeat_filename) = os.path.split(target_file)
@@ -2847,7 +2847,7 @@ def run_TRF(input, input_dir, tandem_region_cutoff, TE_type):
     if not os.path.exists(trf_dir):
         os.makedirs(trf_dir)
 
-    trf_command = 'cd ' + trf_dir + ' && trf ' + input + ' 2 7 7 80 10 50 500 -f -d -m'
+    trf_command = 'cd ' + trf_dir + ' && trf ' + input + ' 2 7 7 80 10 50 500 -f -d -m -h'
     os.system(trf_command + ' > /dev/null 2>&1')
 
     (repeat_dir, repeat_filename) = os.path.split(input)
@@ -11356,9 +11356,9 @@ def lib_add_prefix(HiTE_lib, prefix):
     store_fasta(new_lib_contigs, HiTE_lib)
     return HiTE_lib
 
-def find_gene_relation_tes(genome_info_list, output_dir, log):
+def find_gene_relation_tes(genome_info_list, output_dir, softcore_threshold, log):
     genome_num = len(genome_info_list)
-    genome_num_threshold = int(0.8 * genome_num)
+    genome_num_threshold = int(softcore_threshold * genome_num)
 
     te_gene_insertions_list = []
     for genome_info in genome_info_list:
