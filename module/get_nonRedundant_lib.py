@@ -7,7 +7,7 @@ import sys
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir, get_domain_info, \
-    ReassignInconsistentLabels
+    ReassignInconsistentLabels, file_exist
 
 if __name__ == '__main__':
     # 1.parse args
@@ -105,15 +105,14 @@ if __name__ == '__main__':
 
     # Merge all TE types (TIR+Helitron+Non_LTR+Other)
     confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
-    if os.path.exists(final_confident_tir_path):
+    if file_exist(final_confident_tir_path):
         os.system('cat ' + final_confident_tir_path + ' > ' + confident_TE_path)
-    if os.path.exists(final_confident_helitron_path):
+    if file_exist(final_confident_helitron_path):
         os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
-    if os.path.exists(final_confident_non_ltr_path):
+    if file_exist(final_confident_non_ltr_path):
         os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)
-    if os.path.exists(confident_other_path):
+    if file_exist(confident_other_path):
         os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
-    # os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
 
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     classified_TE_path = confident_TE_path + '.classified'
@@ -141,43 +140,25 @@ if __name__ == '__main__':
         os.system(TEClass_command)
 
     # merge classified LTRs and TEs
-    os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
-    if os.path.exists(confident_ltr_cut_path):
+    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
+    if file_exist(classified_TE_path):
+        os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
+    if file_exist(confident_ltr_cut_path):
         os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
     if curated_lib is not None:
         curated_lib = os.path.realpath(curated_lib)
-        if os.path.exists(curated_lib):
+        if file_exist(curated_lib):
             os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
 
     # Reassign Inconsistent Classification Labels
     ReassignInconsistentLabels(confident_TE_path)
 
-    # # Unpack nested TEs within TEs
-    # clean_TE_path = tmp_output_dir + '/confident_TE.clean.fa'
-    # remove_nested_command = 'python3 ' + test_home + '/remove_nested_lib.py ' \
-    #                         + ' -t ' + str(threads) \
-    #                         + ' --tmp_output_dir ' + tmp_output_dir + ' --max_iter_num ' + str(5) \
-    #                         + ' --input1 ' + confident_TE_path \
-    #                         + ' --input2 ' + confident_TE_path \
-    #                         + ' --output ' + clean_TE_path
-    # os.system(remove_nested_command)
-    # # rename_fasta(clean_TE_path, clean_TE_path)
-    # contignames, contigs = read_fasta(clean_TE_path)
-    # new_contigs = {}
-    # for name in contignames:
-    #     seq = contigs[name]
-    #     if len(seq) < 100:
-    #         continue
-    #     new_contigs[name] = seq
-    # store_fasta(new_contigs, clean_TE_path)
-
-
     sample_name = 'test'
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
-
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + confident_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
-    os.system(cd_hit_command + ' > /dev/null 2>&1')
+    if file_exist(confident_TE_path):
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                         + ' -G 0 -g 1 -A 80 -i ' + confident_TE_path + ' -o ' + confident_TE_consensus + ' -T 0 -M 0'
+        os.system(cd_hit_command + ' > /dev/null 2>&1')
 
     # get domain for TEs
     if domain is not None and int(domain) == 1:

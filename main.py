@@ -640,7 +640,7 @@ if __name__ == '__main__':
         log.logger.info("Running time of step4: %.8s s" % (dtime))
 
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
-    if not os.path.exists(confident_TE_consensus):
+    if not file_exist(confident_TE_consensus):
         log.logger.error('Error, Cannot find TE path: ' + confident_TE_consensus)
     else:
         starttime = time.time()

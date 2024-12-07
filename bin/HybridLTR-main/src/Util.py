@@ -3989,8 +3989,8 @@ def get_LTR_seq_from_scn(genome, scn_path, ltr_terminal, ltr_internal, ltr_intac
     # #LTR_loc        Category        Motif   TSD     5_TSD 3_TSD       Internal        Identity      Strand  SuperFamily  TE_type     Insertion_Time
     # chr_1:146286..139837    pass    motif:TGCA      TSD:GTATA       139832..139836  146287..146291  IN:140816..145316       1.0000  -       Copia   LTR     0
     with open(ltr_intact_list, 'w') as f_save:
-        header = '#LTR_loc\tMotif\tTSD\tInternal\tIdentity\tInsertion_Time'
-        f_save.write(header + '\n')
+        # header = '#LTR_loc\tMotif\tTSD\tInternal\tIdentity\tInsertion_Time'
+        # f_save.write(header + '\n')
         for line in deredundant_lines:
             parts = line.split(' ')
             LTR_start = int(parts[0])

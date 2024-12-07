@@ -164,8 +164,6 @@ if __name__ == '__main__':
     confident_intact_ltr_list = tmp_output_dir + '/intact_LTR.list'
     intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
 
-    # 初始化文件检查列表
-    check_files = []
     if use_HybridLTR:
         LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
         confident_ltr = LTR_output_dir + '/confident_ltr.fa'
@@ -267,38 +265,30 @@ if __name__ == '__main__':
 
     # 初始化文件检查列表
     classified_TE_path = intact_LTR_path + '.classified'
-    check_files = [
-        intact_LTR_path, classified_TE_path
-    ]
-    # 判断是否需要重新运行 LTR 模块
-    is_rerun = not all(file_exist(f) for f in check_files)
-    if not is_recover or is_rerun:
-        # classify intact-LTRs
-        if use_NeuralTE:
-            # classify LTR using NeuralTE
-            NeuralTE_output_dir = tmp_output_dir + '/NeuralTE_LTR'
-            if not os.path.exists(NeuralTE_output_dir):
-                os.makedirs(NeuralTE_output_dir)
-            NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \
-                               + ' --use_TSD 0 --model_path ' \
-                               + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
-                               + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
-            log.logger.debug(NeuralTE_command)
-            os.system(NeuralTE_command + ' > /dev/null 2>&1')
-            NeuralTE_output = NeuralTE_output_dir + '/classified_TE.fa'
-            os.system('cp ' + NeuralTE_output + ' ' + classified_TE_path)
-        else:
-            # classify LTR using RepeatClassifier
-            sample_name = 'test'
-            TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                              + ' --consensus ' + intact_LTR_path + ' --genome 1' \
-                              + ' --thread_num ' + str(threads) + ' --split_num ' + str(
-                threads) + ' -o ' + tmp_output_dir
-            log.logger.debug(TEClass_command)
-            os.system(TEClass_command)
+    # classify intact-LTRs
+    if use_NeuralTE:
+        # classify LTR using NeuralTE
+        NeuralTE_output_dir = tmp_output_dir + '/NeuralTE_LTR'
+        if not os.path.exists(NeuralTE_output_dir):
+            os.makedirs(NeuralTE_output_dir)
+        NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \
+                           + ' --use_TSD 0 --model_path ' \
+                           + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
+                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
+        log.logger.debug(NeuralTE_command)
+        os.system(NeuralTE_command + ' > /dev/null 2>&1')
+        NeuralTE_output = NeuralTE_output_dir + '/classified_TE.fa'
+        os.system('cp ' + NeuralTE_output + ' ' + classified_TE_path)
     else:
-        for check_file in check_files:
-            log.logger.info(check_file + ' exists, skip...')
+        # classify LTR using RepeatClassifier
+        sample_name = 'test'
+        TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+                          + ' --consensus ' + intact_LTR_path + ' --genome 1' \
+                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(
+            threads) + ' -o ' + tmp_output_dir
+        log.logger.debug(TEClass_command)
+        os.system(TEClass_command)
+
 
     # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
     classified_names, classified_contigs = read_fasta(classified_TE_path)
