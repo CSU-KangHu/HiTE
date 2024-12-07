@@ -276,7 +276,7 @@ if __name__ == '__main__':
                            + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
                            + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
         log.logger.debug(NeuralTE_command)
-        os.system(NeuralTE_command + ' > /dev/null 2>&1')
+        os.system(NeuralTE_command)
         NeuralTE_output = NeuralTE_output_dir + '/classified_TE.fa'
         os.system('cp ' + NeuralTE_output + ' ' + classified_TE_path)
     else:

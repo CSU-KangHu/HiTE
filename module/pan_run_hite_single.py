@@ -41,30 +41,16 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
     ltr_intact_list = os.path.join(HiTE_output_dir, "intact_LTR.list")
     confident_ltr_terminal = os.path.join(HiTE_output_dir, "confident_ltr.terminal.fa")
     confident_ltr_internal = os.path.join(HiTE_output_dir, "confident_ltr.internal.fa")
+    confident_ltr_cut_path = os.path.join(HiTE_output_dir, "confident_ltr_cut.fa")
+
     confident_helitron = os.path.join(HiTE_output_dir, "confident_helitron.fa")
     confident_non_ltr = os.path.join(HiTE_output_dir, "confident_non_ltr.fa")
     confident_other = os.path.join(HiTE_output_dir, "confident_other.fa")
     confident_tir = os.path.join(HiTE_output_dir, "confident_tir.fa")
     confident_TE = os.path.join(HiTE_output_dir, "confident_TE.cons.fa")
 
-    # 初始化文件检查列表
-    check_files = []
-    if te_type == "all":
-        check_files = [
-            confident_ltr_terminal, confident_ltr_internal, confident_helitron,
-            confident_non_ltr, confident_other, confident_tir, confident_TE
-        ]
-    elif te_type == "ltr":
-        check_files = [confident_ltr_terminal, confident_ltr_internal]
-    elif te_type == "tir":
-        check_files = [confident_tir]
-    elif te_type == "helitron":
-        check_files = [confident_helitron]
-    elif te_type == "non-ltr":
-        check_files = [confident_non_ltr, confident_other]
-
-    # 判断是否需要重新运行 HiTE
-    is_rerun = not all(file_exist(f) for f in check_files)
+    add_prefix_files = [confident_ltr_terminal, confident_ltr_internal, confident_ltr_cut_path,
+                        confident_helitron, confident_non_ltr, confident_other, confident_tir, confident_TE]
 
     # 运行 HiTE
     if file_exist(reference):
@@ -78,14 +64,11 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
         os.system(HiTE_command)
         end_time = time.time()
         log.logger.info(f"Running time for {genome_name}: {(end_time - start_time) / 60:.2f} minutes")
-
         # 为文件加前缀
-        if file_exist(confident_ltr_terminal):
-            lib_add_prefix(confident_ltr_terminal, raw_name)
-        if file_exist(confident_ltr_internal):
-            lib_add_prefix(confident_ltr_internal, raw_name)
-        if file_exist(confident_TE):
-            lib_add_prefix(confident_TE, raw_name)
+        for cur_file in add_prefix_files:
+            if file_exist(cur_file):
+                lib_add_prefix(cur_file, raw_name)
+
     else:
         log.logger.error(f"Cannot find genome: {reference}")
 
