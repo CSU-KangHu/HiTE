@@ -217,7 +217,7 @@ process pan_detect_de_genes {
     path "DE_genes_from_TEs.tsv", emit: ch_de_genes, optional: true
     path "all_gene_TEs_details.tsv", emit: ch_all_genes, optional: true
 
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "DE_genes_from_TEs.tsv, all_gene_TEs_details.tsv"
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "*.tsv"
 
     script:
     """
@@ -307,6 +307,6 @@ workflow {
         gene_te_associations_out = pan_gene_te_relation(genome_info_json)
 
         // Step 9: 检测差异表达基因
-        detected_de_genes_out = pan_detect_de_genes(genome_info_json, gene_te_associations_out, params.RNA_dir, params.threads)
+        pan_detect_de_genes(genome_info_json, gene_te_associations_out, params.RNA_dir, params.threads)
     }
 }
