@@ -273,8 +273,14 @@ To ensure smooth execution, the pipeline stores the output files of time-intensi
 If you need to rerun a specific process and its downstream processes, you can delete the corresponding `process_name` directory within the output directory specified by the `--out_dir` parameter.
 
 <div style="text-align: left;">
-    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="TE Family Proportion" width="600"/>
+    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="TE Family Proportion" width="800"/> 
   </div>
+
+**Friendly Reminder:** Please regularly monitor the status of your tasks. If you notice a task has been running for an unusually long time without progressing, make sure it is actually executing. For instance, while running `panHiTE` on an HPC system, the `run_hite_single` process is divided into \(N\) data chunks and executed in parallel. Most chunks finish within 1-2 hours, but a few may continue running for several hours without completing.  
+
+In such cases, I use `squeue` to check the node allocation and log into the compute node to inspect the process using the `top` command. Occasionally, I observe that the program is not utilizing any CPU resources and appears to be stuck. While the root cause remains unclear, I suspect it might be related to recent storage I/O issues on our HPC platform.
+
+Therefore, if you're using `panHiTE`, do not simply submit the tasks and leave them unattended. It's possible that some jobs may not be executing properly in the background. If this happens, you can terminate the task and re-submit it to resolve the issue.
 
 ### <a name="cmd"></a>5. Usage
 Type `nextflow run panHiTE.nf --help` for help.
