@@ -258,7 +258,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 
 #### <a name="nextflow_restore"></a>4.4 Checkpoint Recovery
 
-The panHiTE pipeline consists of 8 processes: 
+The panHiTE pipeline consists of 9 processes: 
 * `preprocess_genomes`
 * `run_hite_single`
 * `merge_terminal_te`
@@ -266,6 +266,7 @@ The panHiTE pipeline consists of 8 processes:
 * `annotate_genomes`
 * `summarize_tes`
 * `pan_gene_te_relation`
+* `pan_generate_bam_for_RNA_seq`
 * `pan_detect_de_genes`  
 
 To ensure smooth execution, the pipeline stores the output files of time-intensive processes. If the program is interrupted for any reason, simply rerun the pipeline. Nextflow will automatically detect these intermediate files and skip the completed processes, making it particularly efficient for large-scale pangenome analyses.  
@@ -273,8 +274,8 @@ To ensure smooth execution, the pipeline stores the output files of time-intensi
 If you need to rerun a specific process and its downstream processes, you can delete the corresponding `process_name` directory within the output directory specified by the `--out_dir` parameter.
 
 <div style="text-align: left;">
-    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="TE Family Proportion" width="800"/> 
-  </div>
+    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="recovery" width="800"/> 
+</div>
 
 **Friendly Reminder:** Please regularly monitor the status of your tasks. If you notice a task has been running for an unusually long time without progressing, make sure it is actually executing. For instance, while running `panHiTE` on an HPC system, the `run_hite_single` process is divided into \(N\) data chunks and executed in parallel. Most chunks finish within 1-2 hours, but a few may continue running for several hours without completing.  
 

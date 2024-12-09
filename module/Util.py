@@ -67,16 +67,19 @@ def run_TRsearch(TRsearch_dir, longest_repeats_multi_line_path, longest_repeats_
     return TR_out
 
 def run_command_with_timeout(command, timeout):
-    process = subprocess.Popen(command, shell=True)
-    start_time = time.time()
-    while True:
-        if process.poll() is not None:
-            break
-        if time.time() - start_time > timeout:
-            process.terminate()
-            process.wait()
-            raise TimeoutError(f"Command '{command}' timed out after {timeout} seconds")
-    return process.returncode
+    try:
+        # 使用 shell=True 执行命令，设置超时时间
+        result = subprocess.run(
+            command,  # 传入命令字符串
+            shell=True,  # 使用 shell 模式
+            timeout=timeout,  # 设置超时时间为 300 秒
+            text=True,  # 输出作为字符串返回
+            capture_output=True  # 捕获标准输出和标准错误
+        )
+    except subprocess.TimeoutExpired:
+        print("The command took too long and was terminated.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, HSJAR, partition_index, debug):
     # cur_candidate_Helitrons_path = temp_dir + '/' + str(partition_index) + '.fa'
@@ -89,15 +92,9 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, H
 
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR + '> /dev/null 2>&1'
-    # os.system(HelitronScanner_command + '> /dev/null 2>&1')
     # 在某些情况下，未知原因会导致HelitronScanner执行卡死，我们给每个进程限制最大的运行时间 5 min，如果还不结束就直接kill掉
     timeout = 300  # 5min
-    try:
-        return_code = run_command_with_timeout(HelitronScanner_command, timeout)
-    except TimeoutError as e:
-        print(e)
-    if debug:
-        print(HelitronScanner_command)
+    run_command_with_timeout(HelitronScanner_command, timeout)
 
     cur_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.hel.fa'
     cur_rc_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.rc.hel.fa'
@@ -11935,41 +11932,34 @@ def cons_from_mafft_v1(align_file):
                 continue
     return model_seq
 
-def generate_bam_for_RNA_seq(genome_info_list, threads, RNA_dir, log):
-    new_batch_files = []
-    for genome_info in genome_info_list:
-        genome_name = genome_info["genome_name"]
-        reference = genome_info["reference"]
-        TE_gff = genome_info["TE_gff"]
-        gene_gtf = genome_info["gene_gtf"]
-        RNA_seq_dict = genome_info["RNA_seq"]
-        full_length_TE_gff = genome_info["full_length_TE_gff"]
+def generate_bam_for_RNA_seq(genome_name, reference, gene_gtf, RNA_seq_dict, threads, RNA_dir, output_dir, log):
+    # new_batch_files = []
+    # for genome_info in genome_info_list:
+    if len(RNA_seq_dict) > 0:
+        is_PE = RNA_seq_dict['is_PE']
+        if is_PE:
+            raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
+            raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])
+            # sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
+            generate_bam(genome_path=reference, genome_name=genome_name, genome_annotation_file=gene_gtf,
+                         output_dir=output_dir, threads=threads, is_PE=True, raw_RNA1=raw_RNA1,
+                         raw_RNA2=raw_RNA2)
 
-        if len(RNA_seq_dict) > 0:
-            is_PE = RNA_seq_dict['is_PE']
-            if is_PE:
-                raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
-                raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])
-                sorted_bam = RNA_dir + '/' + genome_name + '.output.sorted.bam'
-                generate_bam(genome_path=reference, genome_name=genome_name, genome_annotation_file=gene_gtf,
-                             output_dir=RNA_dir, threads=threads, is_PE=True, raw_RNA1=raw_RNA1,
-                             raw_RNA2=raw_RNA2)
+        else:
+            raw_RNA = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA'])
+            # sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
+            generate_bam(genome_path=reference, genome_name=genome_name, output_dir=output_dir,
+                         threads=threads, is_PE=False, raw_RNA=raw_RNA)
 
-            else:
-                raw_RNA = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA'])
-                sorted_bam = RNA_dir + '/' + genome_name + '.output.sorted.bam'
-                generate_bam(genome_path=reference, genome_name=genome_name, output_dir=RNA_dir,
-                             threads=threads, is_PE=False, raw_RNA=raw_RNA)
+        # new_batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, sorted_bam, is_PE))
 
-            new_batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, sorted_bam, is_PE))
-    return new_batch_files
+    #return new_batch_files
 
 def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kwargs):
     # 2. 调用 hisat2 将RNA-seq比对到基因组上
-    genome_dir = os.path.dirname(genome_path)
     output_sam = output_dir + '/' + genome_name + '.output.sam'
     sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
-    hisat2_build = 'cd ' + genome_dir + ' && hisat2-build ' + genome_path + ' ' + genome_name
+    hisat2_build = 'hisat2-build ' + genome_path + ' ' + genome_name
 
     conda_prefix = os.getenv("CONDA_PREFIX")  # 获取当前激活的Conda环境根目录
     if not conda_prefix:
@@ -11984,7 +11974,7 @@ def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kw
         paired_trim_RNA1, paired_trim_RNA2, temp_files = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads)
 
         os.system(hisat2_build)
-        hisat2_align = 'cd ' + genome_dir + ' && hisat2 -x ' + genome_name + ' -1 ' + paired_trim_RNA1 + ' -2 ' + paired_trim_RNA2 + ' -S ' + output_sam + ' -p ' + str(threads)
+        hisat2_align = 'hisat2 -x ' + genome_name + ' -1 ' + paired_trim_RNA1 + ' -2 ' + paired_trim_RNA2 + ' -S ' + output_sam + ' -p ' + str(threads)
         os.system(hisat2_align)
     else:
         raw_RNA = kwargs['raw_RNA']
@@ -11992,7 +11982,7 @@ def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kw
         trim_RNA, temp_files = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads)
 
         os.system(hisat2_build)
-        hisat2_align = 'cd ' + genome_dir + ' && hisat2 -x ' + genome_name + ' -U ' + trim_RNA + ' -S ' + output_sam + ' -p ' + str(threads)
+        hisat2_align = 'hisat2 -x ' + genome_name + ' -U ' + trim_RNA + ' -S ' + output_sam + ' -p ' + str(threads)
         os.system(hisat2_align)
 
     for tmp_file in temp_files:
@@ -12027,7 +12017,7 @@ def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads):
     trimmomatic_command = 'trimmomatic PE ' + raw_RNA1 + ' ' + raw_RNA2 + ' ' + paired_trim_RNA1 + ' ' + \
                           unpaired_trim_RNA1 + ' ' + paired_trim_RNA2 + ' ' + unpaired_trim_RNA2 + ' ' + \
                           'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
-                          ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33 ' + '-threads ' + str(threads)
+                          ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred33 ' + '-threads ' + str(threads)
     os.system(trimmomatic_command)
     return paired_trim_RNA1, paired_trim_RNA2, temp_files
 
@@ -12057,13 +12047,18 @@ def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_nam
     os.system(featurecounts_cmd)
     return gene_express_count
 
-def quantitative_gene(new_batch_files, RNA_tool_dir, output_dir, threads, log):
+def quantitative_gene(genome_info_list, RNA_tool_dir, output_dir, threads, log):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
-    for genome_name, reference, TE_gff, full_length_gff_path, gene_gtf, sorted_bam, is_PE in new_batch_files:
+    for genome_info in genome_info_list:
+        genome_name = genome_info['genome_name']
+        RNA_seq_dict = genome_info['RNA_seq']
+        is_PE = RNA_seq_dict['is_PE']
+        gene_gtf = genome_info['gene_gtf']
+        sorted_bam = genome_info['bam']
         obj = ex.submit(run_featurecounts, output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log)
         objs.append(obj)
         job_id += 1

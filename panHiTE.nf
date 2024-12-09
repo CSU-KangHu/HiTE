@@ -153,8 +153,6 @@ process annotate_genomes {
     output:
     tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
 
-    // publishDir "${params.out_dir}", mode: 'copy', pattern: "*.gff"
-
     script:
     """
     pan_annotate_genome.py --threads ${threads} --panTE_lib ${panTE_lib} --reference ${reference} \
@@ -204,11 +202,29 @@ process pan_gene_te_relation {
     """
 }
 
+
+process pan_generate_bam_for_RNA_seq {
+    storeDir "${params.out_dir}/pan_generate_bam_for_RNA_seq"
+
+
+    input:
+    tuple val(genome_name), path(reference), path(gene_gtf), val(RNA_dir), val(RNA_seq), val(threads)
+
+    output:
+    tuple val(genome_name), path("${genome_name}.output.sorted.bam"), emit: bam_out
+
+    script:
+    """
+    pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} --gene_gtf ${gene_gtf} \
+    --RNA_seq '${RNA_seq}' --RNA_dir ${RNA_dir} --threads ${threads}
+    """
+}
+
 process pan_detect_de_genes {
     storeDir "${params.out_dir}/pan_detect_de_genes"
 
     input:
-    path genome_info_json
+    path genome_info_for_bam_json
     path gene_te_associations
     val RNA_dir
     val threads
@@ -221,7 +237,7 @@ process pan_detect_de_genes {
 
     script:
     """
-    pan_detect_de_genes.py --genome_info_json ${genome_info_json} --gene_te_associations ${gene_te_associations} \
+    pan_detect_de_genes.py --genome_info_for_bam_json ${genome_info_for_bam_json} --gene_te_associations ${gene_te_associations} \
     --RNA_dir ${RNA_dir} --threads ${threads}
     """
 }
@@ -306,7 +322,31 @@ workflow {
         // Step 8: 基因和 TE 关系
         gene_te_associations_out = pan_gene_te_relation(genome_info_json)
 
-        // Step 9: 检测差异表达基因
-        pan_detect_de_genes(genome_info_json, gene_te_associations_out, params.RNA_dir, params.threads)
+        //Step 9: 为RNA_seq生成比对bam
+        genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
+            [genome_name, reference, gene_gtf, params.RNA_dir, RNA_seq, params.threads]
+        }.set { generate_bam_input_channel }
+        bam_out = pan_generate_bam_for_RNA_seq(generate_bam_input_channel)
+
+
+        // Step 10: 检测差异表达基因
+        // 将 bam 结果合并到 json 文件中, 为pan_detect_de_genes生成输入channel
+        genome_info_list.join(bam_out).map { genome_info ->
+            [
+                genome_name: genome_info[0],
+                reference: genome_info[1],
+                raw_name: genome_info[2],
+                gene_gtf: genome_info[3],
+                RNA_seq    : genome_info[4],
+                bam: genome_info[5].toString()
+            ]
+        }.collect().map { data ->
+            def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
+            def filePath = "${params.out_dir}/genome_info_for_bam.json"
+            new File(filePath).write(jsonContent)
+            return filePath
+        }.set { genome_info_for_bam_json }
+
+        pan_detect_de_genes(genome_info_for_bam_json, gene_te_associations_out, params.RNA_dir, params.threads)
     }
 }
