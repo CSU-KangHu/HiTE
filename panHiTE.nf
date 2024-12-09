@@ -208,14 +208,14 @@ process pan_generate_bam_for_RNA_seq {
 
 
     input:
-    tuple val(genome_name), path(reference), path(gene_gtf), val(RNA_dir), val(RNA_seq), val(threads)
+    tuple val(genome_name), path(reference), val(RNA_dir), val(RNA_seq), val(threads)
 
     output:
     tuple val(genome_name), path("${genome_name}.output.sorted.bam"), emit: bam_out
 
     script:
     """
-    pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} --gene_gtf ${gene_gtf} \
+    pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} \
     --RNA_seq '${RNA_seq}' --RNA_dir ${RNA_dir} --threads ${threads}
     """
 }
@@ -324,7 +324,7 @@ workflow {
 
         //Step 9: 为RNA_seq生成比对bam
         genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-            [genome_name, reference, gene_gtf, params.RNA_dir, RNA_seq, params.threads]
+            [genome_name, reference, params.RNA_dir, RNA_seq, params.threads]
         }.set { generate_bam_input_channel }
         bam_out = pan_generate_bam_for_RNA_seq(generate_bam_input_channel)
 

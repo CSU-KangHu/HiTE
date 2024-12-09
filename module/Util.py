@@ -11932,7 +11932,7 @@ def cons_from_mafft_v1(align_file):
                 continue
     return model_seq
 
-def generate_bam_for_RNA_seq(genome_name, reference, gene_gtf, RNA_seq_dict, threads, RNA_dir, output_dir, log):
+def generate_bam_for_RNA_seq(genome_name, reference, RNA_seq_dict, threads, RNA_dir, output_dir, log):
     # new_batch_files = []
     # for genome_info in genome_info_list:
     if len(RNA_seq_dict) > 0:
@@ -11941,9 +11941,8 @@ def generate_bam_for_RNA_seq(genome_name, reference, gene_gtf, RNA_seq_dict, thr
             raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
             raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])
             # sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
-            generate_bam(genome_path=reference, genome_name=genome_name, genome_annotation_file=gene_gtf,
-                         output_dir=output_dir, threads=threads, is_PE=True, raw_RNA1=raw_RNA1,
-                         raw_RNA2=raw_RNA2)
+            generate_bam(genome_path=reference, genome_name=genome_name, output_dir=output_dir,
+                         threads=threads, is_PE=True, raw_RNA1=raw_RNA1, raw_RNA2=raw_RNA2)
 
         else:
             raw_RNA = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA'])
