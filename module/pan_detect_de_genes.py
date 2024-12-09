@@ -46,7 +46,7 @@ if __name__ == "__main__":
     gene_express_dir = os.path.join(output_dir, 'gene_quantities')
     os.makedirs(gene_express_dir, exist_ok=True)
     RNA_tool_dir = os.path.join(project_dir, 'RNA_seq')
-    gene_express_table = quantitative_gene(genome_info_list, RNA_tool_dir, gene_express_dir, threads, log)
+    gene_express_table = quantitative_gene(genome_info_list, RNA_tool_dir, gene_express_dir, output_dir, threads, log)
     log.logger.info(f"Gene quantification completed. Results saved to {gene_express_table}.")
 
     # Step 7.3: 差异表达基因检测

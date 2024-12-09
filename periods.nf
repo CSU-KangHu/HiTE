@@ -60,7 +60,7 @@ process pan_generate_bam_for_RNA_seq {
     storeDir "${params.out_dir}/pan_generate_bam_for_RNA_seq"
 
     input:
-    tuple val(genome_name), val(period), path(reference), val(RNA_dir), val(RNA_seq), val(threads)
+    tuple val(genome_name), val(period), path(reference), path(gene_gtf), val(RNA_dir), val(RNA_seq), val(threads)
 
     output:
     tuple val(genome_name), path("${genome_name}.${period}.output.sorted.bam"), emit: bam_out
@@ -72,6 +72,22 @@ process pan_generate_bam_for_RNA_seq {
     """
 }
 
+process pan_gene_express_for_periods {
+    storeDir "${params.out_dir}/pan_gene_express_for_periods"
+
+    input:
+    path genome_info_json
+    val RNA_dir
+    val threads
+
+    output:
+    path "gene_express.table"
+
+    script:
+    """
+    pan_gene_express_for_periods.py --genome_info ${genome_info_json} --RNA_dir ${RNA_dir} --threads ${threads}
+    """
+}
 
 
 // 定义工作流
@@ -89,6 +105,7 @@ workflow {
                 genome_json.genome_name,
                 rna_seq.Status,
                 genome_json.reference,
+                genome_json.gene_gtf,
                 params.RNA_dir,
                 rna_seq,
                 params.threads
@@ -98,26 +115,23 @@ workflow {
 
     //Step 2: 为RNA_seq生成比对bam
     bam_out = pan_generate_bam_for_RNA_seq(generate_bam_input_channel)
-//
-//
-//     // Step 3: 检测差异表达基因
-//     // 将 bam 结果合并到 json 文件中, 为pan_detect_de_genes生成输入channel
-//     genome_info_list.join(bam_out).map { genome_info ->
-//         [
-//             genome_name: genome_info[0],
-//             reference: genome_info[1],
-//             raw_name: genome_info[2],
-//             gene_gtf: genome_info[3],
-//             RNA_seq    : genome_info[4],
-//             bam: genome_info[5].toString()
-//         ]
-//     }.collect().map { data ->
-//         def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
-//         def filePath = "${params.out_dir}/genome_info_for_bam.json"
-//         new File(filePath).write(jsonContent)
-//         return filePath
-//     }.set { genome_info_for_bam_json }
 
-    //pan_detect_de_genes(genome_info_for_bam_json, gene_te_associations_out, params.RNA_dir, params.threads)
+    // Step 3: 检测差异表达基因
+    // 将 bam 结果合并到 json 文件中, 为pan_detect_de_genes生成输入channel
+    generate_bam_input_channel.join(bam_out).map { genome_info ->
+        [
+            genome_name: genome_info[0] + '.' + genome_info[1],
+            gene_gtf: genome_info[3],
+            RNA_seq    : genome_info[5],
+            bam: genome_info[7].toString()
+        ]
+    }.collect().map { data ->
+        def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
+        def filePath = "${params.out_dir}/genome_info_for_bam.json"
+        new File(filePath).write(jsonContent)
+        return filePath
+    }.set { genome_info_for_bam_json }
+
+    pan_gene_express_for_periods(genome_info_for_bam_json, params.RNA_dir, params.threads)
 
 }

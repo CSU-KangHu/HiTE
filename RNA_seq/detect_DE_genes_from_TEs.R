@@ -85,33 +85,52 @@ species_info <- gene_position_express %>%
 group_express <- gene_position_express %>%
   group_by(Gene_name, Position)
 
-# Calculate the minimum expression for each gene by position
-min_express_detail <- group_express %>%
+# Calculate the minimum, maximum, and absolute difference for each gene by position
+diff_express_detail <- group_express %>%
   summarise(
-    min_expression = min(expression, na.rm = TRUE)
+    min_expression = min(expression, na.rm = TRUE),
+    max_expression = max(expression, na.rm = TRUE),
+    abs_diff_expression = abs(max(expression, na.rm = TRUE) - min(expression, na.rm = TRUE))
   ) %>%
   ungroup() %>%
-  pivot_wider(names_from = Position, values_from = min_expression, values_fill = list(min_expression = NA)) %>%
-  rename(NoInsertion = 'NA') %>%
-  rename_with(~ paste0("min_", .), -1)
+  pivot_wider(names_from = Position,
+              values_from = c(min_expression, max_expression, abs_diff_expression),
+              values_fill = list(min_expression = NA, max_expression = NA, abs_diff_expression = NA)) %>%
+  rename_with(~ gsub("min_expression", "min", .), starts_with("min_expression")) %>%
+  rename_with(~ gsub("max_expression", "max", .), starts_with("max_expression")) %>%
+  rename_with(~ gsub("abs_diff_expression", "abs_diff", .), starts_with("abs_diff_expression"))
 
-# Calculate the maximum expression for each gene by position
-max_express_detail <- group_express %>%
-  summarise(
-    max_expression = max(expression, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  pivot_wider(names_from = Position, values_from = max_expression, values_fill = list(max_expression = NA)) %>%
-  rename(NoInsertion = 'NA') %>%
-  rename_with(~ paste0("max_", .), -1)
 
-# Combine minimum and maximum expression details and determine the relationship (up/down/ns)
-significant_direct <- min_express_detail %>%
-  left_join(max_express_detail, by = 'Gene_name') %>%
+# 这里我们认为两组表达量[A, ..., B]和[C, ..., D] （假设B>A, D>C, C>B, 数组有序）之间有显著差异，需要满足C>B, (C-B)>(B-A) and (C-B)>(D-C)
+significant_direct <- diff_express_detail %>%
   mutate(
-    Upstream_direct = if_else(max_Upstream < min_NoInsertion, 'down', if_else(min_Upstream > max_NoInsertion, 'up', 'ns')),
-    Inside_direct = if_else(max_Inside < min_NoInsertion, 'down', if_else(min_Inside > max_NoInsertion, 'up', 'ns')),
-    Downstream_direct = if_else(max_Downstream < min_NoInsertion, 'down', if_else(min_Downstream > max_NoInsertion, 'up', 'ns'))
+    Upstream_direct = if_else(
+      max_Upstream < min_NA & (min_NA - max_Upstream > abs_diff_NA) & (min_NA - max_Upstream > abs_diff_Upstream),
+      'down',
+      if_else(
+        min_Upstream > max_NA & (min_Upstream - max_NA > abs_diff_NA) & (min_Upstream - max_NA > abs_diff_Upstream),
+        'up',
+        'ns'
+      )
+    ),
+    Inside_direct = if_else(
+      max_Inside < min_NA & (min_NA - max_Inside > abs_diff_NA) & (min_NA - max_Inside > abs_diff_Inside),
+      'down',
+      if_else(
+        min_Inside > max_NA & (min_Inside - max_NA > abs_diff_NA) & (min_Inside - max_NA > abs_diff_Inside),
+        'up',
+        'ns'
+      )
+    ),
+    Downstream_direct = if_else(
+      max_Downstream < min_NA & (min_NA - max_Downstream > abs_diff_NA) & (min_NA - max_Downstream > abs_diff_Downstream),
+      'down',
+      if_else(
+        min_Downstream > max_NA & (min_Downstream - max_NA > abs_diff_NA) & (min_Downstream - max_NA > abs_diff_Downstream),
+        'up',
+        'ns'
+      )
+    )
   ) %>%
   select(Gene_name, Upstream_direct, Inside_direct, Downstream_direct)
 
