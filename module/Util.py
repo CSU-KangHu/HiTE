@@ -11933,26 +11933,24 @@ def cons_from_mafft_v1(align_file):
     return model_seq
 
 def generate_bam_for_RNA_seq(genome_name, reference, RNA_seq_dict, threads, RNA_dir, output_dir, log):
-    # new_batch_files = []
-    # for genome_info in genome_info_list:
     if len(RNA_seq_dict) > 0:
         is_PE = RNA_seq_dict['is_PE'] == "True"
         if is_PE:
             raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
             raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])
-            # sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
             generate_bam(genome_path=reference, genome_name=genome_name, output_dir=output_dir,
                          threads=threads, is_PE=True, raw_RNA1=raw_RNA1, raw_RNA2=raw_RNA2)
 
         else:
             raw_RNA = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA'])
-            # sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
             generate_bam(genome_path=reference, genome_name=genome_name, output_dir=output_dir,
                          threads=threads, is_PE=False, raw_RNA=raw_RNA)
+    else:
+        # 创建一个空文件，以跳过nextflow检查
+        sorted_bam = output_dir + '/' + genome_name + '.output.sorted.bam'
+        os.system('touch ' + sorted_bam)
 
-        # new_batch_files.append((genome_name, reference, TE_gff, full_length_TE_gff, gene_gtf, sorted_bam, is_PE))
 
-    #return new_batch_files
 
 def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kwargs):
     # 2. 调用 hisat2 将RNA-seq比对到基因组上

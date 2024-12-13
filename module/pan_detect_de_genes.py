@@ -55,3 +55,10 @@ if __name__ == "__main__":
             log.logger.info("DE gene detection completed successfully.")
         else:
             log.logger.error("Error occurred during DE gene detection.")
+    else:
+        # 创建空的输出文件以跳过nextflow检查
+        de_genes = os.path.join(output_dir, "DE_genes_from_TEs.tsv")
+        all_genes = os.path.join(output_dir, "all_gene_TEs_details.tsv")
+        os.system('touch ' + de_genes)
+        os.system('touch ' + all_genes)
+
