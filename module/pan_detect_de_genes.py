@@ -5,8 +5,7 @@ import sys
 import json
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
-from Util import Logger, generate_bam_for_RNA_seq, quantitative_gene
-
+from Util import Logger, generate_bam_for_RNA_seq, quantitative_gene, file_exist
 
 if __name__ == "__main__":
     # 创建解析器
@@ -35,12 +34,6 @@ if __name__ == "__main__":
     with open(genome_info_for_bam_json, 'r') as f:
         genome_info_list = json.load(f)
 
-
-    # # Step 7.1: 生成 BAM 文件
-    # log.logger.info("Start generating BAM files for RNA-seq data...")
-    # new_batch_files = generate_bam_for_RNA_seq(genome_info_list, threads, RNA_dir, log)
-    # log.logger.info("BAM file generation completed.")
-
     # Step 7.2: 基因定量
     log.logger.info("Start gene quantification using featureCounts...")
     gene_express_dir = os.path.join(output_dir, 'gene_quantities')
@@ -51,13 +44,14 @@ if __name__ == "__main__":
 
     # Step 7.3: 差异表达基因检测
     log.logger.info("Start detecting DE genes associated with LTR insertions...")
-    script_dir = os.path.join(project_dir, 'RNA_seq')
-    detect_DE_genes_from_TEs_cmd = (
-        f"cd {output_dir} && Rscript {script_dir}/detect_DE_genes_from_TEs.R {gene_express_table} {gene_te_associations}"
-    )
-    log.logger.debug(detect_DE_genes_from_TEs_cmd)
-    exit_code = os.system(detect_DE_genes_from_TEs_cmd)
-    if exit_code == 0:
-        log.logger.info("DE gene detection completed successfully.")
-    else:
-        log.logger.error("Error occurred during DE gene detection.")
+    if file_exist(gene_express_table) and file_exist(gene_te_associations):
+        script_dir = os.path.join(project_dir, 'RNA_seq')
+        detect_DE_genes_from_TEs_cmd = (
+            f"cd {output_dir} && Rscript {script_dir}/detect_DE_genes_from_TEs.R {gene_express_table} {gene_te_associations}"
+        )
+        log.logger.debug(detect_DE_genes_from_TEs_cmd)
+        exit_code = os.system(detect_DE_genes_from_TEs_cmd)
+        if exit_code == 0:
+            log.logger.info("DE gene detection completed successfully.")
+        else:
+            log.logger.error("Error occurred during DE gene detection.")

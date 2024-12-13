@@ -12039,10 +12039,11 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
 
 def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log):
     gene_express_count = output_dir + '/' + genome_name + '.count'
-    featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
-                        ' --isPairedEnd ' + str(is_PE)
-    log.logger.debug(featurecounts_cmd)
-    os.system(featurecounts_cmd)
+    if os.path.exists(sorted_bam) and os.path.exists(gene_gtf):
+        featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
+                            ' --isPairedEnd ' + str(is_PE)
+        log.logger.debug(featurecounts_cmd)
+        os.system(featurecounts_cmd)
     return gene_express_count
 
 def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, threads, log):

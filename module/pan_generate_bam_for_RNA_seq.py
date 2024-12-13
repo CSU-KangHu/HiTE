@@ -36,11 +36,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     genome_name = args.genome_name
     reference = args.reference
-    preprocess_RNA_seq = preprocess_RNA_seq(args.RNA_seq)
-    print(preprocess_RNA_seq)
-    RNA_seq = json.loads(preprocess_RNA_seq)
     RNA_dir = args.RNA_dir
     threads = args.threads
+
+    if RNA_dir != '/dev/RNA':
+        preprocess_RNA_seq = preprocess_RNA_seq(args.RNA_seq)
+        RNA_seq = json.loads(preprocess_RNA_seq)
+    else:
+        RNA_seq = {}
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)

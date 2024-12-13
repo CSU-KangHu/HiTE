@@ -332,7 +332,6 @@ workflow {
         }.set { generate_bam_input_channel }
         bam_out = pan_generate_bam_for_RNA_seq(generate_bam_input_channel)
 
-
         // Step 10: 检测差异表达基因
         // 将 bam 结果合并到 json 文件中, 为pan_detect_de_genes生成输入channel
         genome_info_list.join(bam_out).map { genome_info ->
