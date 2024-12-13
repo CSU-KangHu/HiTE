@@ -16,7 +16,7 @@ def preprocess_RNA_seq(input_str):
     input_str = re.sub(r'(\w+):([^,]+)', r'"\1":"\2"', input_str)
 
     # 将 'true' 和 'false' 替换为 JSON 格式的 'true' 和 'false'
-    input_str = input_str.replace('true', 'true').replace('false', 'false')
+    input_str = input_str.replace('true', 'True').replace('false', 'False')
 
     # 如果有引号问题，手动调整双引号
     return f'{{{input_str}}}'
@@ -37,6 +37,7 @@ if __name__ == "__main__":
     genome_name = args.genome_name
     reference = args.reference
     preprocess_RNA_seq = preprocess_RNA_seq(args.RNA_seq)
+    print(preprocess_RNA_seq)
     RNA_seq = json.loads(preprocess_RNA_seq)
     RNA_dir = args.RNA_dir
     threads = args.threads

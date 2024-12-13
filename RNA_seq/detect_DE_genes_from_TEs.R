@@ -152,6 +152,11 @@ fold_changes <- group_express %>%
 # Identify significant genes based on fold change and position relationships
 significant_genes <- fold_changes %>%
   left_join(significant_direct, by='Gene_name') %>%
+  mutate(
+    Upstream_vs_NoInsertion_logFoldChange = if_else(Upstream_direct == 'ns', NA_real_, Upstream_vs_NoInsertion_logFoldChange),
+    Inside_vs_NoInsertion_logFoldChange = if_else(Inside_direct == 'ns', NA_real_, Inside_vs_NoInsertion_logFoldChange),
+    Downstream_vs_NoInsertion_logFoldChange = if_else(Downstream_direct == 'ns', NA_real_, Downstream_vs_NoInsertion_logFoldChange)
+  ) %>%
   filter(
     (Upstream_vs_NoInsertion_logFoldChange > 1 & Upstream_direct == 'up') | 
       (Upstream_vs_NoInsertion_logFoldChange < -1 & Upstream_direct == 'down') | 

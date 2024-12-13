@@ -114,6 +114,8 @@ process run_hite_single {
 
 // 合并 pan_te.tmp.fa 到 pan_internal.tmp.fa
 process merge_terminal_te {
+    storeDir "${params.out_dir}/merge_terminal_te"
+
     input:
     path terminal
     path te
@@ -129,6 +131,8 @@ process merge_terminal_te {
 
 // Step 5: 去冗余
 process pan_remove_redundancy {
+    storeDir "${params.out_dir}/pan_remove_redundancy"
+
     input:
     file terminal_tmp
     file internal_tmp

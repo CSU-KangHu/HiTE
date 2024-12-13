@@ -11936,7 +11936,7 @@ def generate_bam_for_RNA_seq(genome_name, reference, RNA_seq_dict, threads, RNA_
     # new_batch_files = []
     # for genome_info in genome_info_list:
     if len(RNA_seq_dict) > 0:
-        is_PE = RNA_seq_dict['is_PE']
+        is_PE = RNA_seq_dict['is_PE'] == "True"
         if is_PE:
             raw_RNA1 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA1'])
             raw_RNA2 = os.path.join(RNA_dir, RNA_seq_dict['raw_RNA2'])

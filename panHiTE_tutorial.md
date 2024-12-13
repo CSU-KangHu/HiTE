@@ -269,7 +269,7 @@ The panHiTE pipeline consists of 9 processes:
 * `pan_generate_bam_for_RNA_seq`
 * `pan_detect_de_genes`  
 
-To ensure smooth execution, the pipeline stores the output files of time-intensive processes. If the program is interrupted for any reason, simply rerun the pipeline. Nextflow will automatically detect these intermediate files and skip the completed processes, making it particularly efficient for large-scale pangenome analyses.  
+To ensure smooth execution, the pipeline stores the output files of all processes. If the program is interrupted for any reason, simply rerun the pipeline. Nextflow will automatically detect these intermediate files and skip the completed processes, making it particularly efficient for large-scale pangenome analyses.  
 
 If you need to rerun a specific process and its downstream processes, you can delete the corresponding `process_name` directory within the output directory specified by the `--out_dir` parameter.
 
