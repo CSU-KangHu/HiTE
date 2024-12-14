@@ -3872,6 +3872,12 @@ if __name__ == '__main__':
     # BM_EDTA()
     # BM_HiTE()
 
+    # 对TIR protein 进行筛选，去掉非法的
+    tir_protein_db = cur_dir + '/library/TIRPeps.lib'
+    protein_names, protein_contigs = read_fasta(tir_protein_db)
+    store_fasta(protein_contigs, tir_protein_db)
+
+
     # # 将RepeatModeler2中的non-ltr抽取出来
     # work_dir = '/homeb/hukang/KmerRepFinder_test/library/curated_lib/Repbase_28.06/human'
     # te_path = work_dir + '/human.lib'
@@ -3898,32 +3904,32 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
-    candidate_tir_path = work_dir + '/test.fa'
-    confident_tir_path = work_dir + '/test_tir.fa'
-    flanking_len = 50
-    reference = work_dir + '/genome.rename.fa'
-    # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
-    # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
-    test_home = '/home/hukang/test/HiTE/module'
-    tmp_output_dir = work_dir + '/outdir'
-    chrom_seg_length = 100000
-    chunk_size = 400
-    split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
-                           + reference + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    # os.system(split_genome_command)
-
-    TE_type = 'tir'
-    split_ref_dir = tmp_output_dir + '/ref_chr'
-    threads = 40
-    ref_index = 0
-    subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
-    plant = 0
-    debug = 1
-    flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
-                          TE_type, work_dir, threads, ref_index, log, subset_script_path,
-                          plant, debug, 0, result_type='cons')
+    # work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
+    # candidate_tir_path = work_dir + '/test.fa'
+    # confident_tir_path = work_dir + '/test_tir.fa'
+    # flanking_len = 50
+    # reference = work_dir + '/genome.rename.fa'
+    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
+    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
+    # test_home = '/home/hukang/test/HiTE/module'
+    # tmp_output_dir = work_dir + '/outdir'
+    # chrom_seg_length = 100000
+    # chunk_size = 400
+    # split_genome_command = 'cd ' + test_home + ' && python3 ' + test_home + '/split_genome_chunks.py -g ' \
+    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
+    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    # # os.system(split_genome_command)
+    #
+    # TE_type = 'tir'
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # threads = 40
+    # ref_index = 0
+    # subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
+    # plant = 0
+    # debug = 1
+    # flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
+    #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
+    #                       plant, debug, 0, result_type='cons')
 
 
 

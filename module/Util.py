@@ -4497,8 +4497,16 @@ def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
-    blast_db_command = 'makeblastdb -dbtype prot -in ' + lib + ' > /dev/null 2>&1'
-    os.system(blast_db_command)
+    db_prefix = os.path.basename(lib)
+    db_files = [f"{db_prefix}.phr", f"{db_prefix}.pin", f"{db_prefix}.psq"]
+
+    if all(os.path.exists(f) for f in db_files):
+        print(f"BLAST database exist, skip creating：{db_prefix}")
+    else:
+        blast_db_command = f"makeblastdb -dbtype prot -in {lib} > /dev/null 2>&1"
+        print(f"Creating BLAST database：{db_prefix}")
+        os.system(blast_db_command)
+
     # 1. blastx -num_threads 1 -evalue 1e-20
     partitions_num = int(threads)
     consensus_contignames, consensus_contigs = read_fasta(cons)
