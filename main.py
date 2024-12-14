@@ -418,6 +418,19 @@ if __name__ == '__main__':
                 endtime = time.time()
                 dtime = endtime - starttime
                 log.logger.info("Running time of step0: %.8s s" % (dtime))
+            else:
+                # 创建一个空的输出文件，以跳过nextflow的检查
+                confident_ltr_cut = os.path.join(tmp_output_dir, "confident_ltr_cut.fa")
+                confident_ltr_internal = os.path.join(tmp_output_dir, "confident_ltr.internal.fa")
+                confident_ltr_terminal = os.path.join(tmp_output_dir, "confident_ltr.terminal.fa")
+                intact_LTR = os.path.join(tmp_output_dir, "intact_LTR.fa")
+                classified_intact_LTR = os.path.join(tmp_output_dir, "intact_LTR.fa.classified")
+                intact_LTR_list = os.path.join(tmp_output_dir, "intact_LTR.list")
+                empty_files = [confident_ltr_cut, confident_ltr_internal, confident_ltr_terminal,
+                               intact_LTR, classified_intact_LTR, intact_LTR_list]
+                for empty_file in empty_files:
+                    os.system('touch ' + empty_file)
+
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -437,6 +450,12 @@ if __name__ == '__main__':
                 endtime = time.time()
                 dtime = endtime - starttime
                 log.logger.info("Running time of step1: %.8s s" % (dtime))
+            else:
+                # 创建一个空的输出文件，以跳过nextflow的检查
+                confident_other = os.path.join(tmp_output_dir, "confident_other.fa")
+                empty_files = [confident_other]
+                for empty_file in empty_files:
+                    os.system('touch ' + empty_file)
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
@@ -526,6 +545,12 @@ if __name__ == '__main__':
                     endtime = time.time()
                     dtime = endtime - starttime
                     log.logger.info("Running time of step2.2: %.8s s" % (dtime))
+                else:
+                    # 创建一个空的输出文件，以跳过nextflow的检查
+                    confident_tir = os.path.join(tmp_output_dir, '/confident_tir_'+str(ref_index)+'.fa')
+                    empty_files = [confident_tir]
+                    for empty_file in empty_files:
+                        os.system('touch ' + empty_file)
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
@@ -546,6 +571,12 @@ if __name__ == '__main__':
                     endtime = time.time()
                     dtime = endtime - starttime
                     log.logger.info("Running time of step2.3: %.8s s" % (dtime))
+                else:
+                    # 创建一个空的输出文件，以跳过nextflow的检查
+                    confident_helitron = os.path.join(tmp_output_dir, '/confident_helitron_' + str(ref_index) + '.fa')
+                    empty_files = [confident_helitron]
+                    for empty_file in empty_files:
+                        os.system('touch ' + empty_file)
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
@@ -570,6 +601,12 @@ if __name__ == '__main__':
                     endtime = time.time()
                     dtime = endtime - starttime
                     log.logger.info("Running time of step2.4: %.8s s" % (dtime))
+                else:
+                    # 创建一个空的输出文件，以跳过nextflow的检查
+                    confident_non_ltr = os.path.join(tmp_output_dir, '/confident_non_ltr_' + str(ref_index) + '.fa')
+                    empty_files = [confident_non_ltr]
+                    for empty_file in empty_files:
+                        os.system('touch ' + empty_file)
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 

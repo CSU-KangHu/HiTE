@@ -93,16 +93,16 @@ process run_hite_single {
     tuple val(genome_name), val(raw_name), path(reference), val(threads), val(te_type), val(miu), val(debug)
 
     output:
-    tuple val(genome_name), path("intact_LTR.list"), emit: ch_intact_ltr_list, optional: true
-    path "confident_ltr.terminal.fa", emit: ch_ltr_terminal, optional: true
-    path "confident_ltr.internal.fa", emit: ch_ltr_internal, optional: true
-    path "confident_ltr_cut.fa", emit: ch_ltr_cut, optional: true
-    path "intact_LTR.fa", emit: ch_intact_ltr, optional: true
-    path "intact_LTR.fa.classified", emit: ch_intact_classified_ltr, optional: true
-    path "confident_helitron.fa", emit: ch_helitron, optional: true
-    path "confident_non_ltr.fa", emit: ch_non_ltr, optional: true
-    path "confident_other.fa", emit: ch_other, optional: true
-    path "confident_tir.fa", emit: ch_tir, optional: true
+    tuple val(genome_name), path("intact_LTR.list"), emit: ch_intact_ltr_list
+    path "confident_ltr.terminal.fa", emit: ch_ltr_terminal
+    path "confident_ltr.internal.fa", emit: ch_ltr_internal
+    path "confident_ltr_cut.fa", emit: ch_ltr_cut
+    path "intact_LTR.fa", emit: ch_intact_ltr
+    path "intact_LTR.fa.classified", emit: ch_intact_classified_ltr
+    path "confident_helitron.fa", emit: ch_helitron
+    path "confident_non_ltr.fa", emit: ch_non_ltr
+    path "confident_other.fa", emit: ch_other
+    path "confident_tir.fa", emit: ch_tir
     path "confident_TE.cons.fa", emit: ch_te
 
     script:

@@ -256,7 +256,29 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --skip_analyze 0
 ```
 
-#### <a name="nextflow_restore"></a>4.4 Checkpoint Recovery
+#### <a name="check_output"></a>4.4 检查输出
+请检查${out_dir}/run_hite_single/${genome}目录下包含必要的输出文件，以确保HiTE在每个基因成功运行。
+完整的输出应该包含如下文件，其中(2),(3),(4),(9), (10), (11)文件为LTR模块输出结果，(8)为TIR模块结果，
+(1)为Helitron模块结果，(5),(6)为non-ltr模块结果，(7)为所有TE合并结果：
+```markdown
+.
+├── confident_helitron.fa     (1)
+├── confident_ltr_cut.fa      (2)
+├── confident_ltr.internal.fa (3)
+├── confident_ltr.terminal.fa (4)
+├── confident_non_ltr.fa      (5)
+├── confident_other.fa        (6)
+├── confident_TE.cons.fa      (7)
+├── confident_tir.fa          (8)
+├── intact_LTR.fa             (9)
+├── intact_LTR.fa.classified  (10)
+└── intact_LTR.list           (11)
+```
+如果发现某个文件大小为0，例如confident_tir.fa文件大小为0，表明HiTE没有在该基因组上检测
+到任何的TIR元素，这有两种可能：1. 该基因组真的没有TIR元素。 2.程序未能正确HiTE的TIR检测。你可以通过检查
+其他相似基因组是否有TIR元素来判断。如果你没有办法确认，最好删除该基因的输出目录，重新运行以确保程序正确运行。
+
+#### <a name="nextflow_restore"></a>4.5 Checkpoint Recovery
 
 The panHiTE pipeline consists of 9 processes: 
 * `preprocess_genomes`
