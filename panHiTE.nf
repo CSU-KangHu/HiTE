@@ -176,8 +176,18 @@ process summarize_tes {
 
     output:
     path "TE_summary.pdf", emit: ch_te_summary
-    path "panHiTE.CorePan_fitmodel.pdf", emit: ch_corepan_model, optional: true
-    path "panHiTE.CorePan_fitsmooth.pdf", emit: ch_corepan_smodel, optional: true
+    path "panHiTE.CorePan_fitmodel.pdf", emit: ch_corepan_model
+    path "panHiTE.CorePan_fitsmooth.pdf", emit: ch_corepan_smodel
+    path "full_length_TE_PAV.tsv", emit: ch_full_length_pav
+    path "Full_length_TEs_Ratio.json", emit: ch_fl_te_ratio
+    path "TEs_Ratio.json", emit: ch_te_ratio
+    path "Full_length_TE_Coverage.json", emit: ch_fl_te_coverage
+    path "TE_Coverage.json", emit: ch_te_coverage
+    path "Full_length_TE_Classes_Ratio.json", emit: ch_fl_te_classes_ratio
+    path "TE_Classes_Ratio.json", emit: ch_te_classes_ratio
+    path "Full_length_TE_Classes_Coverage.json", emit: ch_fl_te_classes_coverage
+    path "TE_Classes_Coverage.json", emit: ch_te_classes_coverage
+    path "intact_LTR_insert_time.csv", emit: ch_ltr_insert_time
 
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*.pdf"
 

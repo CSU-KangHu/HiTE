@@ -12146,39 +12146,51 @@ def summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, log
     pdf_files = []
     output_full_length_pdf = output_dir + '/TEs_ratio.full_length.pdf'
     output_pdf = output_dir + '/TEs_ratio.all.pdf'
+    full_length_TE_ratio = output_dir + '/Full_length_TEs_Ratio.json'
+    all_TE_ratio = output_dir + '/TEs_Ratio.json'
     draw_four_types_TE_ratio(core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes,
-                             core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf)
+                             core_tes, softcore_tes, dispensable_tes, private_tes,
+                             output_full_length_pdf, output_pdf, full_length_TE_ratio, all_TE_ratio)
     pdf_files.append(output_full_length_pdf)
     pdf_files.append(output_pdf)
 
 
     output_full_length_pdf = output_dir + '/TEs_coverage.full_length.pdf'
     output_pdf = output_dir + '/TEs_coverage.all.pdf'
+    full_length_TE_coverage = output_dir + '/Full_length_TE_Coverage.json'
+    all_TE_coverage = output_dir + '/TE_Coverage.json'
     draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softcore_fl_tes, dispensable_fl_tes,
-                                private_fl_tes,
-                                pan_te_total_infos, core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf)
+                                private_fl_tes, pan_te_total_infos, core_tes, softcore_tes, dispensable_tes, private_tes,
+                                output_full_length_pdf, output_pdf, full_length_TE_coverage, all_TE_coverage)
     pdf_files.append(output_full_length_pdf)
     pdf_files.append(output_pdf)
 
 
     output_full_length_pdf = output_dir + '/TEclasses_ratio.full_length.pdf'
     output_pdf = output_dir + '/TEclasses_ratio.all.pdf'
+    full_length_TE_classes_ratio = output_dir + '/Full_length_TE_Classes_Ratio.json'
+    all_TE_classes_ratio = output_dir + '/TE_Classes_Ratio.json'
     draw_four_types_TE_class_ratio(te_classes, core_fl_tes, softcore_fl_tes, dispensable_fl_tes,
                                   private_fl_tes, unknown_fl_tes, core_tes, softcore_tes, dispensable_tes,
-                                  private_tes, unknown_tes, output_full_length_pdf, output_pdf)
+                                  private_tes, unknown_tes, output_full_length_pdf, output_pdf,
+                                  full_length_TE_classes_ratio, all_TE_classes_ratio)
     pdf_files.append(output_full_length_pdf)
     pdf_files.append(output_pdf)
 
 
     output_full_length_pdf = output_dir + '/TEclasses_coverage.full_length.pdf'
     output_pdf = output_dir + '/TEclasses_coverage.all.pdf'
-    draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes, pan_te_fl_infos, pan_te_total_infos, output_full_length_pdf, output_pdf)
+    full_length_TE_classes_coverage = output_dir + '/Full_length_TE_Classes_Coverage.json'
+    all_TE_classes_coverage = output_dir + '/TE_Classes_Coverage.json'
+    draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes, pan_te_fl_infos, pan_te_total_infos,
+                                      output_full_length_pdf, output_pdf, full_length_TE_classes_coverage, all_TE_classes_coverage)
     pdf_files.append(output_full_length_pdf)
     pdf_files.append(output_pdf)
 
     # 计算每个 genome 上的intact LTR插入时间
     output_pdf = output_dir + '/intact_LTR_insert_time.pdf'
-    draw_intact_LTR_insert_time(genome_info_list, output_pdf)
+    ltr_insert_time = output_dir + '/intact_LTR_insert_time.csv'
+    draw_intact_LTR_insert_time(genome_info_list, output_pdf, ltr_insert_time)
     pdf_files.append(output_pdf)
 
     # 合并成一个Pdf
@@ -12194,7 +12206,8 @@ def summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, log
             os.remove(pdf)
 
 def draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes,
-                                pan_te_total_infos, core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf):
+                                pan_te_total_infos, core_tes, softcore_tes, dispensable_tes, private_tes,
+                                output_full_length_pdf, output_pdf, full_length_TE_coverage, all_TE_coverage):
     # 计算四种类型的全长 TE 分别覆盖每个基因组的比例，并画出所有基因组上的饼图比例
     fl_genome_coverage_core = {}
     fl_genome_coverage_softcore = {}
@@ -12242,7 +12255,6 @@ def draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softco
     # print(fl_genome_coverage_softcore)
     # print(fl_genome_coverage_dispensable)
     # print(fl_genome_coverage_private)
-
     sizes_list = []
     labels_list = []
     genome_names = []
@@ -12265,6 +12277,9 @@ def draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softco
         sizes_list.append(cur_sizes)
         labels_list.append(cur_labels)
         genome_names.append(genome_name)
+    fl_statics = {'size_list': sizes_list, 'labels_list': labels_list, 'genome_names': genome_names}
+    with open(full_length_TE_coverage, "w") as json_file:
+        json.dump(fl_statics, json_file, indent=4)
     draw_multiple_pie(genome_num, sizes_list, labels_list, genome_names, title, output_full_length_pdf)
     # =====================================================================
     # 计算四种类型的 TE 分别覆盖每个基因组的比例，并画出每个基因组的饼图
@@ -12337,12 +12352,16 @@ def draw_four_types_TE_coverage(genome_num, pan_te_fl_infos, core_fl_tes, softco
         sizes_list.append(cur_sizes)
         labels_list.append(cur_labels)
         genome_names.append(genome_name)
+    all_statics = {'size_list': sizes_list, 'labels_list': labels_list, 'genome_names': genome_names}
+    with open(all_TE_coverage, "w") as json_file:
+        json.dump(all_statics, json_file, indent=4)
     draw_multiple_pie(genome_num, sizes_list, labels_list, genome_names, title, output_pdf)
     return genome_names
 
 def draw_four_types_TE_class_ratio(te_classes, core_fl_tes, softcore_fl_tes, dispensable_fl_tes,
                                    private_fl_tes, unknown_fl_tes, core_tes, softcore_tes, dispensable_tes,
-                                   private_tes, unknown_tes, output_full_length_pdf, output_pdf):
+                                   private_tes, unknown_tes, output_full_length_pdf, output_pdf,
+                                   full_length_TE_classes_ratio, all_TE_classes_ratio):
     # 统计全长 TEs 中，四种类型的TEs，每一种的 TE class 数量
     core_te_class_num = {}
     for te_name in core_fl_tes.keys():
@@ -12416,6 +12435,9 @@ def draw_four_types_TE_class_ratio(te_classes, core_fl_tes, softcore_fl_tes, dis
             private_num = 0
         cur_data_list.append(private_num)
         data_list.append(cur_data_list)
+    fl_statics = {'labels': labels, 'data_list': data_list, 'all_class_names': all_class_names}
+    with open(full_length_TE_classes_ratio, "w") as json_file:
+        json.dump(fl_statics, json_file, indent=4)
     draw_stacked_bar_chart(labels, data_list, all_class_names, 'Full length TE Classes Ratio', output_full_length_pdf)
 
     # 统计所有 TEs 中，四种类型的TEs，每一种的 TE class 数量
@@ -12491,10 +12513,13 @@ def draw_four_types_TE_class_ratio(te_classes, core_fl_tes, softcore_fl_tes, dis
             private_num = 0
         cur_data_list.append(private_num)
         data_list.append(cur_data_list)
+    all_statics = {'labels': labels, 'data_list': data_list, 'all_class_names': all_class_names}
+    with open(all_TE_classes_ratio, "w") as json_file:
+        json.dump(all_statics, json_file, indent=4)
     draw_stacked_bar_chart(labels, data_list, all_class_names, 'TE Classes Ratio', output_pdf)
-    return all_class_names
 
-def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes, pan_te_fl_infos, pan_te_total_infos, output_full_length_pdf, output_pdf):
+def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes, pan_te_fl_infos, pan_te_total_infos,
+                                      output_full_length_pdf, output_pdf, full_length_TE_classes_coverage, all_TE_classes_coverage):
     # 统计每个基因组的各种类型的全长TE的占比,绘制横向堆叠柱状图
     genome_fl_te_class_coverages = {}
     for genome_name in pan_te_fl_infos.keys():
@@ -12523,6 +12548,9 @@ def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes,
                 cur_class_coverage = 0
             cur_data_list.append(cur_class_coverage / 1000000)
         data_list.append(cur_data_list)
+    fl_statics = {'labels': labels, 'data_list': data_list, 'all_class_names': all_class_names}
+    with open(full_length_TE_classes_coverage, "w") as json_file:
+        json.dump(fl_statics, json_file, indent=4)
     draw_horizontal_stacked_bar_chart(labels, data_list, all_class_names, 'Full length TE Classes Coverage', output_full_length_pdf)
 
     # 统计每个基因组的各种类型的TE的占比,绘制横向堆叠柱状图
@@ -12553,6 +12581,9 @@ def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes,
                 cur_class_coverage = 0
             cur_data_list.append(cur_class_coverage / 1000000)
         data_list.append(cur_data_list)
+    all_statics = {'labels': labels, 'data_list': data_list, 'all_class_names': all_class_names}
+    with open(all_TE_classes_coverage, "w") as json_file:
+        json.dump(all_statics, json_file, indent=4)
     draw_horizontal_stacked_bar_chart(labels, data_list, all_class_names, 'TE Classes Coverage', output_pdf)
 
 def get_panTE_full_length_annotation(pan_te_full_length_annotations, core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes, output_dir, recover, log):
@@ -12609,7 +12640,7 @@ def get_panTE_full_length_annotation(pan_te_full_length_annotations, core_fl_tes
             if log is not None:
                 log.logger.info(resut_file + ' exists, skip...')
 
-def draw_intact_LTR_insert_time(genome_info_list, output_pdf):
+def draw_intact_LTR_insert_time(genome_info_list, output_pdf, ltr_insert_time):
     # 初始化列表，用于存储每个 genome_name 的插入时间数据
     all_data = []
     for genome_info in genome_info_list:
@@ -12633,6 +12664,7 @@ def draw_intact_LTR_insert_time(genome_info_list, output_pdf):
 
     # 将数据转换为 DataFrame
     all_data_df = pd.DataFrame(all_data, columns=['Genome', 'Insertion_Time', 'Classification'])
+    all_data_df.to_csv(ltr_insert_time, index=False)
 
     # 绘制箱线图，使用 hue 区分 LTR/Copia 和 LTR/Gypsy
     plt.figure(figsize=(15, 15))
@@ -12754,7 +12786,8 @@ def get_core_softcore_dispensable_private_uknown_TEs(new_te_contigs, te_fl_occur
             core_tes, softcore_tes, dispensable_tes, private_tes, unknown_tes)
 
 def draw_four_types_TE_ratio(core_fl_tes, softcore_fl_tes, dispensable_fl_tes, private_fl_tes,
-                             core_tes, softcore_tes, dispensable_tes, private_tes, output_full_length_pdf, output_pdf):
+                             core_tes, softcore_tes, dispensable_tes, private_tes,
+                             output_full_length_pdf, output_pdf, full_length_TE_ratio, all_TE_ratio):
     # 统计四种类型的全长TE数量 占 总体TE数量的比例，并画出饼图
     core_fl_tes_num = len(core_fl_tes)
     softcore_fl_tes_num = len(softcore_fl_tes)
@@ -12766,6 +12799,11 @@ def draw_four_types_TE_ratio(core_fl_tes, softcore_fl_tes, dispensable_fl_tes, p
              float(softcore_fl_tes_num) * 100 / total_num,
              float(dispensable_fl_tes_num) * 100 / total_num,
              float(private_fl_tes_num) * 100 / total_num]
+    fl_statics = {'core_fl_tes_num': core_fl_tes_num, 'softcore_fl_tes_num': softcore_fl_tes_num,
+                  'dispensable_fl_tes_num': dispensable_fl_tes_num, 'private_fl_tes_num': private_fl_tes_num,
+                  'total_num': total_num}
+    with open(full_length_TE_ratio, "w") as json_file:
+        json.dump(fl_statics, json_file, indent=4)
     draw_pie(sizes, labels, output_full_length_pdf, title='Full length TEs Ratio', is_percent=True)
 
     core_tes_num = len(core_tes)
@@ -12778,6 +12816,11 @@ def draw_four_types_TE_ratio(core_fl_tes, softcore_fl_tes, dispensable_fl_tes, p
              float(softcore_tes_num) * 100 / total_num,
              float(dispensable_tes_num) * 100 / total_num,
              float(private_tes_num) * 100 / total_num]
+    all_statics = {'core_tes_num': core_tes_num, 'softcore_tes_num': softcore_tes_num,
+                  'dispensable_tes_num': dispensable_tes_num, 'private_tes_num': private_tes_num,
+                  'total_num': total_num}
+    with open(all_TE_ratio, "w") as json_file:
+        json.dump(all_statics, json_file, indent=4)
     draw_pie(sizes, labels, output_pdf, title='TEs Ratio', is_percent=True)
 
 def draw_multiple_pie(sub_num, sizes_list, labels_list, genome_names, title, output_pdf):
@@ -13677,7 +13720,7 @@ def get_full_length_copies_from_blastn_v2(TE_lib, reference, blastn_out, tmp_out
     return full_length_annotations, copies_direct, all_query_copies
 
 def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
-    pav_table = output_dir + '/panHiTE_PAV.tsv'
+    pav_table = output_dir + '/full_length_TE_PAV.tsv'
     lines = []
     first_line = 'TE_families\t'
     genome_names = pan_te_fl_infos.keys()

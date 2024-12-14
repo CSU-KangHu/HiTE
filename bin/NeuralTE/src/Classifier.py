@@ -33,7 +33,7 @@ class Classifier:
 
 
 def main():
-    showToolName()
+    # showToolName()
 
     # 1.parse args
     describe_info = '########################## NeuralTE, version ' + str(config.version_num) + ' ##########################'
@@ -150,7 +150,7 @@ def main():
     data_processor = DataProcessor()
     # load data
     X, y, seq_names, data_path = data_processor.load_data(config.internal_kmer_sizes, config.terminal_kmer_sizes, data_path)
-    print(X.shape, y.shape)
+    # print(X.shape, y.shape)
     endtime1 = time.time()
     dtime1 = endtime1 - starttime1
     print("Running time of DataProcessor: %.8s s" % (dtime1))

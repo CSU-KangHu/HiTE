@@ -17,6 +17,7 @@ We are excited to announce a significant update to HiTE, which now includes the 
     - [Full Workflow](#full_workflow)
     - [Skipping Differential Gene Detection Workflow](#skip_de)
     - [Running on HPC Platform](#run_hpc)
+    - [Checking the Output](#check_output)
     - [Checkpoint Recovery](#nextflow_restore)
   - [Usage](#cmd)
   - [Output Preview](#output_preview)
@@ -256,10 +257,18 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --skip_analyze 0
 ```
 
-#### <a name="check_output"></a>4.4 检查输出
-请检查${out_dir}/run_hite_single/${genome}目录下包含必要的输出文件，以确保HiTE在每个基因成功运行。
-完整的输出应该包含如下文件，其中(2),(3),(4),(9), (10), (11)文件为LTR模块输出结果，(8)为TIR模块结果，
-(1)为Helitron模块结果，(5),(6)为non-ltr模块结果，(7)为所有TE合并结果：
+#### <a name="check_output"></a>4.4 Checking the Output
+
+Please verify that the `${out_dir}/run_hite_single/${genome}` directory contains all the necessary output files to ensure that HiTE has successfully run for each genome.  
+
+The complete output should include the following files:  
+- Files (2), (3), (4), (9), (10), and (11) are results from the LTR module.  
+- File (8) is from the TIR module.  
+- File (1) is the output of the Helitron module.  
+- Files (5) and (6) are results from the non-LTR module.  
+- File (7) contains the merged results of all TEs.  
+
+The expected structure of the output directory is as follows:  
 ```markdown
 .
 ├── confident_helitron.fa     (1)
@@ -274,9 +283,12 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 ├── intact_LTR.fa.classified  (10)
 └── intact_LTR.list           (11)
 ```
-如果发现某个文件大小为0，例如confident_tir.fa文件大小为0，表明HiTE没有在该基因组上检测
-到任何的TIR元素，这有两种可能：1. 该基因组真的没有TIR元素。 2.程序未能正确HiTE的TIR检测。你可以通过检查
-其他相似基因组是否有TIR元素来判断。如果你没有办法确认，最好删除该基因的输出目录，重新运行以确保程序正确运行。
+
+If any file has a size of 0, such as `confident_tir.fa`, it indicates that HiTE did not detect any TIR elements in the genome. This could be due to one of two reasons:  
+1. The genome genuinely lacks TIR elements.  
+2. The TIR detection step in HiTE did not run correctly.  
+
+To determine the cause, you can check if other similar genomes contain TIR elements. If you're unable to confirm, the safest approach is to delete the output directory for the affected genome and rerun the pipeline to ensure proper execution.
 
 #### <a name="nextflow_restore"></a>4.5 Checkpoint Recovery
 
@@ -299,7 +311,7 @@ If you need to rerun a specific process and its downstream processes, you can de
     <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="recovery" width="800"/> 
 </div>
 
-**Friendly Reminder:** Please regularly monitor the status of your tasks. If you notice a task has been running for an unusually long time without progressing, make sure it is actually executing. For instance, while running `panHiTE` on an HPC system, the `run_hite_single` process is divided into \(N\) data chunks and executed in parallel. Most chunks finish within 1-2 hours, but a few may continue running for several hours without completing.  
+**Friendly Reminder:** Please regularly monitor the status of your tasks. If you notice a task has been running for an unusually long time without progressing, make sure it is actually executing. For instance, while running `panHiTE` on an HPC system, the `run_hite_single` process is divided into _N_ data chunks and executed in parallel. Most chunks finish within 1-2 hours, but a few may continue running for several hours without completing.  
 
 In such cases, I use `squeue` to check the node allocation and log into the compute node to inspect the process using the `top` command. Occasionally, I observe that the program is not utilizing any CPU resources and appears to be stuck. While the root cause remains unclear, I suspect it might be related to recent storage I/O issues on our HPC platform.
 
