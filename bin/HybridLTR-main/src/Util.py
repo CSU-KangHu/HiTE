@@ -6227,7 +6227,9 @@ def get_domain_info(cons, lib, output_table, threads, temp_dir):
         os.makedirs(temp_dir)
 
     db_prefix = os.path.basename(lib)
-    db_files = [f"{db_prefix}.phr", f"{db_prefix}.pin", f"{db_prefix}.psq"]
+    db_files = [os.path.join(os.path.dirname(lib), f"{db_prefix}.phr"),
+                os.path.join(os.path.dirname(lib), f"{db_prefix}.pin"),
+                os.path.join(os.path.dirname(lib), f"{db_prefix}.psq")]
 
     if all(os.path.exists(f) for f in db_files):
         print(f"BLAST database exist, skip creating：{db_prefix}")
