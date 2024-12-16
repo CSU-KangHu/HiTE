@@ -10,6 +10,7 @@ dependencies:
   - java-jdk
   - pytorch
   - cpuonly
+  - gxx=14.2.0
   - tensorflow=2.12.1
   - numpy=1.24.4
   - pandas=2.2.2

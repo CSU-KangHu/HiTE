@@ -7378,7 +7378,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 no_gap_num = row_num - base_map['-']
@@ -7467,7 +7467,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             no_gap_num = row_num - base_map['-']
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -7559,7 +7559,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -7650,7 +7650,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -7689,10 +7689,6 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             col_index -= 1
         max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
         max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        # if debug:
-        #     print('align end left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
-        #     print(homo_cols)
 
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
@@ -7769,7 +7765,7 @@ def search_boundary_homo_v5(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 no_gap_num = row_num - base_map['-']
@@ -7858,7 +7854,7 @@ def search_boundary_homo_v5(valid_col_threshold, pos, matrix, row_num, col_num,
             no_gap_num = row_num - base_map['-']
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -7949,7 +7945,7 @@ def search_boundary_homo_v5(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8043,7 +8039,7 @@ def search_boundary_homo_v5(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8161,7 +8157,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 no_gap_num = row_num - base_map['-']
@@ -8252,7 +8248,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
             no_gap_num = row_num - base_map['-']
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8344,7 +8340,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8435,7 +8431,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8557,7 +8553,7 @@ def search_boundary_homo_v6(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 no_gap_num = row_num - base_map['-']
@@ -8648,7 +8644,7 @@ def search_boundary_homo_v6(valid_col_threshold, pos, matrix, row_num, col_num,
             no_gap_num = row_num - base_map['-']
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8740,7 +8736,7 @@ def search_boundary_homo_v6(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8831,7 +8827,7 @@ def search_boundary_homo_v6(valid_col_threshold, pos, matrix, row_num, col_num,
             max_homo_ratio = 0
             gap_num = base_map['-']
             # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
-            if gap_num <= valid_col_threshold:
+            if gap_num < valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
                 for base in base_map.keys():
@@ -8990,7 +8986,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     # Count the base composition of each column, in the format of {40: {A: 10, T: 5, C: 7, G: 9, '-': 20}},
     # which indicates the number of different bases in the current column.
     # Based on this, it is easy to determine whether the current column is effective and whether it is a homologous column.
-    sliding_window_size = 10
+    sliding_window_size = 20
     valid_col_threshold = int(row_num/2)
 
     if row_num <= 2:
@@ -9268,7 +9264,7 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
     # Count the base composition of each column, in the format of {40: {A: 10, T: 5, C: 7, G: 9, '-': 20}},
     # which indicates the number of different bases in the current column.
     # Based on this, it is easy to determine whether the current column is effective and whether it is a homologous column.
-    sliding_window_size = 10
+    sliding_window_size = 20
     valid_col_threshold = int(row_num/2)
 
     if row_num <= 2:
@@ -9552,7 +9548,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # Therefore, we use a method based on continuous homology to search.
     # Since the end of Helitron is fixed, we start searching from the end.
     # If the conditions are met and there is no change, it means the end has been correctly identified.
-    sliding_window_size = 10
+    sliding_window_size = 20
     valid_col_threshold = int(end_row_num/2)
 
     if end_row_num <= 2:
@@ -9911,7 +9907,7 @@ def judge_boundary_v7(cur_seq, align_file, debug, TE_type, plant, result_type):
         for col in range(len(seq)):
             matrix[row][col] = seq[col]
 
-    sliding_window_size = 10
+    sliding_window_size = 20
     valid_col_threshold = int(end_row_num/2)
 
     if end_row_num <= 2:
