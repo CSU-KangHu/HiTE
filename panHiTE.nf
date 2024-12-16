@@ -87,10 +87,13 @@ process preprocess_genomes {
 
 // Step 3: HiTE 并行处理每个基因组
 process run_hite_single {
+    time '3h'
+    cpus { params.threads ?: 1 }
+
     storeDir "${params.out_dir}/run_hite_single/${genome_name}"
 
     input:
-    tuple val(genome_name), val(raw_name), path(reference), val(threads), val(te_type), val(miu), val(debug)
+    tuple val(genome_name), val(raw_name), path(reference), val(te_type), val(miu), val(debug)
 
     output:
     tuple val(genome_name), path("intact_LTR.list"), emit: ch_intact_ltr_list
@@ -106,8 +109,9 @@ process run_hite_single {
     path "confident_TE.cons.fa", emit: ch_te
 
     script:
+    cores = task.cpus
     """
-    pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${threads} \
+    pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
     --te_type ${te_type} --miu ${miu} --debug ${debug}
     """
 }
@@ -131,35 +135,40 @@ process merge_terminal_te {
 
 // Step 5: 去冗余
 process pan_remove_redundancy {
+    cpus { params.threads ?: 1 }
+
     storeDir "${params.out_dir}/pan_remove_redundancy"
 
     input:
     file terminal_tmp
     file internal_tmp
-    val threads
 
     output:
     path "panTE.fa"
 
     script:
+    cores = task.cpus
     """
-    pan_remove_redundancy.py --pan_terminal_tmp_lib ${terminal_tmp} --pan_internal_tmp_lib ${internal_tmp} --threads ${threads}
+    pan_remove_redundancy.py --pan_terminal_tmp_lib ${terminal_tmp} --pan_internal_tmp_lib ${internal_tmp} --threads ${cores}
     """
 }
 
 // Step 3: 注释基因组
 process annotate_genomes {
+    cpus { params.threads ?: 1 }
+
     storeDir "${params.out_dir}/annotate_genomes/${genome_name}"
 
     input:
-    tuple val(genome_name), path(reference), val(threads), path(panTE_lib)
+    tuple val(genome_name), path(reference), path(panTE_lib)
 
     output:
     tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
 
     script:
+    cores = task.cpus
     """
-    pan_annotate_genome.py --threads ${threads} --panTE_lib ${panTE_lib} --reference ${reference} \
+    pan_annotate_genome.py --threads ${cores} --panTE_lib ${panTE_lib} --reference ${reference} \
     --genome_name ${genome_name}
     """
 }
@@ -218,30 +227,33 @@ process pan_gene_te_relation {
 
 
 process pan_generate_bam_for_RNA_seq {
+    cpus { params.threads ?: 1 }
+
     storeDir "${params.out_dir}/pan_generate_bam_for_RNA_seq"
 
-
     input:
-    tuple val(genome_name), path(reference), val(RNA_dir), val(RNA_seq), val(threads)
+    tuple val(genome_name), path(reference), val(RNA_dir), val(RNA_seq)
 
     output:
     tuple val(genome_name), path("${genome_name}.output.sorted.bam"), emit: bam_out
 
     script:
+    cores = task.cpus
     """
     pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} \
-    --RNA_seq '${RNA_seq}' --RNA_dir ${RNA_dir} --threads ${threads}
+    --RNA_seq '${RNA_seq}' --RNA_dir ${RNA_dir} --threads ${cores}
     """
 }
 
 process pan_detect_de_genes {
+    cpus { params.threads ?: 1 }
+
     storeDir "${params.out_dir}/pan_detect_de_genes"
 
     input:
     path genome_info_for_bam_json
     path gene_te_associations
     val RNA_dir
-    val threads
 
     output:
     path "DE_genes_from_TEs.tsv", emit: ch_de_genes, optional: true
@@ -250,9 +262,10 @@ process pan_detect_de_genes {
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*.tsv"
 
     script:
+    cores = task.cpus
     """
     pan_detect_de_genes.py --genome_info_for_bam_json ${genome_info_for_bam_json} --gene_te_associations ${gene_te_associations} \
-    --RNA_dir ${RNA_dir} --threads ${threads}
+    --RNA_dir ${RNA_dir} --threads ${cores}
     """
 }
 
@@ -270,7 +283,7 @@ workflow {
             genome_json.genome_info.collect { [it.genome_name, it.raw_name, it.reference, it.gene_gtf, it.RNA_seq] }
         }
     genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-            [genome_name, raw_name, reference, params.threads, params.te_type, params.miu, params.debug]
+            [genome_name, raw_name, reference, params.te_type, params.miu, params.debug]
         }.set { hite_input_channel }
 
 
@@ -287,12 +300,12 @@ workflow {
     all_terminal = merged_terminal.collectFile(name: "${params.out_dir}/pan_terminal.tmp.fa")
 
     // Step 5: 对LTR terminal 和 internal 去冗余，生成panTE library
-    panTE_lib = pan_remove_redundancy(all_terminal, all_internal, params.threads)
+    panTE_lib = pan_remove_redundancy(all_terminal, all_internal)
     panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-        [genome_name, reference, params.threads]
+        [genome_name, reference]
     }.combine(panTE_lib).set { annotate_input_channel }
 
     // Step 6: 并行注释每个基因组
@@ -338,7 +351,7 @@ workflow {
 
         //Step 9: 为RNA_seq生成比对bam
         genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-            [genome_name, reference, params.RNA_dir, RNA_seq, params.threads]
+            [genome_name, reference, params.RNA_dir, RNA_seq]
         }.set { generate_bam_input_channel }
         bam_out = pan_generate_bam_for_RNA_seq(generate_bam_input_channel)
 
@@ -360,6 +373,6 @@ workflow {
             return filePath
         }.set { genome_info_for_bam_json }
 
-        pan_detect_de_genes(genome_info_for_bam_json, gene_te_associations_out, params.RNA_dir, params.threads)
+        pan_detect_de_genes(genome_info_for_bam_json, gene_te_associations_out, params.RNA_dir)
     }
 }
