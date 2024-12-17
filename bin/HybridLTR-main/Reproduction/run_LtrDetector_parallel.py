@@ -102,11 +102,14 @@ if __name__ == '__main__':
     #         cur_ref_names, cur_ref_contigs = read_fasta(cur_genome)
     #         ref_contigs.update(cur_ref_contigs)
 
+    output_list = []
     ex = ProcessPoolExecutor(threads)
     objs = []
     for partition_index in os.listdir(split_ref_dir):
         fasta_dir = split_ref_dir + '/' + str(partition_index)
-        obj = ex.submit(run_LtrDetector, fasta_dir, LtrDetector_home, output_dir)
+        cur_output_dir = output_dir + '/' + str(partition_index)
+        output_list.append(cur_output_dir)
+        obj = ex.submit(run_LtrDetector, fasta_dir, LtrDetector_home, cur_output_dir)
         objs.append(obj)
     ex.shutdown(wait=True)
     for obj in as_completed(objs):
@@ -115,7 +118,10 @@ if __name__ == '__main__':
 
     # Step3. 合并所有的LtrDetector 结果, 转换 LTRDetector 的输出为scn格式
     total_bed = output_dir + '/total.bed'
-    os.system('cd ' + output_dir +  ' && cat *.bed > ' + total_bed)
+    if os.path.exists(total_bed):
+        os.remove(total_bed)
+    for cur_output_dir in output_list:
+        os.system('cat ' + cur_output_dir +  '/*.bed >> ' + total_bed)
 
     scn_file = output_dir + '/total.scn'
     convert_LtrDetector_scn(total_bed, scn_file)

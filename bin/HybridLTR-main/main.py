@@ -154,8 +154,8 @@ if __name__ == '__main__':
         LTR_detector_scn_file = LTR_detector_output_dir + '/total.scn'
         # 将分割的染色体名称映射回原始的名称和位置
         map_chr_position(LTR_detector_scn_file, scn_file, position_map)
-        if not debug:
-            os.system('rm -rf ' + LTR_detector_output_dir)
+        # if not debug:
+        #     os.system('rm -rf ' + LTR_detector_output_dir)
     else:
         log.logger.info(result_file + ' exists, skip...')
 

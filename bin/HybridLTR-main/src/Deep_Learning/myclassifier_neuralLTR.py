@@ -133,7 +133,6 @@ def extract_features(file_path):
 
             chunk_features.append(features)
             chunk_freqs.append(freq_feature)
-
     return chunk_features, chunk_freqs, ltr_names
 
 
@@ -156,9 +155,9 @@ def chunk_data(pos_data, chunk_size1):
         yield pos_chunk
 
 
-def align2pileup(file_path):
+def align2pileup(file_path, num_workers):
     # 进程数
-    num_processes = 20
+    num_processes = num_workers
     target_files = get_files(file_path)
     if len(target_files) == 0:
         raise ValueError("No LTR files found.")
@@ -270,15 +269,16 @@ def main():
     model.load_state_dict(state_dict)
     model = model.to(device)
     print('model loaded done!')
-
-    img_features, freq_features, ltr_names = align2pileup(file_path)
+    num_workers = max(1, threads // 2)
+    img_features, freq_features, ltr_names = align2pileup(file_path, num_workers)
     # print(img_features.shape)
     img_features = F.normalize(img_features, p=2, dim=1)
     freq_features = F.normalize(freq_features, p=2, dim=1)
     dataset = torch.utils.data.TensorDataset(img_features, freq_features)
+    print('feature extraction done!')
 
     model.eval()
-    num_workers = max(1, threads)
+
     val_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     preds = []
     probs_array = []

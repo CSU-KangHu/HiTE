@@ -547,7 +547,7 @@ if __name__ == '__main__':
                     log.logger.info("Running time of step2.2: %.8s s" % (dtime))
                 else:
                     # 创建一个空的输出文件，以跳过nextflow的检查
-                    confident_tir = os.path.join(tmp_output_dir, '/confident_tir_'+str(ref_index)+'.fa')
+                    confident_tir = os.path.join(tmp_output_dir, 'confident_tir_'+str(ref_index)+'.fa')
                     empty_files = [confident_tir]
                     for empty_file in empty_files:
                         os.system('touch ' + empty_file)
@@ -573,7 +573,7 @@ if __name__ == '__main__':
                     log.logger.info("Running time of step2.3: %.8s s" % (dtime))
                 else:
                     # 创建一个空的输出文件，以跳过nextflow的检查
-                    confident_helitron = os.path.join(tmp_output_dir, '/confident_helitron_' + str(ref_index) + '.fa')
+                    confident_helitron = os.path.join(tmp_output_dir, 'confident_helitron_' + str(ref_index) + '.fa')
                     empty_files = [confident_helitron]
                     for empty_file in empty_files:
                         os.system('touch ' + empty_file)
@@ -603,7 +603,7 @@ if __name__ == '__main__':
                     log.logger.info("Running time of step2.4: %.8s s" % (dtime))
                 else:
                     # 创建一个空的输出文件，以跳过nextflow的检查
-                    confident_non_ltr = os.path.join(tmp_output_dir, '/confident_non_ltr_' + str(ref_index) + '.fa')
+                    confident_non_ltr = os.path.join(tmp_output_dir, 'confident_non_ltr_' + str(ref_index) + '.fa')
                     empty_files = [confident_non_ltr]
                     for empty_file in empty_files:
                         os.system('touch ' + empty_file)
