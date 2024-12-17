@@ -398,6 +398,9 @@ if __name__ == '__main__':
     #     ├──benchmarking reproduction: benchmarking.py
     #     └──clean temporary files: clean_lib.py
 
+    # reduce the threads number to avoid run out of resources
+    threads = max(1, threads-4)
+
     pipeline_starttime = time.time()
     if skip_HiTE != 1:
         log.logger.info('Start step0: Structural Based LTR Searching')
