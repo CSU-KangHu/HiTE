@@ -187,6 +187,7 @@ process summarize_tes {
     path "TE_summary.pdf", emit: ch_te_summary
     path "panHiTE.CorePan_fitmodel.pdf", emit: ch_corepan_model
     path "panHiTE.CorePan_fitsmooth.pdf", emit: ch_corepan_smodel
+    path "*.txt", emit: ch_corepan_txt
     path "full_length_TE_PAV.tsv", emit: ch_full_length_pav
     path "Full_length_TEs_Ratio.json", emit: ch_fl_te_ratio
     path "TEs_Ratio.json", emit: ch_te_ratio

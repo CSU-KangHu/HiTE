@@ -11339,10 +11339,10 @@ def ReassignInconsistentLabels(TE_lib):
         parts = name.split('#')
         raw_name = parts[0]
         label = parts[1]
-        if ('LTR' in raw_name and 'LTR' not in label) \
+        if ('Non_LTR' in raw_name and ('LINE' not in label or 'SINE' not in label)) \
+                or ('LTR' in raw_name and 'LTR' not in label) \
                 or ('TIR' in raw_name and 'DNA' not in label) \
-                or ('Helitron' in raw_name and 'Helitron' not in label) \
-                or ('Non_LTR' in raw_name and ('LINE' not in label or 'SINE' not in label)):
+                or ('Helitron' in raw_name and 'Helitron' not in label):
             new_label = 'Unknown'
             new_name = raw_name + '#' + new_label
             new_TE_contigs[new_name] = TE_contigs[name]

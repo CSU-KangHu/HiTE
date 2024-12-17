@@ -122,8 +122,8 @@ dsum <- dplyr::group_by(data, sampleNum) %>%
             Core.sd = sd(Core))
 dsum <- round(dsum, 2)
 
-#write.table(data, file=paste(pre, "CorePan.txt", sep="."),sep = "\t",quote = F, row.names = F)
-#write.table(dsum, file=paste(pre, "CorePan_summary.txt", sep="."),sep = "\t",quote = F, row.names = F)
+write.table(data, file=paste(pre, "CorePan.txt", sep="."),sep = "\t",quote = F, row.names = F)
+write.table(dsum, file=paste(pre, "CorePan_summary.txt", sep="."),sep = "\t",quote = F, row.names = F)
 
 
 
@@ -140,9 +140,9 @@ model.c <- nlsLM(Core.mean ~ a * exp(b * sampleNum) + c,
                  data = dsum, 
                  start = start.0)
 
-#sink(file = paste(pre, "CorePan_core_model.txt", sep="."),append = FALSE)
+sink(file = paste(pre, "CorePan_core_model.txt", sep="."),append = FALSE)
 print(summary(model.c), digits = 10)
-#sink()
+sink()
 
 # pan: 幂律回归, y=Ax^B+C = A * e^(B*log(x))+C,  0<B<1 means open pan-genome 
 # start估计
@@ -166,9 +166,9 @@ model.p <- nlsLM(Pan.mean ~ a * (sampleNum^b) +c ,
                  data = dsum,
                  start = start.1)
 
-#sink(file = paste(pre, "CorePan_pan_model.txt", sep="."),append = FALSE)
+sink(file = paste(pre, "CorePan_pan_model.txt", sep="."),append = FALSE)
 print(summary(model.p), digits = 10)
-#sink()
+sink()
 
 #summary(model.p)
 #coef(summary(model.p))
