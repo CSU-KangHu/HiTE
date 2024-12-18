@@ -321,8 +321,8 @@ workflow {
             genome_info[3],
             genome_info[4],
             genome_info[5].toString(),
-            genome_info[6].toString(),
-            genome_info[7].toString()
+            genome_info[8].toString(),
+            genome_info[9].toString()
         ]
     }.join(intact_ltr_list_channel).map { genome_info ->
         [
@@ -332,9 +332,9 @@ workflow {
             gene_gtf   : genome_info[3],
             RNA_seq    : genome_info[4],
             TE_gff        : genome_info[5],
-            full_length_TE_gff: genome_info[6],
-            full_length_copies: genome_info[7],
-            intact_LTR_list: genome_info[8].toString()
+            full_length_TE_gff: genome_info[8],
+            full_length_copies: genome_info[9],
+            intact_LTR_list: genome_info[10].toString()
         ]
     }.collect().map { data ->
         def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
