@@ -163,7 +163,7 @@ process annotate_genomes {
     tuple val(genome_name), path(reference), path(panTE_lib)
 
     output:
-    tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.tbl"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
+    tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.tbl"), path("${genome_name}.out"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
 
     script:
     cores = task.cpus
@@ -293,13 +293,15 @@ workflow {
     // 将每个 Channel 的输出文件收集并合并
     all_terminal = hite_out.ch_ltr_terminal.collectFile(name: "${params.out_dir}/pan_terminal.tmp.fa")
     all_internal = hite_out.ch_ltr_internal.collectFile(name: "${params.out_dir}/pan_internal.tmp.fa")
+    all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
 
     // Step 4: 合并 HiTE 的 其他TE和LTR terminal library
-    merged_terminal = merge_terminal_te(all_terminal, hite_out.ch_te)
+    merged_terminal = merge_terminal_te(all_terminal, all_te)
+    all_terminal = merged_terminal.collectFile(name: "${params.out_dir}/pan_terminal.tmp.fa")
 
     // Step 5: 对LTR terminal 和 internal 去冗余，生成panTE library
-    panTE_lib = pan_remove_redundancy(merged_terminal, all_internal)
+    panTE_lib = pan_remove_redundancy(all_terminal, all_internal)
     panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
 
     // 准备panTE library和其他参数，作为channel
