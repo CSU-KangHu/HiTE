@@ -6527,8 +6527,18 @@ def get_domain_info_v1(cons, lib, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
-    blast_db_command = 'makeblastdb -dbtype prot -in ' + lib + ' > /dev/null 2>&1'
-    os.system(blast_db_command)
+    db_prefix = os.path.basename(lib)
+    db_files = [os.path.join(os.path.dirname(lib), f"{db_prefix}.phr"),
+                os.path.join(os.path.dirname(lib), f"{db_prefix}.pin"),
+                os.path.join(os.path.dirname(lib), f"{db_prefix}.psq")]
+
+    if all(os.path.exists(f) for f in db_files):
+        print(f"BLAST database exist, skip creating：{db_prefix}")
+    else:
+        blast_db_command = f"makeblastdb -dbtype prot -in {lib} > /dev/null 2>&1"
+        print(f"Creating BLAST database：{db_prefix}")
+        os.system(blast_db_command)
+
     partitions_num = int(threads)
     split_files = split_fasta(cons, temp_dir, partitions_num)
     merge_distance = 100
@@ -6578,8 +6588,17 @@ def get_domain_info_v2(cons, lib, threads, temp_dir, tool_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
-    blast_db_command = 'makeblastdb -dbtype prot -in ' + lib + ' > /dev/null 2>&1'
-    os.system(blast_db_command)
+    db_prefix = os.path.basename(lib)
+    db_files = [os.path.join(os.path.dirname(lib), f"{db_prefix}.phr"),
+                os.path.join(os.path.dirname(lib), f"{db_prefix}.pin"),
+                os.path.join(os.path.dirname(lib), f"{db_prefix}.psq")]
+
+    if all(os.path.exists(f) for f in db_files):
+        print(f"BLAST database exist, skip creating：{db_prefix}")
+    else:
+        blast_db_command = f"makeblastdb -dbtype prot -in {lib} > /dev/null 2>&1"
+        print(f"Creating BLAST database：{db_prefix}")
+        os.system(blast_db_command)
 
     cons_names, cons_contigs = read_fasta(cons)
     ex = ProcessPoolExecutor(threads)
