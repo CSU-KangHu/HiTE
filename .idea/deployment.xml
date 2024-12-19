@@ -24,6 +24,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="hukang@122.207.108.7:21000 password (10)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="hukang@122.207.108.7:21000 password (2)">
         <serverdata>
           <mappings>
@@ -91,6 +98,13 @@
         <serverdata>
           <mappings>
             <mapping deploy="/home/hukang/test/HiTE" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="hukang@122.207.108.7:5000 password (11)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

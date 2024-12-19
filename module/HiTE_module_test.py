@@ -3905,7 +3905,7 @@ if __name__ == '__main__':
     # print(is_TE, info, cons_seq)
 
     work_dir = '/home/hukang/test/test/HiTE/demo/32_ath'
-    candidate_tir_path = work_dir + '/01-Denovo_Non_LTR_6.fa'
+    candidate_tir_path = work_dir + '/test.fa'
     confident_tir_path = work_dir + '/confident_helitron.final.fa'
     flanking_len = 50
     #reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
@@ -3924,7 +3924,7 @@ if __name__ == '__main__':
                            + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
     # os.system(split_genome_command)
     #
-    TE_type = 'non_ltr'
+    TE_type = 'tir'
     split_ref_dir = tmp_output_dir + '/ref_chr'
     threads = 40
     ref_index = 0

@@ -321,6 +321,8 @@ workflow {
             genome_info[3],
             genome_info[4],
             genome_info[5].toString(),
+            genome_info[6].toString(),
+            genome_info[7].toString(),
             genome_info[8].toString(),
             genome_info[9].toString()
         ]
