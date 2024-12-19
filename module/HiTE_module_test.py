@@ -3904,13 +3904,13 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/home/hukang/test/test/HiTE/demo/32_ath'
+    work_dir = '/home/hukang/test/test/HiTE/demo/test_rice2/test'
     candidate_tir_path = work_dir + '/test.fa'
     confident_tir_path = work_dir + '/confident_helitron.final.fa'
     flanking_len = 50
-    #reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
+    reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
     # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
-    reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
+    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
     # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
     # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
     # test_home = '/home/hukang/test/HiTE/module'
@@ -3922,7 +3922,7 @@ if __name__ == '__main__':
     split_genome_command = 'split_genome_chunks.py -g ' \
                            + reference + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    # os.system(split_genome_command)
+    os.system(split_genome_command)
     #
     TE_type = 'tir'
     split_ref_dir = tmp_output_dir + '/ref_chr'

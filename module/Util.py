@@ -10957,7 +10957,7 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
 
 def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log):
     gene_express_count = output_dir + '/' + genome_name + '.count'
-    if os.path.exists(sorted_bam) and os.path.exists(gene_gtf):
+    if os.path.exists(sorted_bam) and os.path.exists(gene_gtf) and is_PE is not None:
         featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
                             ' --isPairedEnd ' + str(is_PE)
         log.logger.debug(featurecounts_cmd)
@@ -10975,9 +10975,11 @@ def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, thre
     for genome_info in genome_info_list:
         genome_name = genome_info['genome_name']
         RNA_seq_dict = genome_info['RNA_seq']
-        is_PE = RNA_seq_dict['is_PE']
         gene_gtf = genome_info['gene_gtf']
         sorted_bam = genome_info['bam']
+        is_PE = None
+        if 'is_PE' in RNA_seq_dict:
+            is_PE = RNA_seq_dict['is_PE']
         obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log)
         objs.append(obj)
         job_id += 1
