@@ -5,7 +5,7 @@ import sys
 import json
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
-from Util import Logger, generate_bam_for_RNA_seq, quantitative_gene, file_exist
+from Util import Logger, quantitative_gene, file_exist
 
 if __name__ == "__main__":
     # 创建解析器

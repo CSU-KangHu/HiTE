@@ -10849,7 +10849,8 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
 
 def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log):
     gene_express_count = output_dir + '/' + genome_name + '.count'
-    if os.path.exists(sorted_bam) and os.path.exists(gene_gtf) and is_PE is not None:
+    if sorted_bam is not None and os.path.exists(sorted_bam) \
+            and gene_gtf is not None and os.path.exists(gene_gtf) and is_PE is not None:
         featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
                             ' --isPairedEnd ' + str(is_PE)
         log.logger.debug(featurecounts_cmd)
@@ -10867,8 +10868,10 @@ def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, thre
     for genome_info in genome_info_list:
         genome_name = genome_info['genome_name']
         RNA_seq_dict = genome_info['RNA_seq']
-        gene_gtf = genome_info['gene_gtf']
         sorted_bam = genome_info['bam']
+        gene_gtf = None
+        if 'gene_gtf' in genome_info:
+            gene_gtf = genome_info['gene_gtf']
         is_PE = None
         if 'is_PE' in RNA_seq_dict:
             is_PE = RNA_seq_dict['is_PE']
@@ -10890,6 +10893,8 @@ def merge_gene_express_table(gene_express_counts, output_table):
     samples = set()
     TE_express = {}
     for cur_count_file in gene_express_counts:
+        if not file_exist(cur_count_file):
+            continue
         file_name = os.path.basename(cur_count_file)
         sample_name = file_name.replace('.count', '')
         samples.add(sample_name)
@@ -12566,11 +12571,12 @@ def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
         for line in lines:
             f_save.write(line)
 
-    # 调用 drawCorePanPAV.R 生成TE饱和曲线图
-    script_path = cur_dir + '/RNA_seq/drawCorePanPAV.R'
-    cmd = 'cd ' + output_dir + ' && Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
-    log.logger.debug(cmd)
-    os.system(cmd)
+    if len(lines) > 1 and file_exist(pav_table):
+        # 调用 drawCorePanPAV.R 生成TE饱和曲线图
+        script_path = cur_dir + '/RNA_seq/drawCorePanPAV.R'
+        cmd = 'cd ' + output_dir + ' && Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
+        log.logger.debug(cmd)
+        os.system(cmd)
 
     return te_fl_occur_genomes
 
