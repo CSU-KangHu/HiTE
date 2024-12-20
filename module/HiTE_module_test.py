@@ -3904,9 +3904,10 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/home/hukang/test/test/HiTE/demo/test_rice1/test'
+    work_dir = '/home/hukang/test/test/HiTE/demo/test_rice3/test'
     # candidate_tir_path = work_dir + '/more_tir.fa'
-    candidate_tir_path = work_dir + '/confident_helitron.fa'
+    # candidate_tir_path = work_dir + '/confident_helitron.fa'
+    candidate_tir_path = work_dir + '/confident_tir.fa'
     # candidate_tir_path = work_dir + '/test.fa'
     confident_tir_path = work_dir + '/test.final.fa'
     flanking_len = 50
@@ -3926,7 +3927,7 @@ if __name__ == '__main__':
                            + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
     # os.system(split_genome_command)
     #
-    TE_type = 'helitron'
+    TE_type = 'tir'
     split_ref_dir = tmp_output_dir + '/ref_chr'
     threads = 40
     ref_index = 0

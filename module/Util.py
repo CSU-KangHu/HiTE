@@ -8107,7 +8107,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                         if left_tsd_seq != '':
                             tsd_count += 1
                     # 放开TIR的TSD限制，因为有时候同源边界没找准，会导致找不到TSD，而丢失真实的TIR
-                    if tsd_count >= 0:
+                    if tsd_count >= 1:
                         edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
                         all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
             all_boundaries.sort(key=lambda x: (x[0], -x[1]))
