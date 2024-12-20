@@ -7358,14 +7358,6 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         valid_col_count = 0
         homo_col_count = 0
 
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
-
         col_index = pos
         homo_cols = []
         while valid_col_count < search_len and col_index < col_num / 2:
@@ -7380,48 +7372,18 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
-                no_gap_num = row_num - base_map['-']
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # Check for consecutive homologous columns.
-                        if prev_homo:
-                            con_homo += 1
                         is_homo_col = True
                         break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo,
-                     max_homo_ratio))
+                homo_cols.append((col_index, is_homo_col, max_homo_ratio))
             col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        # if debug:
-        #     print('align start right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
-        #     print(homo_cols)
 
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
@@ -7429,16 +7391,13 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         new_boundary_start = -1
         for i in range(len(homo_cols) - int_sliding_window_size + 1):
             window = homo_cols[i:i + int_sliding_window_size]
-            avg_homo_ratio = 0
-            for item in window:
-                cur_homo_ratio = item[5]
-                avg_homo_ratio += cur_homo_ratio
-            avg_homo_ratio = float(avg_homo_ratio) / int_sliding_window_size
-            if avg_homo_ratio >= homo_threshold:
-                # If homology in the sliding window exceeds the threshold, find the boundary.
-                new_boundary_start = window[0][0]
+            first_index = window[0][0]
+            last_index = window[-1][0]
+            window_cols = list(range(first_index, last_index + 1))
+            new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
+            if new_boundary_start != -1:
                 break
-        if new_boundary_start != pos and new_boundary_start != -1:
+        if new_boundary_start != cur_boundary and new_boundary_start != -1:
             if debug:
                 print('align start right non-homology, new boundary: ' + str(new_boundary_start))
             cur_boundary = new_boundary_start
@@ -7446,14 +7405,6 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         col_index = cur_boundary - 1
         valid_col_count = 0
         homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
 
         homo_cols = []
         while valid_col_count < search_len and col_index >= 0:
@@ -7472,44 +7423,16 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                         max_homo_base = base
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # Check for consecutive homologous columns.
-                        if prev_homo:
-                            con_homo += 1
                         is_homo_col = True
                         break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio, max_homo_base))
+                homo_cols.append((col_index, is_homo_col, max_homo_ratio))
             col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        # if debug:
-        #     print('align start left: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
-        #     print(homo_cols)
 
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the left. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
@@ -7517,17 +7440,13 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         new_boundary_start = -1
         for i in range(len(homo_cols) - out_sliding_window_size + 1):
             window = homo_cols[i:i + out_sliding_window_size]
-            avg_homo_ratio = 0
-            for item in window:
-                cur_homo_ratio = item[5]
-                avg_homo_ratio += cur_homo_ratio
-            avg_homo_ratio = float(avg_homo_ratio)/out_sliding_window_size
-
-            if avg_homo_ratio >= homo_threshold:
-                # If homology in the sliding window exceeds the threshold, find the boundary.
-                new_boundary_start = window[0][0]
+            first_index = window[0][0]
+            last_index = window[-1][0]
+            window_cols = list(range(first_index, last_index + 1))
+            new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
+            if new_boundary_start != -1:
                 break
-        if new_boundary_start != pos and new_boundary_start != -1:
+        if new_boundary_start != cur_boundary and new_boundary_start != -1:
             if debug:
                 print('align start left homology, new boundary: ' + str(new_boundary_start))
             cur_boundary = new_boundary_start
@@ -7536,14 +7455,6 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
     else:
         valid_col_count = 0
         homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
 
         col_index = pos + 1
         homo_cols = []
@@ -7564,47 +7475,20 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                         max_homo_base = base
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # Check for consecutive homologous columns.
-                        if prev_homo:
-                            con_homo += 1
                         is_homo_col = True
                         break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio, max_homo_base))
+                homo_cols.append((col_index, is_homo_col, max_homo_ratio))
             col_index += 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-        # if debug:
-        #     print('align end right: ' + str(homo_col_count) + ', max continous homology bases: ' + str(max_con_homo)
-        #           + ', max continous no-homology bases: ' + str(max_con_no_homo))
-        #     print(homo_cols)
 
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
+        cur_boundary = pos
         new_boundary_end = -1
         for i in range(len(homo_cols) - out_sliding_window_size + 1):
             if i != 0:
@@ -7613,7 +7497,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
 
             avg_homo_ratio = 0
             for item in window:
-                cur_homo_ratio = item[5]
+                cur_homo_ratio = item[2]
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / out_sliding_window_size
 
@@ -7621,7 +7505,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 # If homology in the sliding window exceeds the threshold, find the boundary.
                 new_boundary_end = window[len(window)-1][0]
                 break
-        if new_boundary_end != pos and new_boundary_end != -1:
+        if new_boundary_end != cur_boundary and new_boundary_end != -1:
             if debug:
                 print('align end right homology, new boundary: ' + str(new_boundary_end))
             return False, -1
@@ -7629,14 +7513,6 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         col_index = pos
         valid_col_count = 0
         homo_col_count = 0
-
-        max_con_homo = 0
-        con_homo = 0
-        prev_homo = False
-
-        max_con_no_homo = 0
-        con_no_homo = 0
-        prev_non_homo = False
 
         homo_cols = []
         while valid_col_count < search_len and col_index >= col_num / 2:
@@ -7655,39 +7531,15 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
                         homo_col_count += 1
-                        # Check for consecutive homologous columns.
-                        if prev_homo:
-                            con_homo += 1
                         is_homo_col = True
                         break
-                if not is_homo_col:
-                    max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-                    con_homo = 0
-
-                    if prev_non_homo:
-                        con_no_homo += 1
-                    else:
-                        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                        con_no_homo = 0
-                    is_no_homo_col = True
-                    prev_non_homo = True
-                    prev_homo = False
-                else:
-                    max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
-                    prev_homo = True
-                    prev_non_homo = False
-                    con_no_homo = 0
-                    is_no_homo_col = False
-                homo_cols.append(
-                    (col_index, is_homo_col, con_homo, is_no_homo_col, con_no_homo, max_homo_ratio))
+                homo_cols.append((col_index, is_homo_col, max_homo_ratio))
             col_index -= 1
-        max_con_homo = con_homo if con_homo > max_con_homo else max_con_homo
-        max_con_no_homo = con_no_homo if con_no_homo > max_con_no_homo else max_con_no_homo
 
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
@@ -7698,7 +7550,7 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
             window = homo_cols[i:i + int_sliding_window_size]
             avg_homo_ratio = 0
             for item in window:
-                cur_homo_ratio = item[5]
+                cur_homo_ratio = item[2]
                 avg_homo_ratio += cur_homo_ratio
             avg_homo_ratio = float(avg_homo_ratio) / int_sliding_window_size
             if avg_homo_ratio < int_homo_threshold:
@@ -7820,11 +7672,10 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
             if gap_num <= valid_col_threshold:
                 valid_col_count += 1
                 # Determine if the effective column is homologous.
-                no_gap_num = row_num - base_map['-']
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
@@ -7871,7 +7722,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
@@ -7921,7 +7772,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
@@ -7970,7 +7821,7 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 for base in base_map.keys():
                     if base == '-':
                         continue
-                    cur_homo_ratio = float(base_map[base]) / no_gap_num
+                    cur_homo_ratio = float(base_map[base]) / row_num
                     if cur_homo_ratio > max_homo_ratio:
                         max_homo_ratio = cur_homo_ratio
                     if cur_homo_ratio >= homo_threshold:
@@ -8268,7 +8119,65 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                     final_cons_seq = model_seq[boundary[4]: -boundary[5]]
                 else:
                     final_cons_seq = model_seq[boundary[4]:]
+        elif TE_type == 'helitron':
+            tail_motifs = ['CTAGT', 'CTAAT', 'CTGGT', 'CTGAT']
+            # For helitron transposons, you need to look for ATC...CTRR (R=A/G) T near the boundary.
+            # If ATC or CTRRT can be found within 10bp of the boundary, it is considered a true Helitron.
+            # Attempt to extend by 10bp on both ends.
+            ext_len = 10
+            col_index = homo_boundary_start - 1
+            ext_count = 0
+            while ext_count < ext_len and col_index >= 0:
+                base_map = col_base_map[col_index]
+                # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
+                max_base_count = 0
+                max_base = ''
+                for cur_base in base_map.keys():
+                    cur_count = base_map[cur_base]
+                    if cur_count > max_base_count:
+                        max_base_count = cur_count
+                        max_base = cur_base
+                if max_base_count >= int(row_num / 2) and max_base != '-':
+                    model_seq = max_base + model_seq
+                    ext_count += 1
+                col_index -= 1
 
+            col_index = homo_boundary_end + 1
+            ext_count = 0
+            while ext_count < ext_len and col_index < col_num:
+                base_map = col_base_map[col_index]
+                # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
+                max_base_count = 0
+                max_base = ''
+                for cur_base in base_map.keys():
+                    cur_count = base_map[cur_base]
+                    if cur_count > max_base_count:
+                        max_base_count = cur_count
+                        max_base = cur_base
+                if max_base_count >= int(row_num / 2) and max_base != '-':
+                    model_seq += max_base
+                    ext_count += 1
+                col_index += 1
+
+            # Search for the position of 'ATC' in the model seq to determine the starting end boundary.
+            # Find the last occurrence of a substring.
+            # In the first 10bp and last 10bp, look for the first occurrence of aTC, CTRRt.
+            cur_search_len = 20
+            first_10bp = model_seq[0: cur_search_len]
+            last_10bp = model_seq[-cur_search_len:]
+            for tail_motif in tail_motifs:
+                # Find the last occurrence of a substring.
+                end_index = last_10bp.rfind(tail_motif)
+                if end_index != -1:
+                    start_index = first_10bp.find('ATC')
+                    if start_index != -1:
+                        final_boundary_start = homo_boundary_start - ext_len + start_index + 1
+                        final_boundary_end = homo_boundary_end + ext_len - (cur_search_len - (end_index + 3) - 1)
+                        if (cur_search_len - (end_index + 3) - 1) == 0:
+                            final_cons_seq = model_seq[start_index + 1:]
+                        else:
+                            final_cons_seq = model_seq[start_index + 1:-(cur_search_len - (end_index + 3) - 1)]
+                        break
     if final_cons_seq == '':
         is_TE = False
     else:
@@ -8524,6 +8433,7 @@ def most_common_element(arr):
     else:
         return -1
 
+
 def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
     #     # Extend 20bp on both sides from the anchor point, extract the effective columns, and determine their homology.
@@ -8659,7 +8569,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # Since the end of Helitron is fixed, we start searching from the end.
     # If the conditions are met and there is no change, it means the end has been correctly identified.
     int_sliding_window_size = 20
-    out_sliding_window_size = 10
+    out_sliding_window_size = 20
     valid_col_threshold = int(end_row_num/2)
 
     if end_row_num <= 2:
@@ -8671,9 +8581,9 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         int_homo_threshold = 0.85
         out_homo_threshold = 0.9
     else:
-        homo_threshold = 0.7
-        int_homo_threshold = 0.65
-        out_homo_threshold = 0.7
+        homo_threshold = 0.8
+        int_homo_threshold = 0.75
+        out_homo_threshold = 0.8
 
     # First, check if the end is a genuine Helitron support.
     end_align_valid, homo_boundary_end = search_boundary_homo_v4(valid_col_threshold, align_end, matrix, end_row_num,
@@ -8704,9 +8614,9 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         int_homo_threshold = 0.85
         out_homo_threshold = 0.9
     else:
-        homo_threshold = 0.7
-        int_homo_threshold = 0.65
-        out_homo_threshold = 0.7
+        homo_threshold = 0.8
+        int_homo_threshold = 0.75
+        out_homo_threshold = 0.8
     # Start searching for homologous column boundaries from the beginning.
     start_align_valid, homo_boundary_start = search_boundary_homo_v4(valid_col_threshold, align_start, matrix, start_row_num,
                                                                  col_num, 'start', homo_threshold, int_homo_threshold,
@@ -8771,34 +8681,6 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         if not base_map.__contains__('-'):
             base_map['-'] = 0
 
-    # Generate a consensus sequence.
-    model_seq = ''
-    if result_type == 'cons':
-        for col_index in range(homo_boundary_start, homo_boundary_end+1):
-            base_map = col_base_map[col_index]
-            # Identify the most frequent base that exceeds the threshold 'valid_col_threshold'.
-            max_base_count = 0
-            max_base = ''
-            for cur_base in base_map.keys():
-                cur_count = base_map[cur_base]
-                if cur_count > max_base_count:
-                    max_base_count = cur_count
-                    max_base = cur_base
-            if max_base_count >= int(row_num/2):
-                if max_base != '-':
-                    model_seq += max_base
-                else:
-                    continue
-            else:
-                model_seq += 'N'
-    else:
-        for col_index in range(homo_boundary_start, homo_boundary_end + 1):
-            cur_base = first_seq[col_index]
-            if cur_base != '-':
-                model_seq += cur_base
-            else:
-                continue
-
     # Determine the starting base of the homologous boundary.
     # After determining homo_boundary_start at the starting end,
     # extend the model seq by 1bp and search for the position of 'ATC' in the model seq to determine the boundary.
@@ -8827,8 +8709,8 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                     continue
             else:
                 model_seq += 'N'
-        # Attempt to extend by 1bp on both ends.
-        ext_len = 1
+        # Attempt to extend by 10bp on both ends.
+        ext_len = 10
         col_index = homo_boundary_start - 1
         ext_count = 0
         while ext_count < ext_len and col_index >= 0:
@@ -8866,7 +8748,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         # Search for the position of 'ATC' in the model seq to determine the starting end boundary.
         # Find the last occurrence of a substring.
         # In the first 10bp and last 10bp, look for the first occurrence of aTC, CTRRt.
-        cur_search_len = 10
+        cur_search_len = 20
         first_10bp = model_seq[0: cur_search_len]
         last_10bp = model_seq[-cur_search_len:]
         for tail_motif in tail_motifs:
@@ -8875,8 +8757,8 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
             if end_index != -1:
                 start_index = first_10bp.find('ATC')
                 if start_index != -1:
-                    final_boundary_start = homo_boundary_start - 1 + start_index + 1
-                    final_boundary_end = homo_boundary_end + 1 - (cur_search_len - (end_index + 3) - 1)
+                    final_boundary_start = homo_boundary_start - ext_len + start_index + 1
+                    final_boundary_end = homo_boundary_end + ext_len - (cur_search_len - (end_index + 3) - 1)
                     if (cur_search_len - (end_index + 3) - 1) == 0:
                         final_cons_seq = model_seq[start_index + 1:]
                     else:
@@ -9074,6 +8956,69 @@ def get_full_length_member_batch(query_path, reference, ref_contigs, temp_dir, f
         batch_member_files.append((query_name, cur_member_file))
     return batch_member_files
 
+def remove_sparse_col_in_align_file(align_file):
+    align_names, align_contigs = read_fasta(align_file)
+    first_seq = align_contigs[align_names[0]]
+    col_num = len(first_seq)
+    row_num = len(align_names)
+
+    align_start = 0
+    align_end = col_num - 1
+
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(align_names):
+        seq = align_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # Calculate the base composition ratio in the current column.
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    new_align_start = -1
+    new_align_end = -1
+    valid_col = 0
+    valid_col_threshold = row_num / 2
+    sparse_cols = []
+    for col_index in range(col_num):
+        base_map = col_base_map[col_index]
+        gap_num = base_map['-']
+        if col_index == align_start:
+            new_align_start = valid_col
+        elif col_index == align_end:
+            new_align_end = valid_col
+        # If the number of gaps in the current column is <= half of the copy count, then it is an effective column.
+        elif gap_num > valid_col_threshold:
+            sparse_cols.append(col_index)
+            continue
+        valid_col += 1
+
+    clean_align_file = align_file + '.clean.fa'
+    with open(clean_align_file, 'w') as f_save:
+        for name in align_names:
+            seq = align_contigs[name]
+            new_seq = ''
+            for i in range(len(seq)):
+                if i in sparse_cols:
+                    continue
+                else:
+                    new_seq += seq[i]
+            f_save.write('>' + name + '\n' + new_seq + '\n')
+    return clean_align_file
+
 def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
     (query_name, cur_seq, member_file) = batch_member_file
     member_names, member_contigs = read_fasta(member_file)
@@ -9086,6 +9031,8 @@ def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, 
     align_file = member_file + '.maf.fa'
     align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
     os.system(align_command)
+
+    align_file= remove_sparse_col_in_align_file(align_file)
 
     # Due to the characteristics of TIR, Helitron, and non-LTR elements,
     # their homology filtering methods have slight differences.

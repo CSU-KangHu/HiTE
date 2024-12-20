@@ -3906,7 +3906,8 @@ if __name__ == '__main__':
 
     work_dir = '/home/hukang/test/test/HiTE/demo/test_rice1/test'
     # candidate_tir_path = work_dir + '/more_tir.fa'
-    candidate_tir_path = work_dir + '/test.fa'
+    candidate_tir_path = work_dir + '/confident_helitron.fa'
+    # candidate_tir_path = work_dir + '/test.fa'
     confident_tir_path = work_dir + '/test.final.fa'
     flanking_len = 50
     reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
@@ -3925,7 +3926,7 @@ if __name__ == '__main__':
                            + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
     # os.system(split_genome_command)
     #
-    TE_type = 'tir'
+    TE_type = 'helitron'
     split_ref_dir = tmp_output_dir + '/ref_chr'
     threads = 40
     ref_index = 0
