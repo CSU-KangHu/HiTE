@@ -8709,8 +8709,8 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
                     continue
             else:
                 model_seq += 'N'
-        # Attempt to extend by 10bp on both ends.
-        ext_len = 10
+        # Attempt to extend by 1bp on both ends.
+        ext_len = 1
         col_index = homo_boundary_start - 1
         ext_count = 0
         while ext_count < ext_len and col_index >= 0:
@@ -8748,7 +8748,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         # Search for the position of 'ATC' in the model seq to determine the starting end boundary.
         # Find the last occurrence of a substring.
         # In the first 10bp and last 10bp, look for the first occurrence of aTC, CTRRt.
-        cur_search_len = 20
+        cur_search_len = 10
         first_10bp = model_seq[0: cur_search_len]
         last_10bp = model_seq[-cur_search_len:]
         for tail_motif in tail_motifs:
