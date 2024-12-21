@@ -87,7 +87,6 @@ process preprocess_genomes {
 
 // Step 3: HiTE 并行处理每个基因组
 process run_hite_single {
-    time '3h'
     cpus { params.threads ?: 1 }
 
     storeDir "${params.out_dir}/run_hite_single/${genome_name}"
