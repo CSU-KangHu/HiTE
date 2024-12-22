@@ -3,6 +3,7 @@ import math
 import os
 import random
 import re
+import shutil
 import subprocess
 import time
 import logging
@@ -9041,9 +9042,11 @@ def filter_tir(output_path, tir_output_path, full_length_output_dir, threads, le
     confident_tirs = {}
     for ltr_name in true_ltr_names:
         if ltr_name not in all_confident_tirs:
-            candidate_ltrs[ltr_name] = left_LTR_contigs[ltr_name]
+            if ltr_name in left_LTR_contigs:
+                candidate_ltrs[ltr_name] = left_LTR_contigs[ltr_name]
         else:
-            confident_tirs[ltr_name] = candidate_tirs[ltr_name]
+            if ltr_name in candidate_tirs:
+                confident_tirs[ltr_name] = candidate_tirs[ltr_name]
     candidate_ltr_path = tmp_output_dir + '/candidate_ltr.fa'
     store_fasta(candidate_ltrs, candidate_ltr_path)
     confident_tir_path = tmp_output_dir + '/confident_tir.fa'
@@ -9363,11 +9366,16 @@ def get_low_copy_LTR_sub(job_list, low_copy_output_dir, copy_num_threshold):
             os.system('cp ' + matrix_file + ' ' + low_copy_output_dir)
         finished_list.append(matrix_file)
 
+
+def create_or_clear_directory(directory_path):
+    # 如果目录已存在，则删除该目录及其中的所有内容
+    if os.path.exists(directory_path):
+        shutil.rmtree(directory_path)
+    # 创建新的目录
+    os.makedirs(directory_path)
+
 def get_low_copy_LTR(output_dir, low_copy_output_dir, threads, copy_num_threshold=3):
-    if os.path.exists(low_copy_output_dir):
-        os.system('rm -rf ' + low_copy_output_dir)
-    if not os.path.exists(low_copy_output_dir):
-        os.makedirs(low_copy_output_dir)
+    create_or_clear_directory(low_copy_output_dir)
 
     all_matrix_files = []
     for name in os.listdir(output_dir):
@@ -9405,10 +9413,7 @@ def get_high_copy_LTR_sub(job_list, high_copy_output_dir, copy_num_threshold):
         finished_list.append(matrix_file)
 
 def get_high_copy_LTR(output_dir, high_copy_output_dir, threads, copy_num_threshold=3):
-    if os.path.exists(high_copy_output_dir):
-        os.system('rm -rf ' + high_copy_output_dir)
-    if not os.path.exists(high_copy_output_dir):
-        os.makedirs(high_copy_output_dir)
+    create_or_clear_directory(high_copy_output_dir)
 
     all_matrix_files = []
     for name in os.listdir(output_dir):

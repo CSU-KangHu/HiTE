@@ -7446,18 +7446,22 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         cur_boundary = pos
         new_boundary_start = -1
         window_size = min(len(homo_cols), int_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            window = homo_cols[i:i + window_size]
-            first_index = window[0][0]
-            last_index = window[-1][0]
-            window_cols = list(range(first_index, last_index + 1))
-            new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
-            if new_boundary_start != -1:
-                break
-        if new_boundary_start != cur_boundary and new_boundary_start != -1:
-            if debug:
-                print('align start right non-homology, new boundary: ' + str(new_boundary_start))
-            cur_boundary = new_boundary_start
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
+            cur_boundary = -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                window = homo_cols[i:i + window_size]
+                first_index = window[0][0]
+                last_index = window[-1][0]
+                window_cols = list(range(first_index, last_index + 1))
+                new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
+                if new_boundary_start != -1:
+                    break
+            if new_boundary_start != cur_boundary and new_boundary_start != -1:
+                if debug:
+                    print('align start right non-homology, new boundary: ' + str(new_boundary_start))
+                cur_boundary = new_boundary_start
 
         col_index = cur_boundary - 1
         valid_col_count = 0
@@ -7496,18 +7500,22 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         homo_cols.reverse()
         new_boundary_start = -1
         window_size = min(len(homo_cols), out_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            window = homo_cols[i:i + window_size]
-            first_index = window[0][0]
-            last_index = window[-1][0]
-            window_cols = list(range(first_index, last_index + 1))
-            new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
-            if new_boundary_start != -1:
-                break
-        if new_boundary_start != cur_boundary and new_boundary_start != -1:
-            if debug:
-                print('align start left homology, new boundary: ' + str(new_boundary_start))
-            cur_boundary = new_boundary_start
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
+            cur_boundary = -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                window = homo_cols[i:i + window_size]
+                first_index = window[0][0]
+                last_index = window[-1][0]
+                window_cols = list(range(first_index, last_index + 1))
+                new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
+                if new_boundary_start != -1:
+                    break
+            if new_boundary_start != cur_boundary and new_boundary_start != -1:
+                if debug:
+                    print('align start left homology, new boundary: ' + str(new_boundary_start))
+                cur_boundary = new_boundary_start
 
         return True, cur_boundary
     else:
@@ -7549,25 +7557,29 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         cur_boundary = pos
         new_boundary_end = -1
         window_size = min(len(homo_cols), out_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            if i != 0:
-                break
-            window = homo_cols[i:i + window_size]
-
-            avg_homo_ratio = 0
-            for item in window:
-                cur_homo_ratio = item[2]
-                avg_homo_ratio += cur_homo_ratio
-            avg_homo_ratio = float(avg_homo_ratio) / window_size
-
-            if avg_homo_ratio >= out_homo_threshold:
-                # If homology in the sliding window exceeds the threshold, find the boundary.
-                new_boundary_end = window[len(window)-1][0]
-                break
-        if new_boundary_end != cur_boundary and new_boundary_end != -1:
-            if debug:
-                print('align end right homology, new boundary: ' + str(new_boundary_end))
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
             return False, -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                if i != 0:
+                    break
+                window = homo_cols[i:i + window_size]
+
+                avg_homo_ratio = 0
+                for item in window:
+                    cur_homo_ratio = item[2]
+                    avg_homo_ratio += cur_homo_ratio
+                avg_homo_ratio = float(avg_homo_ratio) / window_size
+
+                if avg_homo_ratio >= out_homo_threshold:
+                    # If homology in the sliding window exceeds the threshold, find the boundary.
+                    new_boundary_end = window[len(window)-1][0]
+                    break
+            if new_boundary_end != cur_boundary and new_boundary_end != -1:
+                if debug:
+                    print('align end right homology, new boundary: ' + str(new_boundary_end))
+                return False, -1
 
         col_index = pos
         valid_col_count = 0
@@ -7604,22 +7616,26 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
         window_size = min(len(homo_cols), int_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            if i != 0:
-                break
-            window = homo_cols[i:i + window_size]
-            avg_homo_ratio = 0
-            for item in window:
-                cur_homo_ratio = item[2]
-                avg_homo_ratio += cur_homo_ratio
-            avg_homo_ratio = float(avg_homo_ratio) / window_size
-            if avg_homo_ratio < int_homo_threshold:
-                new_boundary_end = window[len(window)-1][0]
-                break
-        if new_boundary_end != pos and new_boundary_end != -1:
-            if debug:
-                print('align end left non-homology, new boundary: ' + str(new_boundary_end))
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
             return False, -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                if i != 0:
+                    break
+                window = homo_cols[i:i + window_size]
+                avg_homo_ratio = 0
+                for item in window:
+                    cur_homo_ratio = item[2]
+                    avg_homo_ratio += cur_homo_ratio
+                avg_homo_ratio = float(avg_homo_ratio) / window_size
+                if avg_homo_ratio < int_homo_threshold:
+                    new_boundary_end = window[len(window)-1][0]
+                    break
+            if new_boundary_end != pos and new_boundary_end != -1:
+                if debug:
+                    print('align end left non-homology, new boundary: ' + str(new_boundary_end))
+                return False, -1
         return True, pos
 
 
@@ -7750,18 +7766,22 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         cur_boundary = pos
         new_boundary_start = -1
         window_size = min(len(homo_cols), int_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            window = homo_cols[i:i + window_size]
-            first_index = window[0][0]
-            last_index = window[-1][0]
-            window_cols = list(range(first_index, last_index + 1))
-            new_boundary_start  = calculate_window_homology(matrix, window_cols, homo_threshold)
-            if new_boundary_start != -1:
-                break
-        if new_boundary_start != cur_boundary and new_boundary_start != -1:
-            if debug:
-                print('align start right non-homology, new boundary: ' + str(new_boundary_start))
-        cur_boundary = new_boundary_start
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
+            cur_boundary = -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                window = homo_cols[i:i + window_size]
+                first_index = window[0][0]
+                last_index = window[-1][0]
+                window_cols = list(range(first_index, last_index + 1))
+                new_boundary_start  = calculate_window_homology(matrix, window_cols, homo_threshold)
+                if new_boundary_start != -1:
+                    break
+            if new_boundary_start != cur_boundary and new_boundary_start != -1:
+                if debug:
+                    print('align start right non-homology, new boundary: ' + str(new_boundary_start))
+            cur_boundary = new_boundary_start
 
         col_index = cur_boundary
         valid_col_count = 0
@@ -7798,18 +7818,22 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         homo_cols.reverse()
         new_boundary_start = -1
         window_size = min(len(homo_cols), out_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            window = homo_cols[i:i + window_size]
-            first_index = window[0][0]
-            last_index = window[-1][0]
-            window_cols = list(range(first_index, last_index + 1))
-            new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
-            if new_boundary_start != -1:
-                break
-        if new_boundary_start != cur_boundary and new_boundary_start != -1:
-            if debug:
-                print('align start left homology, new boundary: ' + str(new_boundary_start))
-            cur_boundary = new_boundary_start
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
+            cur_boundary = -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                window = homo_cols[i:i + window_size]
+                first_index = window[0][0]
+                last_index = window[-1][0]
+                window_cols = list(range(first_index, last_index + 1))
+                new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
+                if new_boundary_start != -1:
+                    break
+            if new_boundary_start != cur_boundary and new_boundary_start != -1:
+                if debug:
+                    print('align start left homology, new boundary: ' + str(new_boundary_start))
+                cur_boundary = new_boundary_start
 
         return cur_boundary
     else:
@@ -7850,18 +7874,22 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         homo_cols.reverse()
         new_boundary_end = -1
         window_size = min(len(homo_cols), out_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            window = homo_cols[i:i + window_size]
-            first_index = window[0][0]
-            last_index = window[-1][0]
-            window_cols = list(range(first_index, last_index + 1, -1))
-            new_boundary_end = calculate_window_homology(matrix, window_cols, homo_threshold)
-            if new_boundary_end != -1:
-                break
-        if new_boundary_end != cur_boundary and new_boundary_end != -1:
-            if debug:
-                print('align end right homology, new boundary: ' + str(new_boundary_end))
-            cur_boundary = new_boundary_end
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
+            cur_boundary = -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                window = homo_cols[i:i + window_size]
+                first_index = window[0][0]
+                last_index = window[-1][0]
+                window_cols = list(range(first_index, last_index + 1, -1))
+                new_boundary_end = calculate_window_homology(matrix, window_cols, homo_threshold)
+                if new_boundary_end != -1:
+                    break
+            if new_boundary_end != cur_boundary and new_boundary_end != -1:
+                if debug:
+                    print('align end right homology, new boundary: ' + str(new_boundary_end))
+                cur_boundary = new_boundary_end
 
         col_index = cur_boundary
         valid_col_count = 0
@@ -7898,18 +7926,22 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
         window_size = min(len(homo_cols), int_sliding_window_size)
-        for i in range(len(homo_cols) - window_size + 1):
-            window = homo_cols[i:i + window_size]
-            first_index = window[0][0]
-            last_index = window[-1][0]
-            window_cols = list(range(first_index, last_index + 1, -1))
-            new_boundary_end = calculate_window_homology(matrix, window_cols, homo_threshold)
-            if new_boundary_end != -1:
-                break
-        if new_boundary_end != cur_boundary and new_boundary_end != -1:
-            if debug:
-                print('align end left non-homology, new boundary: ' + str(new_boundary_end))
-        cur_boundary = new_boundary_end
+        if window_size < 10:
+            # 如果当前窗口不足10个碱基，我认为无法判断是否是同源窗口
+            cur_boundary = -1
+        else:
+            for i in range(len(homo_cols) - window_size + 1):
+                window = homo_cols[i:i + window_size]
+                first_index = window[0][0]
+                last_index = window[-1][0]
+                window_cols = list(range(first_index, last_index + 1, -1))
+                new_boundary_end = calculate_window_homology(matrix, window_cols, homo_threshold)
+                if new_boundary_end != -1:
+                    break
+            if new_boundary_end != cur_boundary and new_boundary_end != -1:
+                if debug:
+                    print('align end left non-homology, new boundary: ' + str(new_boundary_end))
+            cur_boundary = new_boundary_end
 
         return cur_boundary
 
