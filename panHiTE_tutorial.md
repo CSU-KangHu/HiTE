@@ -311,7 +311,7 @@ To ensure smooth execution, the pipeline stores the output files of all processe
 If you need to rerun a specific process and its downstream processes, you can delete the corresponding `process_name` directory within the output directory specified by the `--out_dir` parameter.
 
 <div style="text-align: left;">
-    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="recovery" width="800"/> 
+    <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="recovery" width="1200"/> 
 </div>
 
 ### <a name="cmd"></a>5. Usage

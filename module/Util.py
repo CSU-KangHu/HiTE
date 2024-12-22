@@ -2421,7 +2421,7 @@ def get_boundary_ungap_str(raw_align_seq, boundary_pos, search_len, direct):
             valid_count += 1
     return ungap_str
 
-def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
+def TSDsearch_v5_bak(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
     plant = int(plant)
     # 2->TA or animal/fungi 5'-CCC...GGG-3', 3-> plant 5'-CACT(A/G)...(C/T)AGTG-3' or （TAA或TTA）, 4-> TTAA,
     TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
@@ -2450,7 +2450,39 @@ def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
             right_tsd_seq = right_tsd
     return left_tsd_seq, right_tsd_seq
 
+def TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant):
+    plant = int(plant)
+    # 2->TA or animal/fungi 5'-CCC...GGG-3', 3-> plant 5'-CACT(A/G)...(C/T)AGTG-3' or （TAA或TTA）, 4-> TTAA,
+    TIR_TSDs = [11, 10, 9, 8, 6, 5, 4, 3, 2]
 
+    direct = 'right'
+    first_5bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_start, 5, direct)
+    first_3bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_start, 3, direct)
+    direct = 'left'
+    last_5bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_end, 5, direct)
+    last_3bp = get_boundary_ungap_str(raw_align_seq, cur_boundary_end, 3, direct)
+
+
+    left_tsd_seq = ''
+    right_tsd_seq = ''
+    allow_mismatch_num = 1
+    for tsd_len in TIR_TSDs:
+        left_tsd = get_boundary_ungap_str(raw_align_seq, cur_boundary_start-1, tsd_len, 'left')
+        right_tsd = get_boundary_ungap_str(raw_align_seq, cur_boundary_end+1, tsd_len, 'right')
+        if len(left_tsd) != len(right_tsd) or len(left_tsd) != tsd_len:
+            continue
+        if left_tsd == right_tsd:
+            if (tsd_len != 2 and tsd_len != 3 and tsd_len != 4) or (tsd_len == 4 and left_tsd == 'TTAA') \
+                    or (tsd_len == 2 and (left_tsd == 'TA' or (plant == 0 and first_3bp == 'CCC' and last_3bp == 'GGG'))) \
+                    or (tsd_len == 3 and (left_tsd == 'TAA' or left_tsd == 'TTA'
+                                          or (plant == 1 and ((first_5bp == 'CACTA' and last_5bp == 'TAGTG')
+                                                              or (first_5bp == 'CACTG' and last_5bp == 'CAGTG'))))):
+                left_tsd_seq = left_tsd
+                right_tsd_seq = right_tsd
+        elif tsd_len >= 8 and allow_mismatch(left_tsd, right_tsd, allow_mismatch_num):
+            left_tsd_seq = left_tsd
+            right_tsd_seq = right_tsd
+    return left_tsd_seq, right_tsd_seq
 
 def TSDsearch_ltr(orig_seq, ltr_start, ltr_end, TSD_set):
     LTR_TSDs = [6, 5, 4]  # LTR:most of them is 5-'TG...CA-3'
@@ -7042,7 +7074,7 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             cur_copy_num += 1
             copy_nums[copy_num] = cur_copy_num
         if cur_name is not None:
-            if TE_type == 'tir':
+            if TE_type == 'tir' or TE_type == 'helitron':
                 if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
                     continue
                 ############################
@@ -7091,7 +7123,30 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         true_te_names.update(has_intact_protein_contigs.keys())
         # print('recall by intact domain structure: ' + str(len(has_intact_protein_contigs)))
         # print(has_intact_protein_contigs.keys())
+    elif TE_type == 'helitron':
+        # 找回具有完整domain的低拷贝Helitron
+        temp_dir = temp_dir + '/helitron_domain'
+        output_table = low_copy_path + '.helitron_domain'
+        helitron_protein_db = cur_dir + '/library/HelitronPeps.lib'
+        get_domain_info(low_copy_path, helitron_protein_db, output_table, threads, temp_dir)
+        has_intact_protein_contigs = {}
+        protein_names, protein_contigs = read_fasta(helitron_protein_db)
+        with open(output_table, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i < 2:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                protein_name = parts[1]
+                protein_start = int(parts[4])
+                protein_end = int(parts[5])
+                intact_protein_len = len(protein_contigs[protein_name])
+                if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+                    has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
+        true_tes.update(has_intact_protein_contigs)
+        true_te_names.update(has_intact_protein_contigs.keys())
     store_fasta(true_tes, real_TEs)
+
 
     deleted_names = total_names.difference(true_te_names)
     if debug:
@@ -7389,8 +7444,9 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         cur_boundary = pos
         new_boundary_start = -1
-        for i in range(len(homo_cols) - int_sliding_window_size + 1):
-            window = homo_cols[i:i + int_sliding_window_size]
+        window_size = min(len(homo_cols), int_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
+            window = homo_cols[i:i + window_size]
             first_index = window[0][0]
             last_index = window[-1][0]
             window_cols = list(range(first_index, last_index + 1))
@@ -7438,8 +7494,9 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         homo_cols.reverse()
         new_boundary_start = -1
-        for i in range(len(homo_cols) - out_sliding_window_size + 1):
-            window = homo_cols[i:i + out_sliding_window_size]
+        window_size = min(len(homo_cols), out_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
+            window = homo_cols[i:i + window_size]
             first_index = window[0][0]
             last_index = window[-1][0]
             window_cols = list(range(first_index, last_index + 1))
@@ -7490,16 +7547,17 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         cur_boundary = pos
         new_boundary_end = -1
-        for i in range(len(homo_cols) - out_sliding_window_size + 1):
+        window_size = min(len(homo_cols), out_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
             if i != 0:
                 break
-            window = homo_cols[i:i + out_sliding_window_size]
+            window = homo_cols[i:i + window_size]
 
             avg_homo_ratio = 0
             for item in window:
                 cur_homo_ratio = item[2]
                 avg_homo_ratio += cur_homo_ratio
-            avg_homo_ratio = float(avg_homo_ratio) / out_sliding_window_size
+            avg_homo_ratio = float(avg_homo_ratio) / window_size
 
             if avg_homo_ratio >= out_homo_threshold:
                 # If homology in the sliding window exceeds the threshold, find the boundary.
@@ -7544,15 +7602,16 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
-        for i in range(len(homo_cols) - int_sliding_window_size + 1):
+        window_size = min(len(homo_cols), int_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
             if i != 0:
                 break
-            window = homo_cols[i:i + int_sliding_window_size]
+            window = homo_cols[i:i + window_size]
             avg_homo_ratio = 0
             for item in window:
                 cur_homo_ratio = item[2]
                 avg_homo_ratio += cur_homo_ratio
-            avg_homo_ratio = float(avg_homo_ratio) / int_sliding_window_size
+            avg_homo_ratio = float(avg_homo_ratio) / window_size
             if avg_homo_ratio < int_homo_threshold:
                 new_boundary_end = window[len(window)-1][0]
                 break
@@ -7689,8 +7748,9 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         cur_boundary = pos
         new_boundary_start = -1
-        for i in range(len(homo_cols) - int_sliding_window_size + 1):
-            window = homo_cols[i:i + int_sliding_window_size]
+        window_size = min(len(homo_cols), int_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
+            window = homo_cols[i:i + window_size]
             first_index = window[0][0]
             last_index = window[-1][0]
             window_cols = list(range(first_index, last_index + 1))
@@ -7736,8 +7796,9 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         homo_cols.reverse()
         new_boundary_start = -1
-        for i in range(len(homo_cols) - out_sliding_window_size + 1):
-            window = homo_cols[i:i + out_sliding_window_size]
+        window_size = min(len(homo_cols), out_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
+            window = homo_cols[i:i + window_size]
             first_index = window[0][0]
             last_index = window[-1][0]
             window_cols = list(range(first_index, last_index + 1))
@@ -7787,8 +7848,9 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         cur_boundary = pos
         homo_cols.reverse()
         new_boundary_end = -1
-        for i in range(len(homo_cols) - out_sliding_window_size + 1):
-            window = homo_cols[i:i + out_sliding_window_size]
+        window_size = min(len(homo_cols), out_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
+            window = homo_cols[i:i + window_size]
             first_index = window[0][0]
             last_index = window[-1][0]
             window_cols = list(range(first_index, last_index + 1, -1))
@@ -7834,8 +7896,9 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
         # Use a sliding window to calculate the average homology of 10 consecutive bases starting from the right. Determine if it exceeds the threshold.
         # If it exceeds the threshold, obtain the first column with homology above the threshold within the 10bp, and consider it as the homologous boundary.
         new_boundary_end = -1
-        for i in range(len(homo_cols) - int_sliding_window_size + 1):
-            window = homo_cols[i:i + int_sliding_window_size]
+        window_size = min(len(homo_cols), int_sliding_window_size)
+        for i in range(len(homo_cols) - window_size + 1):
+            window = homo_cols[i:i + window_size]
             first_index = window[0][0]
             last_index = window[-1][0]
             window_cols = list(range(first_index, last_index + 1, -1))
@@ -7949,7 +8012,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
     elif row_num <= 5:
         homo_threshold = 0.9
     else:
-        homo_threshold = 0.8
+        homo_threshold = 0.7
 
     ############################################
     # 我现在想先遍历一遍整个矩阵，找到合法边界的起始和终止位置，如果最终识别到的边界和合法边界有任何一边重叠了，这代表着无法找到同源和非同源边界，说明这是一个假阳性。
@@ -8107,7 +8170,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                         if left_tsd_seq != '':
                             tsd_count += 1
                     # 放开TIR的TSD限制，因为有时候同源边界没找准，会导致找不到TSD，而丢失真实的TIR
-                    if tsd_count >= 1:
+                    if tsd_count >= 0:
                         edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
                         all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
             all_boundaries.sort(key=lambda x: (x[0], -x[1]))
@@ -8569,7 +8632,7 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # Since the end of Helitron is fixed, we start searching from the end.
     # If the conditions are met and there is no change, it means the end has been correctly identified.
     int_sliding_window_size = 20
-    out_sliding_window_size = 20
+    out_sliding_window_size = 10
     valid_col_threshold = int(end_row_num/2)
 
     if end_row_num <= 2:
@@ -8581,9 +8644,9 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         int_homo_threshold = 0.85
         out_homo_threshold = 0.9
     else:
-        homo_threshold = 0.8
-        int_homo_threshold = 0.75
-        out_homo_threshold = 0.8
+        homo_threshold = 0.7
+        int_homo_threshold = 0.65
+        out_homo_threshold = 0.7
 
     # First, check if the end is a genuine Helitron support.
     end_align_valid, homo_boundary_end = search_boundary_homo_v4(valid_col_threshold, align_end, matrix, end_row_num,
@@ -8614,9 +8677,9 @@ def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
         int_homo_threshold = 0.85
         out_homo_threshold = 0.9
     else:
-        homo_threshold = 0.8
-        int_homo_threshold = 0.75
-        out_homo_threshold = 0.8
+        homo_threshold = 0.7
+        int_homo_threshold = 0.65
+        out_homo_threshold = 0.7
     # Start searching for homologous column boundaries from the beginning.
     start_align_valid, homo_boundary_start = search_boundary_homo_v4(valid_col_threshold, align_start, matrix, start_row_num,
                                                                  col_num, 'start', homo_threshold, int_homo_threshold,
