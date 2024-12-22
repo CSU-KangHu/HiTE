@@ -7,7 +7,7 @@ import json
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import file_exist, lib_add_prefix, Logger, store_fasta
+from Util import file_exist, lib_add_prefix, Logger, store_fasta, copy_files
 
 
 def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
@@ -108,4 +108,11 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
-    main(genome_name, reference, output_dir, threads, te_type, miu, debug, log)
+
+    # 创建本地临时目录，存储计算结果
+    temp_dir = '/tmp/run_hite_single'
+    os.makedirs(temp_dir, exist_ok=True)
+    main(genome_name, reference, temp_dir, threads, te_type, miu, debug, log)
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, output_dir)

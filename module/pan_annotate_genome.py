@@ -8,7 +8,7 @@ from datetime import datetime
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1, run_command
+from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1, copy_files
 
 
 def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
@@ -96,10 +96,14 @@ if __name__ == "__main__":
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
-
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
+    # 创建本地临时目录，存储计算结果
+    temp_dir = '/tmp/annotate_genome'
+    os.makedirs(temp_dir, exist_ok=True)
     # 调用 RepeatMasker 函数
-    run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, log)
-
+    run_repeat_masker(temp_dir, threads, panTE_lib, reference, genome_name, log)
     # for_test(output_dir, threads, panTE_lib, reference, genome_name, log)
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, output_dir)

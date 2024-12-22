@@ -5,6 +5,7 @@ import codecs
 import json
 import multiprocessing
 import os
+import shutil
 import sys
 from datetime import datetime
 import logging
@@ -12591,4 +12592,14 @@ def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
     return te_fl_occur_genomes
 
 
+def copy_files(src_dir, output_dir):
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        for file_name in os.listdir(src_dir):
+            src_file = os.path.join(src_dir, file_name)
+            dst_file = os.path.join(output_dir, file_name)
+            if os.path.isfile(src_file):
+                shutil.copy(src_file, dst_file)
+    except Exception as e:
+        print(f"copy error: {e}")
 
