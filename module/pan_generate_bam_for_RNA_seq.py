@@ -6,7 +6,7 @@ import sys
 import json
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
-from Util import Logger, generate_bam_for_RNA_seq, copy_files
+from Util import Logger, generate_bam_for_RNA_seq, copy_files, create_or_clear_directory
 
 
 def preprocess_RNA_seq(input_str):
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     # 创建本地临时目录，存储计算结果
     temp_dir = '/tmp/annotate_genome'
-    os.makedirs(temp_dir, exist_ok=True)
+    create_or_clear_directory(temp_dir)
     # Step 7.1: 生成 BAM 文件
     log.logger.info("Start generating BAM files for RNA-seq data...")
     if 'Status' in RNA_seq:

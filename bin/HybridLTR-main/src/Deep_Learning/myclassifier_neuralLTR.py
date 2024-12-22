@@ -1,26 +1,16 @@
 import subprocess
 import psutil
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
-import pandas as pd
 import numpy as np
 torch.manual_seed(2024)
 import torch.nn.functional as F
 from mymodel_neuralLTR import CNNCAT
 import os
-from tqdm import tqdm
-import sys
 import argparse
-import math
-from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import DBSCAN
-from sklearn.metrics import pairwise_distances
 import itertools
 import re
 import multiprocessing
-from PIL import Image
 from collections import OrderedDict
 
 
@@ -154,43 +144,50 @@ def chunk_data(pos_data, chunk_size1):
         pos_chunk = pos_data[i:i + chunk_size1] if i is not None else []
         yield pos_chunk
 
-
 def align2pileup(file_path, num_workers):
-    # 进程数
-    num_processes = num_workers
+    # 获取目标文件列表
     target_files = get_files(file_path)
-    if len(target_files) == 0:
+    if not target_files:
         raise ValueError("No LTR files found.")
 
     # 确保数据切块
-    if len(target_files) < num_processes:
-        data_chunks = [target_files]  # 如果文件少于进程数，全部放入一个块
-    else:
-        chunk_size = len(target_files) // num_processes
-        data_chunks = list(chunk_data(target_files, chunk_size))
+    num_processes = min(len(target_files), num_workers)
+    chunk_size = len(target_files) // num_processes
+    data_chunks = list(chunk_data(target_files, chunk_size)) if len(target_files) >= num_processes else [target_files]
 
     # 创建进程池
     with multiprocessing.Pool(processes=num_processes) as pool:
         results = pool.map(extract_features, data_chunks)
 
-    # 初始化空张量和列表
-    img_features = []
-    freq_features = []
-    seq_names = []
+    # 初始化空列表来保存特征
+    img_features, freq_features, seq_names = [], [], []
 
-    # 处理结果
+    # 处理并合并每个结果
     for result in results:
-        chunk_features, chunk_freqs, ltr_names = result  # 解包每个结果
-        img_features.extend(chunk_features)  # 将每个特征添加到列表
-        freq_features.extend(chunk_freqs)  # 将每个频次特征添加到列表
-        seq_names.extend(ltr_names)  # 将每个序列名添加到列表
+        if len(result) == 3:
+            chunk_features, chunk_freqs, ltr_names = result
+            img_features.extend(chunk_features)
+            freq_features.extend(chunk_freqs)
+            seq_names.extend(ltr_names)
+        else:
+            raise ValueError(f"Invalid result format: {result}. Expected 3 elements per result.")
+
+    # 使用 numpy.array 合并列表
+    img_features_np = np.array(img_features, dtype=np.float32)
+    freq_features_np = np.array(freq_features, dtype=np.float32)
 
     # 转换为张量
-    img_features_tensor = torch.tensor(np.array(img_features), dtype=torch.float32)
-    freq_features_tensor = torch.tensor(np.array(freq_features), dtype=torch.float32)
+    img_features_tensor = torch.tensor(img_features_np, dtype=torch.float32)
+    freq_features_tensor = torch.tensor(freq_features_np, dtype=torch.float32)
 
-    img_features_tensor = img_features_tensor.permute(0, 3, 1, 2)  # 转换维度
-    freq_features_tensor = torch.unsqueeze(freq_features_tensor, dim=2)  # 增加维度
+    # 确保维度正确，img_features_tensor应该是[batch, channels, height, width]
+    if img_features_tensor.ndimension() == 4:  # 如果 img_features_tensor 已经是 4 维
+        img_features_tensor = img_features_tensor.permute(0, 3, 1, 2)
+    else:
+        raise ValueError(f"Invalid img_features_tensor shape: {img_features_tensor.shape}")
+
+    # 对频次特征进行扩展，freq_features_tensor应该是[batch, channels, 1]
+    freq_features_tensor = freq_features_tensor.unsqueeze(dim=2)
 
     return img_features_tensor, freq_features_tensor, seq_names
 
@@ -253,12 +250,9 @@ def main():
     threads = int(args.threads)
     print('Loading model from %s', model_path)
 
-    device, batch_size = get_device()
+    batch_size = 128
     model = CNNCAT()
-    state_dict = torch.load(model_path, map_location=device)
-    # threads = max(1, threads // 2)
-    # threads = max(1, threads - 1)
-    # torch.set_num_threads(threads)
+    state_dict = torch.load(model_path, map_location=torch.device('cpu'))
     if next(iter(state_dict)).startswith("module."): # 4 剥除权重文件中的module层
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
@@ -267,26 +261,22 @@ def main():
         state_dict = new_state_dict
 
     model.load_state_dict(state_dict)
-    model = model.to(device)
     print('model loaded done!')
     num_workers = max(1, threads // 2)
     img_features, freq_features, ltr_names = align2pileup(file_path, num_workers)
-    # print(img_features.shape)
     img_features = F.normalize(img_features, p=2, dim=1)
     freq_features = F.normalize(freq_features, p=2, dim=1)
     dataset = torch.utils.data.TensorDataset(img_features, freq_features)
     print('feature extraction done!')
 
     model.eval()
-
-    val_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    torch.set_num_threads(threads)
+    val_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=1)
     preds = []
     probs_array = []
     with torch.no_grad():
         # for batch_x, batch_kmer in tqdm(val_loader):
         for i, (batch_x, batch_kmer) in enumerate(val_loader):
-            batch_x = batch_x.to(device)
-            batch_kmer = batch_kmer.to(device)
             outputs = model(batch_x, batch_kmer)
             probs = F.softmax(outputs, dim=1)
             _, predicted = torch.max(probs, 1)

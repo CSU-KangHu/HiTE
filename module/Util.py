@@ -12635,3 +12635,9 @@ def copy_files(src_dir, output_dir):
     except Exception as e:
         print(f"copy error: {e}")
 
+def create_or_clear_directory(directory_path):
+    # 如果目录已存在，则删除该目录及其中的所有内容
+    if os.path.exists(directory_path):
+        shutil.rmtree(directory_path)
+    # 创建新的目录
+    os.makedirs(directory_path)
