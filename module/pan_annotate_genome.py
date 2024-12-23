@@ -20,7 +20,7 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
     os.system('touch ' + gff_path)
 
 def run_repeat_masker(output_dir, threads, panTE_lib, reference, genome_name, log):
-    RepeatMasker_command = f'cd {output_dir} && RepeatMasker -e ncbi -no_is -norna -nolow -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
+    RepeatMasker_command = f'RepeatMasker -e ncbi -no_is -norna -nolow -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
     log.logger.info(f"Running command: {RepeatMasker_command}")
     os.system(RepeatMasker_command)
 
