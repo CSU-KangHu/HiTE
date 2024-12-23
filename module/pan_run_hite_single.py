@@ -19,18 +19,22 @@ def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, l
     ltr_intact_list = os.path.join(HiTE_output_dir, "intact_LTR.list")
     confident_ltr_terminal = os.path.join(HiTE_output_dir, "confident_ltr.terminal.fa")
     confident_ltr_internal = os.path.join(HiTE_output_dir, "confident_ltr.internal.fa")
+    confident_ltr_cut = os.path.join(HiTE_output_dir, "confident_ltr_cut.fa")
+    intact_ltr = os.path.join(HiTE_output_dir, "intact_LTR.fa")
+    intact_ltr_classified = os.path.join(HiTE_output_dir, "intact_LTR.fa.classified")
     confident_helitron = os.path.join(HiTE_output_dir, "confident_helitron.fa")
     confident_non_ltr = os.path.join(HiTE_output_dir, "confident_non_ltr.fa")
     confident_other = os.path.join(HiTE_output_dir, "confident_other.fa")
     confident_tir = os.path.join(HiTE_output_dir, "confident_tir.fa")
     confident_TE = os.path.join(HiTE_output_dir, "confident_TE.cons.fa")
 
-    contigs = {}
-    contigs['LTR1#Unknown'] = 'A' * 100
-    store_fasta(contigs, confident_ltr_terminal)
-    store_fasta(contigs, confident_ltr_internal)
-    store_fasta(contigs, confident_TE)
-    os.system('echo aaaa > ' + ltr_intact_list)
+    file_paths = [ltr_intact_list, confident_ltr_terminal, confident_ltr_internal, confident_ltr_cut, intact_ltr,
+                  intact_ltr_classified, confident_helitron, confident_non_ltr, confident_other, confident_tir,
+                  confident_TE]
+    for file_path in file_paths:
+        os.system('echo aaaa > ' + file_path)
+
+
 
 def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
     """对单个基因组运行 HiTE"""

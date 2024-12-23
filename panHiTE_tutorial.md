@@ -32,7 +32,7 @@ In this tutorial, we'll demonstrate how to use panHiTE with a demo data.
 
 ```bash
 # 1. Install Nextflow
-conda create -n nextflow -c conda-forge -c bioconda nextflow==22.10.6
+conda create -n nextflow -c conda-forge -c bioconda nextflow==24.10.3
 
 # 2. Download HiTE
 git clone https://github.com/CSU-KangHu/HiTE.git
