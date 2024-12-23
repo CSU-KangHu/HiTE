@@ -88,7 +88,8 @@ def extract_features(file_path):
     Ks = [1,2,3,4,5]
     # for file in tqdm(file_path):
     for file in file_path:
-        ltr_name = file.split('.')[0].split('/')[-1]
+        file_name = os.path.basename(file)
+        ltr_name = file_name.split('.')[0].split('/')[-1]
         ltr_names.append(ltr_name)
         with open(file, 'r') as fr:
             lines = fr.readlines()
