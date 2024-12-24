@@ -9,7 +9,7 @@ import sys
 import time
 from multiprocessing import cpu_count
 
-from module.Util import Logger, file_exist, read_fasta
+from module.Util import Logger, file_exist, read_fasta, filter_short_contigs_in_genome
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(current_folder, ".")
@@ -314,6 +314,9 @@ if __name__ == '__main__':
 
     os.system('cp ' + reference + ' ' + tmp_output_dir)
     reference = tmp_output_dir + '/' + ref_filename
+
+    # filter short contigs
+    reference = filter_short_contigs_in_genome(reference)
 
     # preset steps, no needs to execute time-consuming job again
     # when the job is retried due to abnormal termination.

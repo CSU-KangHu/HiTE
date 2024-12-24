@@ -12664,3 +12664,23 @@ def create_or_clear_directory(directory_path):
         shutil.rmtree(directory_path)
     # 创建新的目录
     os.makedirs(directory_path)
+
+def filter_short_contigs_in_genome(genome, valid_len=10_000, min_len=1_000):
+    ref_names, ref_contigs = read_fasta(genome)
+    sorted_name_sequence = sorted(ref_contigs.items(), key=lambda x: len(x[1]), reverse=True)
+    filter_contigs = {}
+    total_length = sum(len(seq) for _, seq in sorted_name_sequence)
+    is_stop = False
+    n95_threshold = 0.95 * total_length
+    cumulative_length = 0
+    for i, (name, seq) in enumerate(sorted_name_sequence):
+        cumulative_length += len(seq)
+        filter_contigs[name] = seq
+        # 找到累计长度大于等于95%总长度的位置
+        if len(seq) < min_len or (cumulative_length >= n95_threshold and len(seq) < valid_len):
+            is_stop = True
+        if is_stop:
+            break
+    filter_genome_path = genome + '.filter_short.fa'
+    store_fasta(filter_contigs, filter_genome_path)
+    return filter_genome_path

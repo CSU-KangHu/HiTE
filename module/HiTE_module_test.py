@@ -3865,8 +3865,11 @@ def get_logo_seq(ltr_copies):
         tail_logos[name] = tail_seq
     return start_logos, tail_logos
 
-work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
-log = Logger(work_dir + '/HiTE.log', level='debug')
+#work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
+#log = Logger(work_dir + '/HiTE.log', level='debug')
+
+
+
 
 if __name__ == '__main__':
     # BM_EDTA()
@@ -3904,44 +3907,46 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/home/hukang/test/test/HiTE/demo/test_rice4/test'
-    # candidate_tir_path = work_dir + '/more_tir.fa'
-    # candidate_tir_path = work_dir + '/confident_helitron.fa'
-    # candidate_tir_path = work_dir + '/confident_tir.fa'
-    candidate_tir_path = work_dir + '/test.fa'
-    confident_tir_path = work_dir + '/test.final.fa'
-    flanking_len = 50
-    # reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/39.ah_7.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
-    reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
-    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
-    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
-    # test_home = '/home/hukang/test/HiTE/module'
-    tmp_output_dir = work_dir + '/outdir'
-    if not os.path.exists(tmp_output_dir):
-        os.makedirs(tmp_output_dir)
-    chrom_seg_length = 100000
-    chunk_size = 400
-    split_genome_command = 'split_genome_chunks.py -g ' \
-                           + reference + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    # os.system(split_genome_command)
-    #
-    TE_type = 'tir'
-    split_ref_dir = tmp_output_dir + '/ref_chr'
-    threads = 40
-    ref_index = 0
-    subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
-    plant = 0
-    debug = 1
-    flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
-                          TE_type, work_dir, threads, ref_index, log, subset_script_path,
-                          plant, debug, 0, result_type='cons')
+    # work_dir = '/home/hukang/test/test/HiTE/demo/test_rice4/test'
+    # # candidate_tir_path = work_dir + '/more_tir.fa'
+    # # candidate_tir_path = work_dir + '/confident_helitron.fa'
+    # # candidate_tir_path = work_dir + '/confident_tir.fa'
+    # candidate_tir_path = work_dir + '/test.fa'
+    # confident_tir_path = work_dir + '/test.final.fa'
+    # flanking_len = 50
+    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/39.ah_7.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
+    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
+    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
+    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
+    # # test_home = '/home/hukang/test/HiTE/module'
+    # tmp_output_dir = work_dir + '/outdir'
+    # if not os.path.exists(tmp_output_dir):
+    #     os.makedirs(tmp_output_dir)
+    # chrom_seg_length = 100000
+    # chunk_size = 400
+    # split_genome_command = 'split_genome_chunks.py -g ' \
+    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
+    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    # # os.system(split_genome_command)
+    # #
+    # TE_type = 'tir'
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # threads = 40
+    # ref_index = 0
+    # subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
+    # plant = 0
+    # debug = 1
+    # flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
+    #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
+    #                       plant, debug, 0, result_type='cons')
 
+    genome = '/public/home/hpc194701009/users/liuyuyang/HiTE/aurata/aurata.fa'
+    filter_genome_path = filter_short_contigs_in_genome(genome)
 
 
     # # 将candidate_non_ltr.fa进行分类，抽取出LINE/SINE标签
