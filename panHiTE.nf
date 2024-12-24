@@ -66,6 +66,8 @@ if (params.help){
 }
 
 process preprocess_genomes {
+    cpus = 2
+
     storeDir "${params.out_dir}/preprocess_genomes"
 
     input:
@@ -117,6 +119,8 @@ process run_hite_single {
 
 // 合并 pan_te.tmp.fa 到 pan_internal.tmp.fa
 process merge_terminal_te {
+    cpus = 1
+
     storeDir "${params.out_dir}/merge_terminal_te"
 
     input:
@@ -175,6 +179,8 @@ process annotate_genomes {
 
 // Step 4: 汇总 TE 数据
 process summarize_tes {
+    cpus = 2
+
     storeDir "${params.out_dir}/summarize_tes"
 
     input:
@@ -210,6 +216,8 @@ process summarize_tes {
 
 
 process pan_gene_te_relation {
+    cpus = 2
+
     storeDir "${params.out_dir}/pan_gene_te_relation"
 
     input:
