@@ -7512,10 +7512,16 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                 new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
                 if new_boundary_start != -1:
                     break
-            if new_boundary_start != cur_boundary and new_boundary_start != -1:
-                if debug:
-                    print('align start left homology, new boundary: ' + str(new_boundary_start))
-                cur_boundary = new_boundary_start
+            # 如果左侧新的同源边界离最左不超过10bp，我们认为无法判断外侧是否真是非同源的
+            if new_boundary_start != -1:
+                if new_boundary_start < 10:
+                    if debug:
+                        print('align start left homology is too close to boundary, cannot judge: ' + str(new_boundary_start))
+                    cur_boundary = -1
+                elif new_boundary_start != cur_boundary:
+                    if debug:
+                        print('align start left homology, new boundary: ' + str(new_boundary_start))
+                    cur_boundary = new_boundary_start
 
         return True, cur_boundary
     else:
@@ -7576,10 +7582,16 @@ def search_boundary_homo_v4(valid_col_threshold, pos, matrix, row_num, col_num,
                     # If homology in the sliding window exceeds the threshold, find the boundary.
                     new_boundary_end = window[len(window)-1][0]
                     break
-            if new_boundary_end != cur_boundary and new_boundary_end != -1:
-                if debug:
-                    print('align end right homology, new boundary: ' + str(new_boundary_end))
-                return False, -1
+            if new_boundary_end != -1:
+                # 如果右侧新的同源边界离最右不超过10bp，我们认为无法判断外侧是否真是非同源的
+                if col_num - new_boundary_end < 10:
+                    if debug:
+                        print('align end right homology is too close to boundary, cannot judge: ' + str(new_boundary_end))
+                    return False, -1
+                elif new_boundary_end != cur_boundary:
+                    if debug:
+                        print('align end right homology, new boundary: ' + str(new_boundary_end))
+                    return False, -1
 
         col_index = pos
         valid_col_count = 0
@@ -7830,10 +7842,16 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 new_boundary_start = calculate_window_homology(matrix, window_cols, homo_threshold)
                 if new_boundary_start != -1:
                     break
-            if new_boundary_start != cur_boundary and new_boundary_start != -1:
-                if debug:
-                    print('align start left homology, new boundary: ' + str(new_boundary_start))
-                cur_boundary = new_boundary_start
+            if new_boundary_start != -1:
+                # 如果左侧新的同源边界离最左不超过10bp，我们认为无法判断外侧是否真是非同源的
+                if new_boundary_start < 10:
+                    if debug:
+                        print('align start left homology is too close to boundary, cannot judge: ' + str(new_boundary_start))
+                    cur_boundary = -1
+                elif new_boundary_start != cur_boundary:
+                    if debug:
+                        print('align start left homology, new boundary: ' + str(new_boundary_start))
+                    cur_boundary = new_boundary_start
 
         return cur_boundary
     else:
@@ -7886,10 +7904,16 @@ def search_boundary_homo_v3(valid_col_threshold, pos, matrix, row_num, col_num,
                 new_boundary_end = calculate_window_homology(matrix, window_cols, homo_threshold)
                 if new_boundary_end != -1:
                     break
-            if new_boundary_end != cur_boundary and new_boundary_end != -1:
-                if debug:
-                    print('align end right homology, new boundary: ' + str(new_boundary_end))
-                cur_boundary = new_boundary_end
+            if new_boundary_end != -1:
+                # 如果右侧新的同源边界离最右不超过10bp，我们认为无法判断外侧是否真是非同源的
+                if col_num - new_boundary_end < 10:
+                    if debug:
+                        print('align end right homology is too close to boundary, cannot judge: ' + str(new_boundary_end))
+                    cur_boundary = -1
+                elif new_boundary_end != cur_boundary:
+                    if debug:
+                        print('align end right homology, new boundary: ' + str(new_boundary_end))
+                    cur_boundary = new_boundary_end
 
         col_index = cur_boundary
         valid_col_count = 0
@@ -8202,8 +8226,7 @@ def judge_boundary_v5(cur_seq, align_file, debug, TE_type, plant, result_type):
                         left_tsd_seq, right_tsd_seq = TSDsearch_v5(raw_align_seq, cur_boundary_start, cur_boundary_end, plant)
                         if left_tsd_seq != '':
                             tsd_count += 1
-                    # 放开TIR的TSD限制，因为有时候同源边界没找准，会导致找不到TSD，而丢失真实的TIR
-                    if tsd_count >= 0:
+                    if tsd_count > 0:
                         edit_distance = Levenshtein.distance(getReverseSequence(first_5bp[0]), end_5bp[0])
                         all_boundaries.append((edit_distance, tsd_count, cur_boundary_start, cur_boundary_end, first_5bp[1], end_5bp[1]))
             all_boundaries.sort(key=lambda x: (x[0], -x[1]))
