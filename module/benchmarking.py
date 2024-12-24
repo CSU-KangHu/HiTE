@@ -6,7 +6,7 @@ import sys
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import Logger, rename_reference, multi_process_align, file_exist
+from Util import Logger, rename_reference, multi_process_align, file_exist, create_or_clear_directory, copy_files
 
 if __name__ == '__main__':
     # 1.parse args
@@ -98,10 +98,14 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
 
-    rm2_test_dir = tmp_output_dir + '/rm2_test'
-    rm2_out = tmp_output_dir + '/BM_RM2.log'
-    edta_out = tmp_output_dir + '/BM_EDTA.log'
-    hite_out = tmp_output_dir + '/BM_HiTE.log'
+    # 创建本地临时目录，存储计算结果
+    temp_dir = '/tmp/annotate_genome'
+    create_or_clear_directory(temp_dir)
+
+    rm2_test_dir = temp_dir + '/rm2_test'
+    rm2_out = temp_dir + '/BM_RM2.log'
+    edta_out = temp_dir + '/BM_EDTA.log'
+    hite_out = temp_dir + '/BM_HiTE.log'
 
     os.system('rm -rf ' + rm2_test_dir)
 
@@ -116,8 +120,8 @@ if __name__ == '__main__':
         is_BM_HiTE = True
 
     # rename reference
-    ref_rename_path = tmp_output_dir + '/genome.rename.fa'
-    chr_name_map = tmp_output_dir + '/chr_name.map'
+    ref_rename_path = temp_dir + '/genome.rename.fa'
+    chr_name_map = temp_dir + '/chr_name.map'
     rename_reference(reference, ref_rename_path, chr_name_map)
     reference = ref_rename_path
 
@@ -148,9 +152,8 @@ if __name__ == '__main__':
         parent_dir = os.path.dirname(lib_module)
         HiTE_home = parent_dir
 
-        bm_hite_command = 'cd ' + parent_dir + ' && python ' + parent_dir + '/module/lib_evaluation.py -g ' \
-                          + reference + ' --standard_lib ' + lib_path \
-                          + ' --test_lib ' + TE_lib + ' --work_dir ' + tmp_output_dir \
+        bm_hite_command = 'lib_evaluation.py -g ' + reference + ' --standard_lib ' + lib_path \
+                          + ' --test_lib ' + TE_lib + ' --work_dir ' + temp_dir \
                           + ' --coverage_threshold ' + str(coverage_threshold) + ' --thread ' + str(threads) \
                           + ' ' + ' --cat Total ' + ' --is_full_length 1 ' + ' >> ' + hite_out
         log.logger.debug(bm_hite_command)
@@ -159,10 +162,10 @@ if __name__ == '__main__':
         log.logger.debug('Skip benchmarking of HiTE')
 
     if is_BM_EDTA:
-        repbase_out = tmp_output_dir + '/repbase.edta.out'
+        repbase_out = temp_dir + '/repbase.edta.out'
         result_file = repbase_out
         if not recover or not file_exist(result_file):
-            RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+            RepeatMasker_command = 'cd ' + temp_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
                                    + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + curated_lib + ' -cutoff 225 ' \
                                    + reference
             log.logger.debug(RepeatMasker_command)
@@ -174,10 +177,10 @@ if __name__ == '__main__':
         else:
             log.logger.info(result_file + ' exists, skip...')
 
-        test_out = tmp_output_dir + '/HiTE.edta.out'
+        test_out = temp_dir + '/HiTE.edta.out'
         result_file = test_out
         if not recover or not file_exist(result_file):
-            RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
+            RepeatMasker_command = 'cd ' + temp_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
                                    + ' -q -no_is -norna -nolow -div 40 -gff -lib ' + TE_lib + ' -cutoff 225 ' \
                                    + reference
             log.logger.debug(RepeatMasker_command)
@@ -190,16 +193,17 @@ if __name__ == '__main__':
             log.logger.info(result_file + ' exists, skip...')
 
         # remove old report
-        os.system('rm -f ' + tmp_output_dir + '/HiTE.edta.out.*.report')
-        bm_edta_command = 'cd ' + tmp_output_dir + ' && perl ' + EDTA_home + '/lib-test.pl -genome ' \
+        os.system('rm -f ' + temp_dir + '/HiTE.edta.out.*.report')
+        bm_edta_command = 'cd ' + temp_dir + ' && perl ' + EDTA_home + '/lib-test.pl -genome ' \
                           + reference + ' -std ' + repbase_out + ' -tst ' + test_out + ' -cat Total'
         log.logger.debug(bm_edta_command)
         os.system(bm_edta_command)
 
-        mv_file_command = 'mv ' + tmp_output_dir + '/HiTE.edta.out.*.report ' + edta_out
+        mv_file_command = 'mv ' + temp_dir + '/HiTE.edta.out.*.report ' + edta_out
         log.logger.debug(mv_file_command)
         os.system(mv_file_command)
     else:
         log.logger.debug('Skip benchmarking of EDTA')
 
-
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
