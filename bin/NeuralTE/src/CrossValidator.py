@@ -81,7 +81,7 @@ def main():
     describe_info = '########################## NeuralTE-CrossValidator, version ' + str(config.version_num) + ' ##########################'
     parser = argparse.ArgumentParser(description=describe_info)
     parser.add_argument('--data', metavar='data', help='Input fasta file containing TSDs information used to CrossValidator model')
-    parser.add_argument('--outdir', metavar='output_dir', help='Output directory, store temporary files')
+    parser.add_argument('--out_dir', metavar='output_dir', help='Output directory, store temporary files')
     parser.add_argument('--use_kmers', metavar='use_kmers', help='Whether to use kmers features, 1: true, 0: false. default = [ ' + str(config.use_kmers) + ' ]')
     parser.add_argument('--use_terminal', metavar='use_terminal', help='Whether to use LTR, TIR terminal features, 1: true, 0: false. default = [ ' + str(config.use_terminal) + ' ]')
     parser.add_argument('--use_TSD', metavar='use_TSD', help='Whether to use TSD features, 1: true, 0: false. default = [ ' + str(config.use_TSD) + ' ]')
@@ -95,7 +95,7 @@ def main():
     args = parser.parse_args()
 
     data_path = args.data
-    outdir = args.outdir
+    out_dir = args.out_dir
     use_kmers = args.use_kmers
     use_terminal = args.use_terminal
     use_TSD = args.use_TSD
@@ -106,8 +106,8 @@ def main():
     start_gpu_num = args.start_gpu_num
     use_gpu_num = args.use_gpu_num
 
-    if outdir is not None:
-        config.work_dir = outdir
+    if out_dir is not None:
+        config.work_dir = out_dir
     if use_terminal is not None:
         config.use_terminal = int(use_terminal)
     if use_kmers is not None:

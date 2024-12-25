@@ -2275,11 +2275,11 @@ if __name__ == '__main__':
     # fasta_file = work_dir + '/train.ref'
     # split_command = 'python /home/hukang/NeuralTE/utils/split_train_test.py --data_path ' + fasta_file + ' --out_dir ' + work_dir
     # #os.system(split_command)
-    # outdir = work_dir + '/Train'
-    # generate_TERL_dataset(fasta_file, outdir)
+    # out_dir = work_dir + '/Train'
+    # generate_TERL_dataset(fasta_file, out_dir)
     # fasta_file = work_dir + '/valid.ref'
-    # outdir = work_dir + '/Test'
-    # generate_TERL_dataset(fasta_file, outdir)
+    # out_dir = work_dir + '/Test'
+    # generate_TERL_dataset(fasta_file, out_dir)
 
     # fasta_file = '/home/hukang/NeuralTE_dataset/Dataset2/all_repbase.ref'
     # generate_ClassifyTE_dataset(fasta_file)

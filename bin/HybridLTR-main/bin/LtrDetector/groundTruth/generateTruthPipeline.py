@@ -419,7 +419,7 @@ def merge(first,second,third):
     return all
 
 
-def buildGroundTruth(repeats, repeatMaskerFile, chromFile,queryFile, name,outDir):
+def buildGroundTruth(repeats, repeatMaskerFile, chromFile,queryFile, name,out_dir):
     print "Querying Database"
     queryDatabase(chromFile, queryFile, name)
     print("Intital Blast query passed")
@@ -504,7 +504,7 @@ def buildGroundTruth(repeats, repeatMaskerFile, chromFile,queryFile, name,outDir
     finals = merge(blast_processed, masker_processed, shared_processed)
 
 
-    ground_truth = outDir+name + "Truth.bed"
+    ground_truth = out_dir+name + "Truth.bed"
 
     with open(ground_truth, 'w') as outFile:
         for f in finals:

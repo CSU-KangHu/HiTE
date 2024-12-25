@@ -234,7 +234,7 @@ def main_pipeline():
             # 2.1. 利用 HiTE 检测TEs
             if not recover or is_rerun:
                 if os.path.exists(reference):
-                    HiTE_command = 'python ' + project_dir + '/main.py --genome ' + reference + ' --outdir ' + \
+                    HiTE_command = 'python ' + project_dir + '/main.py --genome ' + reference + ' --out_dir ' + \
                                    HiTE_output_dir + ' --thread ' + str(threads) + ' --annotate 0 --te_type ' + \
                                    str(te_type) + ' --miu ' + str(miu) + ' --is_output_LTR_lib 0 ' + ' --debug ' + str(debug) + \
                                    ' --recover ' + str(recover)

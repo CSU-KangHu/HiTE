@@ -49,7 +49,7 @@ def main():
     describe_info = '########################## NeuralTE, version ' + str(config.version_num) + ' ##########################'
     parser = argparse.ArgumentParser(description=describe_info)
     parser.add_argument('--data', required=True, metavar='data', help='Input fasta file used to train model, header format: seq_name\tlabel\tspecies_name, refer to "data/train.example.fa" for example.')
-    parser.add_argument('--outdir', required=True, metavar='output_dir', help='Output directory, store temporary files')
+    parser.add_argument('--out_dir', required=True, metavar='output_dir', help='Output directory, store temporary files')
     parser.add_argument('--use_TSD', required=True, metavar='use_TSD', help='Whether to use TSD features, 1: true, 0: false. default = [ ' + str(config.use_TSD) + ' ]')
     parser.add_argument('--is_train', required=True, metavar='is_train', help='Enable train mode, 1: true, 0: false. default = [ ' + str(config.is_train) + ' ]')
     parser.add_argument('--is_predict', required=True, metavar='is_predict', help='Enable prediction mode, 1: true, 0: false. default = [ ' + str(config.is_predict) + ' ]')
@@ -79,7 +79,7 @@ def main():
     args = parser.parse_args()
 
     data_path = args.data
-    outdir = args.outdir
+    out_dir = args.out_dir
     genome = args.genome
     use_kmers = args.use_kmers
     use_terminal = args.use_terminal
@@ -105,8 +105,8 @@ def main():
     epochs = args.epochs
     use_checkpoint = args.use_checkpoint
 
-    if outdir is not None:
-        config.work_dir = outdir
+    if out_dir is not None:
+        config.work_dir = out_dir
     if use_kmers is not None:
         config.use_kmers = int(use_kmers)
     if use_terminal is not None:
@@ -165,7 +165,7 @@ def main():
 
     params = {}
     params['data_path'] = data_path
-    params['outdir'] = outdir
+    params['out_dir'] = out_dir
     params['genome'] = genome
     showTrainParams(params)
 

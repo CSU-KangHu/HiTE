@@ -273,7 +273,7 @@ if __name__ == '__main__':
             os.makedirs(NeuralTE_output_dir)
         NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + intact_LTR_path \
                            + ' --use_TSD 0 --model_path ' \
-                           + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
+                           + NeuralTE_home + '/models/NeuralTE_model.h5 --out_dir ' \
                            + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command)

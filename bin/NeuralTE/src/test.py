@@ -533,11 +533,11 @@ if __name__ == '__main__':
 
     # work_dir = '/home/hukang/TE_Classification/TERL/Data/validate_TE'
     # fasta_file = work_dir + '/train.ref'
-    # outdir = work_dir + '/Train'
-    # generate_TERL_dataset(fasta_file, outdir)
+    # out_dir = work_dir + '/Train'
+    # generate_TERL_dataset(fasta_file, out_dir)
     # fasta_file = work_dir + '/test.ref'
-    # outdir = work_dir + '/Test'
-    # generate_TERL_dataset(fasta_file, outdir)
+    # out_dir = work_dir + '/Test'
+    # generate_TERL_dataset(fasta_file, out_dir)
 
     # fasta_file = '/home/hukang/NeuralTE_dataset/Dataset2/all_repbase.ref'
     # generate_ClassifyTE_dataset(fasta_file)

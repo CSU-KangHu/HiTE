@@ -1,6 +1,9 @@
 # HiTE Now Includes panHiTE Support!
 ![Version](https://img.shields.io/badge/version-0.0.1--beta-orange)
 
+## panHiTE
+![image](https://github.com/user-attachments/assets/63e511c2-aaef-43d8-b6e7-2ae221a3e25a)
+
 We are excited to announce a significant update to HiTE, which now includes the powerful panHiTE functionality. This release introduces the following key features:
 
 1. **Improved LTR Detection**: The original `LTR_retriever` has been replaced with our new tool, `FiLTR`, offering improved **accuracy and completeness** in LTR detection.

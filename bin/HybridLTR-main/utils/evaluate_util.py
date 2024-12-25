@@ -993,8 +993,8 @@ def plot_3D_param(x, y, z, work_dir):
     #plt.show()
     plt.savefig(work_dir + '/output.png', dpi=500)
 
-def generate_TERL_dataset(fasta_file, outdir):
-    os.makedirs(outdir, exist_ok=True)
+def generate_TERL_dataset(fasta_file, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
     contignames, contigs = read_fasta_v1(fasta_file)
     label_seqs = {}
     for name in contignames:
@@ -1004,7 +1004,7 @@ def generate_TERL_dataset(fasta_file, outdir):
         cur_label_seqs = label_seqs[label]
         cur_label_seqs[name] = contigs[name]
     for label in label_seqs.keys():
-        cur_label_path = outdir + '/' + label + '.fa'
+        cur_label_path = out_dir + '/' + label + '.fa'
         store_fasta(label_seqs[label], cur_label_path)
 
 def generate_ClassifyTE_dataset(fasta_file):

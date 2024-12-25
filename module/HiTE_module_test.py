@@ -3924,7 +3924,7 @@ if __name__ == '__main__':
     # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
     # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
     # # test_home = '/home/hukang/test/HiTE/module'
-    # tmp_output_dir = work_dir + '/outdir'
+    # tmp_output_dir = work_dir + '/out_dir'
     # if not os.path.exists(tmp_output_dir):
     #     os.makedirs(tmp_output_dir)
     # chrom_seg_length = 100000
@@ -4089,7 +4089,7 @@ if __name__ == '__main__':
     #         os.makedirs(NeuralTE_output_dir)
     #     NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + candidate_non_ltr_path \
     #                        + ' --use_TSD 0 --model_path ' \
-    #                        + NeuralTE_home + '/models/NeuralTE_model.h5 --outdir ' \
+    #                        + NeuralTE_home + '/models/NeuralTE_model.h5 --out_dir ' \
     #                        + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
     #     os.system(NeuralTE_command + ' > /dev/null 2>&1')
     #     classified_TE_path = NeuralTE_output_dir + '/classified_TE.fa'

@@ -70,13 +70,13 @@ conda activate HiTE
 python main.py \
  --genome ${genome} \
  --thread ${thread} \
- --outdir ${output_dir} \
+ --out_dir ${output_dir} \
  [other parameters]
  
  # e.g., my command: python main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
- # --outdir /home/hukang/HiTE/demo/test/
+ # --out_dir /home/hukang/HiTE/demo/test/
 ```
 
 ### <a name="install_singularity"></a>Option 2. Run with Singularity
@@ -88,7 +88,7 @@ singularity pull HiTE.sif docker://kanghu/hite:3.2.0
 singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiTE/main.py \
  --genome ${genome} \
  --thread ${thread} \
- --outdir ${output_dir} \
+ --out_dir ${output_dir} \
  [other parameters]
  
  # (1) The option "-B" is used to specify directories to be mounted.
@@ -99,7 +99,7 @@ singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiT
  # e.g., my command: singularity run -B /home/hukang:/home/hukang /home/hukang/HiTE.sif python /HiTE/main.py \
  # --genome /home/hukang/HiTE/demo/genome.fa \
  # --thread 40 \
- # --outdir /home/hukang/HiTE/demo/test/
+ # --out_dir /home/hukang/HiTE/demo/test/
 ```
 
 ### <a name="install_docker"></a>Option 3. Run with Docker
@@ -111,11 +111,11 @@ docker pull kanghu/hite:3.2.0
 docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  --genome ${genome} \
  --thread ${thread} \
- --outdir ${output_dir} \
+ --out_dir ${output_dir} \
  [other parameters]
  
  # (1) Since the default working directory is set to "/HiTE", we recommend specifying the options "--genome"
- #     and "--outdir" as absolute paths.
+ #     and "--out_dir" as absolute paths.
  # (2) The option "-v" is used to specify directories to be mounted.
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
@@ -123,7 +123,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.2.0 python main.py \
  # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.2.0 python main.py \
  # --genome /home/hukang/HiTE/demo/genome.fa \
  # --thread 40 \
- # --outdir /home/hukang/HiTE/demo/test/
+ # --out_dir /home/hukang/HiTE/demo/test/
 ```
 For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14130355](https://zenodo.org/records/14130355).
 ```sh
@@ -147,12 +147,12 @@ Check `HiTE/demo/genome.fa` for demo genome assembly, and run HiTE with demo dat
 python ${pathTo/HiTE}/main.py \
  --genome ${pathTo/genome.fa} \
  --thread 40 \
- --outdir ${outdir}
+ --out_dir ${out_dir}
 
  # e.g., my command: python /home/hukang/HiTE/main.py 
  # --genome /home/hukang/HiTE/demo/genome.fa 
  # --thread 40 
- # --outdir /home/hukang/HiTE/demo/test/
+ # --out_dir /home/hukang/HiTE/demo/test/
 ```
 
 If the following files exist in the **demo/test** directory, it means the program runs successfully: 
@@ -168,7 +168,7 @@ demo/test/
 Click on [Outputs](#outputs) for further details.
 
 Note:
-To avoid automatic deletion of files, set the output path parameter ```--outdir``` to an empty directory.
+To avoid automatic deletion of files, set the output path parameter ```--out_dir``` to an empty directory.
 
 ### Predicting conserved protein domains in TEs
 To predict conserved protein domains in TEs, you need to add `--domain 1` parameter.
@@ -265,12 +265,12 @@ Pipeline: main.py
 Type `python main.py -h` for help.
 ```
 The simplest command:
-python main.py --genome $genome_assembly --outdir $output_dir
+python main.py --genome $genome_assembly --out_dir $output_dir
 
 Most frequently used commands:
-python main.py --genome $genome_assembly --outdir $output_dir --thread 40 --plant 0 --recover 1 --annotate 1
+python main.py --genome $genome_assembly --out_dir $output_dir --thread 40 --plant 0 --recover 1 --annotate 1
 
-usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--te_type te_type] [--curated_lib curated_lib]
+usage: main.py [-h] --genome genome --out_dir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--te_type te_type] [--curated_lib curated_lib]
                [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--intact_anno intact_anno] [--search_struct search_struct] [--BM_RM2 BM_RM2]
                [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_denovo_nonltr is_denovo_nonltr]
                [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold]
@@ -281,7 +281,7 @@ usage: main.py [-h] --genome genome --outdir output_dir [--thread thread_num] [-
 optional arguments:
   -h, --help            show this help message and exit
   --genome genome       Input genome assembly path
-  --outdir output_dir   The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
+  --out_dir output_dir   The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
   --thread thread_num   Input thread num, default = [ 40 ]
   --chunk_size chunk_size
                         The chunk size of genome, default = [ 400 MB ]

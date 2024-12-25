@@ -191,7 +191,7 @@ def test_cnn_filters(work_dir):
 
         params = {}
         params['data_path'] = work_dir
-        params['outdir'] = work_dir
+        params['out_dir'] = work_dir
         params['genome'] = work_dir
         showTrainParams(params)
 

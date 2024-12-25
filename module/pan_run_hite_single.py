@@ -59,7 +59,7 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
     # 运行 HiTE
     if file_exist(reference):
         HiTE_command = (
-            f"python {project_dir}/main.py --genome {reference} --outdir {HiTE_output_dir} "
+            f"python {project_dir}/main.py --genome {reference} --out_dir {HiTE_output_dir} "
             f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 1 "
             f"--debug {debug}"
         )

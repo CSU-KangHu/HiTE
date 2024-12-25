@@ -62,7 +62,7 @@ if __name__ == '__main__':
     describe_info = '########################## HiTE, version ' + str(version_num) + ' ##########################'
     parser = argparse.ArgumentParser(description=describe_info)
     parser.add_argument('--genome', required=True, metavar='genome', help='Input genome assembly path')
-    parser.add_argument('--outdir', required=True, metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
+    parser.add_argument('--out_dir', required=True, metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
 
     parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of genome, default = [ ' + str(default_chunk_size) + ' MB ]')
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     reference = args.genome
     threads = args.thread
-    output_dir = args.outdir
+    output_dir = args.out_dir
     fixed_extend_base_threshold = args.fixed_extend_base_threshold
     chunk_size = args.chunk_size
     tandem_region_cutoff = args.tandem_region_cutoff

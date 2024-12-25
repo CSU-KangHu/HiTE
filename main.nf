@@ -25,11 +25,11 @@ def helpMessage() {
     =================================
     Usage:
     The typical command is as follows:
-    nextflow run main.nf --genome ../demo/genome.fa --thread 48 --outdir ../demo/test --plant 0
+    nextflow run main.nf --genome ../demo/genome.fa --thread 48 --out_dir ../demo/test --plant 0
 
     Mandatory arguments:
       --genome      Genome assembly path (format: fasta, fa, and fna)
-      --outdir      Output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
+      --out_dir      Output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
     General options:
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
@@ -83,7 +83,7 @@ def printSetting() {
       [Setting] skip_HiTE = [ $params.skip_HiTE ]
       [Setting] is_denovo_nonltr = [ $params.is_denovo_nonltr ]
       [Setting] debug = [ $params.debug ]
-      [Setting] Output Directory = [ $params.outdir ]
+      [Setting] Output Directory = [ $params.out_dir ]
       [Setting] use_HybridLTR = [ $params.use_HybridLTR ]
       [Setting] use_NeuralTE = [ $params.use_NeuralTE ]
       [Setting] is_wicker = [ $params.is_wicker ]
@@ -109,20 +109,20 @@ if (!params.genome){
     exit 1, "--genome option not specified!"
 }
 
-if (!params.outdir){
-    exit 1, "--outdir option not specified!"
+if (!params.out_dir){
+    exit 1, "--out_dir option not specified!"
 }
 
 printSetting()
 projectDir = workflow.projectDir
 genome_name = file(params.genome).getName()
-out_genome = "${params.outdir}/${genome_name}"
+out_genome = "${params.out_dir}/${genome_name}"
 
 filePrefix = genome_name.substring(0, genome_name.lastIndexOf('.'))
-out_genome_rename = "${params.outdir}/${filePrefix}.rename.fa"
+out_genome_rename = "${params.out_dir}/${filePrefix}.rename.fa"
 
 //parameters of HiTE
-tmp_output_dir = "${params.outdir}"
+tmp_output_dir = "${params.out_dir}"
 chrom_seg_length = "${params.chrom_seg_length}"
 chunk_size = "${params.chunk_size}"
 fixed_extend_base_threshold = "${params.fixed_extend_base_threshold}"
@@ -668,7 +668,7 @@ process test {
 */
 
 workflow {
-    outdir = file(params.outdir).toAbsolutePath().toString()
+    out_dir = file(params.out_dir).toAbsolutePath().toString()
 
     // split genome into chunks
     Channel.fromPath(params.genome, type: 'any', checkIfExists: true).set{ ch_genome }
@@ -717,47 +717,47 @@ workflow {
         // test(Non_LTR.out.ch_Non_LTRs) | view { "$it" }
 
         // Merge all chunks and store them in the output directory.
-        all_ltrs = LTR.out.ch_LTRs.collectFile(name: "${outdir}/confident_ltr_cut.fa")
-        all_tirs = TIR.out.ch_TIRs.collectFile(name: "${outdir}/confident_tir.fa")
-        all_helitrons = Helitron.out.ch_Helitrons.collectFile(name: "${outdir}/confident_helitron.fa")
-        all_non_ltrs = Non_LTR.out.ch_Non_LTRs.collectFile(name: "${outdir}/confident_non_ltr.fa")
-        all_others = OtherTE.out.ch_others.collectFile(name: "${outdir}/confident_other.fa")
-        all_LTR_pass_list = LTR.out.ch_LTR_pass_list.collectFile(name: "${outdir}/genome.rename.fa.pass.list")
-        all_chr_name_map = LTR.out.chr_name_map.collectFile(name: "${outdir}/chr_name.map")
+        all_ltrs = LTR.out.ch_LTRs.collectFile(name: "${out_dir}/confident_ltr_cut.fa")
+        all_tirs = TIR.out.ch_TIRs.collectFile(name: "${out_dir}/confident_tir.fa")
+        all_helitrons = Helitron.out.ch_Helitrons.collectFile(name: "${out_dir}/confident_helitron.fa")
+        all_non_ltrs = Non_LTR.out.ch_Non_LTRs.collectFile(name: "${out_dir}/confident_non_ltr.fa")
+        all_others = OtherTE.out.ch_others.collectFile(name: "${out_dir}/confident_other.fa")
+        all_LTR_pass_list = LTR.out.ch_LTR_pass_list.collectFile(name: "${out_dir}/genome.rename.fa.pass.list")
+        all_chr_name_map = LTR.out.chr_name_map.collectFile(name: "${out_dir}/chr_name.map")
 
         // Step7: Build TE library
         BuildLib(all_ltrs, all_tirs, all_helitrons, all_non_ltrs, all_others)
 
-        ch_TEs = BuildLib.out.ch_TEs.collectFile(name: "${outdir}/confident_TE.cons.fa")
-        BuildLib.out.ch_classified_TE.collectFile(name: "${outdir}/TE_merge_tmp.fa.classified")
+        ch_TEs = BuildLib.out.ch_TEs.collectFile(name: "${out_dir}/confident_TE.cons.fa")
+        BuildLib.out.ch_classified_TE.collectFile(name: "${out_dir}/TE_merge_tmp.fa.classified")
 
         // Step8: Genome annotation
         AnnotateGenome(ch_TEs, ch_genome)
-        AnnotateGenome.out.ch_HiTE_out.collectFile(name: "${outdir}/HiTE.out")
-        AnnotateGenome.out.ch_HiTE_tbl.collectFile(name: "${outdir}/HiTE.tbl")
-        AnnotateGenome.out.ch_HiTE_gff.collectFile(name: "${outdir}/HiTE.gff")
+        AnnotateGenome.out.ch_HiTE_out.collectFile(name: "${out_dir}/HiTE.out")
+        AnnotateGenome.out.ch_HiTE_tbl.collectFile(name: "${out_dir}/HiTE.tbl")
+        AnnotateGenome.out.ch_HiTE_gff.collectFile(name: "${out_dir}/HiTE.gff")
     } else {
-        Channel.fromPath("${outdir}/confident_TE.cons.fa", type: 'any', checkIfExists: true).set{ ch_TEs }
+        Channel.fromPath("${out_dir}/confident_TE.cons.fa", type: 'any', checkIfExists: true).set{ ch_TEs }
     }
 
     if (params.intact_anno){
         // Step9: get full-length TE annotation
-        Channel.fromPath("${outdir}/genome.rename.fa.pass.list", type: 'any', checkIfExists: false).set{ all_LTR_pass_list }
-        Channel.fromPath("${outdir}/chr_name.map", type: 'any', checkIfExists: false).set{ all_chr_name_map }
-        Channel.fromPath("${outdir}/confident_tir.fa", type: 'any', checkIfExists: false).set{ all_tirs }
-        Channel.fromPath("${outdir}/confident_helitron.fa", type: 'any', checkIfExists: false).set{ all_helitrons }
-        Channel.fromPath("${outdir}/confident_non_ltr.fa", type: 'any', checkIfExists: false).set{ all_non_ltrs }
-        Channel.fromPath("${outdir}/confident_other.fa", type: 'any', checkIfExists: false).set{ all_others }
-        Channel.fromPath("${outdir}/TE_merge_tmp.fa.classified", type: 'any', checkIfExists: false).set{ ch_classified_TE }
+        Channel.fromPath("${out_dir}/genome.rename.fa.pass.list", type: 'any', checkIfExists: false).set{ all_LTR_pass_list }
+        Channel.fromPath("${out_dir}/chr_name.map", type: 'any', checkIfExists: false).set{ all_chr_name_map }
+        Channel.fromPath("${out_dir}/confident_tir.fa", type: 'any', checkIfExists: false).set{ all_tirs }
+        Channel.fromPath("${out_dir}/confident_helitron.fa", type: 'any', checkIfExists: false).set{ all_helitrons }
+        Channel.fromPath("${out_dir}/confident_non_ltr.fa", type: 'any', checkIfExists: false).set{ all_non_ltrs }
+        Channel.fromPath("${out_dir}/confident_other.fa", type: 'any', checkIfExists: false).set{ all_others }
+        Channel.fromPath("${out_dir}/TE_merge_tmp.fa.classified", type: 'any', checkIfExists: false).set{ ch_classified_TE }
         IntactTEAnnotation(ch_TEs, all_LTR_pass_list, all_chr_name_map, all_tirs, all_helitrons, all_non_ltrs, all_others, ch_genome, ch_classified_TE)
-        IntactTEAnnotation.out.ch_intact_gff.collectFile(name: "${outdir}/HiTE_intact.sorted.gff3")
+        IntactTEAnnotation.out.ch_intact_gff.collectFile(name: "${out_dir}/HiTE_intact.sorted.gff3")
     }
 
     // Step10: conduct benchmarking
     Benchmarking(ch_TEs, ch_genome)
-    Benchmarking.out.ch_BM_RM2.collectFile(name: "${outdir}/BM_RM2.log")
-    Benchmarking.out.ch_BM_HiTE.collectFile(name: "${outdir}/BM_HiTE.log")
-    Benchmarking.out.ch_BM_EDTA.collectFile(name: "${outdir}/BM_EDTA.log")
+    Benchmarking.out.ch_BM_RM2.collectFile(name: "${out_dir}/BM_RM2.log")
+    Benchmarking.out.ch_BM_HiTE.collectFile(name: "${out_dir}/BM_HiTE.log")
+    Benchmarking.out.ch_BM_EDTA.collectFile(name: "${out_dir}/BM_EDTA.log")
 }
 
 

@@ -80,7 +80,7 @@ Please refer to [demo](/demo) for some demo data to play with:
 # Inputs: 
 #       --data: TE library to be classified.
 #       --model_path: Pre-trained NeuralTE model without using TSDs features.
-#       --outdir: Output directory. The `--outdir` should not be the same as the directory 
+#       --out_dir: Output directory. The `--out_dir` should not be the same as the directory 
 #                 where the `--data` file is located.
 # Outputs: 
 #       classified.info: Classification labels corresponding to TE names.
@@ -88,13 +88,13 @@ Please refer to [demo](/demo) for some demo data to play with:
 python ${pathTo}/NeuralTE/src/Classifier.py \
  --data ${pathTo}/NeuralTE/demo/test.fa \
  --model_path ${pathTo}/NeuralTE/models/NeuralTE_model.h5 \
- --outdir ${outdir} \
+ --out_dir ${out_dir} \
  --thread ${threads_num}
  # e.g., my command: 
  # python /home/hukang/NeuralTE/src/Classifier.py \
  # --data /home/hukang/NeuralTE/demo/test.fa \
  # --model_path /home/hukang/NeuralTE/models/NeuralTE_model.h5 \
- # --outdir /home/hukang/NeuralTE/demo/work \
+ # --out_dir /home/hukang/NeuralTE/demo/work \
  # --thread 40
  
  
@@ -110,7 +110,7 @@ python ${pathTo}/NeuralTE/src/Classifier.py \
  --genome ${pathTo}/NeuralTE/demo/genome.fa \
  --use_TSD 1 \
  --model_path ${pathTo}/NeuralTE/models/NeuralTE-TSDs_model.h5 \
- --outdir ${outdir} \
+ --out_dir ${out_dir} \
  --thread ${threads_num}
  # e.g., my command: 
  # python /home/hukang/NeuralTE/src/Classifier.py \
@@ -118,7 +118,7 @@ python ${pathTo}/NeuralTE/src/Classifier.py \
  # --genome /home/hukang/NeuralTE/demo/genome.fa \
  # --use_TSD 1 \
  # --model_path /home/hukang/NeuralTE/models/NeuralTE-TSDs_model.h5 \
- # --outdir /home/hukang/NeuralTE/demo/work \
+ # --out_dir /home/hukang/NeuralTE/demo/work \
  # --thread 40
 ```
 
@@ -173,7 +173,7 @@ python ${pathTo}/NeuralTE/src/Trainer.py \
  --is_train 1 \
  --is_predict 0 \
  --use_TSD 0 \
- --outdir ${outdir} \
+ --out_dir ${out_dir} \
  --thread ${threads_num} \
  --start_gpu_num ${start_gpu_num} \
  --use_gpu_num ${use_gpu_num}
@@ -183,7 +183,7 @@ python ${pathTo}/NeuralTE/src/Trainer.py \
  # --is_train 1 \
  # --is_predict 0 \
  # --use_TSD 0 \
- # --outdir /home/hukang/NeuralTE/work \
+ # --out_dir /home/hukang/NeuralTE/work \
  # --thread 40
  # --start_gpu_num 0 \
  # --use_gpu_num 1
@@ -204,7 +204,7 @@ python ${pathTo}/NeuralTE/src/Trainer.py \
  --is_train 1 \
  --is_predict 0 \
  --use_TSD 1 \
- --outdir ${outdir} \
+ --out_dir ${out_dir} \
  --thread ${threads_num} \
  --start_gpu_num ${start_gpu_num} \
  --use_gpu_num ${use_gpu_num}
@@ -215,7 +215,7 @@ python ${pathTo}/NeuralTE/src/Trainer.py \
  # --is_train 1 \
  # --is_predict 0 \
  # --use_TSD 1 \
- # --outdir /home/hukang/NeuralTE/work \
+ # --out_dir /home/hukang/NeuralTE/work \
  # --thread 40 \
  # --start_gpu_num 0 \
  # --use_gpu_num 1
@@ -234,12 +234,12 @@ In the [demo](/demo) directory, authentic TE libraries for HiTE, EDTA, and Repea
 python ${pathTo}/NeuralTE/src/Classifier.py \
  --data ${pathTo}/NeuralTE/demo/confident_TE.cons.fa \
  --model_path ${pathTo}/NeuralTE/models/NeuralTE_model.h5 \
- --outdir ${outdir} \
+ --out_dir ${out_dir} \
  --thread ${threads_num}
  # e.g., my command: python /home/hukang/NeuralTE/src/Classifier.py \
  # --data /home/hukang/NeuralTE/demo/confident_TE.cons.fa \
  # --model_path /home/hukang/NeuralTE/models/NeuralTE_model.h5 \
- # --outdir /home/hukang/NeuralTE/demo/work \
+ # --out_dir /home/hukang/NeuralTE/demo/work \
  # --thread 40
 ```
 
@@ -248,12 +248,12 @@ python ${pathTo}/NeuralTE/src/Classifier.py \
 python ${pathTo}/NeuralTE/src/Classifier.py \
  --data ${pathTo}/NeuralTE/demo/GCF_000001735.4_TAIR10.1_genomic.rename.fna.mod.EDTA.intact.fa \
  --model_path ${pathTo}/NeuralTE/models/NeuralTE_model.h5 \
- --outdir ${outdir} \
+ --out_dirout_dir ${out_dir} \
  --thread ${threads_num}
  # e.g., my command: python /home/hukang/NeuralTE/src/Classifier.py \
  # --data /home/hukang/NeuralTE/demo/GCF_000001735.4_TAIR10.1_genomic.rename.fna.mod.EDTA.intact.fa \
  # --model_path /home/hukang/NeuralTE/models/NeuralTE_model.h5 \
- # --outdir /home/hukang/NeuralTE/demo/work \
+ # --out_dir /home/hukang/NeuralTE/demo/work \
  # --thread 40
 ```
 
@@ -271,12 +271,12 @@ python ${pathTo}/NeuralTE/utils/reName_RM2.py \
  python ${pathTo}/NeuralTE/src/Classifier.py \
  --data ${pathTo}/${species}-families.rename.fa \
  --model_path ${pathTo}/NeuralTE/models/NeuralTE_model.h5 \
- --outdir ${outdir} \
+ --out_dir ${out_dir} \
  --thread ${threads_num}
  # e.g., my command: python /home/hukang/NeuralTE/src/Classifier.py \
  # --data /home/hukang/NeuralTE/demo/rice-families.rename.fa \
  # --model_path /home/hukang/NeuralTE/models/NeuralTE_model.h5 \
- # --outdir /home/hukang/NeuralTE/demo/work \
+ # --out_dir /home/hukang/NeuralTE/demo/work \
  # --thread 40
 ```
 -->
@@ -288,7 +288,7 @@ All experimental results in the manuscript of NeuralTE can be reproduced step by
 ## <a name="cmd"></a>Usage
 #### 1. Classify TE library
 ```shell
-usage: Classifier.py [-h] --data data --outdir output_dir [--use_TSD use_TSD] [--is_predict is_predict] [--start_gpu_num start_gpu_num] [--use_gpu_num use_gpu_num] [--keep_raw keep_raw] [--genome genome] [--species species] [--model_path model_path]
+usage: Classifier.py [-h] --data data --out_dir output_dir [--use_TSD use_TSD] [--is_predict is_predict] [--start_gpu_num start_gpu_num] [--use_gpu_num use_gpu_num] [--keep_raw keep_raw] [--genome genome] [--species species] [--model_path model_path]
                      [--use_kmers use_kmers] [--use_terminal use_terminal] [--use_minority use_minority] [--use_domain use_domain] [--use_ends use_ends] [--is_wicker is_wicker] [--is_plant is_plant] [--threads thread_num] [--internal_kmer_sizes internal_kmer_sizes]
                      [--terminal_kmer_sizes terminal_kmer_sizes]
 
@@ -297,7 +297,7 @@ usage: Classifier.py [-h] --data data --outdir output_dir [--use_TSD use_TSD] [-
 optional arguments:
   -h, --help            show this help message and exit
   --data data           Input fasta file used to predict, header format: seq_name label species_name, refer to "data/test.example.fa" for example.
-  --outdir output_dir   Output directory, store temporary files
+  --out_dir output_dir  Output directory, store temporary files
   --use_TSD use_TSD     Whether to use TSD features, 1: true, 0: false. default = [ 0 ]
   --is_predict is_predict
                         Enable prediction mode, 1: true, 0: false. default = [ 1 ]
@@ -330,7 +330,7 @@ optional arguments:
 ```
 #### 2. Train a new model
 ```shell
-usage: Trainer.py [-h] --data data --outdir output_dir --use_TSD use_TSD --is_train is_train --is_predict is_predict [--start_gpu_num start_gpu_num] [--use_gpu_num use_gpu_num] [--only_preprocess only_preprocess] [--keep_raw keep_raw] [--genome genome]
+usage: Trainer.py [-h] --data data --out_dir output_dir --use_TSD use_TSD --is_train is_train --is_predict is_predict [--start_gpu_num start_gpu_num] [--use_gpu_num use_gpu_num] [--only_preprocess only_preprocess] [--keep_raw keep_raw] [--genome genome]
                   [--use_kmers use_kmers] [--use_terminal use_terminal] [--use_minority use_minority] [--use_domain use_domain] [--use_ends use_ends] [--threads thread_num] [--internal_kmer_sizes internal_kmer_sizes] [--terminal_kmer_sizes terminal_kmer_sizes]
                   [--cnn_num_convs cnn_num_convs] [--cnn_filters_array cnn_filters_array] [--cnn_kernel_sizes_array cnn_kernel_sizes_array] [--cnn_dropout cnn_dropout] [--batch_size batch_size] [--epochs epochs] [--use_checkpoint use_checkpoint]
 
@@ -339,7 +339,7 @@ usage: Trainer.py [-h] --data data --outdir output_dir --use_TSD use_TSD --is_tr
 optional arguments:
   -h, --help            show this help message and exit
   --data data           Input fasta file used to train model, header format: seq_name label species_name, refer to "data/train.example.fa" for example.
-  --outdir output_dir   Output directory, store temporary files
+  --out_dir output_dir   Output directory, store temporary files
   --use_TSD use_TSD     Whether to use TSD features, 1: true, 0: false. default = [ 0 ]
   --is_train is_train   Enable train mode, 1: true, 0: false. default = [ 0 ]
   --is_predict is_predict
