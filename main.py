@@ -401,6 +401,8 @@ if __name__ == '__main__':
     #     ├──benchmarking reproduction: benchmarking.py
     #     └──clean temporary files: clean_lib.py
 
+    if threads < 4:
+        log.logger.warning('The number of threads running HiTE is less than 4, we strongly recommend using a higher number of threads.')
     # reduce the threads number to avoid run out of resources
     threads = max(1, threads-4)
 

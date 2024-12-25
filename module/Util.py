@@ -5669,7 +5669,7 @@ def multi_process_tsd_v1(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir
 
     # After partitioning the files, perform parallel computations using multiple processes.
     fasta_file = longest_repeats_flanked_path
-    subfile_size = 10000 #10K
+    subfile_size = 10_000 #10K
     output_dir = tir_tsd_dir
     split_fasta(fasta_file, subfile_size, output_dir)
     split_files = []

@@ -82,7 +82,7 @@ process preprocess_genomes {
     script:
     """
     echo "Running preprocessing"
-    memusg.py pan_preprocess_genomes.py --genome_list ${genome_list} --genes_dir ${genes_dir} \
+    pan_preprocess_genomes.py --genome_list ${genome_list} --genes_dir ${genes_dir} \
     --RNA_dir ${RNA_dir} --pan_genomes_dir ${pan_genomes_dir} > preprocess_genomes.log 2>&1
     """
 }
@@ -112,7 +112,7 @@ process run_hite_single {
     script:
     cores = task.cpus
     """
-    memusg.py pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
+    pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
     --te_type ${te_type} --miu ${miu} --debug ${debug} > ${genome_name}.run_hite_single.log 2>&1
     """
 }
@@ -152,7 +152,7 @@ process pan_remove_redundancy {
     script:
     cores = task.cpus
     """
-    memusg.py pan_remove_redundancy.py --pan_terminal_tmp_lib ${terminal_tmp} --pan_internal_tmp_lib ${internal_tmp} \
+    pan_remove_redundancy.py --pan_terminal_tmp_lib ${terminal_tmp} --pan_internal_tmp_lib ${internal_tmp} \
     --threads ${cores} > pan_remove_redundancy.log 2>&1
     """
 }
@@ -172,7 +172,7 @@ process annotate_genomes {
     script:
     cores = task.cpus
     """
-    memusg.py pan_annotate_genome.py --threads ${cores} --panTE_lib ${panTE_lib} --reference ${reference} \
+    pan_annotate_genome.py --threads ${cores} --panTE_lib ${panTE_lib} --reference ${reference} \
     --genome_name ${genome_name} > ${genome_name}.annotate_genomes.log 2>&1
     """
 }
@@ -209,7 +209,7 @@ process summarize_tes {
 
     script:
     """
-    memusg.py pan_summary_TEs.py --genome_info_json ${genome_info_json} --pan_genomes_dir ${pan_genomes_dir} \
+    pan_summary_TEs.py --genome_info_json ${genome_info_json} --pan_genomes_dir ${pan_genomes_dir} \
     --panTE_lib ${panTE_lib} --softcore_threshold ${softcore_threshold} > summarize_tes.log 2>&1
     """
 }
@@ -230,7 +230,7 @@ process pan_gene_te_relation {
 
     script:
     """
-    memusg.py pan_gene_te_relation.py --genome_info_json ${genome_info_json} > pan_gene_te_relation.log 2>&1
+    pan_gene_te_relation.py --genome_info_json ${genome_info_json} > pan_gene_te_relation.log 2>&1
     """
 }
 
@@ -249,7 +249,7 @@ process pan_generate_bam_for_RNA_seq {
     script:
     cores = task.cpus
     """
-    memusg.py pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} \
+    pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} \
     --RNA_seq '${RNA_seq}' --RNA_dir ${RNA_dir} --threads ${cores}  > ${genome_name}.pan_generate_bam_for_RNA_seq.log 2>&1
     """
 }
@@ -273,7 +273,7 @@ process pan_detect_de_genes {
     script:
     cores = task.cpus
     """
-    memusg.py pan_detect_de_genes.py --genome_info_for_bam_json ${genome_info_for_bam_json} --gene_te_associations ${gene_te_associations} \
+    pan_detect_de_genes.py --genome_info_for_bam_json ${genome_info_for_bam_json} --gene_te_associations ${gene_te_associations} \
     --RNA_dir ${RNA_dir} --threads ${cores} > pan_detect_de_genes.log 2>&1
     """
 }
