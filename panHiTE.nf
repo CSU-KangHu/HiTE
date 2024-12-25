@@ -125,14 +125,17 @@ process merge_terminal_te {
 
     input:
     path terminal
-    path te
+    path tir
+    path helitron
+    path other
+    path non_ltr
 
     output:
     path "pan_terminal_te.merge.fa"
 
     script:
     """
-    cat ${terminal} ${te} > pan_terminal_te.merge.fa
+    cat ${terminal} ${tir} ${helitron} ${other} ${non_ltr} > pan_terminal_te.merge.fa
     """
 }
 
@@ -142,9 +145,10 @@ process pan_remove_redundancy {
 
     storeDir "${params.out_dir}/pan_remove_redundancy"
 
+    publishDir "${params.out_dir}", mode: 'copy', pattern: "panTE.fa"
+
     input:
-    file terminal_tmp
-    file internal_tmp
+    file tmp_te
 
     output:
     path "panTE.fa"
@@ -152,8 +156,7 @@ process pan_remove_redundancy {
     script:
     cores = task.cpus
     """
-    pan_remove_redundancy.py --pan_terminal_tmp_lib ${terminal_tmp} --pan_internal_tmp_lib ${internal_tmp} \
-    --threads ${cores} > pan_remove_redundancy.log 2>&1
+    cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -G 0 -g 1 -A 80 -i ${tmp_te} -o panTE.fa -T ${cores} -M 0
     """
 }
 
@@ -299,25 +302,18 @@ workflow {
     // Step 3: HiTE 并行处理每个基因组
     hite_out = run_hite_single(hite_input_channel)
     // 将每个 Channel 的输出文件收集并合并
-    all_terminal = hite_out.ch_ltr_terminal.collectFile(name: "${params.out_dir}/pan_terminal.tmp.fa")
-    all_internal = hite_out.ch_ltr_internal.collectFile(name: "${params.out_dir}/pan_internal.tmp.fa")
-    all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
+    all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_TE.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
 
-    // Step 4: 合并 HiTE 的 其他TE和LTR terminal library
-    merged_terminal = merge_terminal_te(all_terminal, all_te)
-    all_terminal = merged_terminal.collectFile(name: "${params.out_dir}/pan_terminal.tmp.fa")
-
-    // Step 5: 对LTR terminal 和 internal 去冗余，生成panTE library
-    panTE_lib = pan_remove_redundancy(all_terminal, all_internal)
-    panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
+    // Step 4: 使用cd-hit-est 生成 panTE library
+    panTE_lib = pan_remove_redundancy(all_te)
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
         [genome_name, reference]
     }.combine(panTE_lib).set { annotate_input_channel }
 
-    // Step 6: 并行注释每个基因组
+    // Step 5: 并行注释每个基因组
     annotate_out = annotate_genomes(annotate_input_channel)
 
     // 将注释结果合并到 json 文件中，便于后续统一分析
@@ -354,19 +350,19 @@ workflow {
     }.set { genome_info_json }
 
     if (!params.skip_analyze) {
-         // Step 7: 对检测到的 TE 进行统计分析
+         // Step 6: 对检测到的 TE 进行统计分析
         summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_lib, params.softcore_threshold)
 
-        // Step 8: 基因和 TE 关系
+        // Step 7: 基因和 TE 关系
         gene_te_associations_out = pan_gene_te_relation(genome_info_json)
 
-        //Step 9: 为RNA_seq生成比对bam
+        //Step 8: 为RNA_seq生成比对bam
         genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
             [genome_name, reference, params.RNA_dir, RNA_seq]
         }.set { generate_bam_input_channel }
         bam_out = pan_generate_bam_for_RNA_seq(generate_bam_input_channel)
 
-        // Step 10: 检测差异表达基因
+        // Step 9: 检测差异表达基因
         // 将 bam 结果合并到 json 文件中, 为pan_detect_de_genes生成输入channel
         genome_info_list.join(bam_out).map { genome_info ->
             [
