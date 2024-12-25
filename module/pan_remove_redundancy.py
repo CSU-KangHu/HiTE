@@ -6,7 +6,7 @@ import time
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import Logger, deredundant_for_LTR_v5, ReassignInconsistentLabels
+from Util import Logger, deredundant_for_LTR_v5, ReassignInconsistentLabels, split_internal_out
 
 
 def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, log):
@@ -46,16 +46,14 @@ def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, th
 if __name__ == "__main__":
     # 创建解析器
     parser = argparse.ArgumentParser(description="panHiTE remove redundancy.")
-    parser.add_argument("--pan_terminal_tmp_lib", type=str, help="pan terminal lib.")
-    parser.add_argument("--pan_internal_tmp_lib", type=str, help="pan internal lib.")
+    parser.add_argument("--merge_te_file", type=str, help="merged pan te file.")
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
 
     # 解析参数
     args = parser.parse_args()
-    pan_terminal_tmp_lib = args.pan_terminal_tmp_lib
-    pan_internal_tmp_lib = args.pan_internal_tmp_lib
+    merge_te_file = args.merge_te_file
     threads = args.threads
 
     # 处理输出目录
@@ -64,5 +62,8 @@ if __name__ == "__main__":
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
+    # 根据文件的header将LTR内部序列和其他元素区分开存储
+    other_path, internal_path = split_internal_out(merge_te_file, output_dir)
+
     # 调用冗余去除和库合并函数
-    remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, log)
+    remove_redundancy(other_path, internal_path, output_dir, threads, log)

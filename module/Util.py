@@ -12684,3 +12684,18 @@ def filter_short_contigs_in_genome(genome, valid_len=10_000, min_len=1_000):
     filter_genome_path = genome + '.filter_short.fa'
     store_fasta(filter_contigs, filter_genome_path)
     return filter_genome_path
+
+def split_internal_out(merge_te_file, output_dir):
+    names, contigs = read_fasta(merge_te_file)
+    other_path = os.path.join(output_dir, 'merged_other.fa')
+    other_contigs = {}
+    internal_path = os.path.join(output_dir, 'merged_internal.fa')
+    internal_contigs = {}
+    for name in names:
+        if '-int#' in name:
+            internal_contigs[name] = contigs[name]
+        else:
+            other_contigs[name] = contigs[name]
+    store_fasta(other_contigs, other_path)
+    store_fasta(internal_contigs, internal_path)
+    return other_path, internal_path

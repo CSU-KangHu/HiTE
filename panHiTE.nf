@@ -145,10 +145,8 @@ process pan_remove_redundancy {
 
     storeDir "${params.out_dir}/pan_remove_redundancy"
 
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "panTE.fa"
-
     input:
-    file tmp_te
+    file merge_te_file
 
     output:
     path "panTE.fa"
@@ -156,9 +154,10 @@ process pan_remove_redundancy {
     script:
     cores = task.cpus
     """
-    cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -G 0 -g 1 -A 80 -i ${tmp_te} -o panTE.fa -T ${cores} -M 0
+    pan_remove_redundancy.py --merge_te_file ${merge_te_file} --threads ${cores} > pan_remove_redundancy.log 2>&1
     """
 }
+
 
 // Step 3: 注释基因组
 process annotate_genomes {
@@ -302,11 +301,12 @@ workflow {
     // Step 3: HiTE 并行处理每个基因组
     hite_out = run_hite_single(hite_input_channel)
     // 将每个 Channel 的输出文件收集并合并
-    all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_TE.tmp.fa")
+    all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
 
-    // Step 4: 使用cd-hit-est 生成 panTE library
+    // Step 5: 对LTR terminal 和 internal 去冗余，生成panTE library
     panTE_lib = pan_remove_redundancy(all_te)
+    panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
