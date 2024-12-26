@@ -2,7 +2,7 @@
 ![Version](https://img.shields.io/badge/version-0.0.1--beta-orange)
 
 ## panHiTE
-![image](https://github.com/user-attachments/assets/63e511c2-aaef-43d8-b6e7-2ae221a3e25a)
+![image](https://github.com/user-attachments/assets/f7b06661-6384-4095-8135-09f2afa04eae)
 
 We are excited to announce a significant update to HiTE, which now includes the powerful panHiTE functionality. This release introduces the following key features:
 

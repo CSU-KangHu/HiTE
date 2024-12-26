@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # 创建本地临时目录，存储计算结果
     temp_dir = '/tmp/pan_detect_de_genes'
     create_or_clear_directory(temp_dir)
-    
+
     # Step 7.2: 基因定量
     log.logger.info("Start gene quantification using featureCounts...")
     gene_express_dir = os.path.join(temp_dir, 'gene_quantities')
