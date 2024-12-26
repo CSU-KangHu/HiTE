@@ -5,8 +5,7 @@ import sys
 import json
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
-from Util import Logger, summary_TEs
-
+from Util import Logger, summary_TEs, create_or_clear_directory, copy_files
 
 if __name__ == "__main__":
     # 创建解析器
@@ -35,6 +34,13 @@ if __name__ == "__main__":
     with open(genome_info_json, 'r') as f:
         genome_info_list = json.load(f)
 
+    # 创建本地临时目录，存储计算结果
+    temp_dir = '/tmp/pan_summary_TEs'
+    create_or_clear_directory(temp_dir)
+
     # 调用 summary_TEs 函数
     log.logger.info('Start analysing using TE annotation files...')
-    summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, log)
+    summary_TEs(genome_info_list, panTE_lib, temp_dir, softcore_threshold, log)
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, output_dir)

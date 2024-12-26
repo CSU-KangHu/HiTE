@@ -5,7 +5,7 @@ import sys
 import json
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
-from Util import Logger, quantitative_gene, file_exist
+from Util import Logger, quantitative_gene, file_exist, create_or_clear_directory, copy_files
 
 if __name__ == "__main__":
     # 创建解析器
@@ -34,12 +34,16 @@ if __name__ == "__main__":
     with open(genome_info_for_bam_json, 'r') as f:
         genome_info_list = json.load(f)
 
+    # 创建本地临时目录，存储计算结果
+    temp_dir = '/tmp/pan_detect_de_genes'
+    create_or_clear_directory(temp_dir)
+    
     # Step 7.2: 基因定量
     log.logger.info("Start gene quantification using featureCounts...")
-    gene_express_dir = os.path.join(output_dir, 'gene_quantities')
+    gene_express_dir = os.path.join(temp_dir, 'gene_quantities')
     os.makedirs(gene_express_dir, exist_ok=True)
     RNA_tool_dir = os.path.join(project_dir, 'RNA_seq')
-    gene_express_table = quantitative_gene(genome_info_list, RNA_tool_dir, gene_express_dir, output_dir, threads, log)
+    gene_express_table = quantitative_gene(genome_info_list, RNA_tool_dir, gene_express_dir, temp_dir, threads, log)
     log.logger.info(f"Gene quantification completed. Results saved to {gene_express_table}.")
 
     # Step 7.3: 差异表达基因检测
@@ -47,7 +51,7 @@ if __name__ == "__main__":
     if file_exist(gene_express_table) and file_exist(gene_te_associations):
         script_dir = os.path.join(project_dir, 'RNA_seq')
         detect_DE_genes_from_TEs_cmd = (
-            f"cd {output_dir} && Rscript {script_dir}/detect_DE_genes_from_TEs.R {gene_express_table} {gene_te_associations}"
+            f"Rscript {script_dir}/detect_DE_genes_from_TEs.R {gene_express_table} {gene_te_associations}"
         )
         log.logger.debug(detect_DE_genes_from_TEs_cmd)
         exit_code = os.system(detect_DE_genes_from_TEs_cmd)
@@ -57,8 +61,10 @@ if __name__ == "__main__":
             log.logger.error("Error occurred during DE gene detection.")
     else:
         # 创建空的输出文件以跳过nextflow检查
-        de_genes = os.path.join(output_dir, "DE_genes_from_TEs.tsv")
-        all_genes = os.path.join(output_dir, "all_gene_TEs_details.tsv")
+        de_genes = os.path.join(temp_dir, "DE_genes_from_TEs.tsv")
+        all_genes = os.path.join(temp_dir, "all_gene_TEs_details.tsv")
         os.system('touch ' + de_genes)
         os.system('touch ' + all_genes)
 
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, output_dir)

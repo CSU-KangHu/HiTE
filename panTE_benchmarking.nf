@@ -41,7 +41,7 @@ process run_benchmarking_single {
     cores = task.cpus
     """
     benchmarking.py --BM_EDTA 1 --BM_HiTE 1 -t ${cores} --TE_lib ${params.TE_lib} \
-    -r ${params.pan_genomes_dir}/${genome_name} --species ${params.species} --EDTA_home ${params.EDTA_home} --recover 1
+    -r ${params.pan_genomes_dir}/${genome_name} --species ${params.species} --EDTA_home ${params.EDTA_home} --recover 0
     """
 }
 
