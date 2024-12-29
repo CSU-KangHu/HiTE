@@ -9771,64 +9771,66 @@ def judge_scn_line_by_flank_seq_v2(job_list):
         error_region_len = 10
 
         # 创建临时文件
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as query_file, \
-             tempfile.NamedTemporaryFile(mode='w', delete=False) as subject_file, \
-             tempfile.NamedTemporaryFile(mode='w', delete=False) as output_file:
+        query_file = tempfile.mkstemp()[1]
+        subject_file = tempfile.mkstemp()[1]
+        output_file = tempfile.mkstemp()[1]
 
-            # 将序列写入临时文件
-            query_file.write(left_ltr)
-            subject_file.write(right_ltr)
+        # 将查询序列和参考序列写入临时文件
+        with open(query_file, 'w') as f:
+            f.write(left_ltr)
+        with open(subject_file, 'w') as f:
+            f.write(right_ltr)
 
-            # 运行 BLAST，将输出写入文件
-            blastn_command = [
-                "blastn",
-                "-subject", subject_file.name,
-                "-query", query_file.name,
-                "-outfmt", "6",
-                "-num_threads", "1",
-                "-out", output_file.name
-            ]
-            result = subprocess.run(blastn_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # 运行 BLAST，将输出写入文件
+        blastn_command = [
+            "blastn",
+            "-subject", subject_file,
+            "-query", query_file,
+            "-outfmt", "6",
+            "-num_threads", "1",
+            "-out", output_file
+        ]
+        result = subprocess.run(blastn_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-            # 读取 BLAST 结果
-            adjust_boundary = None
-            q_start_offset = 0
-            q_end_offset = 0
-            s_start_offset = 0
-            s_end_offset = 0
-            precise_boundary_alignments = []
-            if result.returncode == 0:
-                with open(output_file.name, 'r') as f:
-                    blastn_lines = f.readlines()
-                for blastn_line in blastn_lines:
-                    if blastn_line.strip():
-                        parts = blastn_line.strip().split('\t')
-                        identity = float(parts[2])
-                        q_start = int(parts[6])
-                        q_end = int(parts[7])
-                        s_start = int(parts[8])
-                        s_end = int(parts[9])
-                        # 比对落在了左侧边界上
-                        if (((extend_len - error_region_len) <= q_start <= (extend_len + error_region_len)
-                                and q_end <= (extend_len + lLTR_len + error_region_len)
-                                and (extend_len - error_region_len) <= s_start <= (extend_len + error_region_len)
-                                and s_end <= (extend_len + rLTR_len + error_region_len))):
-                            q_start_offset = q_start - extend_len
-                            s_start_offset = s_start - extend_len
-                            precise_boundary_alignments.append((q_start, q_end))
-                        # 比对落在了右侧边界上
-                        if (((extend_len - error_region_len) <= q_start
-                                and (extend_len + lLTR_len - error_region_len) <= q_end <= (extend_len + lLTR_len + error_region_len)
-                                and (extend_len - error_region_len) <= s_start
-                                and (extend_len + rLTR_len - error_region_len) <= s_end <= (extend_len + rLTR_len + error_region_len))):
-                            q_end_offset = q_end + 1 - (lLTR_len + extend_len)
-                            s_end_offset = s_end + 1 - (rLTR_len + extend_len)
-                            precise_boundary_alignments.append((q_start, q_end))
+        # 读取 BLAST 结果
+        adjust_boundary = None
+        q_start_offset = 0
+        q_end_offset = 0
+        s_start_offset = 0
+        s_end_offset = 0
+        precise_boundary_alignments = []
+        if result.returncode == 0:
+            with open(output_file, 'r') as f:
+                blastn_lines = f.readlines()
+            for blastn_line in blastn_lines:
+                if blastn_line.strip():
+                    parts = blastn_line.strip().split('\t')
+                    identity = float(parts[2])
+                    q_start = int(parts[6])
+                    q_end = int(parts[7])
+                    s_start = int(parts[8])
+                    s_end = int(parts[9])
+                    # 比对落在了左侧边界上
+                    if (((extend_len - error_region_len) <= q_start <= (extend_len + error_region_len)
+                            and q_end <= (extend_len + lLTR_len + error_region_len)
+                            and (extend_len - error_region_len) <= s_start <= (extend_len + error_region_len)
+                            and s_end <= (extend_len + rLTR_len + error_region_len))):
+                        q_start_offset = q_start - extend_len
+                        s_start_offset = s_start - extend_len
+                        precise_boundary_alignments.append((q_start, q_end))
+                    # 比对落在了右侧边界上
+                    if (((extend_len - error_region_len) <= q_start
+                            and (extend_len + lLTR_len - error_region_len) <= q_end <= (extend_len + lLTR_len + error_region_len)
+                            and (extend_len - error_region_len) <= s_start
+                            and (extend_len + rLTR_len - error_region_len) <= s_end <= (extend_len + rLTR_len + error_region_len))):
+                        q_end_offset = q_end + 1 - (lLTR_len + extend_len)
+                        s_end_offset = s_end + 1 - (rLTR_len + extend_len)
+                        precise_boundary_alignments.append((q_start, q_end))
 
             # 清理临时文件
-            os.remove(query_file.name)
-            os.remove(subject_file.name)
-            os.remove(output_file.name)
+            os.remove(query_file)
+            os.remove(subject_file)
+            os.remove(output_file)
 
             # 合并 precise_boundary_alignments 坐标后，判断是否覆盖 lLTR_len 的 95%
             merged_alignments = merge_intervals(precise_boundary_alignments)
@@ -10151,59 +10153,61 @@ def get_ltr_from_line(cur_internal_seqs):
 
     for candidate_index, lLTR_end, int_seq, chr_name, seq_id, line in cur_internal_seqs:
         # 创建临时文件
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as query_file, \
-             tempfile.NamedTemporaryFile(mode='w', delete=False) as subject_file, \
-             tempfile.NamedTemporaryFile(mode='w', delete=False) as output_file:
+        query_file = tempfile.mkstemp()[1]
+        subject_file = tempfile.mkstemp()[1]
+        output_file = tempfile.mkstemp()[1]
 
-            # 将序列写入临时文件
-            query_file.write(int_seq)
-            subject_file.write(int_seq)
+        # 将查询序列和参考序列写入临时文件
+        with open(query_file, 'w') as f:
+            f.write(int_seq)
+        with open(subject_file, 'w') as f:
+            f.write(int_seq)
 
-            # 运行 BLAST，将输出写入文件
-            blastn_command = [
-                "blastn",
-                "-subject", subject_file.name,
-                "-query", query_file.name,
-                "-outfmt", "6",
-                "-evalue", "1e-20",
-                "-num_threads", "1",
-                "-out", output_file.name
-            ]
-            result = subprocess.run(blastn_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # 运行 BLAST，将输出写入文件
+        blastn_command = [
+            "blastn",
+            "-subject", subject_file,
+            "-query", query_file,
+            "-outfmt", "6",
+            "-evalue", "1e-20",
+            "-num_threads", "1",
+            "-out", output_file
+        ]
+        result = subprocess.run(blastn_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-            # 读取 BLAST 结果
-            new_lines = []
-            new_lines.append(line.split(' '))
-            if result.returncode == 0:
-                with open(output_file.name, 'r') as f:
-                    blastn_lines = f.readlines()
-                for blastn_line in blastn_lines:
-                    if blastn_line.strip():
-                        parts = blastn_line.strip().split('\t')
-                        q_start = int(parts[6])
-                        q_end = int(parts[7])
-                        q_len = abs(q_end - q_start)
-                        s_start = int(parts[8])
-                        s_end = int(parts[9])
-                        s_len = abs(s_end - s_start)
-                        identity = float(parts[2])
-                        if identity > 95 and q_len > 300 and s_len > 300 and q_end > q_start and s_end > s_start and s_start - q_end > 500:
-                            new_lLTR_start = lLTR_end + q_start
-                            new_lLTR_end = lLTR_end + q_end
-                            new_rLTR_start = lLTR_end + s_start
-                            new_rLTR_end = lLTR_end + s_end
-                            new_line = [
-                                new_lLTR_start, new_rLTR_end, new_rLTR_end - new_lLTR_start + 1,
-                                new_lLTR_start, new_lLTR_end, new_lLTR_end - new_lLTR_start + 1,
-                                new_rLTR_start, new_rLTR_end, new_rLTR_end - new_rLTR_start + 1,
-                                identity, seq_id, chr_name
-                            ]
-                            new_lines.append(new_line)
+        # 读取 BLAST 结果
+        new_lines = []
+        new_lines.append(line.split(' '))
+        if result.returncode == 0:
+            with open(output_file, 'r') as f:
+                blastn_lines = f.readlines()
+            for blastn_line in blastn_lines:
+                if blastn_line.strip():
+                    parts = blastn_line.strip().split('\t')
+                    q_start = int(parts[6])
+                    q_end = int(parts[7])
+                    q_len = abs(q_end - q_start)
+                    s_start = int(parts[8])
+                    s_end = int(parts[9])
+                    s_len = abs(s_end - s_start)
+                    identity = float(parts[2])
+                    if identity > 95 and q_len > 300 and s_len > 300 and q_end > q_start and s_end > s_start and s_start - q_end > 500:
+                        new_lLTR_start = lLTR_end + q_start
+                        new_lLTR_end = lLTR_end + q_end
+                        new_rLTR_start = lLTR_end + s_start
+                        new_rLTR_end = lLTR_end + s_end
+                        new_line = [
+                            new_lLTR_start, new_rLTR_end, new_rLTR_end - new_lLTR_start + 1,
+                            new_lLTR_start, new_lLTR_end, new_lLTR_end - new_lLTR_start + 1,
+                            new_rLTR_start, new_rLTR_end, new_rLTR_end - new_rLTR_start + 1,
+                            identity, seq_id, chr_name
+                        ]
+                        new_lines.append(new_line)
 
             # 清理临时文件
-            os.remove(query_file.name)
-            os.remove(subject_file.name)
-            os.remove(output_file.name)
+            os.remove(query_file)
+            os.remove(subject_file)
+            os.remove(output_file)
 
             # 过滤冗余行
             new_lines.sort(key=lambda x: (int(x[0]), -int(x[1])))
