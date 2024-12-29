@@ -5765,20 +5765,7 @@ def search_TSD_regular(motif, sequence):
         break
     return found, pos
 
-def is_recombination(query_seq, subject_seq, candidate_index):
-    query_len = len(query_seq)
-
-    # 创建临时文件
-    query_file = tempfile.mkstemp()[1]
-    subject_file = tempfile.mkstemp()[1]
-    output_file = tempfile.mkstemp()[1]
-
-    # 将查询序列和参考序列写入临时文件
-    with open(query_file, 'w') as f:
-        f.write(query_seq)
-    with open(subject_file, 'w') as f:
-        f.write(subject_seq)
-
+def is_recombination(query_file, subject_file, output_file, query_len, candidate_index):
     # 运行 BLAST，将输出写入文件
     exec_command = [
         "blastn",
@@ -5792,20 +5779,11 @@ def is_recombination(query_seq, subject_seq, candidate_index):
     # 检查 BLAST 是否成功运行
     if process.returncode != 0:
         print("BLAST error:", process.stderr)
-        # 清理临时文件
-        os.remove(query_file)
-        os.remove(subject_file)
-        os.remove(output_file)
         return False, candidate_index
 
     # 从输出文件中读取结果
     with open(output_file, 'r') as f:
         lines = f.readlines()
-
-    # 清理临时文件
-    os.remove(query_file)
-    os.remove(subject_file)
-    os.remove(output_file)
 
     # 处理结果
     for line in lines:
@@ -6690,7 +6668,7 @@ def multiple_alignment_blastx_v3(repeats_path, tool_dir):
         f_r.close()
     return query_protein_types
 
-def get_recombination_ltr(ltr_candidates, ref_contigs, threads, log):
+def get_recombination_ltr(ltr_candidates, ref_contigs, threads, temp_dir, log):
     log.logger.info('Start get recombination ltr')
     ex = ProcessPoolExecutor(threads)
     jobs = []
@@ -6701,12 +6679,25 @@ def get_recombination_ltr(ltr_candidates, ref_contigs, threads, log):
                 'Error: Chromosome names in the SCN file do not match the input genome names. Please correct this and rerun.')
             sys.exit(-1)
         ref_seq = ref_contigs[chr_name]
+
+        left_path = os.path.join(temp_dir, str(candidate_index) + '_left.fa')
+        internal_path = os.path.join(temp_dir, str(candidate_index) + '_internal.fa')
+        out_path = os.path.join(temp_dir, str(candidate_index) + '.out')
+
         left_ltr_name = chr_name + ':' + str(left_ltr_start) + '-' + str(left_ltr_end)
         left_ltr_seq = ref_seq[left_ltr_start - 1: left_ltr_end]
+        left_contigs = {}
+        left_contigs[left_ltr_name] = left_ltr_seq
+        store_fasta(left_contigs, left_path)
+        query_len = len(left_ltr_seq)
 
         int_ltr_name = chr_name + ':' + str(left_ltr_end) + '-' + str(right_ltr_start)
         int_ltr_seq = ref_seq[left_ltr_end: right_ltr_start - 1]
-        job = ex.submit(is_recombination, left_ltr_seq, int_ltr_seq, candidate_index)
+        int_contigs = {}
+        int_contigs[int_ltr_name] = int_ltr_seq
+        store_fasta(int_contigs, internal_path)
+
+        job = ex.submit(is_recombination, left_path, internal_path, out_path, query_len, candidate_index)
         jobs.append(job)
     ex.shutdown(wait=True)
 
@@ -9766,20 +9757,14 @@ def alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_
 def judge_scn_line_by_flank_seq_v2(job_list):
     results = {}
     for cur_job in job_list:
-        candidate_index, left_ltr, right_ltr, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end = cur_job
+        candidate_index, left_path, right_path, out_path, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end = cur_job
         extend_len = 50
         error_region_len = 10
 
         # 创建临时文件
-        query_file = tempfile.mkstemp()[1]
-        subject_file = tempfile.mkstemp()[1]
-        output_file = tempfile.mkstemp()[1]
-
-        # 将查询序列和参考序列写入临时文件
-        with open(query_file, 'w') as f:
-            f.write(left_ltr)
-        with open(subject_file, 'w') as f:
-            f.write(right_ltr)
+        query_file = left_path
+        subject_file = right_path
+        output_file = out_path
 
         # 运行 BLAST，将输出写入文件
         blastn_command = [
@@ -9827,11 +9812,6 @@ def judge_scn_line_by_flank_seq_v2(job_list):
                         s_end_offset = s_end + 1 - (rLTR_len + extend_len)
                         precise_boundary_alignments.append((q_start, q_end))
 
-            # 清理临时文件
-            os.remove(query_file)
-            os.remove(subject_file)
-            os.remove(output_file)
-
             # 合并 precise_boundary_alignments 坐标后，判断是否覆盖 lLTR_len 的 95%
             merged_alignments = merge_intervals(precise_boundary_alignments)
             cover_len = sum(end - start for start, end in merged_alignments)
@@ -9854,7 +9834,7 @@ def judge_scn_line_by_flank_seq_v2(job_list):
             results[candidate_index] = (is_ltr, adjust_boundary)
     return results
 
-def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, log):
+def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, temp_dir, log):
     ref_names, ref_contigs = read_fasta(reference)
     ltr_candidates, ltr_lines = read_scn(scn_file, log)
 
@@ -9873,7 +9853,24 @@ def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, log):
         rLTR_len = int(parts[8])
         left_ltr = ref_seq[lLTR_start - extend_len: lLTR_end + extend_len]
         right_ltr = ref_seq[rLTR_start - extend_len: rLTR_end + extend_len]
-        job_list.append((candidate_index, left_ltr, right_ltr, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end))
+
+        left_path = os.path.join(temp_dir, str(candidate_index) + '_left.fa')
+        right_path = os.path.join(temp_dir, str(candidate_index) + '_right.fa')
+        out_path = os.path.join(temp_dir, str(candidate_index) + '.out')
+
+        left_ltr_name = chr_name + ':' + str(lLTR_start) + '-' + str(lLTR_end)
+        left_ltr_seq = ref_seq[lLTR_start - 1: lLTR_end]
+        left_contigs = {}
+        left_contigs[left_ltr_name] = left_ltr_seq
+        store_fasta(left_contigs, left_path)
+
+        right_ltr_name = chr_name + ':' + str(rLTR_start) + '-' + str(rLTR_end)
+        right_ltr_seq = ref_seq[rLTR_start - 1: rLTR_end]
+        right_contigs = {}
+        right_contigs[right_ltr_name] = right_ltr_seq
+        store_fasta(right_contigs, right_path)
+
+        job_list.append((candidate_index, left_path, right_path, out_path, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end))
 
     part_size = len(job_list) // threads
     divided_job_list = []
@@ -10151,17 +10148,10 @@ def get_intact_ltr_copies(ltr_copies, ltr_lines, full_length_threshold, referenc
 def get_ltr_from_line(cur_internal_seqs):
     all_lines = {}
 
-    for candidate_index, lLTR_end, int_seq, chr_name, seq_id, line in cur_internal_seqs:
+    for candidate_index, lLTR_end, internal_path, output_file, chr_name, seq_id, line in cur_internal_seqs:
         # 创建临时文件
-        query_file = tempfile.mkstemp()[1]
-        subject_file = tempfile.mkstemp()[1]
-        output_file = tempfile.mkstemp()[1]
-
-        # 将查询序列和参考序列写入临时文件
-        with open(query_file, 'w') as f:
-            f.write(int_seq)
-        with open(subject_file, 'w') as f:
-            f.write(int_seq)
+        query_file = internal_path
+        subject_file = internal_path
 
         # 运行 BLAST，将输出写入文件
         blastn_command = [
@@ -10204,11 +10194,6 @@ def get_ltr_from_line(cur_internal_seqs):
                         ]
                         new_lines.append(new_line)
 
-            # 清理临时文件
-            os.remove(query_file)
-            os.remove(subject_file)
-            os.remove(output_file)
-
             # 过滤冗余行
             new_lines.sort(key=lambda x: (int(x[0]), -int(x[1])))
             filtered_new_lines = []
@@ -10238,7 +10223,7 @@ def get_ltr_from_line(cur_internal_seqs):
 
     return all_lines
 
-def get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, log):
+def get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, temp_dir, log):
     log.logger.info('Start get all potential ltr lines')
     ref_names, ref_contigs = read_fasta(reference)
 
@@ -10264,8 +10249,14 @@ def get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, 
             lLTR_end = int(parts[4])
             rLTR_start = int(parts[6])
             rLTR_end = int(parts[7])
+            int_ltr_name = chr_name + ':' + str(lLTR_end) + '-' + str(rLTR_start)
             int_seq = ref_seq[lLTR_end: rLTR_start]
-            cur_internal_seqs.append((candidate_index, lLTR_end, int_seq, chr_name, seq_id, cur_line))
+            internal_path = os.path.join(temp_dir, str(candidate_index) + '_internal.fa')
+            out_path = os.path.join(temp_dir, str(candidate_index) + '.out')
+            int_contigs = {}
+            int_contigs[int_ltr_name] = int_seq
+            store_fasta(int_contigs, internal_path)
+            cur_internal_seqs.append((candidate_index, lLTR_end, internal_path, out_path, chr_name, seq_id, cur_line))
             candidate_index += 1
 
         job = ex.submit(get_ltr_from_line, cur_internal_seqs)

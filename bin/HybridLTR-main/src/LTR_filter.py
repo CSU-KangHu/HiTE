@@ -361,7 +361,9 @@ if __name__ == '__main__':
         result_file = remove_recomb_scn
         if not recover or not file_exist(result_file):
             log.logger.info('Start step1: Process dirty internal LTR sequences')
-            recombination_candidates = get_recombination_ltr(ltr_candidates, ref_contigs, threads, log)
+            temp_dir = os.path.join(tmp_output_dir, 'get_recombination_ltr')
+            os.makedirs(temp_dir, exist_ok=True)
+            recombination_candidates = get_recombination_ltr(ltr_candidates, ref_contigs, threads, temp_dir, log)
             confident_lines = []
             for candidate_index in ltr_candidates.keys():
                 if candidate_index not in recombination_candidates:
@@ -369,7 +371,9 @@ if __name__ == '__main__':
                     confident_lines.append(line)
 
             temp_path = tmp_output_dir + '/all_potential_ltr.json'
-            confident_lines = get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, log)
+            temp_dir = os.path.join(tmp_output_dir, 'get_all_potential_ltr_lines')
+            os.makedirs(temp_dir, exist_ok=True)
+            confident_lines = get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, temp_dir, log)
 
             # 获取内部序列包含其他完整LTR的记录
             dirty_dicts = remove_dirty_LTR(confident_lines, log)
@@ -389,7 +393,9 @@ if __name__ == '__main__':
         result_file = filter_terminal_align_scn
         if not recover or not file_exist(result_file):
             log.logger.info('Start step2: Filter out false positives that can be aligned to the LTR terminal flanking sequences.')
-            filter_ltr_by_flank_seq_v2(scn_file, filter_terminal_align_scn, reference, threads, log)
+            temp_dir = os.path.join(tmp_output_dir, 'filter_ltr_by_flank_seq_v2')
+            os.makedirs(temp_dir, exist_ok=True)
+            filter_ltr_by_flank_seq_v2(scn_file, filter_terminal_align_scn, reference, threads, temp_dir, log)
         else:
             log.logger.info(result_file + ' exists, skip...')
         scn_file = filter_terminal_align_scn

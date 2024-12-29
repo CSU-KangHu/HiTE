@@ -45,7 +45,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     flanking_seq, multi_process_helitronscanner, split_fasta, get_longest_repeats_v4, \
     process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, search_confident_tir_v4, \
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
-    multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5
+    multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
+    get_candidate_non_LTR, get_candidate_non_ltr_parallel
 
 
 def filter_repbase_nonTE():
@@ -3867,12 +3868,50 @@ def get_logo_seq(ltr_copies):
     return start_logos, tail_logos
 
 
+def find_longest_tandem_repeat_tail(sequence, tail_length=20, min_repeats=2, min_unit_length=2, max_unit_length=6):
+    """
+    查找序列末尾最长的串联重复及其终止索引。
+    :param sequence: 输入的序列。
+    :param tail_length: 检测序列末尾的长度。
+    :param min_repeats: 最小重复次数。
+    :param min_unit_length: 最小重复单元长度。
+    :param max_unit_length: 最大重复单元长度。
+    :return: 如果找到串联重复，返回 (重复单元, 终止索引)；否则返回 (None, -1)。
+    """
+    # 截取序列末尾的指定长度
+    tail_seq = sequence[-tail_length:] if len(sequence) >= tail_length else sequence
+
+    longest_unit = None
+    longest_end_index = -1
+    max_repeat_length = 0  # 用于记录最大的 motif 长度 × 重复次数
+
+    # 遍历可能的重复单元长度
+    for unit_length in range(min_unit_length, max_unit_length + 1):
+        # 从末尾开始，检查是否有足够的重复单元
+        for start in range(len(tail_seq) - unit_length * min_repeats, -1, -1):
+            # 提取候选重复单元
+            unit = tail_seq[start:start + unit_length]
+            # 检查是否满足最小重复次数
+            repeat_count = 1
+            for i in range(1, (len(tail_seq) - start) // unit_length):
+                if tail_seq[start + i * unit_length:start + (i + 1) * unit_length] != unit:
+                    break
+                repeat_count += 1
+            # 如果满足最小重复次数，计算总长度
+            if repeat_count >= min_repeats:
+                total_length = unit_length * repeat_count
+                # 更新最长的串联重复
+                if total_length > max_repeat_length:
+                    max_repeat_length = total_length
+                    longest_unit = unit
+                    longest_end_index = len(sequence) - len(tail_seq) + start + total_length
+
+    return longest_unit, longest_end_index
 
 
 
-
-#work_dir = '/home/hukang/test/HiTE/demo/HiTE_44'
-#log = Logger(work_dir + '/HiTE.log', level='debug')
+work_dir = '/home/hukang/test/HiTE/demo'
+log = Logger(work_dir + '/HiTE.log', level='debug')
 
 
 
@@ -3913,7 +3952,7 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    # work_dir = '/home/hukang/test/test/HiTE/demo/test_rice4/test'
+    # work_dir = '/tmp/run_hite_main'
     # # candidate_tir_path = work_dir + '/more_tir.fa'
     # # candidate_tir_path = work_dir + '/confident_helitron.fa'
     # # candidate_tir_path = work_dir + '/confident_tir.fa'
@@ -3925,12 +3964,13 @@ if __name__ == '__main__':
     # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
     # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
     # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
     # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
     # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
     # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
+    # reference = '/home/hukang/test/HiTE/demo/genome.fa'
     # # test_home = '/home/hukang/test/HiTE/module'
-    # tmp_output_dir = work_dir + '/out_dir'
+    # tmp_output_dir = work_dir
     # if not os.path.exists(tmp_output_dir):
     #     os.makedirs(tmp_output_dir)
     # chrom_seg_length = 100000
@@ -3940,7 +3980,7 @@ if __name__ == '__main__':
     #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
     # # os.system(split_genome_command)
     # #
-    # TE_type = 'tir'
+    # TE_type = 'non_ltr'
     # split_ref_dir = tmp_output_dir + '/ref_chr'
     # threads = 40
     # ref_index = 0
@@ -3951,9 +3991,14 @@ if __name__ == '__main__':
     #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
     #                       plant, debug, 0, result_type='cons')
 
-
-
-
+    # 示例调用
+    sequence = "TTTTTTTTACGTACGTACGTACGTGGGG"
+    print(len(sequence))
+    unit, end_index = find_longest_tandem_repeat_tail(sequence)
+    if unit:
+        print(f"序列有串联重复尾巴，重复单元为: {unit}，终止索引为: {end_index}")
+    else:
+        print("序列没有串联重复尾巴")
 
 
 

@@ -9,7 +9,8 @@ import sys
 import time
 from multiprocessing import cpu_count
 
-from module.Util import Logger, file_exist, read_fasta, filter_short_contigs_in_genome
+from module.Util import Logger, file_exist, read_fasta, filter_short_contigs_in_genome, create_or_clear_directory, \
+    copy_files
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(current_folder, ".")
@@ -133,31 +134,26 @@ if __name__ == '__main__':
     is_wicker = args.is_wicker
     is_output_LTR_lib = args.is_output_LTR_lib
 
-    i = datetime.datetime.now()
-    # tmp_output_dir = output_dir + '/CRD.' + str(i.date()) + '.' + str(i.hour) + '-' + str(i.minute) + '-' + str(i.second)
-    tmp_output_dir = os.path.abspath(output_dir + '/')
-    if not os.path.exists(tmp_output_dir):
-        os.makedirs(tmp_output_dir)
+    if output_dir is None:
+        output_dir = project_dir + '/output'
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
-    log = Logger(tmp_output_dir+'/HiTE.log', level='debug')
+    log = Logger(output_dir + '/HiTE.log', level='debug')
 
     if reference is None:
         log.logger.error('\nreference path can not be empty')
         parser.print_help()
         exit(-1)
-    if output_dir is None:
-        output_dir = project_dir + '/output'
-        log.logger.warning('\noutput directory path is empty, set to: ' + str(output_dir))
-
-    if not os.path.isabs(reference):
-        reference = os.path.abspath(reference)
-    if not os.path.isabs(output_dir):
-        output_dir = os.path.abspath(output_dir)
 
     if not os.path.exists(reference):
         log.logger.error('\nCannot find input genome assembly: ' + str(reference))
         parser.print_help()
         exit(-1)
+
+    if not os.path.isabs(reference):
+        reference = os.path.abspath(reference)
 
     if threads is None:
         threads = int(default_threads)
@@ -311,6 +307,11 @@ if __name__ == '__main__':
 
     (ref_dir, ref_filename) = os.path.split(reference)
     (ref_name, ref_extension) = os.path.splitext(ref_filename)
+
+    # 创建本地临时目录，存储计算结果
+    tmp_output_dir = '/tmp/run_hite_main_' + str(ref_name)
+    if recover == 0:
+        create_or_clear_directory(tmp_output_dir)
 
     os.system('cp ' + reference + ' ' + tmp_output_dir)
     reference = tmp_output_dir + '/' + ref_filename
@@ -732,3 +733,6 @@ if __name__ == '__main__':
     pipeline_endtime = time.time()
     dtime = pipeline_endtime - pipeline_starttime
     log.logger.info("Running time of the whole pipeline: %.8s s" % (dtime))
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(tmp_output_dir, output_dir)

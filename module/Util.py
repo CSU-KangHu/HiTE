@@ -8464,7 +8464,8 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
             # Obtain all possible TSDs on the side wing of the 3' end.
             TSD_list = [(k, align_seq[end_3:end_3 + k]) for k in TSD_sizes]
             # Search for TSDs of various lengths near the 5' end (30 bp) (when TSD len >=8, allow 1bp mismatch).
-            subsequence = align_seq[end_5 - end_5_window_size: end_5]
+            left_pos = max(0, end_5 - end_5_window_size)
+            subsequence = align_seq[left_pos: end_5]
             for k, TSD in reversed(TSD_list):
                 for i in range(0, len(subsequence) - k + 1):
                     kmer = subsequence[i:i + k]
