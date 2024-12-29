@@ -6697,8 +6697,9 @@ def get_recombination_ltr(ltr_candidates, ref_contigs, threads, temp_dir, log):
         int_contigs[int_ltr_name] = int_ltr_seq
         store_fasta(int_contigs, internal_path)
 
-        job = ex.submit(is_recombination, left_path, internal_path, out_path, query_len, candidate_index)
-        jobs.append(job)
+        if len(left_ltr_seq) > 0 and len(int_ltr_seq) > 0:
+            job = ex.submit(is_recombination, left_path, internal_path, out_path, query_len, candidate_index)
+            jobs.append(job)
     ex.shutdown(wait=True)
 
     recombination_candidates = []
@@ -9870,7 +9871,8 @@ def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, temp_di
         right_contigs[right_ltr_name] = right_ltr_seq
         store_fasta(right_contigs, right_path)
 
-        job_list.append((candidate_index, left_path, right_path, out_path, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end))
+        if len(left_ltr_seq) > 0 and len(right_ltr_seq) > 0:
+            job_list.append((candidate_index, left_path, right_path, out_path, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end))
 
     part_size = len(job_list) // threads
     divided_job_list = []
@@ -10251,13 +10253,14 @@ def get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, 
             rLTR_end = int(parts[7])
             int_ltr_name = chr_name + ':' + str(lLTR_end) + '-' + str(rLTR_start)
             int_seq = ref_seq[lLTR_end: rLTR_start]
-            internal_path = os.path.join(temp_dir, str(candidate_index) + '_internal.fa')
-            out_path = os.path.join(temp_dir, str(candidate_index) + '.out')
-            int_contigs = {}
-            int_contigs[int_ltr_name] = int_seq
-            store_fasta(int_contigs, internal_path)
-            cur_internal_seqs.append((candidate_index, lLTR_end, internal_path, out_path, chr_name, seq_id, cur_line))
-            candidate_index += 1
+            if len(int_seq) > 0:
+                internal_path = os.path.join(temp_dir, str(candidate_index) + '_internal.fa')
+                out_path = os.path.join(temp_dir, str(candidate_index) + '.out')
+                int_contigs = {}
+                int_contigs[int_ltr_name] = int_seq
+                store_fasta(int_contigs, internal_path)
+                cur_internal_seqs.append((candidate_index, lLTR_end, internal_path, out_path, chr_name, seq_id, cur_line))
+                candidate_index += 1
 
         job = ex.submit(get_ltr_from_line, cur_internal_seqs)
         jobs.append(job)
