@@ -13,15 +13,11 @@ configs_folder = os.path.join(current_folder, "..")
 sys.path.append(configs_folder)
 
 from multiprocessing import cpu_count
-from Util import read_fasta, store_fasta, read_fasta_v1, flank_region_align_v5, Logger, read_scn, store_scn, \
-    get_LTR_seq_from_scn, get_recombination_ltr, deredundant_for_LTR, generate_both_ends_frame_from_seq, \
-    filter_tir_by_tsd, get_low_copy_LTR, judge_ltr_from_both_ends_frame, judge_ltr_has_structure, file_exist, \
-    get_high_copy_LTR, rename_reference, rename_fasta, alter_deep_learning_results, get_full_length_copies_batch, \
-    filter_tir, filter_ltr_by_structure, filter_sine, filter_single_ltr, get_full_length_copies_batch_v1, \
-    filter_helitron, filter_ltr_by_structure_low_copy, filter_ltr_by_flank_seq, \
-    filter_ltr_by_flank_seq_v1, filter_ltr_by_flanking_cluster, filter_ltr_by_copy_num, filter_single_copy_ltr, \
-    deredundant_for_LTR_v1, get_domain_info, remove_dirty_LTR, filter_ltr_by_flank_seq_v2, deredundant_for_LTR_v2, \
-    deredundant_for_LTR_v3, deredundant_for_LTR_v4, deredundant_for_LTR_v5, get_all_potential_ltr_lines
+from Util import read_fasta, store_fasta, Logger, read_scn, store_scn, get_LTR_seq_from_scn, get_recombination_ltr, \
+    generate_both_ends_frame_from_seq, get_low_copy_LTR, judge_ltr_from_both_ends_frame, file_exist, \
+    get_high_copy_LTR, alter_deep_learning_results, filter_tir, filter_sine, filter_helitron, \
+    filter_ltr_by_flanking_cluster, filter_ltr_by_copy_num, filter_single_copy_ltr, remove_dirty_LTR, \
+    filter_ltr_by_flank_seq_v2, deredundant_for_LTR_v5, get_all_potential_ltr_lines
 from configs import config
 from utils.data_util import expand_matrix_dir, expand_matrix_dir_v1, expand_matrix_dir_v2, sort_matrix_dir
 

@@ -43,9 +43,9 @@ from Util import judge_both_ends_frame_v1, filter_ltr_by_homo, multi_process_ali
     random_downsample, find_tir_in_ltr, get_full_length_copies_batch, multi_process_align_v3, \
     judge_ltr_from_both_ends_frame, generate_both_ends_frame_for_intactLTR, multi_process_align, judge_both_ends_frame, \
     get_full_length_copies, filter_ltr_by_flank_seq_v1, get_full_length_copies_v1, map_fragment, get_intact_ltr_copies, \
-    get_confident_TIR_v1, get_copies_v2, get_domain_info_v1, get_domain_info_v2, remove_copies_from_redundant_contig, \
-    remove_copies_from_redundant_contig_v1, is_ltr_has_structure, judge_scn_line_by_flank_seq_v1, \
-    judge_scn_line_by_flank_seq_v2, deredundant_for_LTR_v5, get_ltr_from_line, get_all_potential_ltr_lines, \
+    get_copies_v2, get_domain_info_v1, get_domain_info_v2, remove_copies_from_redundant_contig, \
+    remove_copies_from_redundant_contig_v1, is_ltr_has_structure, \
+    deredundant_for_LTR_v5, get_ltr_from_line, get_all_potential_ltr_lines, \
     multi_process_align_v1, filter_ltr_by_copy_num_sub
 from clean_LTR_internal import purge_internal_seq, purge_internal_seq_by_table
 
@@ -822,7 +822,6 @@ if __name__ == '__main__':
     # left_ltr = ref_seq[1258001 - extend_len: 1258445 + extend_len]
     # right_ltr = ref_seq[1263582 - extend_len: 1264025 + extend_len]
     # job_list = [(candidate_index, left_ltr, right_ltr, 445, 444, 1258001, 1258445, 1263582, 1264025)]
-    # results = judge_scn_line_by_flank_seq_v2(job_list)
     # print(results)
 
 
@@ -1292,7 +1291,6 @@ if __name__ == '__main__':
 
     # candidate_tir_path = '/home/hukang/HybridLTR-main/demo/test_ath19/candidate_tir.fa'
     # threads = 40
-    # all_confident_tirs = get_confident_TIR_v1(candidate_tir_path, threads)
     # print(all_confident_tirs)
     # print(len(all_confident_tirs))
 

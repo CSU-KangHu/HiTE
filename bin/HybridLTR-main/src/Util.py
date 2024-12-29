@@ -5,6 +5,8 @@ import random
 import re
 import shutil
 import subprocess
+import sys
+import tempfile
 import time
 import logging
 from logging import handlers
@@ -5764,20 +5766,57 @@ def search_TSD_regular(motif, sequence):
     return found, pos
 
 def is_recombination(query_seq, subject_seq, candidate_index):
-    exec_command = f"blastn -subject <(echo -e '{subject_seq}') -query <(echo -e '{query_seq}') -outfmt 6"
     query_len = len(query_seq)
-    result = subprocess.run(exec_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            executable='/bin/bash')
-    if result.returncode == 0:
-        lines = result.stdout.split('\n')
-        for line in lines:
-            parts = line.split('\t')
-            if len(parts) != 12:
-                continue
-            query_start = int(parts[6])
-            query_end = int(parts[7])
-            if abs(query_end - query_start) / query_len >= 0.95:
-                return True, candidate_index
+
+    # 创建临时文件
+    query_file = tempfile.mkstemp()[1]
+    subject_file = tempfile.mkstemp()[1]
+    output_file = tempfile.mkstemp()[1]
+
+    # 将查询序列和参考序列写入临时文件
+    with open(query_file, 'w') as f:
+        f.write(query_seq)
+    with open(subject_file, 'w') as f:
+        f.write(subject_seq)
+
+    # 运行 BLAST，将输出写入文件
+    exec_command = [
+        "blastn",
+        "-subject", subject_file,
+        "-query", query_file,
+        "-outfmt", "6",
+        "-out", output_file
+    ]
+    process = subprocess.run(exec_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    # 检查 BLAST 是否成功运行
+    if process.returncode != 0:
+        print("BLAST error:", process.stderr)
+        # 清理临时文件
+        os.remove(query_file)
+        os.remove(subject_file)
+        os.remove(output_file)
+        return False, candidate_index
+
+    # 从输出文件中读取结果
+    with open(output_file, 'r') as f:
+        lines = f.readlines()
+
+    # 清理临时文件
+    os.remove(query_file)
+    os.remove(subject_file)
+    os.remove(output_file)
+
+    # 处理结果
+    for line in lines:
+        parts = line.strip().split('\t')
+        if len(parts) != 12:
+            continue
+        query_start = int(parts[6])
+        query_end = int(parts[7])
+        alignment_length = abs(query_end - query_start) + 1
+        if alignment_length / query_len >= 0.95:
+            return True, candidate_index
     return False, candidate_index
 
 def filter_single_ltr(output_path, intact_output_path, leftLtr2Candidates, ltr_lines, reference, flanking_len, tmp_output_dir, split_ref_dir, threads, log):
@@ -6652,6 +6691,7 @@ def multiple_alignment_blastx_v3(repeats_path, tool_dir):
     return query_protein_types
 
 def get_recombination_ltr(ltr_candidates, ref_contigs, threads, log):
+    log.logger.info('Start get recombination ltr')
     ex = ProcessPoolExecutor(threads)
     jobs = []
     for candidate_index in ltr_candidates.keys():
@@ -6659,7 +6699,7 @@ def get_recombination_ltr(ltr_candidates, ref_contigs, threads, log):
         if chr_name not in ref_contigs:
             log.logger.error(
                 'Error: Chromosome names in the SCN file do not match the input genome names. Please correct this and rerun.')
-            exit(-1)
+            sys.exit(-1)
         ref_seq = ref_contigs[chr_name]
         left_ltr_name = chr_name + ':' + str(left_ltr_start) + '-' + str(left_ltr_end)
         left_ltr_seq = ref_seq[left_ltr_start - 1: left_ltr_end]
@@ -6678,6 +6718,7 @@ def get_recombination_ltr(ltr_candidates, ref_contigs, threads, log):
     return recombination_candidates
 
 def remove_dirty_LTR(confident_lines, log):
+    log.logger.info('Start remove dirty LTR')
     new_confident_lines = []
     dirty_lines = []
     dirty_dicts = {}
@@ -8582,49 +8623,6 @@ def get_confident_TIR(candidate_tir_path, tool_dir):
         TIR_info[orig_name.split(' ')[0]] = (lTIR_start, lTIR_end, rTIR_start, rTIR_end)
     return TIR_info
 
-def judge_tir_terminal(name, first50, end50):
-    blastn_command = f"blastn -subject <(echo -e \"{first50}\") -query <(echo -e \"{end50}\") -outfmt 6 -num_threads 1 -word_size 7"
-    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            executable='/bin/bash')
-
-    is_tir = False
-    if result.returncode == 0:
-        blastn_lines = result.stdout.strip().split('\n')
-        for i, blastn_line in enumerate(blastn_lines):
-            if len(blastn_line) > 0:
-                parts = blastn_line.split('\t')
-                q_start = int(parts[6])
-                q_end = int(parts[7])
-                s_start = int(parts[8])
-                s_end = int(parts[9])
-                # 如果存在反向比对，且比对长度大于10，则认为是TIR
-                if s_start > s_end and s_start - s_end > 10:
-                    is_tir = True
-                    break
-    return name, is_tir
-
-def get_confident_TIR_v1(candidate_tir_path, threads):
-    tir_names, tir_contigs = read_fasta(candidate_tir_path)
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for name in tir_names:
-        seq = tir_contigs[name]
-        if len(seq) > 100:
-            terminal_len = 50
-        else:
-            terminal_len = int(len(seq) / 2)
-        first50 = seq[: terminal_len]
-        end50 = seq[-terminal_len: ]
-        job = ex.submit(judge_tir_terminal, name, first50, end50)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-    all_tirs = {}
-    for job in as_completed(jobs):
-        name, is_tir = job.result()
-        if is_tir:
-            all_tirs[name] = 1
-    return all_tirs
-
 def run_command_with_timeout(command, timeout):
     process = subprocess.Popen(command, shell=True)
     start_time = time.time()
@@ -9765,237 +9763,93 @@ def alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_
         for ltr_name in ltr_dict.keys():
             f_save.write(ltr_name + '\t' + str(ltr_dict[ltr_name]) + '\n')
 
-def judge_scn_line_by_flank_seq(candidate_index, ref_seq, parts):
-    left_size = 50
-    internal_size = 10
-
-    lLTR_start = int(parts[3])
-    lLTR_end = int(parts[4])
-    rLTR_start = int(parts[6])
-    rLTR_end = int(parts[7])
-
-    # 计算左LTR的切片索引，并确保它们在范围内
-    ltr_a_region = ref_seq[lLTR_start - left_size: lLTR_start + internal_size]
-    ltr_b_region = ref_seq[lLTR_end - internal_size: lLTR_end + left_size]
-    ltr_c_region = ref_seq[rLTR_start - left_size: rLTR_start + internal_size]
-    ltr_d_region = ref_seq[rLTR_end - internal_size: rLTR_end + left_size]
-
-    blastn_command = f"blastn -subject <(echo -e \"{ltr_a_region}\") -query <(echo -e \"{ltr_c_region}\") -outfmt 6 -num_threads 1"
-    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            executable='/bin/bash')
-
-    is_ltr = 1
-    if result.returncode == 0:
-        blastn_lines = result.stdout.strip().split('\n')
-        for i, blastn_line in enumerate(blastn_lines):
-            if len(blastn_line) > 0:
-                is_ltr = 0
-                break
-
-    blastn_command = f"blastn -subject <(echo -e \"{ltr_b_region}\") -query <(echo -e \"{ltr_d_region}\") -outfmt 6 -num_threads 1"
-    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            executable='/bin/bash')
-
-    if result.returncode == 0:
-        blastn_lines = result.stdout.strip().split('\n')
-        for i, blastn_line in enumerate(blastn_lines):
-            if len(blastn_line) > 0:
-                is_ltr = 0
-                break
-    return candidate_index, is_ltr
-
-def filter_ltr_by_flank_seq(scn_file, filter_scn, reference, threads, log):
-    ref_names, ref_contigs = read_fasta(reference)
-    ltr_candidates, ltr_lines = read_scn(scn_file, log)
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for candidate_index in ltr_lines.keys():
-        line = ltr_lines[candidate_index]
-        parts = line.split(' ')
-        chr_name = parts[11]
-        ref_seq = ref_contigs[chr_name]
-        job = ex.submit(judge_scn_line_by_flank_seq, candidate_index, ref_seq, parts)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-    is_ltrs = {}
-    fp_count = 0
-    for job in as_completed(jobs):
-        candidate_index, is_ltr = job.result()
-        if is_ltr == 0:
-            fp_count += 1
-        is_ltrs[candidate_index] = is_ltr
-
-    confident_lines = []
-    for candidate_index in ltr_lines.keys():
-        is_ltr = is_ltrs[candidate_index]
-        if is_ltr == 1:
-            line = ltr_lines[candidate_index]
-            confident_lines.append(line)
-    store_scn(confident_lines, filter_scn)
-    log.logger.debug('Remove False Positive LTR terminal: ' + str(fp_count) + ', remaining LTR num: ' + str(len(confident_lines)))
-
-def judge_scn_line_by_flank_seq_v1(candidate_index, ref_seq, parts):
-    extend_len = 50
-    # 误差区域长度
-    error_region_len = 10
-
-    lLTR_start = int(parts[3])
-    lLTR_end = int(parts[4])
-    lLTR_len = int(parts[5])
-    rLTR_start = int(parts[6])
-    rLTR_end = int(parts[7])
-    rLTR_len = int(parts[8])
-
-    left_ltr = ref_seq[lLTR_start - extend_len: lLTR_end + extend_len]
-    right_ltr = ref_seq[rLTR_start - extend_len: rLTR_end + extend_len]
-
-    blastn_command = f"blastn -subject <(echo -e \"{right_ltr}\") -query <(echo -e \"{left_ltr}\") -outfmt 6 -num_threads 1"
-    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, executable='/bin/bash')
-
-    # 我们定义好LTR的三个区域，以此判断比对落在哪个区域：
-    # 左侧侧翼区域: 当1 <= align_start <= (extend_len - 2 * error_region_len) and align_end >= extend_len
-    # LTR 区域：当 (extend_len - error_region_len) <= align_start <= (extend_len + error_region_len) and (extend_len + lLTR_len - 4 * error_region_len) <= align_end <= (extend_len + lLTR_len + 4 * error_region_len)
-    # 右侧侧翼区域： (extend_len + lLTR_len + 2 * error_region_len) <= align_end <= (2 * extend_len + lLTR_len) and align_start <= (extend_len + lLTR_len)
-    adjust_boundary = None
-    if result.returncode == 0:
-        blastn_lines = result.stdout.strip().split('\n')
-        is_FP = False
-        is_LTR_align = False
-        q_start_offset = 0
-        q_end_offset = 0
-        s_start_offset = 0
-        s_end_offset = 0
-        for i, blastn_line in enumerate(blastn_lines):
-            if len(blastn_line) > 0:
-                parts = str(blastn_line).split('\t')
-                identity = float(parts[2])
-                q_start = int(parts[6])
-                q_end = int(parts[7])
-                s_start = int(parts[8])
-                s_end = int(parts[9])
-                # 判断当前左右的 LTR 比对分别落在哪个区域
-                is_query_left_region = False
-                is_query_LTR_region = False
-                is_query_right_region = False
-                if 1 <= q_start <= (extend_len - 2 * error_region_len) and q_end >= extend_len:
-                    is_query_left_region = True
-                elif (extend_len - error_region_len) <= q_start <= (extend_len + error_region_len) and (
-                        extend_len + lLTR_len - 5 * error_region_len) <= q_end <= (
-                        extend_len + lLTR_len + 5 * error_region_len):
-                    is_query_LTR_region = True
-                    q_start_offset = q_start - extend_len
-                    q_end_offset = q_end + 1 - (lLTR_len + extend_len)
-                elif q_start <= (extend_len + lLTR_len) and (extend_len + lLTR_len + 2 * error_region_len) <= q_end <= (2 * extend_len + lLTR_len):
-                    is_query_right_region = True
-
-                is_subject_left_region = False
-                is_subject_LTR_region = False
-                is_subject_right_region = False
-                if 1 <= s_start <= (extend_len - 2 * error_region_len) and s_end >= extend_len:
-                    is_subject_left_region = True
-                elif (extend_len - error_region_len) <= s_start <= (extend_len + error_region_len) and (
-                        extend_len + rLTR_len - 5 * error_region_len) <= s_end <= (
-                        extend_len + rLTR_len + 5 * error_region_len):
-                    is_subject_LTR_region = True
-                    s_start_offset = s_start - extend_len
-                    s_end_offset = s_end + 1 - (rLTR_len + extend_len)
-                elif s_start <= (extend_len + rLTR_len) and (extend_len + rLTR_len + 2 * error_region_len) <= s_end <= (2 * extend_len + rLTR_len):
-                    is_subject_right_region = True
-
-                if ((is_query_left_region and (is_subject_left_region or is_subject_right_region))
-                        or (is_query_right_region and (is_subject_right_region or is_subject_left_region))):
-                    is_FP = True
-                    break
-
-                if is_query_LTR_region and is_subject_LTR_region:
-                    is_LTR_align = True
-        if not is_LTR_align:
-            is_FP = True
-
-        if not is_FP:
-            lLTR_start += q_start_offset
-            lLTR_end += q_end_offset
-            rLTR_start += s_start_offset
-            rLTR_end += s_end_offset
-            if q_start_offset != 0 or q_end_offset != 0 or s_start_offset != 0 or s_end_offset != 0:
-                adjust_boundary = (lLTR_start, lLTR_end, rLTR_start, rLTR_end)
-    else:
-        is_FP = True
-    if is_FP:
-        is_ltr = 0
-    else:
-        is_ltr = 1
-    return candidate_index, is_ltr, adjust_boundary
-
-
 def judge_scn_line_by_flank_seq_v2(job_list):
-    ltr_identities = {}
     results = {}
     for cur_job in job_list:
         candidate_index, left_ltr, right_ltr, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end = cur_job
         extend_len = 50
-        # 误差区域长度
         error_region_len = 10
 
-        blastn_command = f"blastn -subject <(echo -e \"{right_ltr}\") -query <(echo -e \"{left_ltr}\") -outfmt 6 -num_threads 1"
-        result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, executable='/bin/bash')
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as query_file, \
+             tempfile.NamedTemporaryFile(mode='w', delete=False) as subject_file, \
+             tempfile.NamedTemporaryFile(mode='w', delete=False) as output_file:
 
-        # 我们判断是否有比对准确落在边界上，收集所有这些比对，然后进行合并，看看覆盖度是否超过终端的95%以上
-        # 如果超过，则认为是真实的LTR终端，否则认为是假阳性的终端
-        adjust_boundary = None
-        q_start_offset = 0
-        q_end_offset = 0
-        s_start_offset = 0
-        s_end_offset = 0
-        precise_boundary_alignments = []
-        if result.returncode == 0:
-            blastn_lines = result.stdout.strip().split('\n')
-            for i, blastn_line in enumerate(blastn_lines):
-                if len(blastn_line) > 0:
-                    parts = str(blastn_line).split('\t')
-                    identity = float(parts[2])
-                    q_start = int(parts[6])
-                    q_end = int(parts[7])
-                    s_start = int(parts[8])
-                    s_end = int(parts[9])
-                    # 比对落在了左侧边界上
-                    if (((extend_len - error_region_len) <= q_start <= (extend_len + error_region_len)
-                            and q_end <= (extend_len + lLTR_len + error_region_len)
-                            and (extend_len - error_region_len) <= s_start <= (extend_len + error_region_len)
-                            and s_end <= (extend_len + rLTR_len + error_region_len))):
-                        q_start_offset = q_start - extend_len
-                        s_start_offset = s_start - extend_len
-                        precise_boundary_alignments.append((q_start, q_end))
-                     # 比对落在了右侧边界上
-                    if (((extend_len - error_region_len) <= q_start
-                            and (extend_len + lLTR_len - error_region_len) <= q_end <= (extend_len + lLTR_len + error_region_len)
-                            and (extend_len - error_region_len) <= s_start
-                            and (extend_len + rLTR_len - error_region_len) <= s_end <= (extend_len + rLTR_len + error_region_len))):
-                        q_end_offset = q_end + 1 - (lLTR_len + extend_len)
-                        s_end_offset = s_end + 1 - (rLTR_len + extend_len)
-                        precise_boundary_alignments.append((q_start, q_end))
+            # 将序列写入临时文件
+            query_file.write(left_ltr)
+            subject_file.write(right_ltr)
 
-        # 合并 precise_boundary_alignments 坐标后，判断是否覆盖 lLTR_len 的 95%
-        merged_alignments = merge_intervals(precise_boundary_alignments)
-        cover_len = sum(end - start for start, end in merged_alignments)
-        if float(cover_len)/lLTR_len >= 0.9:
-            is_FP = False
+            # 运行 BLAST，将输出写入文件
+            blastn_command = [
+                "blastn",
+                "-subject", subject_file.name,
+                "-query", query_file.name,
+                "-outfmt", "6",
+                "-num_threads", "1",
+                "-out", output_file.name
+            ]
+            result = subprocess.run(blastn_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-            lLTR_start += q_start_offset
-            lLTR_end += q_end_offset
-            rLTR_start += s_start_offset
-            rLTR_end += s_end_offset
-            if q_start_offset != 0 or q_end_offset != 0 or s_start_offset != 0 or s_end_offset != 0:
-                adjust_boundary = (lLTR_start, lLTR_end, rLTR_start, rLTR_end)
-        else:
-            is_FP = True
+            # 读取 BLAST 结果
+            adjust_boundary = None
+            q_start_offset = 0
+            q_end_offset = 0
+            s_start_offset = 0
+            s_end_offset = 0
+            precise_boundary_alignments = []
+            if result.returncode == 0:
+                with open(output_file.name, 'r') as f:
+                    blastn_lines = f.readlines()
+                for blastn_line in blastn_lines:
+                    if blastn_line.strip():
+                        parts = blastn_line.strip().split('\t')
+                        identity = float(parts[2])
+                        q_start = int(parts[6])
+                        q_end = int(parts[7])
+                        s_start = int(parts[8])
+                        s_end = int(parts[9])
+                        # 比对落在了左侧边界上
+                        if (((extend_len - error_region_len) <= q_start <= (extend_len + error_region_len)
+                                and q_end <= (extend_len + lLTR_len + error_region_len)
+                                and (extend_len - error_region_len) <= s_start <= (extend_len + error_region_len)
+                                and s_end <= (extend_len + rLTR_len + error_region_len))):
+                            q_start_offset = q_start - extend_len
+                            s_start_offset = s_start - extend_len
+                            precise_boundary_alignments.append((q_start, q_end))
+                        # 比对落在了右侧边界上
+                        if (((extend_len - error_region_len) <= q_start
+                                and (extend_len + lLTR_len - error_region_len) <= q_end <= (extend_len + lLTR_len + error_region_len)
+                                and (extend_len - error_region_len) <= s_start
+                                and (extend_len + rLTR_len - error_region_len) <= s_end <= (extend_len + rLTR_len + error_region_len))):
+                            q_end_offset = q_end + 1 - (lLTR_len + extend_len)
+                            s_end_offset = s_end + 1 - (rLTR_len + extend_len)
+                            precise_boundary_alignments.append((q_start, q_end))
 
-        if is_FP:
-            is_ltr = 0
-        else:
-            is_ltr = 1
+            # 清理临时文件
+            os.remove(query_file.name)
+            os.remove(subject_file.name)
+            os.remove(output_file.name)
 
-        results[candidate_index] = (is_ltr, adjust_boundary)
+            # 合并 precise_boundary_alignments 坐标后，判断是否覆盖 lLTR_len 的 95%
+            merged_alignments = merge_intervals(precise_boundary_alignments)
+            cover_len = sum(end - start for start, end in merged_alignments)
+            if float(cover_len) / lLTR_len >= 0.9:
+                is_FP = False
+                lLTR_start += q_start_offset
+                lLTR_end += q_end_offset
+                rLTR_start += s_start_offset
+                rLTR_end += s_end_offset
+                if q_start_offset != 0 or q_end_offset != 0 or s_start_offset != 0 or s_end_offset != 0:
+                    adjust_boundary = (lLTR_start, lLTR_end, rLTR_start, rLTR_end)
+            else:
+                is_FP = True
+
+            if is_FP:
+                is_ltr = 0
+            else:
+                is_ltr = 1
+
+            results[candidate_index] = (is_ltr, adjust_boundary)
     return results
 
 def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, log):
@@ -10070,52 +9924,6 @@ def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, log):
     if log is not None:
         log.logger.debug('Remove False Positive LTR terminal: ' + str(fp_count) + ', remaining LTR num: ' + str(len(confident_lines)))
 
-def filter_ltr_by_flank_seq_v1(scn_file, filter_scn, reference, threads, log):
-    ref_names, ref_contigs = read_fasta(reference)
-    ltr_candidates, ltr_lines = read_scn(scn_file, log)
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for candidate_index in ltr_lines.keys():
-        line = ltr_lines[candidate_index]
-        parts = line.split(' ')
-        chr_name = parts[11]
-        ref_seq = ref_contigs[chr_name]
-        job = ex.submit(judge_scn_line_by_flank_seq_v1, candidate_index, ref_seq, parts)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-    adjust_boundaries = {}
-    is_ltrs = {}
-    fp_count = 0
-    for job in as_completed(jobs):
-        candidate_index, is_ltr, adjust_boundary = job.result()
-        if is_ltr == 0:
-            fp_count += 1
-        is_ltrs[candidate_index] = is_ltr
-        adjust_boundaries[candidate_index] = adjust_boundary
-
-    confident_lines = []
-    for candidate_index in ltr_lines.keys():
-        is_ltr = is_ltrs[candidate_index]
-        if is_ltr == 1:
-            line = ltr_lines[candidate_index]
-            confident_lines.append(line)
-            # 生成新的调整边界后的记录
-            adjust_boundary = adjust_boundaries[candidate_index]
-            if adjust_boundary is not None:
-                parts = line.split(' ')
-                parts[3] = str(adjust_boundary[0])
-                parts[4] = str(adjust_boundary[1])
-                parts[5] = str(adjust_boundary[1] - adjust_boundary[0] + 1)
-                parts[6] = str(adjust_boundary[2])
-                parts[7] = str(adjust_boundary[3])
-                parts[8] = str(adjust_boundary[3] - adjust_boundary[2] + 1)
-                new_line = ' '.join(parts)
-                # print('raw line: ' + line)
-                # print('new line: ' + new_line)
-                confident_lines.append(new_line)
-    store_scn(confident_lines, filter_scn)
-    if log is not None:
-        log.logger.debug('Remove False Positive LTR terminal: ' + str(fp_count) + ', remaining LTR num: ' + str(len(confident_lines)))
 
 def filter_ltr_by_flanking_cluster_sub_batch(job_list, target_dir, temp_dir):
     results = []
@@ -10340,69 +10148,94 @@ def get_intact_ltr_copies(ltr_copies, ltr_lines, full_length_threshold, referenc
 
 def get_ltr_from_line(cur_internal_seqs):
     all_lines = {}
+
     for candidate_index, lLTR_end, int_seq, chr_name, seq_id, line in cur_internal_seqs:
-        blastn_command = f"blastn -subject <(echo -e \"{int_seq}\") -query <(echo -e \"{int_seq}\") -outfmt 6 -evalue 1e-20 -num_threads 1"
-        result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                executable='/bin/bash')
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as query_file, \
+             tempfile.NamedTemporaryFile(mode='w', delete=False) as subject_file, \
+             tempfile.NamedTemporaryFile(mode='w', delete=False) as output_file:
 
-        new_lines = []
-        new_lines.append(line.split(' '))
-        # 解析比对，获取超过300bp的LTR序列
-        if result.returncode == 0:
-            blastn_lines = result.stdout.strip().split('\n')
-            for i, blastn_line in enumerate(blastn_lines):
-                if len(blastn_line) > 0:
-                    # print(blastn_line)
-                    parts = blastn_line.split('\t')
-                    q_start = int(parts[6])
-                    q_end = int(parts[7])
-                    q_len = abs(q_end - q_start)
-                    s_start = int(parts[8])
-                    s_end = int(parts[9])
-                    s_len = abs(s_end - s_start)
-                    identity = float(parts[2])
-                    if identity > 95 and q_len > 300 and s_len > 300 and q_end > q_start and s_end > s_start and s_start - q_end > 500:
-                        new_lLTR_start = lLTR_end + q_start
-                        new_lLTR_end = lLTR_end + q_end
-                        new_rLTR_start = lLTR_end + s_start
-                        new_rLTR_end = lLTR_end + s_end
-                        # print(new_lLTR_start, new_lLTR_end, new_rLTR_start, new_rLTR_end)
-                        new_line = [new_lLTR_start, new_rLTR_end, new_rLTR_end - new_lLTR_start + 1,
-                                    new_lLTR_start, new_lLTR_end, new_lLTR_end - new_lLTR_start + 1,
-                                    new_rLTR_start, new_rLTR_end, new_rLTR_end - new_rLTR_start + 1,
-                                    identity, seq_id, chr_name]
-                        new_lines.append(new_line)
-        new_lines.sort(key=lambda x: (int(x[0]), -int(x[1])))
-        filtered_new_lines = []
-        # 去掉重复元素
-        for i in range(len(new_lines) - 1, -1, -1):
-            cur_item = new_lines[i]
-            cur_lLTR_start = int(cur_item[0])
-            cur_rLTR_end = int(cur_item[1])
-            cur_LTR_len = int(cur_item[2])
-            is_redundant = False
-            for j in range(i - 1, -1, -1):
-                next_item = new_lines[j]
-                next_lLTR_start = int(next_item[0])
-                next_rLTR_end = int(next_item[1])
-                next_LTR_len = int(next_item[2])
-                overlap_start = max(cur_lLTR_start, next_lLTR_start)
-                overlap_end = min(cur_rLTR_end, next_rLTR_end)
-                overlap_length = overlap_end - overlap_start + 1
-                # 判断是否冗余（即 95% 的拷贝 i 被包含在拷贝 j 中）
-                if overlap_length >= 0.95 * cur_LTR_len and overlap_length >= 0.95 * next_LTR_len:
-                    is_redundant = True
-                    break
-            if not is_redundant:
-                filtered_new_lines.append(cur_item)
+            # 将序列写入临时文件
+            query_file.write(int_seq)
+            subject_file.write(int_seq)
 
-        new_line_strs = []
-        for new_line in reversed(filtered_new_lines):
-            new_line_strs.append(' '.join(map(str, new_line)))
-        all_lines[candidate_index] = new_line_strs
+            # 运行 BLAST，将输出写入文件
+            blastn_command = [
+                "blastn",
+                "-subject", subject_file.name,
+                "-query", query_file.name,
+                "-outfmt", "6",
+                "-evalue", "1e-20",
+                "-num_threads", "1",
+                "-out", output_file.name
+            ]
+            result = subprocess.run(blastn_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # 读取 BLAST 结果
+            new_lines = []
+            new_lines.append(line.split(' '))
+            if result.returncode == 0:
+                with open(output_file.name, 'r') as f:
+                    blastn_lines = f.readlines()
+                for blastn_line in blastn_lines:
+                    if blastn_line.strip():
+                        parts = blastn_line.strip().split('\t')
+                        q_start = int(parts[6])
+                        q_end = int(parts[7])
+                        q_len = abs(q_end - q_start)
+                        s_start = int(parts[8])
+                        s_end = int(parts[9])
+                        s_len = abs(s_end - s_start)
+                        identity = float(parts[2])
+                        if identity > 95 and q_len > 300 and s_len > 300 and q_end > q_start and s_end > s_start and s_start - q_end > 500:
+                            new_lLTR_start = lLTR_end + q_start
+                            new_lLTR_end = lLTR_end + q_end
+                            new_rLTR_start = lLTR_end + s_start
+                            new_rLTR_end = lLTR_end + s_end
+                            new_line = [
+                                new_lLTR_start, new_rLTR_end, new_rLTR_end - new_lLTR_start + 1,
+                                new_lLTR_start, new_lLTR_end, new_lLTR_end - new_lLTR_start + 1,
+                                new_rLTR_start, new_rLTR_end, new_rLTR_end - new_rLTR_start + 1,
+                                identity, seq_id, chr_name
+                            ]
+                            new_lines.append(new_line)
+
+            # 清理临时文件
+            os.remove(query_file.name)
+            os.remove(subject_file.name)
+            os.remove(output_file.name)
+
+            # 过滤冗余行
+            new_lines.sort(key=lambda x: (int(x[0]), -int(x[1])))
+            filtered_new_lines = []
+            for i in range(len(new_lines) - 1, -1, -1):
+                cur_item = new_lines[i]
+                cur_lLTR_start = int(cur_item[0])
+                cur_rLTR_end = int(cur_item[1])
+                cur_LTR_len = int(cur_item[2])
+                is_redundant = False
+                for j in range(i - 1, -1, -1):
+                    next_item = new_lines[j]
+                    next_lLTR_start = int(next_item[0])
+                    next_rLTR_end = int(next_item[1])
+                    next_LTR_len = int(next_item[2])
+                    overlap_start = max(cur_lLTR_start, next_lLTR_start)
+                    overlap_end = min(cur_rLTR_end, next_rLTR_end)
+                    overlap_length = overlap_end - overlap_start + 1
+                    if overlap_length >= 0.95 * cur_LTR_len and overlap_length >= 0.95 * next_LTR_len:
+                        is_redundant = True
+                        break
+                if not is_redundant:
+                    filtered_new_lines.append(cur_item)
+
+            # 将结果转换为字符串
+            new_line_strs = [' '.join(map(str, line)) for line in reversed(filtered_new_lines)]
+            all_lines[candidate_index] = new_line_strs
+
     return all_lines
 
 def get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, log):
+    log.logger.info('Start get all potential ltr lines')
     ref_names, ref_contigs = read_fasta(reference)
 
     part_size = len(confident_lines) // threads
