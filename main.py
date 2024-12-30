@@ -1,6 +1,7 @@
 #-- coding: UTF-8 --
 import argparse
 import re
+import shutil
 import subprocess
 import datetime
 import json
@@ -311,7 +312,11 @@ if __name__ == '__main__':
     # 创建本地临时目录，存储计算结果
     tmp_output_dir = '/tmp/run_hite_main_' + str(ref_name)
     if recover == 0:
-        create_or_clear_directory(tmp_output_dir)
+        # 如果目录已存在，则删除该目录及其中的所有内容
+        if os.path.exists(tmp_output_dir):
+            shutil.rmtree(tmp_output_dir)
+    # 创建新的目录
+    os.makedirs(tmp_output_dir, exist_ok=True)
 
     os.system('cp ' + reference + ' ' + tmp_output_dir)
     reference = tmp_output_dir + '/' + ref_filename

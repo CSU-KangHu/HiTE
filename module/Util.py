@@ -8450,9 +8450,12 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
                 cur_align_index += 1
 
         end_5 = gap_to_nogap[cur_boundary_start]
-        end_3, polyA_seq = find_tail_polyA(align_seq)
-        # polyA的边界不能与同源边界相差太多
         homology_end_3 = gap_to_nogap[homo_boundary_end]
+        cur_seq = align_seq[0: homology_end_3 + 10]
+        end_3, polyA_seq = find_tail_polyA(cur_seq)
+        if end_3 == -1:
+            end_3, tandem_unit = find_longest_tandem_repeat_tail(cur_seq)
+        # polyA的边界不能与同源边界相差太多
         if abs(end_3 - homology_end_3) > 10:
             continue
 
@@ -8553,6 +8556,45 @@ def most_common_element(arr):
     else:
         return -1
 
+def find_longest_tandem_repeat_tail(sequence, tail_length=20, min_repeats=2, min_unit_length=2, max_unit_length=6):
+    """
+    查找序列末尾最长的串联重复及其终止索引。
+    :param sequence: 输入的序列。
+    :param tail_length: 检测序列末尾的长度。
+    :param min_repeats: 最小重复次数。
+    :param min_unit_length: 最小重复单元长度。
+    :param max_unit_length: 最大重复单元长度。
+    :return: 如果找到串联重复，返回 (重复单元, 终止索引)；否则返回 (None, -1)。
+    """
+    # 截取序列末尾的指定长度
+    tail_seq = sequence[-tail_length:] if len(sequence) >= tail_length else sequence
+
+    longest_unit = None
+    longest_end_index = -1
+    max_repeat_length = 0  # 用于记录最大的 motif 长度 × 重复次数
+
+    # 遍历可能的重复单元长度
+    for unit_length in range(min_unit_length, max_unit_length + 1):
+        # 从末尾开始，检查是否有足够的重复单元
+        for start in range(len(tail_seq) - unit_length * min_repeats, -1, -1):
+            # 提取候选重复单元
+            unit = tail_seq[start:start + unit_length]
+            # 检查是否满足最小重复次数
+            repeat_count = 1
+            for i in range(1, (len(tail_seq) - start) // unit_length):
+                if tail_seq[start + i * unit_length:start + (i + 1) * unit_length] != unit:
+                    break
+                repeat_count += 1
+            # 如果满足最小重复次数，计算总长度
+            if repeat_count >= min_repeats:
+                total_length = unit_length * repeat_count
+                # 更新最长的串联重复
+                if total_length > max_repeat_length:
+                    max_repeat_length = total_length
+                    longest_unit = unit
+                    longest_end_index = len(sequence) - len(tail_seq) + start + total_length
+
+    return longest_end_index, longest_unit
 
 def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
