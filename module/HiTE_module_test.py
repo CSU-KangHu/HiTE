@@ -3952,7 +3952,7 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/tmp/run_hite_main_genome'
+    work_dir = '/tmp/run_hite_main'
     # candidate_tir_path = work_dir + '/more_tir.fa'
     # candidate_tir_path = work_dir + '/confident_helitron.fa'
     # candidate_tir_path = work_dir + '/confident_tir.fa'
