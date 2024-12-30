@@ -93,8 +93,8 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, H
 
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR + '> /dev/null 2>&1'
-    # 在某些情况下，未知原因会导致HelitronScanner执行卡死，我们给每个进程限制最大的运行时间 5 min，如果还不结束就直接kill掉
-    timeout = 300  # 5min
+    # 在某些情况下，未知原因会导致HelitronScanner执行卡死，我们给每个进程限制最大的运行时间 10 min，如果还不结束就直接kill掉
+    timeout = 600  # 10min
     run_command_with_timeout(HelitronScanner_command, timeout)
 
     cur_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.hel.fa'
@@ -8556,7 +8556,7 @@ def most_common_element(arr):
     else:
         return -1
 
-def find_longest_tandem_repeat_tail(sequence, tail_length=20, min_repeats=2, min_unit_length=2, max_unit_length=6):
+def find_longest_tandem_repeat_tail(sequence, tail_length=30, min_repeats=4, min_unit_length=2, max_unit_length=6):
     """
     查找序列末尾最长的串联重复及其终止索引。
     :param sequence: 输入的序列。
@@ -8595,6 +8595,55 @@ def find_longest_tandem_repeat_tail(sequence, tail_length=20, min_repeats=2, min
                     longest_end_index = len(sequence) - len(tail_seq) + start + total_length
 
     return longest_end_index, longest_unit
+
+def find_nearest_tandem(seq, raw_end, min_motif_length=2, max_motif_length=6, search_window=25, min_repeats=4):
+    """
+    在序列中查找 raw_end 附近窗口内最长的串联重复序列。
+    :param seq: 输入的序列。
+    :param raw_end: 查找的参考位置。
+    :param min_motif_length: 最小 motif 长度（默认为 2）。
+    :param max_motif_length: 最大 motif 长度（默认为 6）。
+    :param search_window: 查找窗口大小（默认为 25）。
+    :param min_repeats: 最小重复次数（默认为 4）。
+    :return: (start_pos, end_pos, tandem_seq)，如果没有找到，返回 (None, None, '')。
+    """
+    def is_tandem_repeat(subseq, motif_length):
+        """判断子串是否是串联重复。"""
+        if len(subseq) % motif_length != 0:
+            return False
+        motif = subseq[:motif_length]
+        for i in range(0, len(subseq), motif_length):
+            if subseq[i:i + motif_length] != motif:
+                return False
+        return True
+
+    # 确定查找范围
+    start = max(0, raw_end - search_window)
+    end = min(len(seq), raw_end + search_window)
+
+    # 初始化结果
+    best_start = None
+    best_end = None
+    best_seq = ''
+    max_repeat_length = 0  # 记录最长的串联重复长度
+
+    # 遍历所有可能的 motif 长度
+    for motif_length in range(min_motif_length, max_motif_length + 1):
+        # 遍历查找范围内的所有位置
+        for i in range(start, end - motif_length * min_repeats + 1):
+            # 检查从 i 开始的串联重复
+            subseq = seq[i:i + motif_length * min_repeats]
+            if is_tandem_repeat(subseq, motif_length):
+                # 计算串联重复的总长度
+                repeat_length = len(subseq)
+                # 更新最长的串联重复
+                if repeat_length > max_repeat_length:
+                    max_repeat_length = repeat_length
+                    best_start = i
+                    best_end = i + repeat_length
+                    best_seq = subseq
+
+    return best_start, best_end, best_seq
 
 def judge_boundary_v6(cur_seq, align_file, debug, TE_type, plant, result_type):
     # 1. Based on the 'remove gap' multi-alignment file, locate the position of the original sequence (anchor point).
@@ -9685,38 +9734,34 @@ def search_polyA_TSD(seq, flanking_len, end_5_window_size, TSD_sizes):
     end_3 = -1
     end_5 = -1
     direct = None
-    prev_tail_len = 0
     # Obtain the polyA sequence near raw_end.
-    start_pos, end_pos, polyA_seq = find_nearest_polyA(seq, raw_end)
-    if len(polyA_seq) > 0 and len(polyA_seq) > prev_tail_len:
-        end_3 = end_pos
-        end_5 = raw_start
-        direct = '+'
-        prev_tail_len = len(polyA_seq)
-
-    # # Obtain the polyA sequence near raw_start.
-    # start_pos, end_pos, polyA_seq = find_nearest_polyA(seq, raw_start)
-    # if len(polyA_seq) > 0 and len(polyA_seq) > prev_tail_len:
-    #     end_3 = start_pos
-    #     end_5 = raw_end
-    #     direct = '-'
-    #     prev_tail_len = len(polyA_seq)
+    polyA_start_pos, polyA_end_pos, polyA_seq = find_nearest_polyA(seq, raw_end)
+    # 尝试搜索串联重复尾巴
+    tandem_start_pos, tandem_end_pos, tandem_seq = find_nearest_tandem(seq, raw_end)
+    if min(len(polyA_seq), len(tandem_seq)) > 0:
+        if len(polyA_seq) > len(tandem_seq):
+            end_3 = polyA_end_pos
+            end_5 = raw_start
+            direct = '+'
+        else:
+            end_3 = tandem_end_pos
+            end_5 = raw_start
+            direct = '+'
 
     # Obtain the polyT sequence near raw_start.
-    start_pos, end_pos, polyT_seq = find_nearest_polyT(seq, raw_start)
-    if len(polyT_seq) > 0 and len(polyT_seq) > prev_tail_len:
-        end_3 = start_pos
-        end_5 = raw_end
-        direct = '-'
-        prev_tail_len = len(polyT_seq)
+    polyT_start_pos, polyT_end_pos, polyT_seq = find_nearest_polyT(seq, raw_start)
+    # 尝试搜索串联重复尾巴
+    tandem_start_pos, tandem_end_pos, tandem_seq = find_nearest_tandem(seq, raw_start)
+    if min(len(polyT_seq), len(tandem_seq)) > 0:
+        if len(polyT_seq) > len(tandem_seq):
+            end_3 = polyT_start_pos
+            end_5 = raw_end
+            direct = '-'
+        else:
+            end_3 = tandem_start_pos
+            end_5 = raw_end
+            direct = '-'
 
-    # # Obtain the polyT sequence near raw_end.
-    # start_pos, end_pos, polyT_seq = find_nearest_polyT(seq, raw_end)
-    # if len(polyT_seq) > 0 and len(polyT_seq) > prev_tail_len:
-    #     end_3 = end_pos
-    #     end_5 = raw_start
-    #     direct = '+'
-    #     prev_tail_len = len(polyT_seq)
 
     found_TSD = False
     TSD_seq = ''
@@ -9790,7 +9835,7 @@ def get_candidate_non_LTR(longest_repeats_flanked_path, flanking_len=50):
         if seq_len >= 100 and seq_len <= 700:
             raw_SINE_contigs[name] = contigs[name]
             raw_SINE_names.append(name)
-        elif seq_len >= 4000 and seq_len <= 8000:
+        elif seq_len > 700 and seq_len <= 8000:
             raw_LINE_contigs[name] = contigs[name]
             raw_LINE_names.append(name)
 
@@ -9809,7 +9854,7 @@ def get_candidate_non_LTR(longest_repeats_flanked_path, flanking_len=50):
         seq = raw_LINE_contigs[name]
         found_TSD, TSD_seq, non_ltr_seq = search_polyA_TSD(seq, flanking_len, end_5_window_size, TSD_sizes)
         seq_len = len(non_ltr_seq)
-        if found_TSD and seq_len >= 4000 and seq_len <= 8000:
+        if found_TSD and seq_len > 700 and seq_len <= 8000:
             new_name = name + '\tTSD:' + TSD_seq
             candidate_LINE_contigs[new_name] = non_ltr_seq
     return candidate_SINE_contigs, candidate_LINE_contigs

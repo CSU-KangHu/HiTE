@@ -9860,18 +9860,16 @@ def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, temp_di
         out_path = os.path.join(temp_dir, str(candidate_index) + '.out')
 
         left_ltr_name = chr_name + ':' + str(lLTR_start) + '-' + str(lLTR_end)
-        left_ltr_seq = ref_seq[lLTR_start - 1: lLTR_end]
         left_contigs = {}
-        left_contigs[left_ltr_name] = left_ltr_seq
+        left_contigs[left_ltr_name] = left_ltr
         store_fasta(left_contigs, left_path)
 
         right_ltr_name = chr_name + ':' + str(rLTR_start) + '-' + str(rLTR_end)
-        right_ltr_seq = ref_seq[rLTR_start - 1: rLTR_end]
         right_contigs = {}
-        right_contigs[right_ltr_name] = right_ltr_seq
+        right_contigs[right_ltr_name] = right_ltr
         store_fasta(right_contigs, right_path)
 
-        if len(left_ltr_seq) > 0 and len(right_ltr_seq) > 0:
+        if len(left_ltr) > 0 and len(right_ltr) > 0:
             job_list.append((candidate_index, left_path, right_path, out_path, lLTR_len, rLTR_len, lLTR_start, lLTR_end, rLTR_start, rLTR_end))
 
     part_size = len(job_list) // threads

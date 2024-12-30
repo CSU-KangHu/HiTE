@@ -739,5 +739,6 @@ if __name__ == '__main__':
     dtime = pipeline_endtime - pipeline_starttime
     log.logger.info("Running time of the whole pipeline: %.8s s" % (dtime))
 
+    create_or_clear_directory(output_dir)
     # 计算完之后将结果拷贝回输出目录
     copy_files(tmp_output_dir, output_dir)
