@@ -3952,7 +3952,7 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/tmp/run_hite_main'
+    work_dir = '/tmp/run_hite_main_genome'
     # candidate_tir_path = work_dir + '/more_tir.fa'
     # candidate_tir_path = work_dir + '/confident_helitron.fa'
     # candidate_tir_path = work_dir + '/confident_tir.fa'
@@ -3978,7 +3978,7 @@ if __name__ == '__main__':
     split_genome_command = 'split_genome_chunks.py -g ' \
                            + reference + ' --tmp_output_dir ' + tmp_output_dir \
                            + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    # os.system(split_genome_command)
+    os.system(split_genome_command)
     #
     TE_type = 'non_ltr'
     split_ref_dir = tmp_output_dir + '/ref_chr'

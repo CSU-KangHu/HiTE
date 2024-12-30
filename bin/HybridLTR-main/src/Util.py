@@ -10280,7 +10280,6 @@ def get_all_potential_ltr_lines(confident_lines, reference, threads, temp_path, 
     with open(temp_path, 'w', encoding='utf-8') as f:
         json.dump(temp_lines, f, ensure_ascii=False, indent=4)
 
-    log.logger.info('Start get all potential ltr lines')
     new_confident_lines = []
     for candidate_index in all_lines.keys():
         new_lines = all_lines[candidate_index]

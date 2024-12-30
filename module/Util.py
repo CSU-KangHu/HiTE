@@ -8476,7 +8476,7 @@ def judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type):
                     if k == len(TSD) and k == len(kmer):
                         first_matches = find_near_matches(TSD, kmer, max_l_dist=dist)
                         if len(first_matches) > 0:
-                            end_5 = end_5 - end_5_window_size + i + k
+                            end_5 = left_pos + i + k
                             found_TSD = True
                             TSD_seq = TSD
                             break
@@ -9602,12 +9602,11 @@ def find_tail_polyA(sequence, min_length=6):
             return i + min_length, six_mer
     return -1, None
 
-def find_nearest_polyA(sequence, position, window_size=25, min_length=6):
-    subsequence = sequence[max(0, position - window_size):position + window_size]
+def find_longest_polyA(subsequence, min_length):
     max_length = 0
     current_length = 0
-    max_start = 0
-    max_end = 0
+    max_start = -1
+    max_end = -1
 
     for i, base in enumerate(subsequence):
         if base == 'A':
@@ -9621,22 +9620,31 @@ def find_nearest_polyA(sequence, position, window_size=25, min_length=6):
                 max_end = i
             current_length = 0
 
+    # 检查循环结束后的 current_length
     if current_length >= min_length and current_length > max_length:
+        max_length = current_length
         max_start = start
         max_end = len(subsequence)
 
+    return max_start, max_end
+
+def find_nearest_polyA(sequence, position, window_size=25, min_length=6):
+    subsequence = sequence[max(0, position - window_size):min(len(sequence), position + window_size)]
+    max_start, max_end = find_longest_polyA(subsequence, min_length)
+
+    if max_start == -1 or max_end == -1:
+        return -1, -1, ''
 
     max_start = max(0, position - window_size + max_start)
     max_end = max(0, position - window_size + max_end)
 
     return max_start, max_end, sequence[max_start:max_end]
 
-def find_nearest_polyT(sequence, position, window_size=25, min_length=6):
-    subsequence = sequence[max(0, position - window_size):position + window_size]
+def find_longest_polyT(subsequence, min_length):
     max_length = 0
     current_length = 0
-    max_start = 0
-    max_end = 0
+    max_start = -1
+    max_end = -1
 
     for i, base in enumerate(subsequence):
         if base == 'T':
@@ -9650,13 +9658,23 @@ def find_nearest_polyT(sequence, position, window_size=25, min_length=6):
                 max_end = i
             current_length = 0
 
+    # 检查循环结束后的 current_length
     if current_length >= min_length and current_length > max_length:
+        max_length = current_length
         max_start = start
         max_end = len(subsequence)
 
-    if max_start != 0:
-        max_start = max(0, position - window_size + max_start)
-        max_end = max(0, position - window_size + max_end)
+    return max_start, max_end
+
+def find_nearest_polyT(sequence, position, window_size=25, min_length=6):
+    subsequence = sequence[max(0, position - window_size):min(len(sequence), position + window_size)]
+    max_start, max_end = find_longest_polyT(subsequence, min_length)
+
+    if max_start == -1 or max_end == -1:
+        return -1, -1, ''
+
+    max_start = max(0, position - window_size + max_start)
+    max_end = max(0, position - window_size + max_end)
 
     return max_start, max_end, sequence[max_start:max_end]
 

@@ -2,6 +2,41 @@
 import os
 import stat
 import glob
+import subprocess
+
+
+import os
+import subprocess
+
+def get_conda_path():
+    """Get the installation path of Conda."""
+    try:
+        # Run the command `conda info --base` to get the Conda path
+        conda_path = subprocess.check_output(["conda", "info", "--base"], text=True).strip()
+        return conda_path
+    except subprocess.CalledProcessError:
+        print("Failed to get Conda path. Please ensure Conda is installed and configured correctly.")
+        return None
+    except FileNotFoundError:
+        print("Conda command not found. Please ensure Conda is installed and configured correctly.")
+        return None
+
+def update_bashrc(lib_path):
+    """Add the path to ~/.bashrc."""
+    bashrc_path = os.path.expanduser("~/.bashrc")
+    export_line = f'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{lib_path}'
+
+    # Check if the path has already been added
+    if os.path.exists(bashrc_path):
+        with open(bashrc_path, "r") as file:
+            if export_line in file.read():
+                print("The path already exists in ~/.bashrc. No need to add it again.")
+                return
+
+    # Append to ~/.bashrc
+    with open(bashrc_path, "a") as file:
+        file.write(f"\n{export_line}\n")
+    print(f"Added {lib_path} to ~/.bashrc.")
 
 
 def add_project_root_to_bashrc():
@@ -38,6 +73,20 @@ def add_execute_permission(file_paths):
 def main():
     # 获取当前脚本所在目录作为项目根目录
     project_root = os.path.abspath(os.path.dirname(__file__))
+
+    # Get the Conda path
+    conda_path = get_conda_path()
+    if not conda_path:
+        return
+
+    # Check if the lib directory exists
+    lib_path = os.path.join(conda_path, "lib")
+    if not os.path.exists(lib_path):
+        print(f"The path {lib_path} does not exist. Please check if Conda is installed correctly.")
+        return
+
+    # Update ~/.bashrc
+    update_bashrc(lib_path)
 
     # 将项目根目录添加到 PATH 并更新 .bashrc
     add_project_root_to_bashrc()
