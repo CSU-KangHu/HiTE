@@ -11120,7 +11120,8 @@ def summary_TEs(genome_info_list, panTE_lib, output_dir, softcore_threshold, log
     pan_te_fl_infos, pan_te_total_infos = get_panTE_info(genome_info_list, panTE_lib)
 
     # 生成一个 PAV.tsv 表格，行表示TE family，列表示基因组名称
-    generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log)
+    generate_fl_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log)
+    generate_panTE_PAV(new_te_contigs, pan_te_total_infos, output_dir, log)
 
     # 获取 TE 出现在多少个不同的基因组
     te_fl_occur_genomes, te_occur_genomes = get_te_occur_genomes(new_te_contigs, pan_te_fl_infos, pan_te_total_infos)
@@ -12710,7 +12711,7 @@ def get_full_length_copies_from_blastn_v2(TE_lib, reference, blastn_out, tmp_out
         full_length_annotations.update(annotations)
     return full_length_annotations, copies_direct, all_query_copies
 
-def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
+def generate_fl_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
     pav_table = output_dir + '/full_length_TE_PAV.tsv'
     lines = []
     first_line = 'TE_families\t'
@@ -12723,7 +12724,6 @@ def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
             first_line += '\n'
     lines.append(first_line)
 
-    te_fl_occur_genomes = {}
     for te_name in new_te_contigs.keys():
         cur_line = te_name + '\t'
         for i, genome_name in enumerate(genome_names):
@@ -12746,12 +12746,48 @@ def generate_panTE_PAV(new_te_contigs, pan_te_fl_infos, output_dir, log):
     if len(lines) > 1 and file_exist(pav_table):
         # 调用 drawCorePanPAV.R 生成TE饱和曲线图
         script_path = cur_dir + '/RNA_seq/drawCorePanPAV.R'
-        cmd = 'cd ' + output_dir + ' && Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
+        cmd = 'cd ' + output_dir + ' && Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE_fl'
         log.logger.debug(cmd)
         os.system(cmd)
 
-    return te_fl_occur_genomes
+def generate_panTE_PAV(new_te_contigs, pan_te_total_infos, output_dir, log):
+    pav_table = output_dir + '/TE_PAV.tsv'
+    lines = []
+    first_line = 'TE_families\t'
+    genome_names = pan_te_total_infos.keys()
+    for i, genome_name in enumerate(genome_names):
+        first_line += genome_name
+        if i != len(genome_names) - 1:
+            first_line += '\t'
+        else:
+            first_line += '\n'
+    lines.append(first_line)
 
+    for te_name in new_te_contigs.keys():
+        cur_line = te_name + '\t'
+        for i, genome_name in enumerate(genome_names):
+            te_infos = pan_te_total_infos[genome_name]
+            if te_name in te_infos:
+                cur_copy_num, cur_length = te_infos[te_name]
+            else:
+                cur_copy_num = 0
+            cur_line += str(cur_copy_num)
+            if i != len(genome_names) - 1:
+                cur_line += '\t'
+            else:
+                cur_line += '\n'
+        lines.append(cur_line)
+
+    with open(pav_table, 'w') as f_save:
+        for line in lines:
+            f_save.write(line)
+
+    if len(lines) > 1 and file_exist(pav_table):
+        # 调用 drawCorePanPAV.R 生成TE饱和曲线图
+        script_path = cur_dir + '/RNA_seq/drawCorePanPAV.R'
+        cmd = 'cd ' + output_dir + ' && Rscript ' + script_path + ' ' + pav_table + ' 500 panHiTE'
+        log.logger.debug(cmd)
+        os.system(cmd)
 
 def copy_files(src_dir, output_dir):
     try:

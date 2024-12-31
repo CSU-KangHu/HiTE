@@ -9902,7 +9902,7 @@ def filter_ltr_by_flank_seq_v2(scn_file, filter_scn, reference, threads, temp_di
         adjust_boundaries[candidate_index] = adjust_boundary
 
     confident_lines = []
-    for candidate_index in ltr_lines.keys():
+    for candidate_index in is_ltrs.keys():
         is_ltr = is_ltrs[candidate_index]
         if is_ltr == 1:
             line = ltr_lines[candidate_index]
