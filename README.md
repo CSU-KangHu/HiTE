@@ -276,7 +276,7 @@ usage: main.py [-h] --genome genome --out_dir output_dir [--thread thread_num] [
                [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold]
                [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length]
 
-########################## HiTE, version 3.2 ##########################
+########################## HiTE, version 3.3.1 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit

@@ -108,6 +108,9 @@ process run_hite_single {
     path "confident_other.fa", emit: ch_other
     path "confident_tir.fa", emit: ch_tir
     path "confident_TE.cons.fa", emit: ch_te
+    path "tir_low_copy.fa", emit: ch_tir_low_copy
+    path "helitron_low_copy.fa", emit: ch_helitron_low_copy
+    path "non_ltr_low_copy.fa", emit: ch_non_ltr_low_copy
 
     script:
     cores = task.cpus
@@ -306,10 +309,16 @@ workflow {
     // 将每个 Channel 的输出文件收集并合并
     all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
+    // 将所有的低拷贝TE收集并合并
+    all_tir_low_copy = hite_out.ch_tir_low_copy.collectFile(name: "${params.out_dir}/tir_low_copy.tmp.fa")
+    all_helitron_low_copy = hite_out.ch_helitron_low_copy.collectFile(name: "${params.out_dir}/helitron_low_copy.tmp.fa")
+    all_non_ltr_low_copy = hite_out.ch_non_ltr_low_copy.collectFile(name: "${params.out_dir}/non_ltr_low_copy.tmp.fa")
 
-    // Step 5: 对LTR terminal 和 internal 去冗余，生成panTE library
+    // Step 4: 对LTR terminal 和 internal 去冗余，生成panTE library
     panTE_lib = pan_remove_redundancy(all_te)
     panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
+
+    // Step 5: 将泛基因组的低拷贝TE 和 panTE 进行聚类，保留和 panTE 序列不一样的低拷贝TE
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->

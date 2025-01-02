@@ -6959,7 +6959,7 @@ def store_flank_align_groups_v1(groups, flank_align_dir):
 
 def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, reference, split_ref_dir,
                           TE_type, tmp_output_dir, threads, ref_index, log, subset_script_path, plant, debug,
-                          iter_num, result_type='cons'):
+                          iter_num, all_low_copy, result_type='cons'):
     log.logger.info('------Determination of homology in regions outside the boundaries of ' + TE_type + ' copies')
     starttime = time.time()
     temp_dir = tmp_output_dir + '/' + TE_type + '_copies_' + str(ref_index) + '_' + str(iter_num)
@@ -7010,8 +7010,9 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         cur_all_copies = job.result()
         all_copies.update(cur_all_copies)
     # extend copies
+    query_copies_map = {}
     batch_member_files = []
-    new_all_copies = {}
+    extend_all_copies = {}
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
         for copy in copies:
@@ -7022,24 +7023,25 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             copy_len = copy_ref_end - copy_ref_start + 1
             if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
                 continue
-            copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
+            extend_copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
             if direct == '-':
-                copy_seq = getReverseSequence(copy_seq)
-            if len(copy_seq) < 100:
+                extend_copy_seq = getReverseSequence(extend_copy_seq)
+            if len(extend_copy_seq) < 100:
                 continue
             new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
-            if not new_all_copies.__contains__(query_name):
-                new_all_copies[query_name] = {}
-            copy_contigs = new_all_copies[query_name]
-            copy_contigs[new_name] = copy_seq
-            new_all_copies[query_name] = copy_contigs
-    for query_name in new_all_copies.keys():
-        copy_contigs = new_all_copies[query_name]
+            if not extend_all_copies.__contains__(query_name):
+                extend_all_copies[query_name] = {}
+            copy_contigs = extend_all_copies[query_name]
+            copy_contigs[new_name] = extend_copy_seq
+            extend_all_copies[query_name] = copy_contigs
+    for query_name in extend_all_copies.keys():
+        copy_contigs = extend_all_copies[query_name]
         valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
-        cur_member_file = temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
-        store_fasta(copy_contigs, cur_member_file)
+        extend_member_file = temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
+        store_fasta(copy_contigs, extend_member_file)
         query_seq = contigs[query_name]
-        batch_member_files.append((query_name, query_seq, cur_member_file))
+        batch_member_files.append((query_name, query_seq, extend_member_file))
+        query_copies_map[query_name] = extend_member_file
 
     # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
     ex = ProcessPoolExecutor(threads)
@@ -7062,7 +7064,7 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
     low_copy_path = low_copy_dir + '/low_copy_elements.fa'
     for job in as_completed(jobs):
         result_info = job.result()
-        cur_name, cur_seq, info, copy_count = result_info
+        cur_name, cur_seq, info, copy_count, extend_member_file = result_info
         if info == 'nb':
             not_found_boundary += 1
         elif info == 'fl1':
@@ -7075,7 +7077,7 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             cur_copy_num += 1
             copy_nums[copy_num] = cur_copy_num
         if cur_name is not None:
-            if TE_type == 'tir' or TE_type == 'helitron':
+            if TE_type == 'tir' or TE_type == 'helitron' or TE_type == 'non_ltr':
                 if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
                     continue
                 ############################
@@ -7090,6 +7092,8 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
                 true_tes[cur_name] = cur_seq
                 true_te_names.add(cur_name)
     store_fasta(low_copy_contigs, low_copy_path)
+    # 将低拷贝的TE存储，后续进行泛基因组恢复
+    os.system('cat ' + low_copy_path + ' >> ' + all_low_copy)
 
     if TE_type == 'tir':
         # 找回具有TIR结构的低拷贝TIR
@@ -9231,16 +9235,16 @@ def remove_sparse_col_in_align_file(align_file):
     return clean_align_file
 
 def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
-    (query_name, cur_seq, member_file) = batch_member_file
-    member_names, member_contigs = read_fasta(member_file)
+    (query_name, cur_seq, extend_member_file) = batch_member_file
+    member_names, member_contigs = read_fasta(extend_member_file)
     if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + extend_member_file + ' 100 100 ' + ' > /dev/null 2>&1'
         os.system(sub_command)
-        member_file += '.rdmSubset.fa'
-    if not os.path.exists(member_file):
-        return (None, None, '', 0)
-    align_file = member_file + '.maf.fa'
-    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + member_file + ' > ' + align_file
+        extend_member_file += '.rdmSubset.fa'
+    if not os.path.exists(extend_member_file):
+        return (None, None, '', 0, extend_member_file)
+    align_file = extend_member_file + '.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
     os.system(align_command)
 
     align_file= remove_sparse_col_in_align_file(align_file)
@@ -9259,9 +9263,9 @@ def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, 
         is_TE, info, cons_seq, copy_num = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
 
     if is_TE:
-        return (query_name, cons_seq, info, copy_num)
+        return (query_name, cons_seq, info, copy_num, extend_member_file)
     else:
-        return (None, None, info, 0)
+        return (None, None, info, 0, extend_member_file)
 
 
 def FMEA(blastn2Results_path, fixed_extend_base_threshold):

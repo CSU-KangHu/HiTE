@@ -37,7 +37,8 @@ if __name__ == '__main__':
                         help='Input Reference path.')
     parser.add_argument('--prev_TE', metavar='prev_TE',
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
-
+    parser.add_argument('--all_low_copy_non_ltr', metavar='all_low_copy_non_ltr',
+                        help='all low copy non_ltr path, to recover non_ltr using pan-genome')
 
     args = parser.parse_args()
     longest_repeats_flanked_path = args.seqs
@@ -51,6 +52,7 @@ if __name__ == '__main__':
     is_denovo_nonltr = int(args.is_denovo_nonltr)
     reference = args.r
     prev_TE = args.prev_TE
+    all_low_copy_non_ltr = args.all_low_copy_non_ltr
 
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
     library_dir = cur_dir + '/library'
@@ -97,7 +99,7 @@ if __name__ == '__main__':
             # 2. Conduct homology search on candidate sequences, and search for polyA tails near homologous boundaries.
             flank_region_align_v5(candidate_non_ltr_path, confident_non_ltr_path, flanking_len, reference, split_ref_dir,
                                   TE_type, work_dir, threads, ref_index, log, subset_script_path,
-                                  plant, debug, 0, result_type='cons')
+                                  plant, debug, 0, all_low_copy_non_ltr, result_type='cons')
 
             # 3. Select unrestrained LINE elements from candidate_LINE_path, align them to the domain, and extract reliable LINE elements.
             line_names, line_contigs = read_fasta(candidate_LINE_path)

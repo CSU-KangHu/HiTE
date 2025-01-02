@@ -32,6 +32,8 @@ if __name__ == '__main__':
                         help='Please enter the directory of the split genome.')
     parser.add_argument('--prev_TE', metavar='prev_TE',
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
+    parser.add_argument('--all_low_copy_helitron', metavar='all_low_copy_helitron',
+                        help='all low copy helitron path, to recover helitron using pan-genome')
 
     args = parser.parse_args()
 
@@ -45,7 +47,7 @@ if __name__ == '__main__':
     reference = args.r
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
-
+    all_low_copy_helitron = args.all_low_copy_helitron
 
     HSDIR = cur_dir + '/bin/HelitronScanner/TrainingSet'
     HSJAR = cur_dir + '/bin/HelitronScanner/HelitronScanner.jar'
@@ -117,8 +119,8 @@ if __name__ == '__main__':
             delete_files.append(output_file)
             if not is_recover or not file_exist(cur_resut_file):
                 flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir, TE_type,
-                                      tmp_output_dir, threads,
-                                      ref_index, log, subset_script_path, 1, debug, i, result_type)
+                                      tmp_output_dir, threads, ref_index, log, subset_script_path, 1, debug,
+                                      i, all_low_copy_helitron, result_type)
             input_file = output_file
         cur_confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.fa'
         cur_confident_helitron_cons = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(iter_num - 1) + '.cons.fa'

@@ -70,7 +70,7 @@ if __name__ == '__main__':
             '\\.command\\.out',
             '\\.command\\.err',
             '\\.exitcode',
-            '\\.command\\.log',
+            '\\.command\\.log'
         ]
 
         all_files = os.listdir(tmp_output_dir)

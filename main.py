@@ -49,7 +49,7 @@ if __name__ == '__main__':
     default_is_wicker = 0
     default_is_output_LTR_lib = 1
 
-    version_num = '3.3'
+    version_num = '3.3.1'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
@@ -321,6 +321,16 @@ if __name__ == '__main__':
     os.system('cp ' + reference + ' ' + tmp_output_dir)
     reference = tmp_output_dir + '/' + ref_filename
 
+    all_low_copy_tir = os.path.join(tmp_output_dir, 'tir_low_copy.fa')
+    all_low_copy_helitron = os.path.join(tmp_output_dir, 'helitron_low_copy.fa')
+    all_low_copy_non_ltr = os.path.join(tmp_output_dir, 'non_ltr_low_copy.fa')
+    if os.path.exists(all_low_copy_tir):
+        os.remove(all_low_copy_tir)
+    if os.path.exists(all_low_copy_helitron):
+        os.remove(all_low_copy_helitron)
+    if os.path.exists(all_low_copy_non_ltr):
+        os.remove(all_low_copy_non_ltr)
+
     # filter short contigs
     reference = filter_short_contigs_in_genome(reference)
 
@@ -553,7 +563,8 @@ if __name__ == '__main__':
                                                  + ' --debug ' + str(debug) \
                                                  + ' -r ' + reference \
                                                  + ' --split_ref_dir ' + split_ref_dir \
-                                                 + ' --prev_TE  ' + prev_TE
+                                                 + ' --prev_TE  ' + prev_TE \
+                                                 + ' --all_low_copy_tir ' + all_low_copy_tir
                     log.logger.debug(tir_identification_command)
                     os.system(tir_identification_command)
                     endtime = time.time()
@@ -576,9 +587,13 @@ if __name__ == '__main__':
                     helitron_identification_command = 'judge_Helitron_transposons.py --seqs ' \
                                                       + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
                                                       + ' --tmp_output_dir ' + tmp_output_dir \
-                                                      + ' --ref_index ' + str(ref_index) + ' --flanking_len ' + str(flanking_len) \
-                                                      + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --split_ref_dir ' + split_ref_dir \
-                                                      + ' --prev_TE  ' + prev_TE
+                                                      + ' --ref_index ' + str(ref_index) \
+                                                      + ' --flanking_len ' + str(flanking_len) \
+                                                      + ' --recover ' + str(recover) \
+                                                      + ' --debug ' + str(debug) \
+                                                      + ' --split_ref_dir ' + split_ref_dir \
+                                                      + ' --prev_TE  ' + prev_TE \
+                                                      + ' --all_low_copy_helitron ' + all_low_copy_helitron
 
                     log.logger.info(helitron_identification_command)
                     os.system(helitron_identification_command)
@@ -609,7 +624,8 @@ if __name__ == '__main__':
                                                  + ' --ref_index ' + str(ref_index) \
                                                  + ' --is_denovo_nonltr ' + str(is_denovo_nonltr) \
                                                  + ' -r ' + reference \
-                                                 + ' --prev_TE  ' + prev_TE
+                                                 + ' --prev_TE  ' + prev_TE \
+                                                 + ' --all_low_copy_non_ltr ' + all_low_copy_non_ltr
                     log.logger.debug(non_ltr_identification_command)
                     os.system(non_ltr_identification_command)
                     endtime = time.time()
@@ -741,4 +757,4 @@ if __name__ == '__main__':
 
     create_or_clear_directory(output_dir)
     # 计算完之后将结果拷贝回输出目录
-    copy_files(tmp_output_dir, output_dir)
+    shutil.copytree(tmp_output_dir, output_dir, dirs_exist_ok=True)

@@ -11,7 +11,7 @@ from Util import read_fasta, store_fasta, Logger, multi_process_tsd, rename_fast
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant,
-                   debug, TRsearch_dir, split_ref_dir, is_recover):
+                   debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, is_recover):
     log.logger.info('determine true TIR')
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
     starttime = time.time()
@@ -31,7 +31,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
         if not is_recover or not file_exist(resut_file):
             flank_region_align_v5(input_file, output_file, flanking_len, reference, split_ref_dir, TE_type,
                                   tmp_output_dir, threads, ref_index, log, subset_script_path, plant, debug,
-                                  i, result_type)
+                                  i, all_low_copy_tir, result_type)
         input_file = output_file
 
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
@@ -76,6 +76,8 @@ if __name__ == '__main__':
                         help='Please enter the directory of the split genome.')
     parser.add_argument('--prev_TE', metavar='prev_TE',
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
+    parser.add_argument('--all_low_copy_tir', metavar='all_low_copy_tir',
+                        help='all low copy tir path, to recover tir using pan-genome')
 
     args = parser.parse_args()
     longest_repeats_flanked_path = args.seqs
@@ -90,6 +92,7 @@ if __name__ == '__main__':
     reference = args.r
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
+    all_low_copy_tir = args.all_low_copy_tir
 
     TRsearch_dir = cur_dir + '/tools'
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
@@ -144,7 +147,8 @@ if __name__ == '__main__':
     resut_file = confident_tir_path
     if not is_recover or not file_exist(resut_file):
         # Utilize homologous boundary search method to determine the authenticity of TE sequences.
-        is_transposons(tir_tsd_cons, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, is_recover)
+        is_transposons(tir_tsd_cons, reference, threads, tmp_output_dir, ref_index, log,
+                       subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, is_recover)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
