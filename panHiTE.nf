@@ -318,7 +318,7 @@ workflow {
     panTE_lib = pan_remove_redundancy(all_te)
     panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
 
-    // Step 5: 将泛基因组的低拷贝TE 和 panTE 进行聚类，保留和 panTE 序列不一样的低拷贝TE
+    // Step 5: 将泛基因组的低拷贝TE 和 panTE 进行聚类，保留和 panTE 序列不一样的低拷贝TE 
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
