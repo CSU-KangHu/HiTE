@@ -108,9 +108,6 @@ process run_hite_single {
     path "confident_other.fa", emit: ch_other
     path "confident_tir.fa", emit: ch_tir
     path "confident_TE.cons.fa", emit: ch_te
-    path "tir_low_copy.fa", emit: ch_tir_low_copy
-    path "helitron_low_copy.fa", emit: ch_helitron_low_copy
-    path "non_ltr_low_copy.fa", emit: ch_non_ltr_low_copy
 
     script:
     cores = task.cpus
