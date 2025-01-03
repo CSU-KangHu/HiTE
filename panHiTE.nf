@@ -306,10 +306,6 @@ workflow {
     // 将每个 Channel 的输出文件收集并合并
     all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
-    // 将所有的低拷贝TE收集并合并
-    all_tir_low_copy = hite_out.ch_tir_low_copy.collectFile(name: "${params.out_dir}/tir_low_copy.tmp.fa")
-    all_helitron_low_copy = hite_out.ch_helitron_low_copy.collectFile(name: "${params.out_dir}/helitron_low_copy.tmp.fa")
-    all_non_ltr_low_copy = hite_out.ch_non_ltr_low_copy.collectFile(name: "${params.out_dir}/non_ltr_low_copy.tmp.fa")
 
     // Step 4: 对LTR terminal 和 internal 去冗余，生成panTE library
     panTE_lib = pan_remove_redundancy(all_te)
