@@ -114,7 +114,7 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/run_hite_single'
+    temp_dir = '/tmp/pan_run_hite_single'
     create_or_clear_directory(temp_dir)
     main(genome_name, reference, temp_dir, threads, te_type, miu, debug, log)
 

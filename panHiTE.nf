@@ -88,10 +88,10 @@ process preprocess_genomes {
 }
 
 // Step 3: HiTE 并行处理每个基因组
-process run_hite_single {
+process pan_run_hite_single {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/run_hite_single/${genome_name}"
+    storeDir "${params.out_dir}/pan_run_hite_single/${genome_name}"
 
     input:
     tuple val(genome_name), val(raw_name), path(reference), val(te_type), val(miu), val(debug)
@@ -159,17 +159,17 @@ process pan_remove_redundancy {
     """
 }
 
-process recover_low_copy_TEs{
+process pan_recover_low_copy_TEs{
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/recover_low_copy_TEs"
+    storeDir "${params.out_dir}/pan_recover_low_copy_TEs"
 
     input:
     tuple path(tir_low_copy), path(helitron_low_copy), path(non_ltr_low_copy)
     path panTE_lib
 
     output:
-    path "panTE.fa"
+    path "panTE.merge_recover.fa"
 
     script:
     cores = task.cpus
@@ -177,7 +177,7 @@ process recover_low_copy_TEs{
     pan_recover_low_copy_TEs.py --threads ${cores} --tir_low_copy ${tir_low_copy} \
     --helitron_low_copy ${helitron_low_copy} --non_ltr_low_copy ${non_ltr_low_copy} \
     --panTE_lib ${panTE_lib} --genome_list ${params.genome_list} \
-    --pan_genomes_dir ${params.pan_genomes_dir} > recover_low_copy_TEs.log 2>&1
+    --pan_genomes_dir ${params.pan_genomes_dir} > pan_recover_low_copy_TEs.log 2>&1
     """
 }
 
@@ -324,7 +324,7 @@ workflow {
 
 
     // Step 3: HiTE 并行处理每个基因组
-    hite_out = run_hite_single(hite_input_channel)
+    hite_out = pan_run_hite_single(hite_input_channel)
     // 将每个 Channel 的输出文件收集并合并
     all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
@@ -333,18 +333,18 @@ workflow {
 
     // Step 4: 对LTR terminal 和 internal 去冗余，生成panTE library
     panTE_lib = pan_remove_redundancy(all_te)
-    // panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
+    panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
 
     // Step 5: 将泛基因组的低拷贝TE 和 panTE 进行聚类，保留和 panTE 序列不一样的低拷贝TE。
     // 从泛基因组中获取拷贝，判断这些低拷贝TE是否是真实TE
-    panTE_lib = recover_low_copy_TEs(low_copy_files_channel, panTE_lib)
-    panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
+    panTE_merge_recover_lib = pan_recover_low_copy_TEs(low_copy_files_channel, panTE_lib)
+    panTE_merge_recover_lib = panTE_merge_recover_lib.collectFile(name: "${params.out_dir}/panTE.merge_recover.fa")
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
         [genome_name, reference]
-    }.combine(panTE_lib).set { annotate_input_channel }
-
+    }.combine(panTE_merge_recover_lib).set { annotate_input_channel }
+ 
     // Step 5: 并行注释每个基因组
     annotate_out = annotate_genomes(annotate_input_channel)
 
@@ -383,7 +383,7 @@ workflow {
 
     if (!params.skip_analyze) {
          // Step 6: 对检测到的 TE 进行统计分析
-        summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_lib, params.softcore_threshold)
+        summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_merge_recover_lib, params.softcore_threshold)
 
         // Step 7: 基因和 TE 关系
         gene_te_associations_out = pan_gene_te_relation(genome_info_json)

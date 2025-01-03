@@ -201,8 +201,8 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         store_fasta(remain_non_ltr_contigs, keep_non_ltr_low_copy)
 
         # 记得删除目录，防止由于泛基因组数量过多/大，导致/tmp磁盘空间不足
-        # if os.path.exists(cur_temp_dir):
-        #     shutil.rmtree(cur_temp_dir)
+        if os.path.exists(cur_temp_dir):
+            shutil.rmtree(cur_temp_dir)
 
     # 将那些经过泛基因组之后，获得>2拷贝存成文件
     tir_batch_member_files = []
@@ -318,7 +318,7 @@ if __name__ == "__main__":
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
-    log = Logger(output_dir + '/panHiTE.log', level='debug')
+    log = Logger(output_dir + '/pan_recover_low_copy_TEs.log', level='debug')
 
     # 1.1. 读取 genomes
     genome_paths = []
@@ -398,9 +398,13 @@ if __name__ == "__main__":
     # Reassign Inconsistent Classification Labels
     ReassignInconsistentLabels(recover_classified_lib)
 
-    merge_panTE_lib = os.path.join(temp_dir, 'panTE.fa')
+    merge_panTE_lib = os.path.join(temp_dir, 'panTE.merge_recover.redundant.fa')
+    merge_panTE_lib_cons = os.path.join(temp_dir, 'panTE.merge_recover.fa')
     # 将真实的TE合并至panTE lib，并且调用cd-hit-est去冗余
     os.system('cat ' + recover_classified_lib + ' ' + panTE_lib + ' > ' + merge_panTE_lib)
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + merge_panTE_lib + ' -o ' + merge_panTE_lib_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command + ' > /dev/null 2>&1')
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, output_dir)
