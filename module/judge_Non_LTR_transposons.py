@@ -54,6 +54,8 @@ if __name__ == '__main__':
     prev_TE = args.prev_TE
     all_low_copy_non_ltr = args.all_low_copy_non_ltr
 
+    os.system('touch ' + all_low_copy_non_ltr)
+
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
     library_dir = cur_dir + '/library'
 

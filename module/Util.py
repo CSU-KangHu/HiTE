@@ -4525,9 +4525,7 @@ def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
-    lib_dir = os.path.dirname(lib)
     db_prefix = os.path.basename(lib)
-
     lib_dir = os.path.dirname(lib)
     db_files = [os.path.join(lib_dir, f"{db_prefix}.phr"),
                 os.path.join(lib_dir, f"{db_prefix}.pin"),

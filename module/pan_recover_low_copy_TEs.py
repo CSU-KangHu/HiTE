@@ -12,7 +12,8 @@ project_dir = os.path.join(current_folder, ".")
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from Util import Logger, copy_files, create_or_clear_directory, \
-    store_fasta, read_fasta, get_full_length_copies, getReverseSequence, run_find_members_v8, rename_fasta
+    store_fasta, read_fasta, get_full_length_copies, getReverseSequence, run_find_members_v8, rename_fasta, \
+    ReassignInconsistentLabels
 
 
 def filter_detected_TEs(temp_dir, threads, low_copy_file, panTE_lib, TE_type, log):
@@ -298,6 +299,8 @@ if __name__ == "__main__":
                         help="Output directory (default: current working directory).")
     parser.add_argument('--use_NeuralTE', type=int, default=1,
                         help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
+    parser.add_argument('--is_wicker', type=int, default=0,
+                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
 
     # 解析参数
     args = parser.parse_args()
@@ -309,6 +312,7 @@ if __name__ == "__main__":
     pan_genomes_dir = args.pan_genomes_dir
     threads = args.threads
     use_NeuralTE = args.use_NeuralTE
+    is_wicker = args.is_wicker
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -367,56 +371,36 @@ if __name__ == "__main__":
         rename_fasta(real_TEs_cons, confident_recover_TE_path, prefix_map[TE_type])
         os.system('cat ' + confident_recover_TE_path + ' >> ' + recover_panTE_lib)
 
+    # 调用分类器对恢复的TE进行分类
     NeuralTE_home = project_dir + '/bin/NeuralTE'
     TEClass_home = project_dir + '/classification'
-    ref_rename_path = tmp_output_dir + '/genome.rename.fa'
-    recover_classified_panTE_lib = recover_panTE_lib + '.classified'
-    # ClassifyTE except for LTR (LTRs have been classified)
+    recover_classified_lib = recover_panTE_lib + '.classified'
     if use_NeuralTE:
         # classify LTR using NeuralTE
-        NeuralTE_output_dir = temp_dir + '/NeuralTE_all'
-        if not os.path.exists(NeuralTE_output_dir):
-            os.makedirs(NeuralTE_output_dir)
-        NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + confident_TE_path \
-                           + ' --genome ' + ref_rename_path + ' --use_TSD 1 --model_path ' \
-                           + NeuralTE_home + '/models/NeuralTE-TSDs_model.h5 --out_dir ' \
+        NeuralTE_output_dir = temp_dir + '/NeuralTE_recover'
+        os.makedirs(NeuralTE_output_dir, exist_ok=True)
+        NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + recover_panTE_lib \
+                           + ' --model_path ' + NeuralTE_home + '/models/NeuralTE_model.h5 --out_dir ' \
                            + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command + ' > /dev/null 2>&1')
         NeuralTE_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
-        os.system('cp ' + NeuralTE_TE_path + ' ' + classified_TE_path)
+        os.system('cp ' + NeuralTE_TE_path + ' ' + recover_classified_lib)
     else:
         # classify LTR using RepeatClassifier
         sample_name = 'test'
         TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                          + ' --consensus ' + confident_TE_path + ' --genome 1' \
+                          + ' --consensus ' + recover_panTE_lib + ' --genome 1' \
                           + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + temp_dir
         log.logger.debug(TEClass_command)
         os.system(TEClass_command)
 
-    # merge classified LTRs and TEs
-    confident_TE_path = tmp_output_dir + '/confident_TE.fa'
-    if file_exist(classified_TE_path):
-        os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
-    if file_exist(confident_ltr_cut_path):
-        os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
-    if curated_lib is not None:
-        curated_lib = os.path.realpath(curated_lib)
-        if file_exist(curated_lib):
-            os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
-
     # Reassign Inconsistent Classification Labels
-    ReassignInconsistentLabels(confident_TE_path)
+    ReassignInconsistentLabels(recover_classified_lib)
 
-
+    merge_panTE_lib = os.path.join(temp_dir, 'panTE.fa')
     # 将真实的TE合并至panTE lib，并且调用cd-hit-est去冗余
-    os.system('cat ' + panTE_lib + ' >> ' + merge_panTE_lib)
+    os.system('cat ' + recover_classified_lib + ' ' + panTE_lib + ' > ' + merge_panTE_lib)
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, output_dir)
-
-
-
-
-
-
