@@ -53,7 +53,7 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/generate_bam_for_RNA_seq.log', level='debug')
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/annotate_genome'
+    temp_dir = '/tmp/pan_generate_bam_for_RNA_seq'
     create_or_clear_directory(temp_dir)
     # Step 7.1: 生成 BAM 文件
     log.logger.info("Start generating BAM files for RNA-seq data...")

@@ -4525,10 +4525,11 @@ def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
+    lib_dir = os.path.dirname(lib)
     db_prefix = os.path.basename(lib)
-    db_files = [os.path.join(os.path.dirname(lib), f"{db_prefix}.phr"),
-                os.path.join(os.path.dirname(lib), f"{db_prefix}.pin"),
-                os.path.join(os.path.dirname(lib), f"{db_prefix}.psq")]
+    db_files = [os.path.join(lib_dir, f"{db_prefix}.phr"),
+                os.path.join(lib_dir, f"{db_prefix}.pin"),
+                os.path.join(lib_dir, f"{db_prefix}.psq")]
 
     if all(os.path.exists(f) for f in db_files):
         print(f"BLAST database exist, skip creating：{db_prefix}")
@@ -7010,7 +7011,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         cur_all_copies = job.result()
         all_copies.update(cur_all_copies)
     # extend copies
-    query_copies_map = {}
     batch_member_files = []
     extend_all_copies = {}
     for query_name in all_copies.keys():
@@ -7041,7 +7041,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         store_fasta(copy_contigs, extend_member_file)
         query_seq = contigs[query_name]
         batch_member_files.append((query_name, query_seq, extend_member_file))
-        query_copies_map[query_name] = extend_member_file
 
     # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
     ex = ProcessPoolExecutor(threads)

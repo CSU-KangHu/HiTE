@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--prev_TE', metavar='prev_TE',
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_non_ltr', metavar='all_low_copy_non_ltr',
-                        help='all low copy non_ltr path, to recover non_ltr using pan-genome')
+                        help='all low copy non_ltr path, to recover non_ltr using pan-genome.')
 
     args = parser.parse_args()
     longest_repeats_flanked_path = args.seqs

@@ -99,7 +99,7 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/annotate_genome'
+    temp_dir = '/tmp/pan_annotate_genome'
     create_or_clear_directory(temp_dir)
     # 调用 RepeatMasker 函数
     run_repeat_masker(temp_dir, threads, panTE_lib, reference, genome_name, log)
