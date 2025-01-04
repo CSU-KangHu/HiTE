@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
-
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -99,7 +100,8 @@ if __name__ == '__main__':
     log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/annotate_genome'
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/annotate_genome_' + str(unique_id)
     create_or_clear_directory(temp_dir)
 
     rm2_test_dir = temp_dir + '/rm2_test'
@@ -207,3 +209,7 @@ if __name__ == '__main__':
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, tmp_output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

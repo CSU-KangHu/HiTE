@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
 import json
+import uuid
+
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 from Util import Logger, summary_TEs, create_or_clear_directory, copy_files
@@ -35,7 +38,8 @@ if __name__ == "__main__":
         genome_info_list = json.load(f)
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/pan_summary_TEs'
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/pan_summary_TEs_' + str(unique_id)
     create_or_clear_directory(temp_dir)
 
     # 调用 summary_TEs 函数
@@ -44,3 +48,7 @@ if __name__ == "__main__":
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

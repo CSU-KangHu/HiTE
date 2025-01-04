@@ -65,10 +65,10 @@ if (params.help){
     exit 0
 }
 
-process preprocess_genomes {
+process pan_preprocess_genomes {
     cpus = 2
 
-    storeDir "${params.out_dir}/preprocess_genomes"
+    storeDir "${params.out_dir}/pan_preprocess_genomes"
 
     input:
     path genome_list
@@ -182,10 +182,10 @@ process pan_recover_low_copy_TEs{
 }
 
 // Step 3: 注释基因组
-process annotate_genomes {
+process pan_annotate_genomes {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/annotate_genomes/${genome_name}"
+    storeDir "${params.out_dir}/pan_annotate_genomes/${genome_name}"
 
     input:
     tuple val(genome_name), path(reference), path(panTE_lib)
@@ -202,10 +202,10 @@ process annotate_genomes {
 }
 
 // Step 4: 汇总 TE 数据
-process summarize_tes {
+process pan_summarize_tes {
     cpus = 2
 
-    storeDir "${params.out_dir}/summarize_tes"
+    storeDir "${params.out_dir}/pan_summarize_tes"
 
     input:
     path genome_info_json
@@ -309,7 +309,7 @@ process pan_detect_de_genes {
 // 定义工作流
 workflow {
     // Step 1: 预处理，生成json格式的输入文件路径
-    genome_metadata_out = preprocess_genomes(params.genome_list, params.genes_dir, params.RNA_dir, params.pan_genomes_dir)
+    genome_metadata_out = pan_preprocess_genomes(params.genome_list, params.genes_dir, params.RNA_dir, params.pan_genomes_dir)
 
     // Step 2: 解析Step1的json文件，准备HiTE输入channel
     genome_info_list = genome_metadata_out
@@ -346,7 +346,7 @@ workflow {
     }.combine(panTE_merge_recover_lib).set { annotate_input_channel }
  
     // Step 5: 并行注释每个基因组
-    annotate_out = annotate_genomes(annotate_input_channel)
+    annotate_out = pan_annotate_genomes(annotate_input_channel)
 
     // 将注释结果合并到 json 文件中，便于后续统一分析
     genome_info_list.join(annotate_out).map { genome_info ->
@@ -383,7 +383,7 @@ workflow {
 
     if (!params.skip_analyze) {
          // Step 6: 对检测到的 TE 进行统计分析
-        summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_merge_recover_lib, params.softcore_threshold)
+        pan_summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_merge_recover_lib, params.softcore_threshold)
 
         // Step 7: 基因和 TE 关系
         gene_te_associations_out = pan_gene_te_relation(genome_info_json)
