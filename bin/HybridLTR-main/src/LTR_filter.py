@@ -418,8 +418,11 @@ if __name__ == '__main__':
         if is_all_n:
             continue
         # process duplicate name
+        counter = 1
+        original_name = left_ltr_name
         while left_ltr_name in left_LTR_contigs:
-            left_ltr_name += '-replicate'
+            left_ltr_name = f"{original_name}-rep{counter}"
+            counter += 1
         left_LTR_contigs[left_ltr_name] = left_ltr_seq
         leftLtr2Candidates[left_ltr_name] = candidate_index
     store_fasta(left_LTR_contigs, left_ltr_path)
