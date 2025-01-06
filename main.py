@@ -139,17 +139,14 @@ if __name__ == '__main__':
         output_dir = project_dir + '/output'
     if not os.path.isabs(output_dir):
         output_dir = os.path.abspath(output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-
-    log = Logger(output_dir + '/HiTE.log', level='debug')
 
     if reference is None:
-        log.logger.error('\nreference path can not be empty')
+        print('\nreference path can not be empty')
         parser.print_help()
         exit(-1)
 
     if not os.path.exists(reference):
-        log.logger.error('\nCannot find input genome assembly: ' + str(reference))
+        print('\nCannot find input genome assembly: ' + str(reference))
         parser.print_help()
         exit(-1)
 
@@ -317,6 +314,8 @@ if __name__ == '__main__':
             shutil.rmtree(tmp_output_dir)
     # 创建新的目录
     os.makedirs(tmp_output_dir, exist_ok=True)
+
+    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
     os.system('cp ' + reference + ' ' + tmp_output_dir)
     reference = tmp_output_dir + '/' + ref_filename
