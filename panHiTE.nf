@@ -108,7 +108,7 @@ process pan_run_hite_single {
     path "confident_other.fa", emit: ch_other
     path "confident_tir.fa", emit: ch_tir
     path "confident_TE.cons.fa", emit: ch_te
-    tuple path("tir_low_copy.fa"), path("helitron_low_copy.fa"), path("non_ltr_low_copy.fa"), emit: ch_low_copy_files
+    tuple val(genome_name), path("tir_low_copy.fa"), path("helitron_low_copy.fa"), path("non_ltr_low_copy.fa"), emit: ch_low_copy_files
 
     script:
     cores = task.cpus
@@ -162,22 +162,45 @@ process pan_remove_redundancy {
 process pan_recover_low_copy_TEs{
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_recover_low_copy_TEs"
+    storeDir "${params.out_dir}/pan_recover_low_copy_TEs/${genome_name}"
 
     input:
-    tuple path(tir_low_copy), path(helitron_low_copy), path(non_ltr_low_copy)
-    path panTE_lib
+    tuple val(genome_name), path(tir_low_copy), path(helitron_low_copy), path(non_ltr_low_copy), path(panTE_lib)
 
     output:
-    path "panTE.merge_recover.fa"
+    path "panTE.recover.fa.classified", emit: ch_recover_TEs
+    path "get_copies", emit: chr_copies
+    path "real_*.fa.cons", emit: chr_raw_real
 
     script:
     cores = task.cpus
     """
-    pan_recover_low_copy_TEs.py --threads ${cores} --tir_low_copy ${tir_low_copy} \
+    pan_recover_low_copy_TEs.py --genome_name ${genome_name} --threads ${cores} --tir_low_copy ${tir_low_copy} \
     --helitron_low_copy ${helitron_low_copy} --non_ltr_low_copy ${non_ltr_low_copy} \
     --panTE_lib ${panTE_lib} --genome_list ${params.genome_list} \
     --pan_genomes_dir ${params.pan_genomes_dir} > pan_recover_low_copy_TEs.log 2>&1
+    """
+}
+
+process pan_merge_TE_recover {
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/pan_merge_TE_recover"
+
+    input:
+    path panTE_lib
+    path panTE_recover_lib
+
+    output:
+    path "panTE.merge_recover.fa", emit: ch_panTE_merge
+    path "panTE.merge_recover.fa.clstr", emit: ch_clstr
+
+    script:
+    cores = task.cpus
+    """
+    cat ${panTE_lib} ${panTE_recover_lib} > panTE.merge_recover.redundant.fa
+    cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -G 0 -g 1 -A 80 -i panTE.merge_recover.redundant.fa \
+    -o panTE.merge_recover.fa -T ${cores} -M 0 > pan_merge_TE_recover.log 2>&1
     """
 }
 
@@ -335,15 +358,24 @@ workflow {
     panTE_lib = pan_remove_redundancy(all_te)
     panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
 
+    // 准备panTE library和其他参数，作为channel
+    recover_input = low_copy_files_channel.combine(panTE_lib).set { recover_input_channel }
+
     // Step 5: 将泛基因组的低拷贝TE 和 panTE 进行聚类，保留和 panTE 序列不一样的低拷贝TE。
     // 从泛基因组中获取拷贝，判断这些低拷贝TE是否是真实TE
-    panTE_merge_recover_lib = pan_recover_low_copy_TEs(low_copy_files_channel, panTE_lib)
-    panTE_merge_recover_lib = panTE_merge_recover_lib.collectFile(name: "${params.out_dir}/panTE.merge_recover.fa")
+    recover_out = pan_recover_low_copy_TEs(recover_input_channel)
+    panTE_recover_lib = recover_out.ch_recover_TEs
+    panTE_recover_lib = panTE_recover_lib.collectFile(name: "${params.out_dir}/panTE.recover.fa")
+
+    // Step 6: 将恢复的低拷贝 TEs 与 panTE lib 合并
+    merge_out = pan_merge_TE_recover(panTE_lib, panTE_recover_lib)
+    panTE_merge_lib = merge_out.ch_panTE_merge
+    panTE_merge_lib = panTE_merge_lib.collectFile(name: "${params.out_dir}/panTE.merge_recover.fa")
 
     // 准备panTE library和其他参数，作为channel
     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
         [genome_name, reference]
-    }.combine(panTE_merge_recover_lib).set { annotate_input_channel }
+    }.combine(panTE_merge_lib).set { annotate_input_channel }
  
     // Step 5: 并行注释每个基因组
     annotate_out = pan_annotate_genomes(annotate_input_channel)
@@ -383,7 +415,7 @@ workflow {
 
     if (!params.skip_analyze) {
          // Step 6: 对检测到的 TE 进行统计分析
-        pan_summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_merge_recover_lib, params.softcore_threshold)
+        pan_summarize_tes(genome_info_json, params.pan_genomes_dir, panTE_merge_lib, params.softcore_threshold)
 
         // Step 7: 基因和 TE 关系
         gene_te_associations_out = pan_gene_te_relation(genome_info_json)

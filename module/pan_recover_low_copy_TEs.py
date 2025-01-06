@@ -14,7 +14,7 @@ project_dir = os.path.join(current_folder, ".")
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from Util import Logger, copy_files, create_or_clear_directory, \
     store_fasta, read_fasta, get_full_length_copies, getReverseSequence, run_find_members_v8, rename_fasta, \
-    ReassignInconsistentLabels
+    ReassignInconsistentLabels, file_exist, lib_add_prefix
 
 
 def filter_detected_TEs(temp_dir, threads, low_copy_file, panTE_lib, TE_type, log):
@@ -205,13 +205,13 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         if os.path.exists(cur_temp_dir):
             shutil.rmtree(cur_temp_dir)
 
-    # 将那些经过泛基因组之后，获得>2拷贝存成文件
+    # 将那些经过泛基因组之后，获得>=5拷贝存成文件
     tir_batch_member_files = []
     cur_tir_temp_dir = os.path.join(temp_dir, 'tir_members')
     os.makedirs(cur_tir_temp_dir, exist_ok=True)
     for query_name in keep_tir_extend_copies.keys():
         copy_contigs = keep_tir_extend_copies[query_name]
-        if len(copy_contigs) > 2:
+        if len(copy_contigs) >= 5:
             valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
             extend_member_file = cur_tir_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
             store_fasta(copy_contigs, extend_member_file)
@@ -223,7 +223,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
     os.makedirs(cur_helitron_temp_dir, exist_ok=True)
     for query_name in keep_helitron_extend_copies.keys():
         copy_contigs = keep_helitron_extend_copies[query_name]
-        if len(copy_contigs) > 2:
+        if len(copy_contigs) >= 5:
             valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
             extend_member_file = cur_helitron_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
             store_fasta(copy_contigs, extend_member_file)
@@ -235,7 +235,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
     os.makedirs(cur_non_ltr_temp_dir, exist_ok=True)
     for query_name in keep_non_ltr_extend_copies.keys():
         copy_contigs = keep_non_ltr_extend_copies[query_name]
-        if len(copy_contigs) > 2:
+        if len(copy_contigs) >= 5:
             valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
             extend_member_file = cur_non_ltr_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
             store_fasta(copy_contigs, extend_member_file)
@@ -289,6 +289,7 @@ if __name__ == "__main__":
 
     # 创建解析器
     parser = argparse.ArgumentParser(description="panHiTE recover low copy TEs.")
+    parser.add_argument("--genome_name", type=str, help="Name of the genome.")
     parser.add_argument("--tir_low_copy", type=str, help="low copy tir path, to recover tir using pan-genome")
     parser.add_argument("--helitron_low_copy", type=str, help="low copy helitron path, to recover helitron using pan-genome")
     parser.add_argument("--non_ltr_low_copy", type=str, help="low copy non_ltr path, to recover non_ltr using pan-genome")
@@ -305,6 +306,7 @@ if __name__ == "__main__":
 
     # 解析参数
     args = parser.parse_args()
+    raw_genome_name = args.genome_name
     tir_low_copy = args.tir_low_copy
     helitron_low_copy = args.helitron_low_copy
     non_ltr_low_copy = args.non_ltr_low_copy
@@ -400,16 +402,14 @@ if __name__ == "__main__":
     # Reassign Inconsistent Classification Labels
     ReassignInconsistentLabels(recover_classified_lib)
 
-    merge_panTE_lib = os.path.join(temp_dir, 'panTE.merge_recover.redundant.fa')
-    merge_panTE_lib_cons = os.path.join(temp_dir, 'panTE.merge_recover.fa')
-    # 将真实的TE合并至panTE lib，并且调用cd-hit-est去冗余
-    os.system('cat ' + recover_classified_lib + ' ' + panTE_lib + ' > ' + merge_panTE_lib)
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + merge_panTE_lib + ' -o ' + merge_panTE_lib_cons + ' -T 0 -M 0'
-    os.system(cd_hit_command + ' > /dev/null 2>&1')
+    raw_name = raw_genome_name.split('.')[0]
+    # 为文件加前缀
+    if file_exist(recover_classified_lib):
+        lib_add_prefix(recover_classified_lib, raw_name)
 
     # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, output_dir)
+    # copy_files(temp_dir, output_dir)
+    shutil.copytree(temp_dir, output_dir, dirs_exist_ok=True)
 
     # 删除临时目录
     if os.path.exists(temp_dir):
