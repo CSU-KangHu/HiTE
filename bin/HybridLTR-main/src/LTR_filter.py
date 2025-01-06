@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -20,6 +21,171 @@ from Util import read_fasta, store_fasta, Logger, read_scn, store_scn, get_LTR_s
     filter_ltr_by_flank_seq_v2, deredundant_for_LTR_v5, get_all_potential_ltr_lines
 from configs import config
 from utils.data_util import expand_matrix_dir, expand_matrix_dir_v1, expand_matrix_dir_v2, sort_matrix_dir
+
+
+def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover, debug,
+                  is_flank_homo_cluster, is_flank_homo_cluster_both, is_handle_low_copy, is_use_homo_rule,
+                  is_use_deep_model, is_filter_TIR, is_filter_Helitron, is_filter_SINE, reference, split_ref_dir,
+                  max_copy_num, coverage_threshold, project_dir, src_dir, left_LTR_contigs, tool_dir):
+    """
+    处理单个块，生成中间结果文件。
+    """
+    # 创建当前块的临时目录
+    chunk_dir = os.path.join(tmp_output_dir, f"chunk_{chunk_id}")
+    os.makedirs(chunk_dir, exist_ok=True)
+
+    # 生成当前块的 LTR 框架文件
+    chunk_left_ltr_path = os.path.join(chunk_dir, "left_ltr.fasta")
+    with open(chunk_left_ltr_path, "w") as f:
+        for header, seq in chunk:
+            f.write(f">{header}\n{seq}\n")
+
+    # Step 3: Filter out false positive sequences based on the flanking regions of the terminal sequences.
+    log.logger.info(f'Processing chunk {chunk_id}: Filter out false positive sequences based on the flanking regions of the terminal sequences.')
+    confident_msa_file = os.path.join(tmp_output_dir, 'msa_flank_'+str(chunk_id)+'.txt')
+    result_file = confident_msa_file
+
+    if not recover or not file_exist(result_file):
+        if file_exist(result_file):
+            os.system('rm -f ' + result_file)
+
+        # Perform a multiple sequence alignment of the regions flanking the LTR terminal sequence copies.
+        temp_dir = os.path.join(chunk_dir, 'candidate_ltr')
+        output_dir = os.path.join(chunk_dir, 'ltr_both_frames')
+        full_length_output_dir = os.path.join(chunk_dir, 'full_length_frames')
+
+        if not recover or not file_exist(output_dir) or not file_exist(full_length_output_dir):
+            log.logger.debug('Generate LTR frames')
+            generate_both_ends_frame_from_seq(chunk_left_ltr_path, reference, flanking_len, threads, temp_dir, output_dir,
+                                              full_length_output_dir, split_ref_dir, max_copy_num, coverage_threshold)
+        else:
+            log.logger.info(output_dir + ' exists, skip...')
+            log.logger.info(full_length_output_dir + ' exists, skip...')
+
+        if is_flank_homo_cluster:
+            # 去掉某一侧侧翼窗口高度同源的，通常是 truncated 的终端或重复区。
+            temp_dir = os.path.join(chunk_dir, 'temp_sort')
+            keep_output_dir = output_dir + '_sort'
+            if not recover or not file_exist(keep_output_dir):
+                log.logger.debug('Homologous clustering LTR frames')
+                input_num, keep_num = sort_matrix_dir(output_dir, keep_output_dir, temp_dir, threads)
+                log.logger.debug('Input LTR num: ' + str(input_num) + ', keep LTR num: ' + str(keep_num))
+            else:
+                log.logger.info(keep_output_dir + ' exists, skip...')
+
+            if not debug:
+                os.system('rm -rf ' + output_dir)
+                os.system('rm -rf ' + temp_dir)
+
+            output_dir = keep_output_dir
+
+        if is_flank_homo_cluster_both:
+            # 过滤掉具有高度同源的连接后的两侧侧翼区域，通常是LTR插入到其他TE中转座导致两侧区域完全一致，或者干脆就是假阳性。
+            temp_dir = os.path.join(chunk_dir, 'temp_flank_cluster')
+            keep_output_dir = output_dir + '_keep'
+            if not recover or not file_exist(keep_output_dir):
+                log.logger.debug('Homologous clustering flanking sequences of LTR')
+                filter_ltr_by_flanking_cluster(output_dir, keep_output_dir, temp_dir, threads, log)
+            else:
+                log.logger.info(keep_output_dir + ' exists, skip...')
+
+            if not debug:
+                os.system('rm -rf ' + output_dir)
+                os.system('rm -rf ' + temp_dir)
+
+            output_dir = keep_output_dir
+
+        output_path = os.path.join(chunk_dir, 'is_LTR.txt')
+        if file_exist(output_path):
+            os.remove(output_path)
+
+        if is_handle_low_copy:
+            lc_output_path = os.path.join(chunk_dir, 'is_LTR_homo.lc.txt')
+            result_file = lc_output_path
+            if not recover or not file_exist(result_file):
+                log.logger.debug('Step 3.1: Use a rule-based method to filter out low-copy LTRs.')
+                low_copy_output_dir = os.path.join(chunk_dir, 'low_copy_frames')
+                get_low_copy_LTR(output_dir, low_copy_output_dir, threads, copy_num_threshold=5)
+
+                type = 'Low copy'
+                judge_ltr_from_both_ends_frame(low_copy_output_dir, lc_output_path, threads, type, flanking_len, log)
+
+                if not debug:
+                    os.system('rm -rf ' + low_copy_output_dir)
+            else:
+                log.logger.info(result_file + ' exists, skip...')
+            os.system('cat ' + lc_output_path + ' >> ' + output_path)
+
+        high_copy_output_dir = os.path.join(chunk_dir, 'high_copy_frames')
+        result_file = high_copy_output_dir
+        if not recover or not file_exist(result_file):
+            log.logger.debug('Copy high-copy LTR frames for deep learning predicting')
+            get_high_copy_LTR(output_dir, high_copy_output_dir, threads, copy_num_threshold=5)
+        else:
+            log.logger.info(result_file + ' exists, skip...')
+
+        hc_output_path = os.path.join(chunk_dir, 'is_LTR_homo.hc.txt')
+        if is_use_homo_rule:
+            result_file = hc_output_path
+            if not recover or not file_exist(result_file):
+                type = 'High copy'
+                judge_ltr_from_both_ends_frame(high_copy_output_dir, hc_output_path, threads, type, flanking_len, log)
+            else:
+                log.logger.info(result_file + ' exists, skip...')
+
+        dl_output_path = os.path.join(chunk_dir, 'is_LTR_deep.txt')
+        if is_use_deep_model:
+            result_file = dl_output_path
+            if not recover or not file_exist(result_file):
+                file_names = os.listdir(high_copy_output_dir)
+                if len(file_names) > 0:
+                    model_path = os.path.join(project_dir, 'models/model_25_0.001_0.005_256_0.9109567410235562.pth')
+                    classify_command = f'python {src_dir}/Deep_Learning/myclassifier_neuralLTR.py --data_dir {high_copy_output_dir} --out_dir {chunk_dir} --model_path {model_path} --threads {threads}'
+                    log.logger.debug(classify_command)
+                    os.system(classify_command)
+            else:
+                log.logger.info(result_file + ' exists, skip...')
+
+        alter_dl_output_path = os.path.join(chunk_dir, 'is_LTR_deep.alter.txt')
+        alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_path, high_copy_output_dir, log)
+        os.system('cat ' + alter_dl_output_path + ' >> ' + output_path)
+
+        if is_filter_TIR:
+            tir_output_path = os.path.join(chunk_dir, 'is_LTR_tir.txt')
+            result_file = tir_output_path
+            if not recover or not file_exist(result_file):
+                filter_tir(output_path, tir_output_path, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, tool_dir, flanking_len, log, debug)
+            else:
+                log.logger.info(result_file + ' exists, skip...')
+            output_path = tir_output_path
+
+        if is_filter_Helitron:
+            helitron_output_path = os.path.join(chunk_dir, 'is_LTR_helitron.txt')
+            result_file = helitron_output_path
+            if not recover or not file_exist(result_file):
+                filter_helitron(output_path, helitron_output_path, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, project_dir, flanking_len, log, debug)
+            else:
+                log.logger.info(result_file + ' exists, skip...')
+            output_path = helitron_output_path
+
+        if is_filter_SINE:
+            sine_output_path = os.path.join(chunk_dir, 'is_LTR_sine.txt')
+            result_file = sine_output_path
+            if not recover or not file_exist(result_file):
+                filter_sine(output_path, sine_output_path, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, flanking_len, log, debug)
+            else:
+                log.logger.info(result_file + ' exists, skip...')
+            output_path = sine_output_path
+
+        if not debug:
+            os.system('rm -rf ' + full_length_output_dir)
+
+        os.system('cat ' + output_path + ' > ' + confident_msa_file)
+    else:
+        log.logger.info(result_file + ' exists, skip...')
+
+    return confident_msa_file
+
 
 if __name__ == '__main__':
     tool_name = 'HybridLTR'
@@ -445,7 +611,6 @@ if __name__ == '__main__':
         filter_left_ltr_names, filter_left_ltr_contigs = read_fasta(left_ltr_path)
         log.logger.debug('Remove tandem LTR: ' + str(len(left_LTR_contigs) - len(filter_left_ltr_contigs)) + ', remaining LTR num: ' + str(len(filter_left_ltr_contigs)))
 
-
     # 将 left LTR 存成 scn 文件
     left_ltr_names, left_ltr_contigs = read_fasta(left_ltr_path)
     output_path = tmp_output_dir + '/left_ltr.scn'
@@ -453,165 +618,59 @@ if __name__ == '__main__':
         for cur_name in left_ltr_names:
             f_save.write(cur_name + '\t' + str(1) + '\n')
 
-
     if is_use_flank_MSA:
-        # Step 3: Filter out false positive sequences based on the flanking regions of the terminal sequences.
-        log.logger.info('Step 3: Filter out false positive sequences based on the flanking regions of the terminal sequences.')
-        confident_msa_file = tmp_output_dir + '/msa_flank.txt'
-        result_file = confident_msa_file
-        if not recover or not file_exist(result_file):
-            if file_exist(result_file):
-                os.system('rm -f ' + result_file)
-            # Perform a multiple sequence alignment of the regions flanking the LTR terminal sequence copies.
-            temp_dir = tmp_output_dir + '/candidate_ltr'
-            output_dir = tmp_output_dir + '/ltr_both_frames'
-            full_length_output_dir = tmp_output_dir + '/full_length_frames'
-            if not recover or not file_exist(output_dir) or not file_exist(full_length_output_dir):
-                log.logger.debug('Generate LTR frames')
-                max_copy_num = 100
-                generate_both_ends_frame_from_seq(left_ltr_path, reference, flanking_len, threads, temp_dir, output_dir,
-                                                  full_length_output_dir, split_ref_dir, max_copy_num, coverage_threshold)
-            else:
-                log.logger.info(output_dir + ' exists, skip...')
-                log.logger.info(full_length_output_dir + ' exists, skip...')
+        # 将数据划分成多个块，防止中间文件过大导致磁盘空间不足
+        max_copy_num = 100
+        # 分块大小（每次处理的序列数）
+        chunk_size = 1000
+        result_files = []
+        # 读取 left_ltr_path
+        ltr_names, ltr_contigs = read_fasta(left_ltr_path)
+        # 分块处理
+        chunk = []
+        chunk_id = 0
+        for header in ltr_names:
+            chunk.append((header, ltr_contigs[header]))
+            if len(chunk) == chunk_size:
+                chunk_result_file = process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover,
+                                                  debug, is_flank_homo_cluster, is_flank_homo_cluster_both,
+                                                  is_handle_low_copy, is_use_homo_rule, is_use_deep_model,
+                                                  is_filter_TIR, is_filter_Helitron, is_filter_SINE, reference,
+                                                  split_ref_dir, max_copy_num, coverage_threshold, project_dir, src_dir,
+                                                  left_LTR_contigs, tool_dir)
+                result_files.append(chunk_result_file)
 
-            if is_flank_homo_cluster:
-                # 去掉某一侧侧翼窗口高度同源的，通常是 truncated 的终端或重复区。
-                temp_dir = tmp_output_dir + '/temp_sort'
-                keep_output_dir = output_dir + '_sort'
-                if not recover or not file_exist(keep_output_dir):
-                    log.logger.debug('Homologous clustering LTR frames')
-                    input_num, keep_num = sort_matrix_dir(output_dir, keep_output_dir, temp_dir, threads)
-                    log.logger.debug('Input LTR num: ' + str(input_num) + ', keep LTR num: ' + str(keep_num))
-                else:
-                    log.logger.info(keep_output_dir + ' exists, skip...')
-
+                # 清理当前块的中间文件
                 if not debug:
-                    os.system('rm -rf ' + output_dir)
-                    os.system('rm -rf ' + temp_dir)
+                    chunk_dir = os.path.join(tmp_output_dir, f"chunk_{chunk_id}")
+                    shutil.rmtree(chunk_dir)
 
-                output_dir = keep_output_dir
+                # 准备下一个块
+                chunk = []
+                chunk_id += 1
 
-            if is_flank_homo_cluster_both:
-                # 过滤掉具有高度同源的连接后的两侧侧翼区域，通常是LTR插入到其他TE中转座导致两侧区域完全一致，或者干脆就是假阳性。
-                # 我们要求真实的LTR的随机序列要高于同源序列
-                temp_dir = tmp_output_dir + '/temp_flank_cluster'
-                keep_output_dir = output_dir + '_keep'
-                if not recover or not file_exist(keep_output_dir):
-                    log.logger.debug('Homologous clustering flanking sequences of LTR')
-                    filter_ltr_by_flanking_cluster(output_dir, keep_output_dir, temp_dir, threads, log)
-                else:
-                    log.logger.info(keep_output_dir + ' exists, skip...')
+        # 处理最后一个块
+        if chunk:
+            chunk_result_file = process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover,
+                                              debug, is_flank_homo_cluster, is_flank_homo_cluster_both,
+                                              is_handle_low_copy, is_use_homo_rule, is_use_deep_model, is_filter_TIR,
+                                              is_filter_Helitron, is_filter_SINE, reference, split_ref_dir,
+                                              max_copy_num, coverage_threshold, project_dir, src_dir, left_LTR_contigs,
+                                              tool_dir)
+            result_files.append(chunk_result_file)
 
-                if not debug:
-                    os.system('rm -rf ' + output_dir)
-                    os.system('rm -rf ' + temp_dir)
-
-                output_dir = keep_output_dir
-
-            output_path = tmp_output_dir + '/is_LTR.txt'
-            if file_exist(output_path):
-                os.remove(output_path)
-            if is_handle_low_copy:
-                lc_output_path = tmp_output_dir + '/is_LTR_homo.lc.txt'
-                # structure_output_path = tmp_output_dir + '/is_LTR_structure.lc.txt'
-                result_file = lc_output_path
-                if not recover or not file_exist(result_file):
-                    # Step 3.1: Use a rule-based method to filter out low-copy LTRs.
-                    log.logger.debug('Step 3.1: Use a rule-based method to filter out low-copy LTRs.')
-                    low_copy_output_dir = tmp_output_dir + '/low_copy_frames'
-                    get_low_copy_LTR(output_dir, low_copy_output_dir, threads, copy_num_threshold=5)
-
-                    type = 'Low copy'
-                    judge_ltr_from_both_ends_frame(low_copy_output_dir, lc_output_path, threads, type, flanking_len, log)
-
-                    if not debug:
-                        os.system('rm -rf ' + low_copy_output_dir)
-                else:
-                    log.logger.info(result_file + ' exists, skip...')
-                os.system('cat ' + lc_output_path + ' >> ' + output_path)
-
-            high_copy_output_dir = tmp_output_dir + '/high_copy_frames'
-            result_file = high_copy_output_dir
-            if not recover or not file_exist(result_file):
-                log.logger.debug('Copy high-copy LTR frames for deep learning predicting')
-                get_high_copy_LTR(output_dir, high_copy_output_dir, threads, copy_num_threshold=5)
-            else:
-                log.logger.info(result_file + ' exists, skip...')
-
-            hc_output_path = tmp_output_dir + '/is_LTR_homo.hc.txt'
-            if is_use_homo_rule:
-                # 调用规则的同源方法过滤
-                result_file = hc_output_path
-                if not recover or not file_exist(result_file):
-                    type = 'High copy'
-                    judge_ltr_from_both_ends_frame(high_copy_output_dir, hc_output_path, threads, type, flanking_len, log)
-                else:
-                    log.logger.info(result_file + ' exists, skip...')
-
-            dl_output_path = tmp_output_dir + '/is_LTR_deep.txt'
-            if is_use_deep_model:
-                result_file = dl_output_path
-                if not recover or not file_exist(result_file):
-                    file_names = os.listdir(high_copy_output_dir)
-                    if len(file_names) > 0:
-                        # Step 3.3: 基于深度学习方法判断
-                        # Step4. 调用深度学习模型预测 左侧框是否LTR
-                        model_path = project_dir + '/models/model_25_0.001_0.005_256_0.9109567410235562.pth'
-                        classify_command = 'python ' + src_dir + '/Deep_Learning/myclassifier_neuralLTR.py --data_dir ' + high_copy_output_dir + \
-                                           ' --out_dir ' + tmp_output_dir + ' --model_path ' + model_path + \
-                                           ' --threads ' + str(threads)
-                        log.logger.debug(classify_command)
-                        os.system(classify_command)
-                else:
-                    log.logger.info(result_file + ' exists, skip...')
-
-            # 使用同源规则的结果对深度学习的预测结果进行调整
-            alter_dl_output_path = tmp_output_dir + '/is_LTR_deep.alter.txt'
-            alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_path, high_copy_output_dir, log)
-            # 合并 高 拷贝预测结果
-            os.system('cat ' + alter_dl_output_path + ' >> ' + output_path)
-
-            # if not debug:
-            #     os.system('rm -rf ' + high_copy_output_dir)
-            #     os.system('rm -rf ' + output_dir)
-
-            if is_filter_TIR:
-                tir_output_path = tmp_output_dir + '/is_LTR_tir.txt'
-                result_file = tir_output_path
-                if not recover or not file_exist(result_file):
-                    # Step 4.2 识别窗口两侧是否具有 TIR TSD特征，如果有超过10个拷贝有TSD特征，则认为是假阳性
-                    filter_tir(output_path, tir_output_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, tool_dir, flanking_len, log, debug)
-                else:
-                    log.logger.info(result_file + ' exists, skip...')
-                output_path = tir_output_path
-
-            if is_filter_Helitron:
-                helitron_output_path = tmp_output_dir + '/is_LTR_helitron.txt'
-                result_file = helitron_output_path
-                if not recover or not file_exist(result_file):
-                    filter_helitron(output_path, helitron_output_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, project_dir, flanking_len, log, debug)
-                else:
-                    log.logger.info(result_file + ' exists, skip...')
-                output_path = helitron_output_path
-
-            if is_filter_SINE:
-                sine_output_path = tmp_output_dir + '/is_LTR_sine.txt'
-                result_file = sine_output_path
-                if not recover or not file_exist(result_file):
-                    # Step 4.3 识别序列是否具有 SINE tail
-                    filter_sine(output_path, sine_output_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, flanking_len, log, debug)
-                else:
-                    log.logger.info(result_file + ' exists, skip...')
-                output_path = sine_output_path
-
+            # 清理最后一个块的中间文件
             if not debug:
-                os.system('rm -rf ' + full_length_output_dir)
+                chunk_dir = os.path.join(tmp_output_dir, f"chunk_{chunk_id}")
+                shutil.rmtree(chunk_dir)
 
-            os.system('cat ' + output_path + ' > ' + confident_msa_file)
-        else:
-            log.logger.info(result_file + ' exists, skip...')
-        output_path = confident_msa_file
+        # 合并所有块的结果文件
+        output_path = os.path.join(tmp_output_dir, "msa_flank.txt")
+        with open(output_path, "w") as outfile:
+            for result_file in result_files:
+                with open(result_file, "r") as infile:
+                    shutil.copyfileobj(infile, outfile)
+        log.logger.info(f"Final result saved to {output_path}")
 
     if is_filter_single:
         intact_output_path = tmp_output_dir + '/intact_LTR_homo.txt'
