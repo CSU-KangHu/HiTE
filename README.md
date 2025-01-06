@@ -53,6 +53,8 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 # Alternatively, you can download the zip file directly from the repository.
 ```
 
+Starting from HiTE version 3.3.1, all temporary computation files are stored in the `/tmp` directory. Please ensure that there is sufficient storage space available in `/tmp`.
+
 For common issues related to installation and usage, please visit: [https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
 
 ### <a name="install_conda"></a>Option 1. Run with conda
