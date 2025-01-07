@@ -14,7 +14,7 @@ project_dir = os.path.join(current_folder, ".")
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from Util import Logger, copy_files, create_or_clear_directory, \
     store_fasta, read_fasta, get_full_length_copies, getReverseSequence, run_find_members_v8, rename_fasta, \
-    ReassignInconsistentLabels, file_exist, lib_add_prefix
+    ReassignInconsistentLabels, file_exist, lib_add_prefix, remove_no_tirs, get_domain_info
 
 
 def filter_detected_TEs(temp_dir, threads, low_copy_file, panTE_lib, TE_type, log):
@@ -249,7 +249,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
     return pan_genome_copies_dict
 
 
-def filter_true_TEs(batch_member_files, real_TEs, temp_dir, subset_script_path):
+def filter_true_TEs(batch_member_files, real_TEs, temp_dir, subset_script_path, TE_type, plant):
     # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
     ex = ProcessPoolExecutor(threads)
     jobs = []
@@ -264,6 +264,11 @@ def filter_true_TEs(batch_member_files, real_TEs, temp_dir, subset_script_path):
     copy_nums = {}
     true_te_names = set()
     true_tes = {}
+    low_copy_contigs = {}
+    low_copy_dir = temp_dir + '/low_copy_itr'
+    if not os.path.exists(low_copy_dir):
+        os.makedirs(low_copy_dir)
+    low_copy_path = low_copy_dir + '/low_copy_elements.fa'
     for job in as_completed(jobs):
         result_info = job.result()
         cur_name, cur_seq, info, copy_count, extend_member_file = result_info
@@ -279,8 +284,101 @@ def filter_true_TEs(batch_member_files, real_TEs, temp_dir, subset_script_path):
             cur_copy_num += 1
             copy_nums[copy_num] = cur_copy_num
         if cur_name is not None:
-            true_tes[cur_name] = cur_seq
-            true_te_names.add(cur_name)
+            if TE_type == 'tir' or TE_type == 'helitron' or TE_type == 'non_ltr':
+                if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
+                    continue
+                ############################
+                # 对于tir和non_ltr来说，拷贝数<=5，我们需要检查其是否具有相应的结构特征
+                if TE_type == 'tir' or TE_type == 'non_ltr':
+                    copy_threshold = 5
+                else:
+                    # 对于Helitron，其拷贝数较少，我们可以降低至2
+                    copy_threshold = 2
+                # 对于拷贝数<=5的序列，大概率可能是假阳性，那我们判断它是否具有末端反向重复来过滤
+                if copy_count <= copy_threshold:
+                    low_copy_contigs[cur_name] = cur_seq
+                else:
+                    true_tes[cur_name] = cur_seq
+                    true_te_names.add(cur_name)
+                ############################
+            else:
+                true_tes[cur_name] = cur_seq
+                true_te_names.add(cur_name)
+    store_fasta(low_copy_contigs, low_copy_path)
+
+    if TE_type == 'tir':
+        # 找回具有TIR结构的低拷贝TIR
+        TRsearch_dir = project_dir + '/tools'
+        with_tir_path, no_tir_path = remove_no_tirs(low_copy_path, plant, TRsearch_dir, low_copy_dir)
+        with_tir_names, with_tir_contigs = read_fasta(with_tir_path)
+        true_tes.update(with_tir_contigs)
+        true_te_names.update(with_tir_contigs.keys())
+
+        # 找回具有完整domain的低拷贝TIR
+        temp_dir = temp_dir + '/tir_domain'
+        output_table = no_tir_path + '.tir_domain'
+        tir_protein_db = project_dir + '/library/TIRPeps.lib'
+        get_domain_info(no_tir_path, tir_protein_db, output_table, threads, temp_dir)
+        has_intact_protein_contigs = {}
+        protein_names, protein_contigs = read_fasta(tir_protein_db)
+        with open(output_table, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i < 2:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                protein_name = parts[1]
+                protein_start = int(parts[4])
+                protein_end = int(parts[5])
+                intact_protein_len = len(protein_contigs[protein_name])
+                if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+                    has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
+        true_tes.update(has_intact_protein_contigs)
+        true_te_names.update(has_intact_protein_contigs.keys())
+    elif TE_type == 'helitron':
+        # 找回具有完整domain的低拷贝Helitron
+        temp_dir = temp_dir + '/helitron_domain'
+        output_table = low_copy_path + '.helitron_domain'
+        helitron_protein_db = project_dir + '/library/HelitronPeps.lib'
+        get_domain_info(low_copy_path, helitron_protein_db, output_table, threads, temp_dir)
+        has_intact_protein_contigs = {}
+        protein_names, protein_contigs = read_fasta(helitron_protein_db)
+        with open(output_table, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i < 2:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                protein_name = parts[1]
+                protein_start = int(parts[4])
+                protein_end = int(parts[5])
+                intact_protein_len = len(protein_contigs[protein_name])
+                if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+                    has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
+        true_tes.update(has_intact_protein_contigs)
+        true_te_names.update(has_intact_protein_contigs.keys())
+    elif TE_type == 'non_ltr':
+        # 找回具有完整domain的低拷贝non_ltr
+        temp_dir = temp_dir + '/non_ltr_domain'
+        output_table = low_copy_path + '.non_ltr_domain'
+        non_ltr_protein_db = project_dir + '/library/non_LTR.lib'
+        get_domain_info(low_copy_path, non_ltr_protein_db, output_table, threads, temp_dir)
+        has_intact_protein_contigs = {}
+        protein_names, protein_contigs = read_fasta(non_ltr_protein_db)
+        with open(output_table, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i < 2:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                protein_name = parts[1]
+                protein_start = int(parts[4])
+                protein_end = int(parts[5])
+                intact_protein_len = len(protein_contigs[protein_name])
+                if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+                    has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
+        true_tes.update(has_intact_protein_contigs)
+        true_te_names.update(has_intact_protein_contigs.keys())
     store_fasta(true_tes, real_TEs)
 
 
@@ -297,6 +395,8 @@ if __name__ == "__main__":
     parser.add_argument("--genome_list", type=str, help="Path to the genome list file.")
     parser.add_argument("--pan_genomes_dir", type=str, help="Path to the directory containing pan-genomes.")
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
+    parser.add_argument('--plant', type=int, default=1,
+                        help='Is it a plant genome, 1: true, 0: false.')
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
     parser.add_argument('--use_NeuralTE', type=int, default=1,
@@ -311,6 +411,7 @@ if __name__ == "__main__":
     helitron_low_copy = args.helitron_low_copy
     non_ltr_low_copy = args.non_ltr_low_copy
     panTE_lib = args.panTE_lib
+    plant = args.plant
     genome_list = args.genome_list
     pan_genomes_dir = args.pan_genomes_dir
     threads = args.threads
@@ -362,7 +463,7 @@ if __name__ == "__main__":
     for TE_type in pan_genome_copies_dict.keys():
         cur_temp_dir, batch_member_files = pan_genome_copies_dict[TE_type]
         real_TEs = os.path.join(temp_dir, 'real_' + TE_type + '.fa')
-        filter_true_TEs(batch_member_files, real_TEs, cur_temp_dir, subset_script_path)
+        filter_true_TEs(batch_member_files, real_TEs, cur_temp_dir, subset_script_path, TE_type, plant)
 
         confident_recover_TE_path = os.path.join(temp_dir, 'confident_recover_' + TE_type + '.fa')
         # 生成非冗余序列

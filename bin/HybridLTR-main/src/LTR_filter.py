@@ -139,8 +139,12 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
             if not recover or not file_exist(result_file):
                 file_names = os.listdir(high_copy_output_dir)
                 if len(file_names) > 0:
-                    model_path = os.path.join(project_dir, 'models/model_25_0.001_0.005_256_0.9109567410235562.pth')
-                    classify_command = f'python {src_dir}/Deep_Learning/myclassifier_neuralLTR.py --data_dir {high_copy_output_dir} --out_dir {chunk_dir} --model_path {model_path} --threads {threads}'
+                    model_path = os.path.join(project_dir, 'models/checkpoint_epoch_14.pth')
+                    feature_output_dir = os.path.join(project_dir, 'feature_output_dir')
+                    img_features = os.path.join(feature_output_dir, 'img_features.pt')
+                    freq_features = os.path.join(feature_output_dir, 'freq_features.pt')
+                    seq_names = os.path.join(feature_output_dir, 'seq_names.txt')
+                    classify_command = f'python {src_dir}/Deep_Learning/hybridLTR_deep_main.py --matrix_dir {high_copy_output_dir} --threads {threads} --feature_output_dir {feature_output_dir} --model_path {model_path} --img_features {img_features} --freq_features {freq_features} --seq_names {seq_names} --output_dir {chunk_dir} --batch_size 256 --threshold 0.9 --device cpu'
                     log.logger.debug(classify_command)
                     os.system(classify_command)
             else:
@@ -622,7 +626,7 @@ if __name__ == '__main__':
         # 将数据划分成多个块，防止中间文件过大导致磁盘空间不足
         max_copy_num = 100
         # 分块大小（每次处理的序列数）
-        chunk_size = 1000
+        chunk_size = 5000
         result_files = []
         # 读取 left_ltr_path
         ltr_names, ltr_contigs = read_fasta(left_ltr_path)

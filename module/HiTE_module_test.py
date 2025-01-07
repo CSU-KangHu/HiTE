@@ -26,7 +26,6 @@ import seaborn as sns
 import pandas as pd
 from openpyxl.utils import get_column_letter
 from pandas import ExcelWriter
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, classification_report
 
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -3994,39 +3993,12 @@ if __name__ == '__main__':
     #                       plant, debug, 1, result_type='cons')
 
 
-    # 测试一下 deep learning模块的性能
-    work_dir = '/home/hukang/left_LTR_real_dataset/five_species_high_copy_bak/Danio_rerio/out'
-    output_path = work_dir + '/is_LTR.txt'
-    true_labels = []
-    predict_labels = []
-    with open(output_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.replace('\n', '').split('\t')
-            seq_name = parts[0]
-            predict_label = int(parts[1])
-            if seq_name.startswith('chr_'):
-                true_label = 0
-            else:
-                true_label = 1
-            true_labels.append(true_label)
-            predict_labels.append(predict_label)
 
-    # 计算 Precision
-    precision = precision_score(true_labels, predict_labels)
-    print(f"Precision: {precision:.4f}")
-    # 计算 Recall
-    recall = recall_score(true_labels, predict_labels)
-    print(f"Recall: {recall:.4f}")
-    # 计算 F1 Score
-    f1 = f1_score(true_labels, predict_labels)
-    print(f"F1 Score: {f1:.4f}")
-    # 计算 Accuracy
-    accuracy = accuracy_score(true_labels, predict_labels)
-    print(f"Accuracy: {accuracy:.4f}")
-    # 生成分类报告
-    report = classification_report(true_labels, predict_labels)
-    print("Classification Report:")
-    print(report)
+
+
+
+
+
 
 
 
