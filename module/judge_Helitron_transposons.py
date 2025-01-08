@@ -49,7 +49,8 @@ if __name__ == '__main__':
     prev_TE = args.prev_TE
     all_low_copy_helitron = args.all_low_copy_helitron
 
-    os.system('touch ' + all_low_copy_helitron)
+    if not os.path.exists(all_low_copy_helitron):
+        os.system('touch ' + all_low_copy_helitron)
 
     HSDIR = cur_dir + '/bin/HelitronScanner/TrainingSet'
     HSJAR = cur_dir + '/bin/HelitronScanner/HelitronScanner.jar'
