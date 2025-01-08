@@ -63,8 +63,9 @@ class FeatureExtractor:
                 
             if len(lines) < 5:
                 return None
-                
-            ltr_name = file_path.split('.')[0].split('/')[-1]
+
+            file_name = os.path.basename(file_path)
+            ltr_name = file_name.split('.')[0].split('/')[-1]
             name = ltr_name
             
             lines = [re.sub(r'[^ATCG]', '-', line.replace('\t', '').strip()) for line in lines]
