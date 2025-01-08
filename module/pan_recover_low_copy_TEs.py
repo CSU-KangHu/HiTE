@@ -469,7 +469,7 @@ if __name__ == "__main__":
         # 生成非冗余序列
         real_TEs_cons = real_TEs + '.cons'
         cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + real_TEs + ' -o ' + real_TEs_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+                         + ' -G 0 -d 0 -g 1 -A 80 -i ' + real_TEs + ' -o ' + real_TEs_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
         os.system(cd_hit_command)
 
         prefix_map = {'tir': 'TIR_Recover', 'helitron': 'Helitron_Recover', 'non_ltr': 'Non-LTR_Recover'}

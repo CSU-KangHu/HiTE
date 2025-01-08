@@ -199,7 +199,7 @@ process pan_merge_TE_recover {
     cores = task.cpus
     """
     cat ${panTE_lib} ${panTE_recover_lib} > panTE.merge_recover.redundant.fa
-    cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -G 0 -g 1 -A 80 -i panTE.merge_recover.redundant.fa \
+    cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -d 0 -G 0 -g 1 -A 80 -i panTE.merge_recover.redundant.fa \
     -o panTE.merge_recover.fa -T ${cores} -M 0 > pan_merge_TE_recover.log 2>&1
     """
 }

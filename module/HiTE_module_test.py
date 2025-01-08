@@ -3951,9 +3951,9 @@ def draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf):
     sns.heatmap(heatmap_df, cmap='coolwarm', annot=True, fmt="d", cbar_kws={'label': 'Frequency of Insertions'})
 
     # 添加标题和轴标签
-    plt.title(f'Density of LTR Insertion Times', fontsize=16)
+    # plt.title(f'Density of LTR Insertion Times', fontsize=16)
     plt.xlabel('Insertion Time (Million years ago)', fontsize=12)
-    plt.ylabel('Genomes', fontsize=12)
+    # plt.ylabel('Genomes', fontsize=12)
 
     # 显示图形
     plt.tight_layout()
@@ -3967,15 +3967,66 @@ log = Logger(work_dir + '/HiTE.log', level='debug')
 
 
 if __name__ == '__main__':
-    # 画插入时间图
-    data_dir = '/home/hukang/test/data'
-    output_pdf = '/home/hukang/test/intact_LTR_insert_time.pdf'
-    intact_ltr_paths = []
-    for genome_name in os.listdir(data_dir):
-        input_dir = data_dir + '/' + genome_name
-        cur_list = input_dir + '/intact_LTR.list'
-        intact_ltr_paths.append((genome_name, cur_list))
-    draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
+    # # 画插入时间图
+    # data_dir = '/home/hukang/test/data'
+    # output_pdf = '/home/hukang/test/intact_LTR_insert_time.pdf'
+    # intact_ltr_paths = []
+    # for genome_name in os.listdir(data_dir):
+    #     input_dir = data_dir + '/' + genome_name
+    #     cur_list = input_dir + '/intact_LTR.list'
+    #     intact_ltr_paths.append((genome_name, cur_list))
+    # draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
+
+    # 找到泛基因组恢复的TE与panTE lib 不同的TE的个数和名称
+    cluster_file = '/home/hukang/test/panTE.merge_recover.fa.clstr'
+    recover_path = '/home/hukang/test/panTE.recover.fa'
+    names, contigs = read_fasta(recover_path)
+    new_contigs = {}
+    for name in names:
+        new_name = name.split('#')[0]
+        new_contigs[new_name] = contigs[name]
+    # 解析聚类文件中的单拷贝
+    cluster_idx = -1
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                name = name.split('#')[0]
+                cur_cluster.append(name)
+    # 判断簇中是否包含 panTE 序列，例如header中包含#
+    # 从一致性序列中去掉包含 panTE 簇中所包含的序列，剩下的序列即为需要恢复的低拷贝序列
+    removed_ids = set()
+    for cluster_idx in clusters.keys():
+        cur_cluster = clusters[cluster_idx]
+        is_panTE_clstr = False
+        for seq_name in cur_cluster:
+            if 'Recover' not in seq_name:
+                is_panTE_clstr = True
+                break
+        if is_panTE_clstr:
+            for seq_name in cur_cluster:
+                removed_ids.add(seq_name)
+        else:
+            # 如果是recover簇，只保留一个
+            for i, seq_name in enumerate(cur_cluster):
+                if i == 0:
+                    continue
+                removed_ids.add(seq_name)
+    for seq_name in removed_ids:
+        if seq_name in new_contigs:
+            del new_contigs[seq_name]
+    print(len(new_contigs))
+    print(new_contigs.keys())
+
+
 
     # BM_EDTA()
     # BM_HiTE()
