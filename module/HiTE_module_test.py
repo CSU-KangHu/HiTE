@@ -3908,7 +3908,57 @@ def find_longest_tandem_repeat_tail(sequence, tail_length=20, min_repeats=2, min
 
     return longest_unit, longest_end_index
 
+def draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf):
+    # 初始化列表，用于存储每个 genome_name 的插入时间数据
+    all_data = []
 
+    for genome_name, file in intact_ltr_paths:
+
+        # 读取 CSV 文件并跳过 # 注释行
+        df = pd.read_csv(file, sep='\t', comment='#',
+                         names=['LTR_loc', 'Status', 'Motif', 'TSD', 'UN1', 'UN2', 'Internal', 'Identity', 'UN3', 'UN4', 'UN5', 'Classification', 'Insertion_Time'])
+
+        df['Insertion_Time'] = pd.to_numeric(df['Insertion_Time'], errors='coerce')
+
+        # 计算插入时间并转换为百万年，忽略 NaN
+        df['Insertion_Time'] = df['Insertion_Time'] / 1_000_000
+
+        # 为每个 genome_name 添加 Copia 和 Gypsy 的插入时间及分类信息
+        for classification in ['LTR/Copia', 'LTR/Gypsy']:
+            filtered_df = df[df['Classification'] == classification]
+            for insertion_time in filtered_df['Insertion_Time']:
+                all_data.append([genome_name, insertion_time, classification])
+
+    # 将数据转换为 DataFrame
+    all_data_df = pd.DataFrame(all_data, columns=['Genome', 'Insertion_Time', 'Classification'])
+
+    # 定义时间区间（根据实际数据调整）
+    bins = np.linspace(0, 10, 41)  # 将插入时间划分为10个区间
+    bin_labels = [f'{bins[i]}-{bins[i + 1]}' for i in range(len(bins) - 1)]
+
+    # 创建一个DataFrame来存储每个基因组在各时间区间内的LTR插入频率
+    genome_ids = all_data_df['Genome'].unique()  # 获取基因组ID
+    heatmap_df = pd.DataFrame(0, index=genome_ids, columns=bin_labels)  # 初始化为0
+
+    # 按基因组统计各时间区间的插入次数
+    for genome in genome_ids:
+        genome_data = all_data_df[all_data_df['Genome'] == genome]['Insertion_Time']
+        counts, _ = np.histogram(genome_data, bins=bins)  # 计算每个区间的插入次数
+        heatmap_df.loc[genome] = counts  # 将结果保存到对应基因组的行
+
+    # 绘制热图
+    plt.figure(figsize=(12, 8))
+    sns.heatmap(heatmap_df, cmap='coolwarm', annot=True, fmt="d", cbar_kws={'label': 'Frequency of Insertions'})
+
+    # 添加标题和轴标签
+    # plt.title(f'Density of LTR Insertion Times', fontsize=16)
+    plt.xlabel('Insertion Time (Million years ago)', fontsize=12)
+    # plt.ylabel('Genomes', fontsize=12)
+
+    # 显示图形
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig(output_pdf, format='pdf', bbox_inches='tight')
 
 work_dir = '/home/hukang/test/HiTE/demo'
 log = Logger(work_dir + '/HiTE.log', level='debug')
@@ -3917,6 +3967,67 @@ log = Logger(work_dir + '/HiTE.log', level='debug')
 
 
 if __name__ == '__main__':
+    # # 画插入时间图
+    # data_dir = '/home/hukang/test/data'
+    # output_pdf = '/home/hukang/test/intact_LTR_insert_time.pdf'
+    # intact_ltr_paths = []
+    # for genome_name in os.listdir(data_dir):
+    #     input_dir = data_dir + '/' + genome_name
+    #     cur_list = input_dir + '/intact_LTR.list'
+    #     intact_ltr_paths.append((genome_name, cur_list))
+    # draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
+
+    # 找到泛基因组恢复的TE与panTE lib 不同的TE的个数和名称
+    cluster_file = '/home/hukang/test/panTE.merge_recover.fa.clstr'
+    recover_path = '/home/hukang/test/panTE.recover.fa'
+    names, contigs = read_fasta(recover_path)
+    new_contigs = {}
+    for name in names:
+        new_name = name.split('#')[0]
+        new_contigs[new_name] = contigs[name]
+    # 解析聚类文件中的单拷贝
+    cluster_idx = -1
+    clusters = {}
+    with open(cluster_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            if line.startswith('>'):
+                cluster_idx = line.split(' ')[1]
+            else:
+                if not clusters.__contains__(cluster_idx):
+                    clusters[cluster_idx] = []
+                cur_cluster = clusters[cluster_idx]
+                name = line.split(',')[1].split(' ')[1].strip()[1:]
+                name = name[0: len(name) - 3]
+                name = name.split('#')[0]
+                cur_cluster.append(name)
+    # 判断簇中是否包含 panTE 序列，例如header中包含#
+    # 从一致性序列中去掉包含 panTE 簇中所包含的序列，剩下的序列即为需要恢复的低拷贝序列
+    removed_ids = set()
+    for cluster_idx in clusters.keys():
+        cur_cluster = clusters[cluster_idx]
+        is_panTE_clstr = False
+        for seq_name in cur_cluster:
+            if 'Recover' not in seq_name:
+                is_panTE_clstr = True
+                break
+        if is_panTE_clstr:
+            for seq_name in cur_cluster:
+                removed_ids.add(seq_name)
+        else:
+            # 如果是recover簇，只保留一个
+            for i, seq_name in enumerate(cur_cluster):
+                if i == 0:
+                    continue
+                removed_ids.add(seq_name)
+    for seq_name in removed_ids:
+        if seq_name in new_contigs:
+            del new_contigs[seq_name]
+    print(len(new_contigs))
+    print(new_contigs.keys())
+
+
+
     # BM_EDTA()
     # BM_HiTE()
 
@@ -3952,44 +4063,51 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    work_dir = '/tmp/run_hite_main'
-    # candidate_tir_path = work_dir + '/more_tir.fa'
-    # candidate_tir_path = work_dir + '/confident_helitron.fa'
-    # candidate_tir_path = work_dir + '/confident_tir.fa'
-    candidate_tir_path = work_dir + '/test.fa'
-    confident_tir_path = work_dir + '/test.final.fa'
-    flanking_len = 50
-    # reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/39.ah_7.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
-    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
-    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
-    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
-    reference = '/home/hukang/test/HiTE/demo/genome.fa'
-    # test_home = '/home/hukang/test/HiTE/module'
-    tmp_output_dir = work_dir
-    if not os.path.exists(tmp_output_dir):
-        os.makedirs(tmp_output_dir)
-    chrom_seg_length = 100000
-    chunk_size = 400
-    split_genome_command = 'split_genome_chunks.py -g ' \
-                           + reference + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    os.system(split_genome_command)
-    #
-    TE_type = 'non_ltr'
-    split_ref_dir = tmp_output_dir + '/ref_chr'
-    threads = 40
-    ref_index = 0
-    subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
-    plant = 1
-    debug = 1
-    flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
-                          TE_type, work_dir, threads, ref_index, log, subset_script_path,
-                          plant, debug, 1, result_type='cons')
+    # work_dir = '/tmp/run_hite_main'
+    # # candidate_tir_path = work_dir + '/more_tir.fa'
+    # # candidate_tir_path = work_dir + '/confident_helitron.fa'
+    # # candidate_tir_path = work_dir + '/confident_tir.fa'
+    # candidate_tir_path = work_dir + '/test.fa'
+    # confident_tir_path = work_dir + '/test.final.fa'
+    # flanking_len = 50
+    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/39.ah_7.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
+    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
+    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
+    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
+    # reference = '/home/hukang/test/HiTE/demo/genome.fa'
+    # # test_home = '/home/hukang/test/HiTE/module'
+    # tmp_output_dir = work_dir
+    # if not os.path.exists(tmp_output_dir):
+    #     os.makedirs(tmp_output_dir)
+    # chrom_seg_length = 100000
+    # chunk_size = 400
+    # split_genome_command = 'split_genome_chunks.py -g ' \
+    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
+    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    # os.system(split_genome_command)
+    # #
+    # TE_type = 'non_ltr'
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # threads = 40
+    # ref_index = 0
+    # subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
+    # plant = 1
+    # debug = 1
+    # flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
+    #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
+    #                       plant, debug, 1, result_type='cons')
+
+
+
+
+
+
+
 
 
 

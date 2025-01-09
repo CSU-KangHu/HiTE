@@ -6363,7 +6363,8 @@ def get_short_tir_contigs(cur_itr_contigs, plant):
             elif plant == 1 and tsd_len == 3 and (first_5bp == 'CACTA' or first_5bp == 'CACTG'):
                 # name += '-tsd_' + str(tsd_len)
                 short_itr_contigs[name] = tir_seq
-        elif first_3bp == last_3bp and plant == 0 and tsd_len == 2 and (first_3bp == 'CCC'):
+        # elif first_3bp == last_3bp and plant == 0 and tsd_len == 2 and (first_3bp == 'CCC'):
+        elif first_3bp == last_3bp and first_3bp == 'CCC':
             # name += '-tsd_' + str(tsd_len)
             short_itr_contigs[name] = tir_seq
     return short_itr_contigs
@@ -7011,7 +7012,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         cur_all_copies = job.result()
         all_copies.update(cur_all_copies)
     # extend copies
-    query_copies_map = {}
     batch_member_files = []
     extend_all_copies = {}
     for query_name in all_copies.keys():
@@ -7042,7 +7042,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         store_fasta(copy_contigs, extend_member_file)
         query_seq = contigs[query_name]
         batch_member_files.append((query_name, query_seq, extend_member_file))
-        query_copies_map[query_name] = extend_member_file
 
     # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
     ex = ProcessPoolExecutor(threads)
@@ -7082,8 +7081,14 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
                 if cur_seq.startswith('TG') and cur_seq.endswith('CA'):
                     continue
                 ############################
-                # 对于拷贝数<=2的序列，大概率可能是假阳性，那我们判断它是否具有末端反向重复来过滤
-                if copy_count <= 2:
+                # 对于tir和non_ltr来说，拷贝数<=5，我们需要检查其是否具有相应的结构特征
+                if TE_type == 'tir' or TE_type == 'non_ltr':
+                    copy_threshold = 5
+                else:
+                    # 对于Helitron，其拷贝数较少，我们可以降低至2
+                    copy_threshold = 2
+                # 对于拷贝数<=5的序列，大概率可能是假阳性，那我们判断它是否具有末端反向重复来过滤
+                if copy_count <= copy_threshold:
                     low_copy_contigs[cur_name] = cur_seq
                 else:
                     true_tes[cur_name] = cur_seq
@@ -7093,8 +7098,6 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
                 true_tes[cur_name] = cur_seq
                 true_te_names.add(cur_name)
     store_fasta(low_copy_contigs, low_copy_path)
-    # 将低拷贝的TE存储，后续进行泛基因组恢复
-    os.system('cat ' + low_copy_path + ' >> ' + all_low_copy)
 
     if TE_type == 'tir':
         # 找回具有TIR结构的低拷贝TIR
@@ -7151,8 +7154,34 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
                     has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
         true_tes.update(has_intact_protein_contigs)
         true_te_names.update(has_intact_protein_contigs.keys())
+    elif TE_type == 'non_ltr':
+        # 找回具有完整domain的低拷贝non_ltr
+        temp_dir = temp_dir + '/non_ltr_domain'
+        output_table = low_copy_path + '.non_ltr_domain'
+        non_ltr_protein_db = cur_dir + '/library/non_LTR.lib'
+        get_domain_info(low_copy_path, non_ltr_protein_db, output_table, threads, temp_dir)
+        has_intact_protein_contigs = {}
+        protein_names, protein_contigs = read_fasta(non_ltr_protein_db)
+        with open(output_table, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i < 2:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
+                protein_name = parts[1]
+                protein_start = int(parts[4])
+                protein_end = int(parts[5])
+                intact_protein_len = len(protein_contigs[protein_name])
+                if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+                    has_intact_protein_contigs[te_name] = low_copy_contigs[te_name]
+        true_tes.update(has_intact_protein_contigs)
+        true_te_names.update(has_intact_protein_contigs.keys())
     store_fasta(true_tes, real_TEs)
-
+    # 将低拷贝且不满足结构特征的TE存储起来，后续进行泛基因组恢复
+    with open(all_low_copy, 'a') as f_save:
+        for te_name in low_copy_contigs.keys():
+            if te_name not in true_te_names:
+                f_save.write('>' + te_name + '\n' + low_copy_contigs[te_name] + '\n')
 
     deleted_names = total_names.difference(true_te_names)
     if debug:

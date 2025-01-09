@@ -9133,9 +9133,11 @@ def filter_helitron(output_path, helitron_output_path, full_length_output_dir, t
     confident_helitrons = {}
     for ltr_name in true_ltr_names:
         if ltr_name not in all_confident_helitrons:
-            candidate_ltrs[ltr_name] = left_LTR_contigs[ltr_name]
+            if ltr_name in left_LTR_contigs:
+                candidate_ltrs[ltr_name] = left_LTR_contigs[ltr_name]
         else:
-            confident_helitrons[ltr_name] = candidate_helitrons[ltr_name]
+            if ltr_name in candidate_helitrons:
+                confident_helitrons[ltr_name] = candidate_helitrons[ltr_name]
     candidate_ltr_path = tmp_output_dir + '/candidate_ltr.fa'
     store_fasta(candidate_ltrs, candidate_ltr_path)
     confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
@@ -9216,7 +9218,8 @@ def filter_sine(output_path, sine_output_path, full_length_output_dir, threads, 
     candidate_ltrs = {}
     for ltr_name in true_ltr_names:
         if ltr_name not in confident_sines:
-            candidate_ltrs[ltr_name] = left_LTR_contigs[ltr_name]
+            if ltr_name in left_LTR_contigs:
+                candidate_ltrs[ltr_name] = left_LTR_contigs[ltr_name]
     candidate_ltr_path = tmp_output_dir + '/candidate_ltr.fa'
     store_fasta(candidate_ltrs, candidate_ltr_path)
 

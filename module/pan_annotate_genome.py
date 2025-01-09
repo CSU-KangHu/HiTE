@@ -2,8 +2,10 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
+import uuid
 from datetime import datetime
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
@@ -99,7 +101,8 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/annotate_genome'
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/pan_annotate_genome_' + str(unique_id)
     create_or_clear_directory(temp_dir)
     # 调用 RepeatMasker 函数
     run_repeat_masker(temp_dir, threads, panTE_lib, reference, genome_name, log)
@@ -107,3 +110,7 @@ if __name__ == "__main__":
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

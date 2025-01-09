@@ -2,8 +2,11 @@
 import argparse
 import os
 import re
+import shutil
 import sys
 import json
+import uuid
+
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 from Util import Logger, generate_bam_for_RNA_seq, copy_files, create_or_clear_directory
@@ -53,7 +56,8 @@ if __name__ == "__main__":
     log = Logger(output_dir + '/generate_bam_for_RNA_seq.log', level='debug')
 
     # 创建本地临时目录，存储计算结果
-    temp_dir = '/tmp/annotate_genome'
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/pan_generate_bam_for_RNA_seq_' + str(unique_id)
     create_or_clear_directory(temp_dir)
     # Step 7.1: 生成 BAM 文件
     log.logger.info("Start generating BAM files for RNA-seq data...")
@@ -64,3 +68,7 @@ if __name__ == "__main__":
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

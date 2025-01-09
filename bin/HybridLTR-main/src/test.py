@@ -42,13 +42,13 @@ from Util import judge_both_ends_frame_v1, filter_ltr_by_homo, multi_process_ali
     get_high_copy_LTR, judge_right_frame_LTR, judge_boundary_v5, judge_boundary_v6, remove_sparse_col_in_align_file, \
     random_downsample, find_tir_in_ltr, get_full_length_copies_batch, multi_process_align_v3, \
     judge_ltr_from_both_ends_frame, generate_both_ends_frame_for_intactLTR, multi_process_align, judge_both_ends_frame, \
-    get_full_length_copies, filter_ltr_by_flank_seq_v1, get_full_length_copies_v1, map_fragment, get_intact_ltr_copies, \
+    get_full_length_copies, get_full_length_copies_v1, map_fragment, get_intact_ltr_copies, \
     get_copies_v2, get_domain_info_v1, get_domain_info_v2, remove_copies_from_redundant_contig, \
     remove_copies_from_redundant_contig_v1, is_ltr_has_structure, \
     deredundant_for_LTR_v5, get_ltr_from_line, get_all_potential_ltr_lines, \
-    multi_process_align_v1, filter_ltr_by_copy_num_sub
+    multi_process_align_v1, filter_ltr_by_copy_num_sub, Logger, alter_deep_learning_results
 from clean_LTR_internal import purge_internal_seq, purge_internal_seq_by_table
-
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, classification_report
 
 def connect_LTR(repbase_path):
     # Preprocess. connect LTR and LTR_internal
@@ -631,8 +631,99 @@ def matrix2align(matrix_file, align_file):
                 f_save.write('>seq_'+str(seq_id) + '\n' + line)
                 seq_id += 1
 
+work_dir = '/home/hukang/test/HiTE/demo'
+log = Logger(work_dir + '/HiTE.log', level='debug')
 
 if __name__ == '__main__':
+    # 测试一下 deep learning模块的性能
+    work_dir = '/home/hukang/left_LTR_real_dataset/five_species_high_copy_bak/Arabidopsis_thaliana'
+    dl_output_path = work_dir + '/out/is_LTR_deep.txt'
+    true_labels = []
+    predict_labels = []
+    with open(dl_output_path, 'r') as f_r:
+        for line in f_r:
+            parts = line.replace('\n', '').split('\t')
+            seq_name = parts[0]
+            predict_label = int(parts[1])
+            if seq_name.startswith('chr_') or seq_name.startswith('Chr'):
+                true_label = 0
+            else:
+                true_label = 1
+            true_labels.append(true_label)
+            predict_labels.append(predict_label)
+
+    # 计算 Precision
+    precision = precision_score(true_labels, predict_labels, average='macro')
+    print(f"Precision: {precision:.4f}")
+    # 计算 Recall
+    recall = recall_score(true_labels, predict_labels, average='macro')
+    print(f"Recall: {recall:.4f}")
+    # 计算 F1 Score
+    f1 = f1_score(true_labels, predict_labels, average='macro')
+    print(f"F1 Score: {f1:.4f}")
+    # 计算 Accuracy
+    accuracy = accuracy_score(true_labels, predict_labels)
+    print(f"Accuracy: {accuracy:.4f}")
+    # 生成分类报告
+    report = classification_report(true_labels, predict_labels)
+    print("Classification Report:")
+    print(report)
+
+    # 测试一下同源算法的性能
+    threads = 40
+    flanking_len = 100
+    positive_hc_output_path = os.path.join(work_dir, 'is_LTR_homo.positive.txt')
+    type = 'High copy'
+    high_copy_output_dir = os.path.join(work_dir, 'positive')
+    judge_ltr_from_both_ends_frame(high_copy_output_dir, positive_hc_output_path, threads, type, flanking_len, log)
+
+    negative_hc_output_path = os.path.join(work_dir, 'is_LTR_homo.negative.txt')
+    type = 'High copy'
+    high_copy_output_dir = os.path.join(work_dir, 'negative')
+    judge_ltr_from_both_ends_frame(high_copy_output_dir, negative_hc_output_path, threads, type, flanking_len, log)
+
+    hc_output_path = os.path.join(work_dir, 'is_LTR_homo.txt')
+    os.system('cat ' + positive_hc_output_path + ' ' + negative_hc_output_path + ' > ' + hc_output_path)
+
+    alter_dl_output_path = os.path.join(work_dir, 'is_LTR_deep.alter.txt')
+    alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_path, high_copy_output_dir, log)
+
+    true_labels = []
+    predict_labels = []
+    with open(alter_dl_output_path, 'r') as f_r:
+        for line in f_r:
+            parts = line.replace('\n', '').split('\t')
+            seq_name = parts[0]
+            predict_label = int(parts[1])
+            if seq_name.startswith('chr_') or seq_name.startswith('Chr'):
+                true_label = 0
+            else:
+                true_label = 1
+            true_labels.append(true_label)
+            predict_labels.append(predict_label)
+
+    # 计算 Precision
+    precision = precision_score(true_labels, predict_labels, average='macro')
+    print(f"Precision: {precision:.4f}")
+    # 计算 Recall
+    recall = recall_score(true_labels, predict_labels, average='macro')
+    print(f"Recall: {recall:.4f}")
+    # 计算 F1 Score
+    f1 = f1_score(true_labels, predict_labels, average='macro')
+    print(f"F1 Score: {f1:.4f}")
+    # 计算 Accuracy
+    accuracy = accuracy_score(true_labels, predict_labels)
+    print(f"Accuracy: {accuracy:.4f}")
+    # 生成分类报告
+    report = classification_report(true_labels, predict_labels)
+    print("Classification Report:")
+    print(report)
+
+
+
+
+
+
     # # 对真实数据集进行拷贝数扩展
     # threads = 40
     # source_dir = '/home/hukang/left_LTR_real_dataset/raw_data/both_ends_frames_remove_gap/positive'
@@ -689,10 +780,10 @@ if __name__ == '__main__':
     # BM_EDTA()
     # BM_HiTE()
 
-    identity = 98.0 / 100
-    miu = float(str(1.3e-8))
-    time = int(estimate_insert_time(identity, miu))
-    print(time)
+    # identity = 98.0 / 100
+    # miu = float(str(1.3e-8))
+    # time = int(estimate_insert_time(identity, miu))
+    # print(time)
 
 
     # reference = '/home/hukang/HybridLTR/demo/GCF_001433935.1_IRGSP-1.0_genomic.rename.fna'

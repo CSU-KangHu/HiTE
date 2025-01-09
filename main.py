@@ -139,14 +139,17 @@ if __name__ == '__main__':
         output_dir = project_dir + '/output'
     if not os.path.isabs(output_dir):
         output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    log = Logger(output_dir + '/HiTE.log', level='debug')
 
     if reference is None:
-        print('\nreference path can not be empty')
+        log.logger.error('\nreference path can not be empty')
         parser.print_help()
         exit(-1)
 
     if not os.path.exists(reference):
-        print('\nCannot find input genome assembly: ' + str(reference))
+        log.logger.error('\nCannot find input genome assembly: ' + str(reference))
         parser.print_help()
         exit(-1)
 
@@ -314,8 +317,6 @@ if __name__ == '__main__':
             shutil.rmtree(tmp_output_dir)
     # 创建新的目录
     os.makedirs(tmp_output_dir, exist_ok=True)
-
-    log = Logger(tmp_output_dir + '/HiTE.log', level='debug')
 
     os.system('cp ' + reference + ' ' + tmp_output_dir)
     reference = tmp_output_dir + '/' + ref_filename
@@ -677,6 +678,31 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step3: %.8s s" % (dtime))
 
+    # merge low copy TEs
+    low_confident_TEs_merge = os.path.join(tmp_output_dir, 'low_confident_TE.fa')
+    if os.path.exists(low_confident_TEs_merge):
+        os.remove(low_confident_TEs_merge)
+    low_confident_TEs = os.path.join(tmp_output_dir, 'low_confident_TE.cons.fa')
+    if os.path.exists(all_low_copy_tir):
+        os.system('cat ' + all_low_copy_tir + ' >> ' + low_confident_TEs_merge)
+    if os.path.exists(all_low_copy_helitron):
+        os.system('cat ' + all_low_copy_helitron + ' >> ' + low_confident_TEs_merge)
+    if os.path.exists(all_low_copy_non_ltr):
+        os.system('cat ' + all_low_copy_non_ltr + ' >> ' + low_confident_TEs_merge)
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                     + ' -d 0 -G 0 -g 1 -A 80 -i ' + low_confident_TEs_merge + ' -o ' + low_confident_TEs + ' -T 0 -M 0'
+    os.system(cd_hit_command + ' > /dev/null 2>&1')
+
+    # merge low confident and confident TEs
+    confident_TE_consensus = os.path.join(tmp_output_dir, 'confident_TE.cons.fa')
+    all_TEs = os.path.join(tmp_output_dir, 'all_TE.fa')
+    if os.path.exists(all_TEs):
+        os.remove(all_TEs)
+    if os.path.exists(confident_TE_consensus):
+        os.system('cat ' + confident_TE_consensus + ' >> ' + all_TEs)
+    if os.path.exists(low_confident_TEs):
+        os.system('cat ' + low_confident_TEs + ' >> ' + all_TEs)
+
     if intact_anno == 1:
         starttime = time.time()
         log.logger.info('Start step4: get full-length TE annotation')
@@ -705,7 +731,6 @@ if __name__ == '__main__':
         dtime = endtime - starttime
         log.logger.info("Running time of step4: %.8s s" % (dtime))
 
-    confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
     if not file_exist(confident_TE_consensus):
         log.logger.error('Error, Cannot find TE path: ' + confident_TE_consensus)
     else:

@@ -36,6 +36,8 @@ if __name__ == '__main__':
             'genome\\.fa\\.masked',
             'genome\\.rename\\.fa\\.pass\\.list',
             '.*\\.scn',
+            'all_TE\\.fa',
+            'low_confident_TE\\.cons\\.fa',
             'genome\\.rename\\.fa\\.LTRlib\\.fa',
             'TE_merge_tmp\\.fa\\.classified',
             'confident_TE\\.cons\\.fa',
@@ -70,7 +72,8 @@ if __name__ == '__main__':
             '\\.command\\.out',
             '\\.command\\.err',
             '\\.exitcode',
-            '\\.command\\.log'
+            '\\.command\\.log',
+            '.*_low_copy.fa'
         ]
 
         all_files = os.listdir(tmp_output_dir)

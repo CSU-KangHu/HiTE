@@ -94,6 +94,9 @@ if __name__ == '__main__':
     prev_TE = args.prev_TE
     all_low_copy_tir = args.all_low_copy_tir
 
+    if not os.path.exists(all_low_copy_tir):
+        os.system('touch ' + all_low_copy_tir)
+
     TRsearch_dir = cur_dir + '/tools'
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
 
