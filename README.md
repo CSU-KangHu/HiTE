@@ -246,7 +246,7 @@ repeats_2.fa, and repeats_3.fa in your output directory.
 The **HiTE.out** and **HiTE.gff**, are genome annotation files, with **HiTE.gff** being visualizable 
 in the IGV (Integrative Genomics Viewer). Additionally, **HiTE.tbl** offers statistical information 
 on the proportion of each transposon type within the genome.
-6. **low_confident_TE.cons.fa** contains unclassified TE candidates with low full-length copy numbers, making it difficult to determine their precise boundaries. Researchers can use these candidates as a starting point to recover many real but low-copy TEs. 
+6. **low_confident_TE.cons.fa** contains unclassified TE candidates with low full-length copy numbers, making it difficult to determine their precise boundaries. Researchers can use these candidates as a starting point to recover some real but low-copy TEs. 
 7. **all_TE.fa** combines **confident_TE.cons.fa** and **low_confident_TE.cons.fa**.
 
 In general, we recommend using the more reliable **confident_TE.cons.fa**. However, if sensitivity is a higher priority than precision, **all_TE.fa** can be used instead.
