@@ -11053,7 +11053,17 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
     os.system(trimmomatic_command)
     return trim_RNA, temp_files
 
-def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log):
+def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, annotate_type, log):
+    if annotate_type == 'gff' or annotate_type == 'gff3':
+        # 将 gff 注释转为gtf
+        gtf_output_dir = os.path.dirname(gene_gtf)
+        base_name = os.path.basename(gene_gtf)
+        new_gene_gtf = os.path.join(gtf_output_dir, os.path.splitext(base_name)[0] + ".gtf")
+        command = 'python ' + RNA_tool_dir + '/makeCleanGeneGTF.py --input_files ' + gene_gtf + ' --output_dir ' + gtf_output_dir
+        log.logger.debug(command)
+        os.system(command)
+        gene_gtf = new_gene_gtf
+
     gene_express_count = output_dir + '/' + genome_name + '.count'
     if sorted_bam is not None and os.path.exists(sorted_bam) \
             and gene_gtf is not None and os.path.exists(gene_gtf) and is_PE is not None:
@@ -11063,11 +11073,44 @@ def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_nam
         os.system(featurecounts_cmd)
     return gene_express_count
 
+def quantitative_TE(genome_info_list, RNA_tool_dir, temp_dir, output_dir, threads, log):
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    annotate_type = 'gff'
+    job_id = 0
+    ex = ProcessPoolExecutor(threads)
+    objs = []
+    for genome_info in genome_info_list:
+        genome_name = genome_info['genome_name']
+        RNA_seq_dict = genome_info['RNA_seq']
+        sorted_bam = genome_info['bam']
+        TE_gff = None
+        if 'TE_gff' in genome_info:
+            TE_gff = genome_info['TE_gff']
+        is_PE = None
+        if 'is_PE' in RNA_seq_dict:
+            is_PE = RNA_seq_dict['is_PE']
+        obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, TE_gff, genome_name, is_PE, annotate_type, log)
+        objs.append(obj)
+        job_id += 1
+    ex.shutdown(wait=True)
+    TE_express_counts = []
+    for obj in as_completed(objs):
+        cur_TE_express_count = obj.result()
+        TE_express_counts.append(cur_TE_express_count)
+
+    output_table = output_dir + '/TE_express.table'
+    merge_gene_express_table(TE_express_counts, output_table)
+    return output_table
+
 def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, threads, log):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    annotate_type = 'gtf'
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
@@ -11081,7 +11124,7 @@ def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, thre
         is_PE = None
         if 'is_PE' in RNA_seq_dict:
             is_PE = RNA_seq_dict['is_PE']
-        obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log)
+        obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, annotate_type, log)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
