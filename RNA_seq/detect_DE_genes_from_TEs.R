@@ -19,7 +19,7 @@ load_or_install("readr")
 load_or_install("dplyr")
 load_or_install("stringr")
 load_or_install("tidyr")
-
+load_or_install("ggplot2")
 
 # Create a parser for command-line arguments
 p <- arg_parser("Gene expression and TE association analysis")
@@ -38,12 +38,14 @@ args <- parse_args(p)
 # Print the input files (optional)
 cat("Gene expression file:", args$gene_express_file, "\n")
 cat("Gene-TE associations file:", args$gene_te_associations_file, "\n")
+gene_express_file <- args$gene_express_file
+gene_te_associations_file <- args$gene_te_associations_file
 min_sample_threshold <- args$min_sample_threshold
 min_diff_threshold <- args$min_diff_threshold
 
 # Read the gene expression file
-gene_express <- read_delim(gene_express_file, 
-                           delim = "\t", escape_double = FALSE, 
+gene_express <- read_delim(gene_express_file,
+                           delim = "\t", escape_double = FALSE,
                            trim_ws = TRUE) %>%
   mutate(across(-1, ~ sapply(strsplit(as.character(.), ","), function(x) {
     last_val <- tail(x, 1)
@@ -52,7 +54,7 @@ gene_express <- read_delim(gene_express_file,
   })))
 
 # Read the gene-TE associations file
-gene_te_associations <- read_delim(gene_te_associations_file, 
+gene_te_associations <- read_delim(gene_te_associations_file,
                                    delim = "\t", escape_double = FALSE, 
                                    trim_ws = TRUE)
 

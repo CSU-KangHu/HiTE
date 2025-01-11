@@ -321,6 +321,9 @@ process pan_detect_de_genes {
     output:
     path "DE_genes_from_TEs.tsv", emit: ch_de_genes, optional: true
     path "all_gene_TEs_details.tsv", emit: ch_all_genes, optional: true
+    path "DE_genes_from_TEs.pdf", emit: ch_de_genes_pdf, optional: true
+    path "TE_express.table", emit: ch_te_express, optional: true
+    path "gene_express.table", emit: ch_gene_express, optional: true
 
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*.tsv"
 

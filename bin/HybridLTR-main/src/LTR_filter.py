@@ -124,6 +124,9 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
         else:
             log.logger.info(result_file + ' exists, skip...')
 
+        if not debug:
+            os.system('rm -rf ' + output_dir)
+
         hc_output_path = os.path.join(chunk_dir, 'is_LTR_homo.hc.txt')
         if is_use_homo_rule:
             result_file = hc_output_path
@@ -153,6 +156,9 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
         alter_dl_output_path = os.path.join(chunk_dir, 'is_LTR_deep.alter.txt')
         alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_path, high_copy_output_dir, log)
         os.system('cat ' + alter_dl_output_path + ' >> ' + output_path)
+
+        if not debug:
+            os.system('rm -rf ' + high_copy_output_dir)
 
         if is_filter_TIR:
             tir_output_path = os.path.join(chunk_dir, 'is_LTR_tir.txt')

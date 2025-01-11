@@ -31,6 +31,8 @@ if __name__ == "__main__":
     RNA_dir = args.RNA_dir
     threads = args.threads
 
+    threads = max(1, threads - 4)
+
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
