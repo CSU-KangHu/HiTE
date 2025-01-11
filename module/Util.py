@@ -12245,11 +12245,6 @@ def run_HybridLTR(reference, tmp_output_dir, HybridLTR_home, threads, miu, recov
     dtime = endtime - starttime
     log.logger.debug("HybridLTR running time: %.8s s" % (dtime))
 
-    # 删除中间目录，以减少磁盘压力
-    if not debug:
-        if os.path.exists(tmp_output_dir):
-            os.system('rm -rf ' + tmp_output_dir)
-
 def assign_label_to_lib(lib, intact_LTR_labels):
     ltr_names, ltr_contigs = read_fasta(lib)
     no_label_ltr_names = []

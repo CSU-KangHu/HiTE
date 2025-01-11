@@ -199,6 +199,11 @@ if __name__ == '__main__':
             for check_file in check_files:
                 log.logger.info(check_file + ' exists, skip...')
 
+        # 删除中间目录，以减少磁盘压力
+        if not debug:
+            if os.path.exists(LTR_output_dir):
+                os.system('rm -rf ' + LTR_output_dir)
+
     else:
         check_files = [
             confident_ltr_cut_path, confident_intact_ltr_list, intact_LTR_path
