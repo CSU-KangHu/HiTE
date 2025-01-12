@@ -30,6 +30,8 @@ params.debug = 0
 params.threads = 10
 params.miu = 1.3e-8
 params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
+params.min_sample_threshold = 5
+params.min_diff_threshold = 10
 
 // 验证 TE 类型是否合法
 if (!params.all_te_types.contains(params.te_type)) {
@@ -53,6 +55,8 @@ def helpMessage() {
       --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
       --genes_dir            A directory containing the gene annotation files, gff format.
       --RNA_dir              A directory containing the RNA-seq files.
+      --min_sample_threshold When identifying differentially expressed genes caused by TE insertions, for the groups with TE insertions and without TE insertions, the number of samples in at least one group must be greater than the min_sample_threshold.
+      --min_diff_threshold   The absolute difference in gene expression values between groups with and without TE insertion. diff = min(group1) - max(group2).
       --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
       --threads              Input thread num. default = [ 10 ]
       --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
@@ -317,6 +321,9 @@ process pan_detect_de_genes {
     output:
     path "DE_genes_from_TEs.tsv", emit: ch_de_genes, optional: true
     path "all_gene_TEs_details.tsv", emit: ch_all_genes, optional: true
+    path "DE_genes_from_TEs.pdf", emit: ch_de_genes_pdf, optional: true
+    path "TE_express.table", emit: ch_te_express, optional: true
+    path "gene_express.table", emit: ch_gene_express, optional: true
 
     publishDir "${params.out_dir}", mode: 'copy', pattern: "*.tsv"
 
@@ -324,7 +331,8 @@ process pan_detect_de_genes {
     cores = task.cpus
     """
     pan_detect_de_genes.py --genome_info_for_bam_json ${genome_info_for_bam_json} --gene_te_associations ${gene_te_associations} \
-    --RNA_dir ${RNA_dir} --threads ${cores} > pan_detect_de_genes.log 2>&1
+    --min_sample_threshold ${params.min_sample_threshold} --min_diff_threshold ${params.min_diff_threshold} --RNA_dir ${RNA_dir} \
+    --threads ${cores} > pan_detect_de_genes.log 2>&1
     """
 }
 
@@ -428,14 +436,30 @@ workflow {
 
         // Step 9: 检测差异表达基因
         // 将 bam 结果合并到 json 文件中, 为pan_detect_de_genes生成输入channel
-        genome_info_list.join(bam_out).map { genome_info ->
+        // 将注释结果合并到 json 文件中，便于后续统一分析
+        genome_info_list.join(annotate_out).map { genome_info ->
+            [
+                genome_info[0],
+                genome_info[1],
+                genome_info[2],
+                genome_info[3],
+                genome_info[4],
+                genome_info[5].toString(),
+                genome_info[6].toString(),
+                genome_info[7].toString(),
+                genome_info[8].toString(),
+                genome_info[9].toString()
+            ]
+        }.join(bam_out).map { genome_info ->
             [
                 genome_name: genome_info[0],
-                reference: genome_info[1],
-                raw_name: genome_info[2],
+                raw_name: genome_info[1],
+                reference: genome_info[2],
                 gene_gtf: genome_info[3],
-                RNA_seq    : genome_info[4],
-                bam: genome_info[5].toString()
+                RNA_seq: genome_info[4],
+                TE_gff: genome_info[5],
+                full_length_TE_gff: genome_info[8],
+                bam: genome_info[10].toString()
             ]
         }.collect().map { data ->
             def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
@@ -443,6 +467,7 @@ workflow {
             new File(filePath).write(jsonContent)
             return filePath
         }.set { genome_info_for_bam_json }
+        // genome_name, raw_name, reference, gene_gtf, RNA_seq, TE_gff, TE_tbl, TE_out, TE_full_length_gff, TE_full_length_copies, bam
 
         pan_detect_de_genes(genome_info_for_bam_json, gene_te_associations_out, params.RNA_dir)
     }

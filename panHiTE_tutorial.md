@@ -333,6 +333,8 @@ General options:
   --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
   --genes_dir            A directory containing the gene annotation files, gff format.
   --RNA_dir              A directory containing the RNA-seq files.
+  --min_sample_threshold When identifying differentially expressed genes caused by TE insertions, for the groups with TE insertions and without TE insertions, the number of samples in at least one group must be greater than the min_sample_threshold.
+  --min_diff_threshold   The absolute difference in gene expression values between groups with and without TE insertion. diff = min(group1) - max(group2).
   --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
   --threads              Input thread num. default = [ 10 ]
   --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
@@ -345,33 +347,32 @@ General options:
 This file contains TEs inserted upstream, downstream, or inside genes, which significantly alter gene expression levels across populations.  
 
 ```markdown
-"Gene_name"	"NoInsertion (mean_TPM)"	"Upstream (mean_TPM)"	"Downstream (mean_TPM)"	"Inside (mean_TPM)"	"Upstream_vs_NoInsertion_logFoldChange"	"Inside_vs_NoInsertion_logFoldChange"	"Downstream_vs_NoInsertion_logFoldChange"
-"AT4G34410"	562.145	NA	1.14	NA	NA	NA	-8.03975183205617
-"AT3G48360"	150.99	0.16	16.46	NA	-7.033707790821	NA	-3.12185094231913
-"AT4G01950"	389.61	2.33	17.3366666666667	NA	-6.87406289658701	NA	-4.4129255767341
-"AT5G45890"	137.77	0.21	NA	NA	-6.84154485479315	NA	NA
-"AT4G22880"	68.44	NA	0.07	NA	NA	NA	-6.02008424604333
+"Gene_name"	"Insert_type"	"fold_change"	"direct"	"diff"	"significant"	"unique_gene_name"	"log10_diff"
+"AT1G25155"	"Upstream"	-6.92725450753374	"down"	49.14	"Significant"	"AT1G25155_Upstream"	1.7001843296222
+"AT1G25155"	"Downstream"	-6.77994780875344	"down"	48.71	"Significant"	"AT1G25155_Downstream"	1.696443763139
+"AT1G73490"	"Downstream"	-6.28426460342408	"down"	23.92	"Significant"	"AT1G73490_Downstream"	1.39654803798713
+"AT1G20620"	"Upstream"	-5.29028111354513	"down"	45.55	"Significant"	"AT1G20620_Upstream"	1.66791968531736
+"AT3G13580"	"Upstream"	-3.99076552523224	"down"	30.15	"Significant"	"AT3G13580_Upstream"	1.49345805099519
+"AT4G26260"	"Upstream"	3.72938522430935	"up"	12.55	"Significant"	"AT4G26260_Upstream"	1.13193929521042
+"AT2G41090"	"Upstream"	3.71870420185856	"up"	4311.58	"Significant"	"AT2G41090_Upstream"	3.63473716448395
+"AT5G41650"	"Upstream"	3.70865905618093	"up"	31.45	"Significant"	"AT5G41650_Upstream"	1.51121470113639
+"AT4G39610"	"Upstream"	3.66693868655106	"up"	34.64	"Significant"	"AT4G39610_Upstream"	1.55193769536484
 ...
 ```
 
-_Column Descriptions_:
-  1. `Gene_name`: Gene name.
-  2. `NoInsertion (mean_TPM)`: Mean expression (TPM) of the gene with no TE insertion.
-  3. `Upstream (mean_TPM)`: Mean expression (TPM) of the gene with a TE inserted upstream.
-  4. `Downstream (mean_TPM)`: Mean expression (TPM) of the gene with a TE inserted downstream.
-  5. `Inside (mean_TPM)`: Mean expression (TPM) of the gene with a TE inserted inside.
-  6. `Upstream_vs_NoInsertion_logFoldChange`: Log2 fold change of upstream insertion compared to no insertion.
-  7. `Inside_vs_NoInsertion_logFoldChange`: Log2 fold change of inside insertion compared to no insertion.
-  8. `Downstream_vs_NoInsertion_logFoldChange`: Log2 fold change of downstream insertion compared to no insertion.  
-Positive fold changes indicate upregulation, while negative values indicate downregulation. The formula for fold change is:  
-`Upstream_vs_NoInsertion_logFoldChange = log2(Upstream + 1) - log2(NoInsertion + 1)`.
+**_Column Descriptions_:**  
+1. **`Gene_name`**: Name of the gene.  
+2. **`Insert_type`**: Location of the TE insertion relative to the gene: Upstream, Inside, or Downstream.  
+3. **`fold_change`**: Log2 fold change of gene expression in samples with TE insertion compared to those without insertion.  
+4. **`direct`**: Indicates whether the TE insertion leads to upregulation or downregulation of gene expression.  
+5. **`diff`**: The absolute difference in gene expression values between groups with and without TE insertion. For example, if the gene expression values in the group without TE insertion are [10, 20, 30] and the values in the group with TE insertion are [100, 110, 120], then `diff = min(group with TE insertion) - max(group without TE insertion) = 100 - 30 = 70`.  
+6. **`significant`**: Indicates whether there is a significant difference in gene expression.  
+7. **`unique_gene_name`**: A unique value combining `Gene_name` and `Insert_type`.  
+8. **`log10_diff`**: The logarithmic value (base 10) of `diff`.  
 
-_Result Interpretation_:
-
-"AT4G34410" 562.145 NA 1.14 NA NA NA -8.03975183205617  
-
-The average expression level (TPM) of gene AT4G34410 without TE insertion is 562.145. In specific samples (one or more), a TE insertion is present downstream of this gene, which results in an average expression level of 1.14 after the insertion. The log fold change is -8.03, indicating that the gene is downregulated due to the TE insertion.  
-You can further examine the `all_gene_TEs_details.tsv` file to identify which samples contain the TE insertion for this gene, the distance between the TE insertion and the gene, expression levels in specific samples, and other related information.
+  
+The formula for fold change is:  
+`logFoldChange = log2(Upstream + 1) - log2(No_Insertion + 1)`.
 
 
 - **all_gene_TEs_details.tsv**  
@@ -379,12 +380,13 @@ This file details the positional relationships between TEs and genes across samp
 
 ```markdown
 "Gene_name"	"Genome_name"	"TE_name"	"Chromosome"	"TE_start"	"TE_end"	"Gene_start"	"Gene_end"	"Position"	"Species"	"Distance"	"expression"
-"AT1G01020"	"44.ket_10.fa"	"44-Helitron_44"	"Chr1"	19241	20919	8958	11367	"Upstream"	"44.ket_10"	7874	12.65
-"AT1G01030"	"44.ket_10.fa"	"44-Helitron_44"	"Chr1"	19241	20919	13881	15947	"Upstream"	"44.ket_10"	3294	0.98
-"AT1G01040"	"44.ket_10.fa"	"44-Helitron_44"	"Chr1"	19241	20919	25358	33453	"Upstream"	"44.ket_10"	4439	31.61
-"AT1G01050"	"44.ket_10.fa"	"25-TIR_69"	"Chr1"	44534	44768	33396	35397	"Upstream"	"44.ket_10"	9137	91.79
-"AT1G01050"	"02.tibet.fa"	"25-TIR_69"	"Chr1"	47261	47494	36147	38160	"Upstream"	"02.tibet"	9101	102.58
-"AT1G01050"	"25.per_1.fa"	"25-TIR_69"	"Chr1"	44736	44971	33603	35605	"Upstream"	"25.per_1"	9131	88.57
+"AT1G01020"	"12.li_of_095.fa"	"44-Helitron_0"	"Chr1"	19966	21685	9740	12084	"Upstream"	"12.li_of_095.fa"	7882	12.85
+"AT1G01020"	"15.kelsterbach_2.fa"	"44-Helitron_0"	"Chr1"	20690	22409	10464	12810	"Upstream"	"15.kelsterbach_2.fa"	7880	8.29
+"AT1G01020"	"01.col.fa"	"44-Helitron_0"	"Chr1"	20107	21826	9885	12227	"Upstream"	"01.col.fa"	7880	4.07
+"AT1G01020"	"21.ms_0.fa"	"44-Helitron_0"	"Chr1"	20743	22462	10519	12861	"Upstream"	"21.ms_0.fa"	7882	24.16
+"AT1G01020"	"41.sorbo.fa"	"44-Helitron_0"	"Chr1"	20516	22204	10259	12613	"Upstream"	"41.sorbo.fa"	7903	39.28
+"AT1G01020"	"44.ket_10.fa"	"44-Helitron_0"	"Chr1"	19241	20919	8958	11367	"Upstream"	"44.ket_10.fa"	7874	12.65
+"AT1G01020"	"38.dra_2.fa"	"44-Helitron_0"	"Chr1"	20412	21912	10182	12532	"Upstream"	"38.dra_2.fa"	7880	9.97
 ...
 ```
 

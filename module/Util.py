@@ -5453,6 +5453,13 @@ def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index):
         sorted_lines = generate_full_length_out(lib_out, full_length_out, TE_lib, genome_path, tmp_blast_dir, '',
                                  coverage_threshold, category)
 
+        if os.path.exists(tmp_blast_dir):
+            os.system('rm -rf ' + tmp_blast_dir)
+        if os.path.exists(lib_out):
+            os.remove(lib_out)
+        if os.path.exists(full_length_out):
+            os.remove(full_length_out)
+
         ref_names, ref_contigs = read_fasta(genome_path)
         # mask genome
         for query_name, chr_name, chr_start, chr_end in sorted_lines:
@@ -7110,10 +7117,10 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         # print(with_tir_names)
 
         # 找回具有完整domain的低拷贝TIR
-        temp_dir = temp_dir + '/tir_domain'
+        cur_temp_dir = temp_dir + '/tir_domain'
         output_table = no_tir_path + '.tir_domain'
         tir_protein_db = cur_dir + '/library/TIRPeps.lib'
-        get_domain_info(no_tir_path, tir_protein_db, output_table, threads, temp_dir)
+        get_domain_info(no_tir_path, tir_protein_db, output_table, threads, cur_temp_dir)
         has_intact_protein_contigs = {}
         protein_names, protein_contigs = read_fasta(tir_protein_db)
         with open(output_table, 'r') as f_r:
@@ -7134,10 +7141,10 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         # print(has_intact_protein_contigs.keys())
     elif TE_type == 'helitron':
         # 找回具有完整domain的低拷贝Helitron
-        temp_dir = temp_dir + '/helitron_domain'
+        cur_temp_dir = temp_dir + '/helitron_domain'
         output_table = low_copy_path + '.helitron_domain'
         helitron_protein_db = cur_dir + '/library/HelitronPeps.lib'
-        get_domain_info(low_copy_path, helitron_protein_db, output_table, threads, temp_dir)
+        get_domain_info(low_copy_path, helitron_protein_db, output_table, threads, cur_temp_dir)
         has_intact_protein_contigs = {}
         protein_names, protein_contigs = read_fasta(helitron_protein_db)
         with open(output_table, 'r') as f_r:
@@ -7156,10 +7163,10 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         true_te_names.update(has_intact_protein_contigs.keys())
     elif TE_type == 'non_ltr':
         # 找回具有完整domain的低拷贝non_ltr
-        temp_dir = temp_dir + '/non_ltr_domain'
+        cur_temp_dir = temp_dir + '/non_ltr_domain'
         output_table = low_copy_path + '.non_ltr_domain'
         non_ltr_protein_db = cur_dir + '/library/non_LTR.lib'
-        get_domain_info(low_copy_path, non_ltr_protein_db, output_table, threads, temp_dir)
+        get_domain_info(low_copy_path, non_ltr_protein_db, output_table, threads, cur_temp_dir)
         has_intact_protein_contigs = {}
         protein_names, protein_contigs = read_fasta(non_ltr_protein_db)
         with open(output_table, 'r') as f_r:
@@ -7366,9 +7373,15 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
     for job in as_completed(jobs):
         cur_blastn2Results_path = job.result()
         os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastnResults_path)
+        # 删除以比对结果以减少磁盘压力
+        if os.path.exists(cur_blastn2Results_path):
+            os.remove(cur_blastn2Results_path)
 
     if is_remove_index:
         os.system('rm -f ' + subject_path + '.*')
+
+    if is_removed_dir:
+        os.system('rm -rf ' + tmp_blast_dir)
 
 def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp_output_dir):
     subject_path = confident_ltr_cut_path
@@ -11053,21 +11066,63 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
     os.system(trimmomatic_command)
     return trim_RNA, temp_files
 
-def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log):
+def run_featurecounts(output_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, annotate_type, log):
+    if annotate_type == 'gff' or annotate_type == 'gff3':
+        # 将 gff 注释转为gtf
+        gtf_output_dir = os.path.dirname(gene_gtf)
+        base_name = os.path.basename(gene_gtf)
+        new_gene_gtf = os.path.join(gtf_output_dir, os.path.splitext(base_name)[0] + ".gtf")
+        os.system('gff_to_gtf.sh ' + gene_gtf)
+        gene_gtf = new_gene_gtf
+
     gene_express_count = output_dir + '/' + genome_name + '.count'
     if sorted_bam is not None and os.path.exists(sorted_bam) \
             and gene_gtf is not None and os.path.exists(gene_gtf) and is_PE is not None:
-        featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
+        featurecounts_cmd = 'cd ' + output_dir + ' && Rscript ' + RNA_tool_dir + '/run-featurecounts.R' + \
+                            ' -b ' + sorted_bam + ' -g ' + gene_gtf + ' -o ' + genome_name + \
                             ' --isPairedEnd ' + str(is_PE)
         log.logger.debug(featurecounts_cmd)
         os.system(featurecounts_cmd)
     return gene_express_count
+
+def quantitative_TE(genome_info_list, RNA_tool_dir, temp_dir, output_dir, threads, log):
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    annotate_type = 'gff'
+    job_id = 0
+    ex = ProcessPoolExecutor(threads)
+    objs = []
+    for genome_info in genome_info_list:
+        genome_name = genome_info['genome_name']
+        RNA_seq_dict = genome_info['RNA_seq']
+        sorted_bam = genome_info['bam']
+        TE_gff = None
+        if 'TE_gff' in genome_info:
+            TE_gff = genome_info['TE_gff']
+        is_PE = None
+        if 'is_PE' in RNA_seq_dict:
+            is_PE = RNA_seq_dict['is_PE']
+        obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, TE_gff, genome_name, is_PE, annotate_type, log)
+        objs.append(obj)
+        job_id += 1
+    ex.shutdown(wait=True)
+    TE_express_counts = []
+    for obj in as_completed(objs):
+        cur_TE_express_count = obj.result()
+        TE_express_counts.append(cur_TE_express_count)
+
+    output_table = output_dir + '/TE_express.table'
+    merge_TE_express_table(TE_express_counts, output_table)
+    return output_table
 
 def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, threads, log):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    annotate_type = 'gtf'
     job_id = 0
     ex = ProcessPoolExecutor(threads)
     objs = []
@@ -11081,7 +11136,7 @@ def quantitative_gene(genome_info_list, RNA_tool_dir, temp_dir, output_dir, thre
         is_PE = None
         if 'is_PE' in RNA_seq_dict:
             is_PE = RNA_seq_dict['is_PE']
-        obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, log)
+        obj = ex.submit(run_featurecounts, temp_dir, RNA_tool_dir, sorted_bam, gene_gtf, genome_name, is_PE, annotate_type, log)
         objs.append(obj)
         job_id += 1
     ex.shutdown(wait=True)
@@ -11111,6 +11166,53 @@ def merge_gene_express_table(gene_express_counts, output_table):
                 parts = line.split('\t')
                 te_name = parts[0]
                 te_name = str(te_name).split('_')[-1]
+                TE_families.add(te_name)
+                counts = parts[1]
+                fpkm = "{:.2f}".format(float(parts[2]))
+                tpm = "{:.2f}".format(float(parts[3]))
+                if te_name not in TE_express:
+                    TE_express[te_name] = {}
+                cur_TE_express = TE_express[te_name]
+                cur_TE_express[sample_name] = counts + ',' + fpkm + ',' + tpm
+
+    with open(output_table, 'w') as f_save:
+        header = 'gene_id\t'
+        for i, sample in enumerate(samples):
+            if i != len(samples) - 1:
+                header += sample + '\t'
+            else:
+                header += sample + '\n'
+        f_save.write(header)
+
+        for te_name in TE_express.keys():
+            f_save.write(te_name + '\t')
+            cur_TE_express = TE_express[te_name]
+            for i, sample_name in enumerate(samples):
+                if sample_name in cur_TE_express:
+                    express_value = cur_TE_express[sample_name]
+                else:
+                    express_value = 'NA,NA,NA'
+                if i != len(samples) - 1:
+                    f_save.write(express_value + '\t')
+                else:
+                    f_save.write(express_value + '\n')
+
+def merge_TE_express_table(gene_express_counts, output_table):
+    TE_families = set()
+    samples = set()
+    TE_express = {}
+    for cur_count_file in gene_express_counts:
+        if not file_exist(cur_count_file):
+            continue
+        file_name = os.path.basename(cur_count_file)
+        sample_name = file_name.replace('.count', '')
+        samples.add(sample_name)
+        with open(cur_count_file, 'r') as f_r:
+            for i, line in enumerate(f_r):
+                if i == 0:
+                    continue
+                parts = line.split('\t')
+                te_name = parts[0]
                 TE_families.add(te_name)
                 counts = parts[1]
                 fpkm = "{:.2f}".format(float(parts[2]))
