@@ -71,7 +71,7 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
     os.system('touch ' + gff_path)
 
 
-def get_single_genome_copies(candidate_sequence_path, split_ref_dir, flanking_len, debug):
+def get_single_genome_copies(candidate_sequence_path, split_ref_dir, flanking_len, genome_name, debug):
     batch_size = 10
     batch_id = 0
     names, contigs = read_fasta(candidate_sequence_path)
@@ -127,7 +127,7 @@ def get_single_genome_copies(candidate_sequence_path, split_ref_dir, flanking_le
                 extend_copy_seq = getReverseSequence(extend_copy_seq)
             if len(extend_copy_seq) < 100:
                 continue
-            new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
+            new_name = genome_name + ':' + ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
             if not extend_all_copies.__contains__(query_name):
                 extend_all_copies[query_name] = {}
             copy_contigs = extend_all_copies[query_name]
@@ -160,7 +160,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         flanking_len = 50
         debug = 0
         # 获取TIR拷贝
-        tir_extend_copies = get_single_genome_copies(keep_tir_low_copy, split_ref_dir, flanking_len, debug)
+        tir_extend_copies = get_single_genome_copies(keep_tir_low_copy, split_ref_dir, flanking_len, genome_name, debug)
         remain_tir_contigs = {}
         for query_name in tir_extend_copies.keys():
             copy_contigs = tir_extend_copies[query_name]
@@ -174,7 +174,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         store_fasta(remain_tir_contigs, keep_tir_low_copy)
 
         # 获取Helitron拷贝
-        helitron_extend_copies = get_single_genome_copies(keep_helitron_low_copy, split_ref_dir, flanking_len, debug)
+        helitron_extend_copies = get_single_genome_copies(keep_helitron_low_copy, split_ref_dir, flanking_len, genome_name, debug)
         remain_helitron_contigs = {}
         for query_name in helitron_extend_copies.keys():
             copy_contigs = helitron_extend_copies[query_name]
@@ -188,7 +188,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         store_fasta(remain_helitron_contigs, keep_helitron_low_copy)
 
         # 获取non_ltr拷贝
-        non_ltr_extend_copies = get_single_genome_copies(keep_non_ltr_low_copy, split_ref_dir, flanking_len, debug)
+        non_ltr_extend_copies = get_single_genome_copies(keep_non_ltr_low_copy, split_ref_dir, flanking_len, genome_name, debug)
         remain_non_ltr_contigs = {}
         for query_name in non_ltr_extend_copies.keys():
             copy_contigs = non_ltr_extend_copies[query_name]
