@@ -46,7 +46,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     process_all_seqs, get_short_tir_contigs, multi_process_EAHelitron, search_confident_tir_v4, \
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
     multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
-    get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD
+    get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD, \
+    split_internal_out
 
 
 def filter_repbase_nonTE():
@@ -3960,8 +3961,8 @@ def draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf):
     # plt.show()
     plt.savefig(output_pdf, format='pdf', bbox_inches='tight')
 
-work_dir = '/home/hukang/test/HiTE/demo'
-log = Logger(work_dir + '/HiTE.log', level='debug')
+# work_dir = '/home/hukang/test/HiTE/demo'
+# log = Logger(work_dir + '/HiTE.log', level='debug')
 
 
 
@@ -3977,54 +3978,21 @@ if __name__ == '__main__':
     #     intact_ltr_paths.append((genome_name, cur_list))
     # draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
 
-    # 找到泛基因组恢复的TE与panTE lib 不同的TE的个数和名称
-    cluster_file = '/home/hukang/test/panTE.merge_recover.fa.clstr'
-    recover_path = '/home/hukang/test/panTE.recover.fa'
-    names, contigs = read_fasta(recover_path)
-    new_contigs = {}
-    for name in names:
-        new_name = name.split('#')[0]
-        new_contigs[new_name] = contigs[name]
-    # 解析聚类文件中的单拷贝
-    cluster_idx = -1
-    clusters = {}
-    with open(cluster_file, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            if line.startswith('>'):
-                cluster_idx = line.split(' ')[1]
-            else:
-                if not clusters.__contains__(cluster_idx):
-                    clusters[cluster_idx] = []
-                cur_cluster = clusters[cluster_idx]
-                name = line.split(',')[1].split(' ')[1].strip()[1:]
-                name = name[0: len(name) - 3]
-                name = name.split('#')[0]
-                cur_cluster.append(name)
-    # 判断簇中是否包含 panTE 序列，例如header中包含#
-    # 从一致性序列中去掉包含 panTE 簇中所包含的序列，剩下的序列即为需要恢复的低拷贝序列
-    removed_ids = set()
-    for cluster_idx in clusters.keys():
-        cur_cluster = clusters[cluster_idx]
-        is_panTE_clstr = False
-        for seq_name in cur_cluster:
-            if 'Recover' not in seq_name:
-                is_panTE_clstr = True
-                break
-        if is_panTE_clstr:
-            for seq_name in cur_cluster:
-                removed_ids.add(seq_name)
-        else:
-            # 如果是recover簇，只保留一个
-            for i, seq_name in enumerate(cur_cluster):
-                if i == 0:
-                    continue
-                removed_ids.add(seq_name)
-    for seq_name in removed_ids:
-        if seq_name in new_contigs:
-            del new_contigs[seq_name]
-    print(len(new_contigs))
-    print(new_contigs.keys())
+
+    temp_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/test'
+    merge_te_file = temp_dir + '/pan_te.tmp.fa'
+    # other_path, internal_path = split_internal_out(merge_te_file, temp_dir)
+    internal_path = temp_dir + '/merged_internal.fa'
+    # 测试 multi_process_align 函数
+    # output_dir = '/home/hukang/test/HiTE/demo/HiTE_rice_std'
+    # pan_terminal_tmp_lib = output_dir + '/pan_te.tmp.fa'
+    # terminal_coverage_threshold = 0.95
+
+    internal_coverage_threshold = 0.8
+    threads = 40
+    deredundant_for_LTR_v5(internal_path, temp_dir, threads, 'internal', internal_coverage_threshold, debug=1)
+
+
 
 
 

@@ -13,6 +13,8 @@ from logging import handlers
 from fuzzysearch import find_near_matches
 import Levenshtein
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Process, Queue
+from collections import defaultdict
 
 class Logger(object):
     level_relations = {
@@ -6874,6 +6876,437 @@ def deredundant_for_LTR(redundant_ltr, work_dir, threads, type, coverage_thresho
     #rename_fasta(ltr_cons_path, ltr_cons_path, 'LTR')
     return ltr_cons_path
 
+def parse_clstr_file(clstr_file):
+    """
+    解析 .clstr 文件，返回一个字典，键为簇编号，值为序列列表。
+    """
+    clusters = defaultdict(list)
+    current_cluster = None
+
+    with open(clstr_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('>Cluster'):
+                # 新簇开始
+                current_cluster = int(line.split()[1])
+            else:
+                # 解析序列条目
+                parts = line.split()
+                seq_id = parts[2][1:-3]  # 提取序列 ID（去掉 '>' 和 '...'）
+                clusters[current_cluster].append(seq_id)
+    return clusters
+
+def filter_clusters(clusters, max_copies=5):
+    """
+    对于每个簇，保留至多 max_copies 个序列。
+    """
+    filtered_clusters = {}
+    for cluster_id, seq_ids in clusters.items():
+        filtered_clusters[cluster_id] = seq_ids[:max_copies]
+    return filtered_clusters
+
+def split_fasta_file(fasta_file, output_prefix, max_sequences):
+    """
+    将 FASTA 文件划分成多个子文件，每个子文件最多包含 max_sequences 条序列。
+    """
+    query_names, query_contigs = read_fasta(fasta_file)
+    split_files = []
+
+    for i in range(0, len(query_names), max_sequences):
+        split_file = f"{output_prefix}_part{i//max_sequences + 1}.fasta"
+        with open(split_file, 'w') as f:
+            for j in range(i, min(i + max_sequences, len(query_names))):
+                f.write(f">{query_names[j]}\n{query_contigs[query_names[j]]}\n")
+        split_files.append(split_file)
+
+    return split_files
+
+def save_filtered_sequences(filtered_clusters, fasta_file, output_file, max_copies):
+    """
+    将过滤后的序列保存到新的 FASTA 文件。
+    """
+    # 读取原始 FASTA 文件
+    query_names, query_contigs = read_fasta(fasta_file)
+
+    # 提取所有需要的序列
+    all_seq_ids = set()
+    for seq_ids in filtered_clusters.values():
+        all_seq_ids.update(seq_ids)
+
+    clean_contigs = {}
+    for seq_id in all_seq_ids:
+        if seq_id in query_contigs:
+            clean_contigs[seq_id] = query_contigs[seq_id]
+    store_fasta(clean_contigs, output_file)
+    print('keep max copy num: ' + str(max_copies) + ', raw cluster sequence num: ' + str(len(query_contigs)) + ', clean cluster sequence num: ' + str(len(clean_contigs)))
+
+def save_data_in_chunks(data, file_path, chunk_size=1000):
+    """
+    通用函数：将字典数据分块存储到文件中。
+
+    :param data: 字典数据。
+    :param file_path: 文件路径。
+    :param chunk_size: 每个块的大小。
+    """
+    keys = list(data.keys())
+    for i in range(0, len(keys), chunk_size):
+        chunk_keys = keys[i:i + chunk_size]
+        chunk_data = {k: data[k] for k in chunk_keys}
+        # 将当前块写入文件
+        with open(file_path, 'a') as f:
+            json.dump(chunk_data, f)
+            f.write('\n')  # 每块数据占一行
+
+def read_chunk_from_file(file_path):
+    """
+    从文件中逐块读取 query_records。
+
+    :param file_path: 文件路径。
+    :return: 生成器，每次返回一个块的 query_records。
+    """
+    with open(file_path, 'r') as f:
+        for line in f:
+            yield json.loads(line)
+
+
+def extend_fragments(fragments, skip_gap, subject_name, is_forward=True):
+    """
+    扩展片段（正向或反向）。
+
+    :param fragments: 片段列表。
+    :param skip_gap: 允许的最大间隔。
+    :param subject_name: 当前 subject 的名称。
+    :param is_forward: 是否为正向片段。
+    :return: 扩展后的片段列表。
+    """
+    if is_forward:
+        fragments.sort(key=lambda x: (x[2], x[3]))  # 按 subject_start, subject_end 排序
+    else:
+        fragments.sort(key=lambda x: (-x[2], -x[3]))  # 按 subject_start, subject_end 反向排序
+
+    long_frags = {}  # 存储扩展后的片段
+    frag_index_array = []  # 存储片段的索引
+    frag_index = 0  # 当前片段的索引
+
+    for frag in fragments:
+        is_update = False
+        cur_subject_start = frag[2]
+        cur_subject_end = frag[3]
+        cur_query_start = frag[0]
+        cur_query_end = frag[1]
+
+        # 遍历已有的扩展片段，尝试扩展
+        for cur_frag_index in reversed(frag_index_array):
+            prev_frag = long_frags[cur_frag_index]
+            prev_subject_start = prev_frag[2]
+            prev_subject_end = prev_frag[3]
+            prev_query_start = prev_frag[0]
+            prev_query_end = prev_frag[1]
+
+            if is_forward:
+                # 正向片段：检查 subject 和 query 的间隔
+                if cur_subject_start - prev_subject_end >= skip_gap:
+                    break  # 间隔过大，无法扩展
+
+                # 检查是否可以扩展
+                if (cur_query_start - prev_query_end < skip_gap and  # query 间隔小于 skip_gap
+                        cur_query_end > prev_query_end and  # 新的 query_end 更大
+                        cur_subject_end > prev_subject_end):  # 新的 subject_end 更大
+                    # 扩展片段
+                    prev_query_start = min(prev_query_start, cur_query_start)
+                    prev_query_end = cur_query_end
+                    prev_subject_start = min(prev_subject_start, cur_subject_start)
+                    prev_subject_end = cur_subject_end
+                    long_frags[cur_frag_index] = (
+                    prev_query_start, prev_query_end, prev_subject_start, prev_subject_end, subject_name)
+                    is_update = True
+            else:
+                # 反向片段：检查 subject 和 query 的间隔
+                if prev_subject_end - cur_subject_start >= skip_gap:
+                    break  # 间隔过大，无法扩展
+
+                # 检查是否可以扩展
+                if (cur_query_start - prev_query_end < skip_gap and  # query 间隔小于 skip_gap
+                        cur_query_end > prev_query_end and  # 新的 query_end 更大
+                        cur_subject_end < prev_subject_end):  # 新的 subject_end 更小（反向）
+                    # 扩展片段
+                    prev_query_start = prev_query_start
+                    prev_query_end = cur_query_end
+                    prev_subject_start = max(prev_subject_start, cur_subject_start)
+                    prev_subject_end = cur_subject_end
+                    long_frags[cur_frag_index] = (
+                    prev_query_start, prev_query_end, prev_subject_start, prev_subject_end, subject_name)
+                    is_update = True
+
+        # 如果当前片段没有扩展任何已有片段，则将其作为新片段加入
+        if not is_update:
+            frag_index_array.append(frag_index)
+            long_frags[frag_index] = (cur_query_start, cur_query_end, cur_subject_start, cur_subject_end, subject_name)
+            frag_index += 1
+
+    return list(long_frags.values())
+
+
+def process_chunk(query_contigs, chunk_records, full_length_threshold):
+    """
+    处理一个块的 query_records。
+
+    :param query_contigs: 字典，key 是 query_name，value 是 query 序列。
+    :param chunk_records: 字典，当前块的 query_records。
+    :param full_length_threshold: 阈值，用于判断是否扩展片段。
+    :return: 字典，key 是 query_name，value 是 longest_repeats 列表。
+    """
+    longest_repeats = {}
+    for idx, query_name in enumerate(chunk_records.keys()):
+        subject_dict = chunk_records[query_name]
+        if query_name not in query_contigs:
+            continue
+        query_len = len(query_contigs[query_name])
+        skip_gap = query_len * (1 - full_length_threshold)
+
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            subject_pos = subject_dict[subject_name]
+
+            # 分为正向和反向片段
+            forward_pos = [pos for pos in subject_pos if pos[2] <= pos[3]]
+            reverse_pos = [pos for pos in subject_pos if pos[2] > pos[3]]
+
+            # 处理正向片段
+            forward_long_frags = extend_fragments(forward_pos, skip_gap, subject_name, is_forward=True)
+            longest_queries.extend(forward_long_frags)
+
+            # 处理反向片段
+            reverse_long_frags = extend_fragments(reverse_pos, skip_gap, subject_name, is_forward=False)
+            longest_queries.extend(reverse_long_frags)
+
+        # 将当前 query_name 的结果保存到 longest_repeats 中
+        if query_name not in longest_repeats:
+            longest_repeats[query_name] = []
+        for repeat in longest_queries:
+            longest_repeats[query_name].append((
+                query_name, repeat[0] - 1, repeat[1], repeat[4], repeat[2] - 1, repeat[3]
+            ))
+
+    return longest_repeats
+
+
+def read_fasta_in_chunks(fasta_path, chunk_size=1000):
+    """
+    逐块读取 .fa 文件。
+
+    :param fasta_path: .fa 文件路径。
+    :param chunk_size: 每个块的大小（记录数）。
+    :return: 生成器，每次返回一个块的记录（字典形式）。
+    """
+    if not os.path.exists(fasta_path):
+        raise FileNotFoundError(f"File {fasta_path} does not exist.")
+
+    contignames = []
+    contigs = {}
+    chunk_count = 0
+
+    with open(fasta_path, 'r') as rf:
+        contigname = ''
+        contigseq = ''
+        for line in rf:
+            if line.startswith('>'):
+                if contigname != '' and contigseq != '':
+                    contigs[contigname] = contigseq
+                    contignames.append(contigname)
+                    chunk_count += 1
+
+                    # 如果达到块大小，返回当前块
+                    if chunk_count >= chunk_size:
+                        yield contignames, contigs
+                        contignames = []
+                        contigs = {}
+                        chunk_count = 0
+
+                contigname = line.strip()[1:].split(" ")[0].split('\t')[0]
+                contigseq = ''
+            else:
+                contigseq += line.strip().upper()
+
+        # 返回最后一个块
+        if contigname != '' and contigseq != '':
+            contigs[contigname] = contigseq
+            contignames.append(contigname)
+            yield contignames, contigs
+
+def writer_process(output_file, queue):
+    """
+    单独的进程负责从队列中读取数据并写入文件。
+
+    :param output_file: 输出文件路径。
+    :param queue: 共享队列。
+    """
+    with open(output_file, 'w') as f:
+        while True:
+            data = queue.get()
+            if data is None:  # 结束信号
+                break
+            json.dump(data, f)
+            f.write('\n')  # 每块数据占一行
+
+def save_data_in_chunks_queue(data, queue, chunk_size=1000):
+    """
+    将数据块放入队列。
+
+    :param data: 字典数据。
+    :param queue: 共享队列。
+    :param chunk_size: 每个块的大小。
+    """
+    keys = list(data.keys())
+    for i in range(0, len(keys), chunk_size):
+        chunk_keys = keys[i:i + chunk_size]
+        chunk_data = {k: data[k] for k in chunk_keys}
+        queue.put(chunk_data)
+
+def FMEA_new1_parallel_large(query_contigs_file, query_records_file, coverage_threshold, output_file, num_processes=4, chunk_size=1000):
+    """
+    并行化处理大文件 query_contigs 和 query_records，按块存储结果。
+
+    :param query_contigs_file: 存储 query_contigs 的文件路径。
+    :param query_records_file: 存储 query_records 的文件路径。
+    :param coverage_threshold: 阈值，用于判断是否扩展片段。
+    :param output_file: 存储结果的输出文件路径。
+    :param num_processes: 并行进程数（默认为 4）。
+    :param chunk_size: 每个块的大小（记录数）。
+    """
+    # 使用 ProcessPoolExecutor 并行处理
+    with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        futures = []
+        # 逐块读取 query_contigs
+        for chunk_contignames, chunk_contigs in read_fasta_in_chunks(query_contigs_file, chunk_size):
+            # 逐块读取 query_records
+            for chunk_records in read_chunk_from_file(query_records_file):
+                # 提交任务到进程池
+                future = executor.submit(process_chunk, chunk_contigs, chunk_records, coverage_threshold)
+                futures.append(future)
+
+        # 合并所有临时文件
+        with open(output_file, 'w') as out_file:
+            for future in futures:
+                chunk_results = future.result()
+                # 将当前块的结果写入临时文件
+                with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                    json.dump(chunk_results, temp_file)
+                    temp_file.write('\n')  # 每块数据占一行
+                    temp_file_path = temp_file.name
+
+                # 将临时文件内容追加到输出文件
+                with open(temp_file_path, 'r') as temp_file:
+                    out_file.write(temp_file.read())
+                os.remove(temp_file_path)  # 删除临时文件
+
+
+def is_above_coverage_threshold(query_len, subject_len, q_len, s_len, coverage_threshold):
+    """
+    判断 query 和 subject 的覆盖度是否超过阈值。
+
+    :param query_len: query 序列的长度。
+    :param subject_len: subject 序列的长度。
+    :param q_len: query 片段的长度。
+    :param s_len: subject 片段的长度。
+    :param coverage_threshold: 覆盖度阈值。
+    :return: 如果覆盖度超过阈值，返回 True；否则返回 False。
+    """
+    return (float(q_len) / query_len >= coverage_threshold) or (float(s_len) / subject_len >= coverage_threshold)
+
+
+def cluster_sequences_from_chunks(longest_repeats_path, contigs, coverage_threshold):
+    """
+    从文件中逐块读取 longest_repeats 并进行聚类。
+
+    :param longest_repeats_path: 存储 longest_repeats 的文件路径。
+    :param contigs: 字典，key 是序列名称，value 是序列内容。
+    :param coverage_threshold: 覆盖度阈值。
+    :return: 聚类结果（列表，每个元素是一个集合）。
+    """
+    keep_clusters = []  # 存储最终的聚类结果
+    redundant_ltr_names = set()  # 存储已经处理过的序列名称
+
+    # 逐块读取 longest_repeats
+    for chunk in read_chunk_from_file(longest_repeats_path):
+        for query_name in chunk.keys():
+            if query_name in redundant_ltr_names:
+                continue  # 如果 query_name 已经处理过，跳过
+
+            longest_repeats_list = chunk[query_name]
+            if not longest_repeats_list:
+                continue  # 如果片段列表为空，跳过
+
+            cur_cluster = set()  # 当前聚类
+            cur_cluster.add(query_name)
+
+            # 获取 query 序列的长度
+            query_len = len(contigs[query_name])
+
+            for cur_longest_repeat in longest_repeats_list:
+                subject_name = cur_longest_repeat[3]
+                if subject_name in redundant_ltr_names:
+                    continue  # 如果 subject_name 已经处理过，跳过
+
+                # 获取 subject 序列的长度
+                subject_len = len(contigs[subject_name])
+
+                # 计算 query 和 subject 片段的长度
+                q_len = abs(cur_longest_repeat[2] - cur_longest_repeat[1])
+                s_len = abs(cur_longest_repeat[5] - cur_longest_repeat[4])
+
+                # 判断是否超过覆盖度阈值
+                if is_above_coverage_threshold(query_len, subject_len, q_len, s_len, coverage_threshold):
+                    cur_cluster.add(subject_name)
+                    redundant_ltr_names.add(subject_name)
+
+            keep_clusters.append(cur_cluster)
+
+    return keep_clusters
+
+import csv
+def process_blast_results_in_chunks(blastnResults_path, work_dir, type, chunk_size=50_000):
+    """
+    逐块处理 BLAST 结果并存储到文件中。
+
+    :param blastnResults_path: BLAST 结果文件路径。
+    :param work_dir: 输出文件目录。
+    :param type: 文件类型标识。
+    :param chunk_size: 每个块的大小。
+    """
+    # 初始化 query_records 字典
+    query_records = defaultdict(lambda: defaultdict(list))
+    query_records_path = f"{work_dir}/LTR_query_records_{type}.json"
+
+    # 打开 BLAST 结果文件并逐行读取
+    with open(blastnResults_path, 'r') as f_r:
+        reader = csv.reader(f_r, delimiter='\t')
+        for idx, parts in enumerate(reader):
+            # 解析每一行的比对结果
+            query_name = parts[0]
+            subject_name = parts[1]
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+
+            # 跳过自比对
+            if query_name == subject_name and q_start == s_start and q_end == s_end:
+                continue
+
+            # 将比对结果存储到 query_records 中
+            query_records[query_name][subject_name].append((q_start, q_end, s_start, s_end))
+
+            # 每处理 chunk_size 行，存储一次数据
+            if (idx + 1) % chunk_size == 0:
+                save_data_in_chunks(query_records, query_records_path, chunk_size=chunk_size)
+                query_records.clear()  # 清空当前块的数据
+
+        # 存储剩余的数据
+        if query_records:
+            save_data_in_chunks(query_records, query_records_path, chunk_size=chunk_size)
+    return query_records_path
+
 def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_threshold, debug):
     starttime = time.time()
     # We found that performing a direct mafft alignment on the redundant LTR library was too slow.
@@ -6881,35 +7314,17 @@ def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_thre
     tmp_blast_dir = work_dir + '/LTR_blastn_' + str(type)
     blastnResults_path = work_dir + '/LTR_blastn_' + str(type) + '.out'
     # 1. Start by performing an all-vs-all comparison using blastn.
-    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True)
+    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True, is_remove_index=True)
     if not os.path.exists(blastnResults_path):
         return redundant_ltr
     # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
-    longest_repeats = FMEA_new(redundant_ltr, blastnResults_path, coverage_threshold)
+    query_records_path = process_blast_results_in_chunks(blastnResults_path, work_dir, type, chunk_size=50_000)
+    longest_repeats_path = work_dir + '/LTR_longest_repeats_' + str(type) + '.json'
+    FMEA_new1_parallel_large(redundant_ltr, query_records_path, coverage_threshold, longest_repeats_path, num_processes=threads, chunk_size=50_000)
 
     # 3. If the combined sequence length constitutes 95% or more of the original individual sequence lengths, we place these two sequences into a cluster.
     contigNames, contigs = read_fasta(redundant_ltr)
-    keep_clusters = []
-    redundant_ltr_names = set()
-    for query_name in longest_repeats.keys():
-        if query_name in redundant_ltr_names:
-            continue
-        longest_repeats_list = longest_repeats[query_name]
-        cur_cluster = set()
-        cur_cluster.add(query_name)
-        for cur_longest_repeat in longest_repeats_list:
-            query_name = cur_longest_repeat[0]
-            query_len = len(contigs[query_name])
-            q_len = abs(cur_longest_repeat[2] - cur_longest_repeat[1])
-            subject_name = cur_longest_repeat[3]
-            subject_len = len(contigs[subject_name])
-            s_len = abs(cur_longest_repeat[4] - cur_longest_repeat[5])
-            # 我们这里先将跨过 gap 之后的全长拷贝先聚类在一起，后续再使用 cd-hit 将碎片化合并到全长拷贝中
-            if float(q_len) / query_len >= coverage_threshold or float(s_len) / subject_len >= coverage_threshold:
-                # we consider the query and subject to be from the same family.
-                cur_cluster.add(subject_name)
-                redundant_ltr_names.add(subject_name)
-        keep_clusters.append(cur_cluster)
+    keep_clusters = cluster_sequences_from_chunks(longest_repeats_path, contigs, coverage_threshold)
 
     endtime = time.time()
     dtime = endtime - starttime
@@ -6917,7 +7332,6 @@ def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_thre
     if not debug:
         os.system('rm -f ' + blastnResults_path)
         os.system('rm -rf ' + tmp_blast_dir)
-
 
     starttime = time.time()
     # store cluster
@@ -6934,7 +7348,7 @@ def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_thre
             cur_cluster_contigs[ltr_name] = contigs[ltr_name]
             all_unique_name.add(ltr_name)
         store_fasta(cur_cluster_contigs, cur_cluster_path)
-        raw_cluster_files.append((cluster_id, cur_cluster_path))
+        raw_cluster_files.append((cluster_id, cur_cluster_path, len(cur_cluster_contigs)))
     # We save the sequences that did not appear in any clusters separately. These sequences do not require clustering.
     uncluster_path = work_dir + '/uncluster_ltr_' + str(type) + '.fa'
     uncluster_contigs = {}
@@ -6943,13 +7357,66 @@ def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_thre
             uncluster_contigs[name] = contigs[name]
     store_fasta(uncluster_contigs, uncluster_path)
 
+    # 4. 每个簇的文件可能很大，我们可以先对簇用cd-hit-est聚类，对每个子簇最多保留5个拷贝，这样处理后的簇应该会小很多
+    # mafft 无法处理过多的比对，我们将每个簇的大小限制在 10000 以内
+    cluster_clean_threshold = 10000
+    clean_cluster_files = []
+    clean_cluster_id = 0
+    for cluster_id, cur_cluster_path, cluster_size in raw_cluster_files:
+        if cluster_size > cluster_clean_threshold:
+            print('current cluster size over ' + str(cluster_clean_threshold) + ', try to reduce cluster size, current cluster_id:' + str(cluster_id))
+            cur_cluster_cons = cur_cluster_path + '.cons'
+            cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(coverage_threshold) \
+                             + ' -d 0 -G 0 -g 1 -A 80 -i ' + cur_cluster_path + ' -o ' + cur_cluster_cons + ' -T 0 -M 0'
+            os.system(cd_hit_command + ' > /dev/null 2>&1')
+            cluster_file = cur_cluster_cons + '.clstr'
+
+            first_round_cluster_path = cur_cluster_path
+            # 解析生成的 .clstr 文件
+            clusters = parse_clstr_file(cluster_file)
+            is_pass = False
+            # 尝试不同的 max_copies 值
+            for max_copies in [5, 3, 1]:
+                # 过滤簇，保留至多 max_copies 个序列
+                filtered_clusters = filter_clusters(clusters, max_copies)
+                # 从原始 FASTA 文件中提取序列并保存
+                cur_cluster_clean = cur_cluster_path + f'.clean_{max_copies}'
+                save_filtered_sequences(filtered_clusters, cur_cluster_path, cur_cluster_clean, max_copies)
+                if max_copies == 5:
+                    first_round_cluster_path = cur_cluster_clean
+                # 检查处理后的簇大小
+                with open(cur_cluster_clean, 'r') as f:
+                    clean_cluster_size = sum(1 for line in f if line.startswith('>'))
+                # 如果簇大小小于阈值，返回结果
+                if clean_cluster_size <= cluster_clean_threshold:
+                    # 清理临时文件
+                    os.remove(cur_cluster_cons)
+                    os.remove(cluster_file)
+                    clean_cluster_files.append((clean_cluster_id, cur_cluster_clean))
+                    clean_cluster_id += 1
+                    is_pass = True
+                    break
+            if not is_pass:
+                # 如果所有 max_copies 都尝试过仍未满足条件，将文件划分成多个子文件
+                print(f'Cluster {cluster_id} still over threshold after filtering. Splitting into smaller files...')
+                split_files = split_fasta_file(first_round_cluster_path, first_round_cluster_path, cluster_clean_threshold)
+                for split_file in split_files:
+                    clean_cluster_files.append((clean_cluster_id, split_file))
+                    clean_cluster_id += 1
+                # 清理临时文件
+                os.remove(cur_cluster_cons)
+                os.remove(cluster_file)
+        else:
+            clean_cluster_files.append((clean_cluster_id, cur_cluster_path))
+            clean_cluster_id += 1
+
     # 4. The final cluster should encompass all instances from the same family.
     # We use Ninja to cluster families precisely, and
     # We then use the mafft+majority principle to generate a consensus sequence for each cluster.
     ex = ProcessPoolExecutor(threads)
     jobs = []
-    for cluster_id, cur_cluster_path in raw_cluster_files:
-        job = ex.submit(generate_cons, cluster_id, cur_cluster_path, cluster_dir, 1)
+    for cluster_id, cur_cluster_path in clean_cluster_files:
+        job = ex.submit(generate_cons_v1, cluster_id, cur_cluster_path, cluster_dir, 1)
         jobs.append(job)
     ex.shutdown(wait=True)
     all_cons = {}
@@ -7596,7 +8063,8 @@ def generate_cons_v1(cluster_id, cur_cluster_path, cluster_dir, threads):
     cons_contigs = {}
     if len(ltr_terminal_contigs) >= 1:
         align_file = cur_cluster_path + '.maf.fa'
-        align_command = 'cd ' + cluster_dir + ' && famsa -t ' + str(threads) + ' ' + cur_cluster_path + ' ' + align_file + ' > /dev/null 2>&1'
+        align_command = 'cd ' + cluster_dir + ' && mafft --preservecase --quiet --thread ' + str(threads) + ' ' + cur_cluster_path + ' > ' + align_file
+        # align_command = 'cd ' + cluster_dir + ' && famsa -t ' + str(threads) + ' -medoidtree ' + cur_cluster_path + ' ' + align_file + ' > /dev/null 2>&1'
         os.system(align_command)
 
         # 调用 Ninja 对多序列比对再次聚类
@@ -7624,13 +8092,66 @@ def generate_cons_v1(cluster_id, cur_cluster_path, cluster_dir, threads):
                 align_command = 'cd ' + Ninja_cluster_dir + ' && mafft --preservecase --quiet --thread ' + str(threads) + ' ' + cur_cluster_file + ' > ' + cur_align_file
                 # align_command = 'cd ' + Ninja_cluster_dir + ' && famsa -t ' + str(threads) + ' -medoidtree ' + cur_cluster_file + ' ' + cur_align_file + ' > /dev/null 2>&1'
                 os.system(align_command)
-                cons_seq = cons_from_mafft(cur_align_file)
+                cons_seq = cons_from_mafft_v1(cur_align_file)
                 cons_contigs[cur_ltr_name] = cons_seq
     # 如果未能识别到可靠的一致性序列，则使用原始序列代替
     if len(cons_contigs) > 0:
         return cons_contigs
     else:
         return ltr_terminal_contigs
+
+def cons_from_mafft_v1(align_file):
+    align_names, align_contigs = read_fasta(align_file)
+    if len(align_names) <= 0:
+        return None
+
+    # Generate a consensus sequence using full-length copies.
+    first_seq = align_contigs[align_names[0]]
+    col_num = len(first_seq)
+    row_num = len(align_names)
+    matrix = [[''] * col_num for i in range(row_num)]
+    for row, name in enumerate(align_names):
+        seq = align_contigs[name]
+        for col in range(len(seq)):
+            matrix[row][col] = seq[col]
+    # Record the base composition of each column.
+    col_base_map = {}
+    for col_index in range(col_num):
+        if not col_base_map.__contains__(col_index):
+            col_base_map[col_index] = {}
+        base_map = col_base_map[col_index]
+        # Calculate the percentage of each base in the current column.
+        if len(base_map) == 0:
+            for row in range(row_num):
+                cur_base = matrix[row][col_index]
+                if not base_map.__contains__(cur_base):
+                    base_map[cur_base] = 0
+                cur_count = base_map[cur_base]
+                cur_count += 1
+                base_map[cur_base] = cur_count
+        if not base_map.__contains__('-'):
+            base_map['-'] = 0
+
+    ## Generate a consensus sequence.
+    model_seq = ''
+    for col_index in range(col_num):
+        base_map = col_base_map[col_index]
+        # Identify the most frequently occurring base if it exceeds the threshold valid_col_threshold.
+        max_base_count = 0
+        max_base = ''
+        for cur_base in base_map.keys():
+            if cur_base == '-':
+                continue
+            cur_count = base_map[cur_base]
+            if cur_count > max_base_count:
+                max_base_count = cur_count
+                max_base = cur_base
+        if max_base_count > int(row_num / 2):
+            if max_base != '-':
+                model_seq += max_base
+            else:
+                continue
+    return model_seq
 
 def file_exist(resut_file):
     if os.path.isfile(resut_file):  # 输入是文件
@@ -7867,6 +8388,9 @@ def FMEA_LTR(blastn2Results_path, fixed_extend_base_threshold):
     return longest_repeats
 
 def FMEA_new(query_path, blastn2Results_path, full_length_threshold):
+    longest_repeats = {}
+    if not os.path.exists(blastn2Results_path):
+        return longest_repeats
     # parse blastn output, determine the repeat boundary
     # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
     query_records = {}
@@ -7897,7 +8421,6 @@ def FMEA_new(query_path, blastn2Results_path, full_length_threshold):
     query_names, query_contigs = read_fasta(query_path)
 
     # 我们现在尝试新的策略，直接在生成簇的时候进行扩展，同时新的比对片段和所有的扩展片段进行比较，判断是否可以扩展
-    longest_repeats = {}
     for idx, query_name in enumerate(query_records.keys()):
         subject_dict = query_records[query_name]
 
@@ -8013,48 +8536,80 @@ def FMEA_new(query_path, blastn2Results_path, full_length_threshold):
     return longest_repeats
 
 
-def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True):
-    tools_dir = ''
-    if is_removed_dir:
-        os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
+def split_fasta_by_size(input_path, output_dir, max_sequences_per_file):
+    """将FASTA文件分割成多个小文件，每个文件最多包含 max_sequences_per_file 条序列。"""
+    os.makedirs(output_dir, exist_ok=True)
+    file_count = 0
+    current_sequences = {}
+    with open(input_path, 'r') as file:
+        header = ''
+        sequence = ''
+        for line in file:
+            line = line.strip()
+            if line.startswith('>'):
+                if header and len(current_sequences) >= max_sequences_per_file:
+                    # 保存当前序列到文件
+                    output_path = os.path.join(output_dir, f'split_{file_count}.fa')
+                    store_fasta(current_sequences, output_path)
+                    file_count += 1
+                    current_sequences = {}
+                header = line[1:]
+                sequence = ''
+                current_sequences[header] = sequence
+            else:
+                sequence += line
+                current_sequences[header] = sequence
+        # 保存剩余的序列
+        if current_sequences:
+            output_path = os.path.join(output_dir, f'split_{file_count}.fa')
+            store_fasta(current_sequences, output_path)
+    return file_count + 1
 
+
+def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True, is_remove_index=False):
+    """多进程BLAST比对主函数。"""
+    # 清理和创建临时目录
+    if is_removed_dir:
+        os.system(f'rm -rf {tmp_blast_dir}')
+    os.makedirs(tmp_blast_dir, exist_ok=True)
+
+    # 删除旧的比对结果
     if os.path.exists(blastnResults_path):
         os.remove(blastnResults_path)
 
-    orig_names, orig_contigs = read_fasta(query_path)
+    # 构建BLAST数据库
+    blast_db_command = f'makeblastdb -dbtype nucl -in {subject_path} > /dev/null 2>&1'
+    if os.system(blast_db_command) != 0:
+        raise RuntimeError("Failed to create BLAST database.")
 
-    blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
-    os.system(blast_db_command)
+    # 分割查询序列
+    split_dir = os.path.join(tmp_blast_dir, 'split_files')
+    max_sequences_per_file = 1000  # 每个文件最多包含 1000 条序列
+    num_files = split_fasta_by_size(query_path, split_dir, max_sequences_per_file)
 
+    # 多进程比对
     longest_repeat_files = []
-    segments_cluster = divided_array(list(orig_contigs.items()), threads)
-    for partition_index, cur_segments in enumerate(segments_cluster):
-        if len(cur_segments) <= 0:
-            continue
-        single_tmp_dir = tmp_blast_dir + '/' + str(partition_index)
-        #print('current partition_index: ' + str(partition_index))
-        if not os.path.exists(single_tmp_dir):
-            os.makedirs(single_tmp_dir)
-        split_repeat_file = single_tmp_dir + '/repeats_split.fa'
-        cur_contigs = {}
-        for item in cur_segments:
-            cur_contigs[item[0]] = item[1]
-        store_fasta(cur_contigs, split_repeat_file)
-        repeats_path = (split_repeat_file, subject_path, single_tmp_dir + '/temp.out')
-        longest_repeat_files.append(repeats_path)
+    for i in range(num_files):
+        split_query_file = os.path.join(split_dir, f'split_{i}.fa')
+        output_file = os.path.join(tmp_blast_dir, f'temp_{i}.out')
+        longest_repeat_files.append((split_query_file, subject_path, output_file))
 
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for file in longest_repeat_files:
-        job = ex.submit(multiple_alignment_blast, file, tools_dir)
-        jobs.append(job)
-    ex.shutdown(wait=True)
+    with ProcessPoolExecutor(max_workers=threads) as ex:
+        jobs = [ex.submit(multiple_alignment_blast, file, '') for file in longest_repeat_files]
+        for job in as_completed(jobs):
+            cur_blastn2Results_path = job.result()
+            os.system(f'cat {cur_blastn2Results_path} >> {blastnResults_path}')
+            if os.path.exists(cur_blastn2Results_path):
+                os.remove(cur_blastn2Results_path)
 
-    for job in as_completed(jobs):
-        cur_blastn2Results_path = job.result()
-        os.system('cat ' + cur_blastn2Results_path + ' >> ' + blastnResults_path)
+    # 清理临时文件和索引
+    if is_remove_index:
+        for ext in ['nhr', 'nin', 'nsq']:
+            index_file = f'{subject_path}.{ext}'
+            if os.path.exists(index_file):
+                os.remove(index_file)
+    if is_removed_dir:
+        os.system(f'rm -rf {tmp_blast_dir}')
 
 def multi_process_align_blastx(query_path, subject_path, blastxResults_path, tmp_blast_dir, threads, is_removed_dir=True):
     tools_dir = ''

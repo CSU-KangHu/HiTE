@@ -164,10 +164,13 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         remain_tir_contigs = {}
         for query_name in tir_extend_copies.keys():
             copy_contigs = tir_extend_copies[query_name]
+            # 将当前获取的拷贝存储到已识别拷贝中
+            if query_name not in keep_tir_extend_copies:
+                keep_tir_extend_copies[query_name] = {}
+            cur_exist_copies = keep_tir_extend_copies[query_name]
+            cur_exist_copies.update(copy_contigs)
             # 如果当前获得了超过100个拷贝或者当前已经是最后一轮，则不需要进行下一轮
-            if len(copy_contigs) >= 100 or i == len(genome_paths) - 1:
-                keep_tir_extend_copies[query_name] = copy_contigs
-            else:
+            if not (len(cur_exist_copies) >= 100 or i == len(genome_paths) - 1):
                 if query_name in raw_tir_contigs:
                     remain_tir_contigs[query_name] = raw_tir_contigs[query_name]
         # 经过一轮获取拷贝之后，剩下的序列仍然没有获得100个拷贝，因此需要进一步比对到其他基因组上
@@ -178,10 +181,13 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         remain_helitron_contigs = {}
         for query_name in helitron_extend_copies.keys():
             copy_contigs = helitron_extend_copies[query_name]
+            # 将当前获取的拷贝存储到已识别拷贝中
+            if query_name not in keep_helitron_extend_copies:
+                keep_helitron_extend_copies[query_name] = {}
+            cur_exist_copies = keep_helitron_extend_copies[query_name]
+            cur_exist_copies.update(copy_contigs)
             # 如果当前获得了超过100个拷贝或者当前已经是最后一轮，则不需要进行下一轮
-            if len(copy_contigs) >= 100 or i == len(genome_paths) - 1:
-                keep_helitron_extend_copies[query_name] = copy_contigs
-            else:
+            if not (len(cur_exist_copies) >= 100 or i == len(genome_paths) - 1):
                 if query_name in raw_helitron_contigs:
                     remain_helitron_contigs[query_name] = raw_helitron_contigs[query_name]
         # 经过一轮获取拷贝之后，剩下的序列仍然没有获得100个拷贝，因此需要进一步比对到其他基因组上
@@ -192,10 +198,13 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         remain_non_ltr_contigs = {}
         for query_name in non_ltr_extend_copies.keys():
             copy_contigs = non_ltr_extend_copies[query_name]
+            # 将当前获取的拷贝存储到已识别拷贝中
+            if query_name not in keep_non_ltr_extend_copies:
+                keep_non_ltr_extend_copies[query_name] = {}
+            cur_exist_copies = keep_non_ltr_extend_copies[query_name]
+            cur_exist_copies.update(copy_contigs)
             # 如果当前获得了超过100个拷贝或者当前已经是最后一轮，则不需要进行下一轮
-            if len(copy_contigs) >= 100 or i == len(genome_paths) - 1:
-                keep_non_ltr_extend_copies[query_name] = copy_contigs
-            else:
+            if not (len(cur_exist_copies) >= 100 or i == len(genome_paths) - 1):
                 if query_name in raw_non_ltr_contigs:
                     remain_non_ltr_contigs[query_name] = raw_non_ltr_contigs[query_name]
         # 经过一轮获取拷贝之后，剩下的序列仍然没有获得100个拷贝，因此需要进一步比对到其他基因组上
