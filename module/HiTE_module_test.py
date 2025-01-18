@@ -2,6 +2,7 @@
 import argparse
 import os
 import re
+import shutil
 import sys
 
 import codecs
@@ -10,6 +11,7 @@ import json
 import tempfile
 import time
 import math
+import uuid
 
 #import regex
 from fuzzysearch import find_near_matches
@@ -47,7 +49,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
     multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
     get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD, \
-    split_internal_out
+    split_internal_out, create_or_clear_directory, copy_files
 
 
 def filter_repbase_nonTE():
@@ -3979,20 +3981,30 @@ if __name__ == '__main__':
     # draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
 
 
-    temp_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/test'
+    output_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/test'
+    merge_te_file = output_dir + '/pan_te.tmp.fa'
+
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/HiTE_module_test_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
+    os.system('cp ' + merge_te_file + ' ' + temp_dir)
     merge_te_file = temp_dir + '/pan_te.tmp.fa'
-    # other_path, internal_path = split_internal_out(merge_te_file, temp_dir)
-    internal_path = temp_dir + '/merged_internal.fa'
-    # 测试 multi_process_align 函数
-    # output_dir = '/home/hukang/test/HiTE/demo/HiTE_rice_std'
-    # pan_terminal_tmp_lib = output_dir + '/pan_te.tmp.fa'
-    # terminal_coverage_threshold = 0.95
+    other_path, internal_path = split_internal_out(merge_te_file, temp_dir)
+
+    terminal_coverage_threshold = 0.95
+    threads = 40
+    deredundant_for_LTR_v5(other_path, temp_dir, threads, 'terminal', terminal_coverage_threshold, debug=1)
 
     internal_coverage_threshold = 0.8
     threads = 40
     deredundant_for_LTR_v5(internal_path, temp_dir, threads, 'internal', internal_coverage_threshold, debug=1)
 
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, output_dir)
 
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
 
 
 

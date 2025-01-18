@@ -31,6 +31,7 @@ def helpMessage() {
       --genome      Genome assembly path (format: fasta, fa, and fna)
       --out_dir      Output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
     General options:
+      --threads                         Input thread num. default = [ 10 ]
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
       --curated_lib                     Provide a fully trusted curated library, which will be used to pre-mask highly homologous sequences in the genome. We recommend using TE libraries from Repbase. default = [ None ]
@@ -67,6 +68,7 @@ def printSetting() {
     log.info"""
     ====================================Parameter settings========================================
       [Setting] Reference sequences / assemblies path = [ $params.genome ]
+      [Setting] threads = [ $params.threads ]
       [Setting] Is classified = [ $params.classified ]
       [Setting] Is remove nested TE = [ $params.remove_nested ]
       [Setting] Is getting domain = [ $params.domain ]
@@ -136,6 +138,7 @@ classified = "${params.classified}"
 domain = "${params.domain}"
 annotate = "${params.annotate}"
 debug = "${params.debug}"
+threads = "${params.threads}"
 is_denovo_nonltr = "${params.is_denovo_nonltr}"
 miu = "${params.miu}"
 ref = "${params.genome}"
@@ -193,9 +196,9 @@ process SplitGenome {
 }
 
 process coarseBoundary {
-    tag "${cut_ref}"
+    cpus { params.threads ?: 1 }
 
-    label 'process_high'
+    storeDir "${params.out_dir}/coarseBoundary"
 
     input:
     tuple path(cut_ref), path(prev_TE), path(ref)
@@ -217,92 +220,17 @@ process coarseBoundary {
     """
 }
 
-process TE_identification {
-    tag "${cut_ref}"
-
-    label 'process_high'
-
-    input:
-    tuple path(cut_ref), path(prev_TE)
-
-    output:
-    path "confident_tir_*.fa", emit: ch_tirs
-    path "confident_helitron_*.fa", emit: ch_helitrons
-    path "confident_non_ltr_*.fa", emit: ch_non_ltrs
-
-    script:
-    cores = task.cpus
-    (full, ref_index) = (cut_ref =~ /genome.cut(\d+)\.fa/)[0]
-    """
-    # Step1: De novo TE searching
-    coarse_boundary.py \
-     -g ${cut_ref} --tmp_output_dir ${tmp_output_dir} \
-     --prev_TE ${tmp_output_dir}/prev_TE.fa \
-     --fixed_extend_base_threshold ${fixed_extend_base_threshold} \
-     --max_repeat_len ${max_repeat_len} --thread ${cores} \
-     --flanking_len ${flanking_len} --tandem_region_cutoff ${tandem_region_cutoff} \
-     --ref_index ${ref_index} -r ${out_genome} --recover ${recover} --debug ${debug}
-
-    ## Since nextflow will look for output files in the work directory, we need to copy the script output files to the work directory.
-    cp ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa ./
-
-    # Step2: TIR identification
-    judge_TIR_transposons.py \
-    -g ${cut_ref} --seqs ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa \
-    -t ${cores} \
-    --tmp_output_dir ${tmp_output_dir} \
-    --tandem_region_cutoff ${tandem_region_cutoff} \
-    --ref_index ${ref_index} \
-    --plant ${plant} \
-    --flanking_len ${flanking_len} \
-    --recover ${recover} \
-    --debug ${debug} \
-    -r ${ref} \
-    --split_ref_dir ${tmp_output_dir}/ref_chr
-
-    cp ${tmp_output_dir}/confident_tir_${ref_index}.fa ./
-
-    # Step3: Helitron identification
-    judge_Helitron_transposons.py \
-    --seqs ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa -r ${ref} -t ${cores} \
-    --tmp_output_dir ${tmp_output_dir} \
-    --ref_index ${ref_index} --flanking_len ${flanking_len} \
-    --recover ${recover} --debug ${debug} --split_ref_dir ${tmp_output_dir}/ref_chr
-
-    cp ${tmp_output_dir}/confident_helitron_${ref_index}.fa ./
-
-    # Step4: non-LTR identification
-    judge_Non_LTR_transposons.py \
-    --seqs ${tmp_output_dir}/longest_repeats_${ref_index}.flanked.fa -t ${cores} \
-    --tmp_output_dir ${tmp_output_dir} \
-    --recover ${recover} \
-    --plant ${plant} \
-    --debug ${debug} \
-    --flanking_len ${flanking_len} \
-    --ref_index ${ref_index} \
-    --is_denovo_nonltr ${is_denovo_nonltr} \
-    -r ${ref}
-
-    cp ${tmp_output_dir}/confident_non_ltr_${ref_index}.fa ./
-    """
-}
-
-def groupTuple = {
-    input_ch.collectFileGroups { file -> file.baseName.replaceAll("[^\\d]", "") }
-}
 
 process TIR {
-    tag "${lrf}"
+    cpus { params.threads ?: 1 }
 
-    label 'process_high'
+    storeDir "${params.out_dir}/TIR"
 
     input:
     tuple path(lrf), path(prev_TE), path(ref_chr), path(ref)
 
-
     output:
     path "confident_tir_*.fa",    emit: ch_TIRs
-
 
     script:
     cores = task.cpus
@@ -325,9 +253,9 @@ process TIR {
 }
 
 process Helitron {
-    tag "${lrf}"
+    cpus { params.threads ?: 1 }
 
-    label 'process_high'
+    storeDir "${params.out_dir}/Helitron"
 
     input:
     tuple path(lrf), path(prev_TE), path(ref_chr), path(ref)
@@ -350,16 +278,15 @@ process Helitron {
 }
 
 process Non_LTR {
-    tag "${lrf}"
+    cpus { params.threads ?: 1 }
 
-    label 'process_high'
+    storeDir "${params.out_dir}/Non_LTR"
 
     input:
     tuple path(lrf), path(prev_TE), path(ref_chr), path(ref)
 
     output:
     path "confident_non_ltr_*.fa",    emit: ch_Non_LTRs
-
 
     script:
     cores = task.cpus
@@ -374,6 +301,7 @@ process Non_LTR {
     --debug ${debug} \
     --flanking_len ${flanking_len} \
     --ref_index ${ref_index} \
+    --split_ref_dir ${ref_chr} \
     --is_denovo_nonltr ${is_denovo_nonltr} \
     -r ${ref} --prev_TE ${prev_TE} \
     --all_low_copy_non_ltr ${tmp_output_dir}/non_ltr_low_copy.fa
@@ -403,9 +331,9 @@ process MergeLTROther {
 }
 
 process OtherTE {
-    tag "${ref}"
+    cpus { params.threads ?: 1 }
 
-    label 'process_high'
+    storeDir "${params.out_dir}/OtherTE"
 
     input:
     path ref
@@ -423,17 +351,19 @@ process OtherTE {
 }
 
 process LTR {
-    tag "${ref}"
+    cpus { params.threads ?: 1 }
 
-    label 'process_high'
+    storeDir "${params.out_dir}/LTR"
 
     input:
     path ref
 
     output:
-    path "confident_ltr_cut.fa",    emit: ch_LTRs, optional: true
-    path "genome.rename.fa.pass.list",    emit: ch_LTR_pass_list, optional: true
-    path "chr_name.map",    emit: chr_name_map, optional: true
+    path "confident_ltr_cut.fa",    emit: ch_LTRs
+    path "intact_LTR.list",    emit: ch_LTR_pass_list
+    path "intact_LTR.fa",    emit: ch_intact_LTR
+    path "intact_LTR.fa.classified",    emit: ch_intact_classified_LTR
+    path "chr_name.map",    emit: chr_name_map
 
     script:
     cores = task.cpus
@@ -447,9 +377,7 @@ process LTR {
 }
 
 process UnwrapNested {
-    tag "${ref}"
-
-    label 'process_high'
+    cpus { params.threads ?: 1 }
 
     input:
     path ref
@@ -480,7 +408,9 @@ process UnwrapNested {
 }
 
 process BuildLib {
-    label 'process_single'
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/BuildLib"
 
     input:
     path ltr
@@ -511,7 +441,9 @@ process BuildLib {
 }
 
 process IntactTEAnnotation {
-    label 'process_high'
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/IntactTEAnnotation"
 
     input:
     path ch_TEs
@@ -544,39 +476,19 @@ process IntactTEAnnotation {
     """
 }
 
-
-process ClassifyLib {
-    label 'process_high'
-
-    input:
-    path lib
-
-    output:
-    path "${lib}.classified"
-
-
-    script:
-    cores = task.cpus
-    """
-    get_classified_lib.py \
-     --confident_TE_consensus ${lib} \
-     -t ${cores} --tmp_output_dir ${tmp_output_dir} \
-     --classified ${classified} --domain ${domain} \
-     --debug ${debug}
-    """
-}
-
 process AnnotateGenome {
-    label 'process_high'
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/AnnotateGenome"
 
     input:
     path lib
     path ref
 
     output:
-    path "HiTE.out",    emit: ch_HiTE_out, optional: true
-    path "HiTE.tbl",    emit: ch_HiTE_tbl, optional: true
-    path "HiTE.gff",    emit: ch_HiTE_gff, optional: true
+    path "HiTE.out",    emit: ch_HiTE_out
+    path "HiTE.tbl",    emit: ch_HiTE_tbl
+    path "HiTE.gff",    emit: ch_HiTE_gff
 
     script:
     cores = task.cpus
@@ -589,7 +501,9 @@ process AnnotateGenome {
 }
 
 process Benchmarking {
-    label 'process_high'
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/Benchmarking"
 
     input:
     path TE_lib
@@ -620,47 +534,6 @@ process Benchmarking {
     }
 }
 
-process CleanLib {
-    label 'process_low'
-
-    input:
-    path lib
-
-    output:
-    stdout
-
-
-    script:
-    """
-    clean_lib.py \
-     --tmp_output_dir ${tmp_output_dir} \
-     --debug ${debug}
-    """
-}
-
-
-// allow multi-thread
-process test {
-    tag "${cut_reference}"
-
-    label 'process_low'
-
-    input:
-    val input1
-
-    output:
-    stdout
-
-    script:
-    cores = task.cpus
-
-
-    """
-    # genome.fa.cut0.fa
-    echo "${input1}"
-    """
-
-}
 
 
 /*
@@ -731,7 +604,7 @@ workflow {
         BuildLib(all_ltrs, all_tirs, all_helitrons, all_non_ltrs, all_others)
 
         ch_TEs = BuildLib.out.ch_TEs.collectFile(name: "${out_dir}/confident_TE.cons.fa")
-        BuildLib.out.ch_classified_TE.collectFile(name: "${out_dir}/TE_merge_tmp.fa.classified")
+        ch_classified_TE = BuildLib.out.ch_classified_TE.collectFile(name: "${out_dir}/TE_merge_tmp.fa.classified")
 
         // Step8: Genome annotation
         AnnotateGenome(ch_TEs, ch_genome)

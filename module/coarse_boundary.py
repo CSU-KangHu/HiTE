@@ -1,11 +1,35 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import Logger, flanking_seq, file_exist, determine_repeat_boundary_v5
+from Util import Logger, flanking_seq, file_exist, determine_repeat_boundary_v5, create_or_clear_directory, copy_files
+
+
+def run_coarse_boundary(tmp_output_dir, cut_reference, reference, is_recover, ref_index,
+                        prev_TE, fixed_extend_base_threshold, flanking_len, max_repeat_len,
+                        thread, debug, log):
+    repeats_path = cut_reference
+    longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
+    resut_file = longest_repeats_path
+    if not is_recover or not file_exist(resut_file):
+        # -------------------------------This stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
+        determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold,
+                                     max_repeat_len,
+                                     tmp_output_dir, thread, ref_index, reference, debug)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
+    resut_file = longest_repeats_flanked_path
+    if not is_recover or not file_exist(resut_file):
+        flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
 
 if __name__ == '__main__':
     # 1.parse args
@@ -62,29 +86,25 @@ if __name__ == '__main__':
     if tmp_output_dir is None:
         tmp_output_dir = os.getcwd()
 
-    tmp_output_dir = os.path.abspath(tmp_output_dir) 
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
 
     log = Logger(tmp_output_dir + '/HiTE_coarse.log', level='debug')
 
-    repeats_path = cut_reference
-    longest_repeats_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.fa'
-    resut_file = longest_repeats_path
-    if not is_recover or not file_exist(resut_file):
-        # -------------------------------This stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
-        determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold, max_repeat_len,
-                                     tmp_output_dir, thread, ref_index, reference, debug)
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/coarse_boundary_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
 
-    longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_' + str(ref_index) + '.flanked.fa'
-    resut_file = longest_repeats_flanked_path
-    if not is_recover or not file_exist(resut_file):
-        flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, flanking_len)
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    run_coarse_boundary(temp_dir, cut_reference, reference, is_recover, ref_index,
+                            prev_TE, fixed_extend_base_threshold, flanking_len, max_repeat_len,
+                            thread, debug, log)
 
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
 
-
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
 
 
 

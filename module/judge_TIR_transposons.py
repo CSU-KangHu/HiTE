@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
 import time
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, multi_process_tsd, rename_fasta, file_exist, \
-    run_itrsearch, get_short_tir_contigs, flank_region_align_v5, multi_process_tsd_v1, remove_no_tirs
+    run_itrsearch, get_short_tir_contigs, flank_region_align_v5, multi_process_tsd_v1, remove_no_tirs, \
+    create_or_clear_directory, copy_files
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant,
@@ -48,6 +51,49 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     endtime = time.time()
     dtime = endtime - starttime
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
+
+def run_TIR_detection(tmp_output_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads,
+                      debug, split_ref_dir, all_low_copy_tir, plant, ref_index, is_recover, log):
+    TRsearch_dir = cur_dir + '/tools'
+    subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
+
+    tir_tsd_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.fa'
+    resut_file = tir_tsd_path
+    if not is_recover or not file_exist(resut_file):
+        # Retrieve candidate sequences with TIR+TSD structure from De novo TE searching.
+        log.logger.info('------get TIR+TSD in copies of candidate TIR')
+        starttime = time.time()
+        tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
+        # multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant)
+        multi_process_tsd_v1(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads,
+                             TRsearch_dir, plant)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
+
+    tir_tsd_cons = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.cons.fa'
+    resut_file = tir_tsd_cons
+    if not is_recover or not file_exist(resut_file):
+        log.logger.info('------clustering candidate TIR')
+        starttime = time.time()
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                         + ' -G 0 -g 1 -A 80 -i ' + tir_tsd_path + ' -o ' + tir_tsd_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+        os.system(cd_hit_command)
+        endtime = time.time()
+        dtime = endtime - starttime
+        log.logger.info("Running time of clustering candidate TIR: %.8s s" % (dtime))
+
+    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
+    resut_file = confident_tir_path
+    if not is_recover or not file_exist(resut_file):
+        # Utilize homologous boundary search method to determine the authenticity of TE sequences.
+        is_transposons(tir_tsd_cons, reference, threads, tmp_output_dir, ref_index, log,
+                       subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, is_recover)
+    else:
+        log.logger.info(resut_file + ' exists, skip...')
+
+    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+
 
 if __name__ == '__main__':
     # 1.parse args
@@ -97,10 +143,6 @@ if __name__ == '__main__':
     if not os.path.exists(all_low_copy_tir):
         os.system('touch ' + all_low_copy_tir)
 
-    TRsearch_dir = cur_dir + '/tools'
-    subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
-
-
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)
 
@@ -121,38 +163,17 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_tir.log', level='debug')
 
-    tir_tsd_path = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.fa'
-    resut_file = tir_tsd_path
-    if not is_recover or not file_exist(resut_file):
-        # Retrieve candidate sequences with TIR+TSD structure from De novo TE searching.
-        log.logger.info('------get TIR+TSD in copies of candidate TIR')
-        starttime = time.time()
-        tir_tsd_dir = tmp_output_dir + '/tir_tsd_temp_' + str(ref_index)
-        #multi_process_tsd(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant)
-        multi_process_tsd_v1(longest_repeats_flanked_path, tir_tsd_path, tir_tsd_dir, flanking_len, threads, TRsearch_dir, plant)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of getting TSD in copies of candidate TIR: %.8s s" % (dtime))
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/judge_TIR_transposons_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
 
-    tir_tsd_cons = tmp_output_dir + '/tir_tsd_' + str(ref_index) + '.cons.fa'
-    resut_file = tir_tsd_cons
-    if not is_recover or not file_exist(resut_file):
-        log.logger.info('------clustering candidate TIR')
-        starttime = time.time()
-        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + tir_tsd_path + ' -o ' + tir_tsd_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
-        os.system(cd_hit_command)
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of clustering candidate TIR: %.8s s" % (dtime))
+    run_TIR_detection(temp_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads, debug,
+                      split_ref_dir, all_low_copy_tir, plant, ref_index, is_recover, log)
 
-    confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
-    resut_file = confident_tir_path
-    if not is_recover or not file_exist(resut_file):
-        # Utilize homologous boundary search method to determine the authenticity of TE sequences.
-        is_transposons(tir_tsd_cons, reference, threads, tmp_output_dir, ref_index, log,
-                       subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, is_recover)
-    else:
-        log.logger.info(resut_file + ' exists, skip...')
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
 
-    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

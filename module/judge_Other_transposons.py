@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, getReverseSequence, read_fasta_v2, \
-    multi_process_align_and_get_copies, rename_fasta, Logger, file_exist
+    multi_process_align_and_get_copies, rename_fasta, Logger, file_exist, create_or_clear_directory, copy_files
 
 
 def extract_sequence_from_db(db_path, features, store_path):
@@ -25,41 +27,8 @@ def preprocess():
     store_path = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/non_LTR.lib'
     extract_sequence_from_db(db_path, features, store_path)
 
-if __name__ == '__main__':
-    # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE homology Non_LTR module...')
-    parser.add_argument('-t', metavar='threads number',
-                        help='Input threads number')
-    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--recover', metavar='recover',
-                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
-    parser.add_argument('-r', metavar='Reference path',
-                        help='Input Reference path')
-
-
-    args = parser.parse_args()
-    threads = int(args.t)
-    tmp_output_dir = args.tmp_output_dir
-    recover = args.recover
-    reference = args.r
-
+def run_Other_detection(tmp_output_dir, reference, threads, is_recover, log):
     library_dir = cur_dir + '/library'
-
-    reference = os.path.realpath(reference)
-
-    is_recover = False
-    recover = int(recover)
-    if recover == 1:
-        is_recover = True
-
-    if tmp_output_dir is None:
-        tmp_output_dir = os.getcwd()
-
-    tmp_output_dir = os.path.abspath(tmp_output_dir)
-
-    log = Logger(tmp_output_dir + '/HiTE_other.log', level='debug')
-
     confident_other_path = tmp_output_dir + '/confident_other.fa'
     resut_file = confident_other_path
     if not is_recover or not file_exist(resut_file):
@@ -72,7 +41,8 @@ if __name__ == '__main__':
         confident_non_ltr_contigs = {}
         # 1. Align the library to the reference to obtain copies.
         TE_type = 'non_ltr'
-        all_copies = multi_process_align_and_get_copies(non_LTR_lib, reference, other_TE_dir, TE_type, threads, is_removed_dir=True, query_coverage=0.95, subject_coverage=0)
+        all_copies = multi_process_align_and_get_copies(non_LTR_lib, reference, other_TE_dir, TE_type, threads,
+                                                        is_removed_dir=True, query_coverage=0.95, subject_coverage=0)
 
         # 2. Take the longest copy as the identified non-LTR element.
         ref_names, ref_contigs = read_fasta(reference)
@@ -99,3 +69,50 @@ if __name__ == '__main__':
         rename_fasta(confident_other_path, confident_other_path, 'Homology_Non_LTR')
     else:
         log.logger.info(resut_file + ' exists, skip...')
+
+if __name__ == '__main__':
+    # 1.parse args
+    parser = argparse.ArgumentParser(description='run HiTE homology Non_LTR module...')
+    parser.add_argument('-t', metavar='threads number',
+                        help='Input threads number')
+    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
+                        help='Please enter the directory for output. Use an absolute path.')
+    parser.add_argument('--recover', metavar='recover',
+                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
+    parser.add_argument('-r', metavar='Reference path',
+                        help='Input Reference path')
+
+
+    args = parser.parse_args()
+    threads = int(args.t)
+    tmp_output_dir = args.tmp_output_dir
+    recover = args.recover
+    reference = args.r
+
+    reference = os.path.realpath(reference)
+
+    is_recover = False
+    recover = int(recover)
+    if recover == 1:
+        is_recover = True
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
+
+    log = Logger(tmp_output_dir + '/HiTE_other.log', level='debug')
+
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/judge_Other_transposons_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
+
+    run_Other_detection(temp_dir, reference, threads, is_recover, log)
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

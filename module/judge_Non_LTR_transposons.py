@@ -1,12 +1,86 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, rename_fasta, Logger, file_exist, \
-    flank_region_align_v5, get_candidate_non_ltr_parallel, get_domain_info
+    flank_region_align_v5, get_candidate_non_ltr_parallel, get_domain_info, create_or_clear_directory, copy_files
+
+
+def run_Non_LTR_detection(work_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_denovo_nonltr, is_recover,
+                          threads, flanking_len, reference,plant, debug, all_low_copy_non_ltr, split_ref_dir, log):
+    subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
+    library_dir = cur_dir + '/library'
+
+    TE_type = 'non_ltr'
+    candidate_non_ltr_path = work_dir + '/candidate_non_ltr_' + str(ref_index) + '.fa'
+    confident_non_ltr_path = work_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
+    resut_file = confident_non_ltr_path
+    if is_denovo_nonltr == 1:
+        if not is_recover or not file_exist(resut_file):
+            LINE_domain_path = library_dir + '/LINEPeps.lib'
+            remain_candidate_LINE_path = work_dir + '/remain_candidate_LINE_' + str(ref_index) + '.fa'
+            remain_confident_LINE_path = work_dir + '/remain_confident_LINE_' + str(ref_index) + '.fa'
+            output_table = remain_candidate_LINE_path + '.domain'
+            temp_dir = work_dir + '/candidate_line_domain_' + str(ref_index)
+
+            # Identify Non-LTR elements
+            # 1. Identify candidate sequences with polyA/T + TSD structure from HiTE-FMEA results.
+            candidate_SINE_path, candidate_LINE_path = get_candidate_non_ltr_parallel(longest_repeats_flanked_path,
+                                                                                      work_dir, threads)
+            os.system('cat ' + candidate_SINE_path + ' > ' + candidate_non_ltr_path)
+            os.system('cat ' + candidate_LINE_path + ' >> ' + candidate_non_ltr_path)
+            # 2. Conduct homology search on candidate sequences, and search for polyA tails near homologous boundaries.
+            flank_region_align_v5(candidate_non_ltr_path, confident_non_ltr_path, flanking_len, reference,
+                                  split_ref_dir,
+                                  TE_type, work_dir, threads, ref_index, log, subset_script_path,
+                                  plant, debug, 0, all_low_copy_non_ltr, result_type='cons')
+
+            # 3. Select unrestrained LINE elements from candidate_LINE_path, align them to the domain, and extract reliable LINE elements.
+            line_names, line_contigs = read_fasta(candidate_LINE_path)
+            non_ltr_names, non_ltr_contigs = read_fasta(confident_non_ltr_path)
+            remain_line_contigs = {}
+            for name in line_names:
+                if not non_ltr_contigs.__contains__(name):
+                    remain_line_contigs[name] = line_contigs[name]
+            store_fasta(remain_line_contigs, remain_candidate_LINE_path)
+            get_domain_info(remain_candidate_LINE_path, LINE_domain_path, output_table, threads, temp_dir)
+            domain_names, domain_contigs = read_fasta(LINE_domain_path)
+            confident_LINE_contigs = {}
+            name_set = set()
+            with open(output_table, 'r') as f_r:
+                for i, line in enumerate(f_r):
+                    if i < 2:
+                        continue
+                    parts = line.split('\t')
+                    # 如果包含完整的domain元素，则认为是真LINE元素
+                    domain_name = parts[1]
+                    domain_start = int(parts[4])
+                    domain_end = int(parts[5])
+                    if abs(domain_end - domain_start) / len(domain_contigs[domain_name]) >= 0.95:
+                        name_set.add(parts[0])
+            for name in name_set:
+                confident_LINE_contigs[name] = line_contigs[name]
+            store_fasta(confident_LINE_contigs, remain_confident_LINE_path)
+            # 4. Add reliable LINE elements to confident_non_ltr_path and generate a consensus sequence.
+            os.system('cat ' + remain_confident_LINE_path + ' >> ' + confident_non_ltr_path)
+
+            confident_non_ltr_cons = confident_non_ltr_path + '.cons'
+            cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                             + ' -G 0 -g 1 -A 80 -i ' + confident_non_ltr_path + ' -o ' + confident_non_ltr_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+            os.system(cd_hit_command)
+            rename_fasta(confident_non_ltr_cons, confident_non_ltr_path, 'Non-LTR_' + str(ref_index))
+        else:
+            log.logger.info(resut_file + ' exists, skip...')
+    else:
+        os.system('touch ' + confident_non_ltr_path)
+
+    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+
 
 if __name__ == '__main__':
     # 1.parse args
@@ -35,6 +109,8 @@ if __name__ == '__main__':
                         help='Whether to detect non-ltr de novo, 1: true, 0: false.')
     parser.add_argument('-r', metavar='Reference path',
                         help='Input Reference path.')
+    parser.add_argument('--split_ref_dir', metavar='Split Reference path',
+                        help='Please enter the directory of the split genome.')
     parser.add_argument('--prev_TE', metavar='prev_TE',
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_non_ltr', metavar='all_low_copy_non_ltr',
@@ -51,14 +127,13 @@ if __name__ == '__main__':
     ref_index = args.ref_index
     is_denovo_nonltr = int(args.is_denovo_nonltr)
     reference = args.r
+    split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_non_ltr = args.all_low_copy_non_ltr
 
     if not os.path.exists(all_low_copy_non_ltr):
         os.system('touch ' + all_low_copy_non_ltr)
 
-    subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
-    library_dir = cur_dir + '/library'
 
     reference = os.path.realpath(reference)
 
@@ -76,71 +151,20 @@ if __name__ == '__main__':
         tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
-    work_dir = tmp_output_dir
 
     log = Logger(tmp_output_dir + '/HiTE_Non_LTR.log', level='debug')
 
-    TE_type = 'non_ltr'
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/judge_Non_LTR_transposons_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
 
-    candidate_non_ltr_path = work_dir + '/candidate_non_ltr_' + str(ref_index) + '.fa'
-    confident_non_ltr_path = work_dir + '/confident_non_ltr_' + str(ref_index) + '.fa'
-    resut_file = confident_non_ltr_path
-    if is_denovo_nonltr == 1:
-        if not is_recover or not file_exist(resut_file):
-            split_ref_dir = work_dir + '/ref_chr'
-            LINE_domain_path = library_dir + '/LINEPeps.lib'
-            remain_candidate_LINE_path = work_dir + '/remain_candidate_LINE_' + str(ref_index) + '.fa'
-            remain_confident_LINE_path = work_dir + '/remain_confident_LINE_' + str(ref_index) + '.fa'
-            output_table = remain_candidate_LINE_path + '.domain'
-            temp_dir = work_dir + '/candidate_line_domain_' + str(ref_index)
+    run_Non_LTR_detection(temp_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_denovo_nonltr, is_recover,
+                          threads, flanking_len, reference, plant, debug, all_low_copy_non_ltr, split_ref_dir, log)
 
-            # Identify Non-LTR elements
-            # 1. Identify candidate sequences with polyA/T + TSD structure from HiTE-FMEA results.
-            candidate_SINE_path, candidate_LINE_path = get_candidate_non_ltr_parallel(longest_repeats_flanked_path, work_dir, threads)
-            os.system('cat ' + candidate_SINE_path + ' > ' + candidate_non_ltr_path)
-            os.system('cat ' + candidate_LINE_path + ' >> ' + candidate_non_ltr_path)
-            # 2. Conduct homology search on candidate sequences, and search for polyA tails near homologous boundaries.
-            flank_region_align_v5(candidate_non_ltr_path, confident_non_ltr_path, flanking_len, reference, split_ref_dir,
-                                  TE_type, work_dir, threads, ref_index, log, subset_script_path,
-                                  plant, debug, 0, all_low_copy_non_ltr, result_type='cons')
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
 
-            # 3. Select unrestrained LINE elements from candidate_LINE_path, align them to the domain, and extract reliable LINE elements.
-            line_names, line_contigs = read_fasta(candidate_LINE_path)
-            non_ltr_names, non_ltr_contigs = read_fasta(confident_non_ltr_path)
-            remain_line_contigs = {}
-            for name in line_names:
-                if not non_ltr_contigs.__contains__(name):
-                    remain_line_contigs[name] = line_contigs[name]
-            store_fasta(remain_line_contigs, remain_candidate_LINE_path)
-            get_domain_info(remain_candidate_LINE_path, LINE_domain_path, output_table, threads, temp_dir)
-            domain_names, domain_contigs = read_fasta(LINE_domain_path)
-            confident_LINE_contigs = {}
-            name_set = set()
-            with open(output_table, 'r') as f_r:
-                for i, line in enumerate(f_r):
-                    if i < 2:
-                        continue
-                    parts = line.split('\t')
-                    # 如果包含完整的domain元素，则认为是真LINE元素
-                    domain_name = parts[1]
-                    domain_start = int(parts[4])
-                    domain_end = int(parts[5])
-                    if abs(domain_end-domain_start)/len(domain_contigs[domain_name]) >= 0.95:
-                        name_set.add(parts[0])
-            for name in name_set:
-                confident_LINE_contigs[name] = line_contigs[name]
-            store_fasta(confident_LINE_contigs, remain_confident_LINE_path)
-            # 4. Add reliable LINE elements to confident_non_ltr_path and generate a consensus sequence.
-            os.system('cat ' + remain_confident_LINE_path + ' >> ' + confident_non_ltr_path)
-
-            confident_non_ltr_cons = confident_non_ltr_path + '.cons'
-            cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                             + ' -G 0 -g 1 -A 80 -i ' + confident_non_ltr_path + ' -o ' + confident_non_ltr_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
-            os.system(cd_hit_command)
-            rename_fasta(confident_non_ltr_cons, confident_non_ltr_path, 'Non-LTR_' + str(ref_index))
-        else:
-            log.logger.info(resut_file + ' exists, skip...')
-    else:
-        os.system('touch ' + confident_non_ltr_path)
-
-    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

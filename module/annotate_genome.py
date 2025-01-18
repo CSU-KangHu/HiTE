@@ -2,14 +2,30 @@
 import argparse
 import os
 import re
+import shutil
 import sys
-
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import Logger
+from Util import Logger, create_or_clear_directory, copy_files
 
 
+def annotate_genome(tmp_output_dir, classified_TE_consensus, reference, annotate, threads, log):
+    # annotate the genome
+    if annotate is not None and int(annotate) == 1:
+        RepeatMasker_command = 'RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -no_is -norna -nolow -gff -lib ' + classified_TE_consensus + ' -cutoff 225 ' \
+                               + reference
+        log.logger.debug(RepeatMasker_command)
+        os.system(RepeatMasker_command)
+
+        mv_file_command = 'mv ' + reference + '.out ' + tmp_output_dir + '/HiTE.out && mv ' \
+                          + reference + '.tbl ' + tmp_output_dir + '/HiTE.tbl && mv ' \
+                          + reference + '.out.gff ' + tmp_output_dir + '/HiTE.gff && mv ' \
+                          + reference + '.cat.gz ' + tmp_output_dir + '/HiTE.cat.gz'
+        log.logger.debug(mv_file_command)
+        os.system(mv_file_command)
 
 if __name__ == '__main__':
     # 1.parse args
@@ -40,19 +56,16 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_annotate_genome.log', level='debug')
 
-    # annotate the genome
-    if annotate is not None and int(annotate) == 1:
-        RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-                               + ' -no_is -norna -nolow -gff -lib ' + classified_TE_consensus + ' -cutoff 225 ' \
-                               + reference
-        log.logger.debug(RepeatMasker_command)
-        os.system(RepeatMasker_command)
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/annotate_genome_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
 
-        mv_file_command = 'mv ' + reference + '.out ' + tmp_output_dir + '/HiTE.out && mv ' \
-                          + reference + '.tbl ' + tmp_output_dir + '/HiTE.tbl && mv ' \
-                          + reference + '.out.gff ' + tmp_output_dir + '/HiTE.gff && mv ' \
-                          + reference + '.cat.gz ' + tmp_output_dir + '/HiTE.cat.gz'
-        log.logger.debug(mv_file_command)
-        os.system(mv_file_command)
+    annotate_genome(temp_dir, classified_TE_consensus, reference, annotate, threads, log)
 
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
 
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)

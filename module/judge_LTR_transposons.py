@@ -2,13 +2,15 @@
 import argparse
 import csv
 import os
+import shutil
 import sys
 import time
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
-    read_fasta, store_fasta, run_HybridLTR, assign_label_to_lib
+    read_fasta, store_fasta, run_HybridLTR, assign_label_to_lib, create_or_clear_directory, copy_files
 
 
 def rename_LTR(ltr_lib, rename_ltr_lib):
@@ -92,66 +94,13 @@ def get_intact_ltr(genome_path, ltr_list, intact_LTR_path):
     store_fasta(ltr_contigs, intact_LTR_path)
     return segmentLTRs
 
-if __name__ == '__main__':
-    # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE LTR module...')
-    parser.add_argument('-g', metavar='Genome assembly',
-                        help='Input genome assembly path')
-    parser.add_argument('-t', metavar='threads number',
-                        help='Input threads number')
-    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--recover', metavar='recover',
-                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
-    parser.add_argument('--use_HybridLTR', metavar='use_HybridLTR',
-                        help='Whether to use HybridLTR to identify LTRs, 1: true, 0: false.')
-    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
-                        help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
-    parser.add_argument('--miu', metavar='miu',
-                        help='The neutral mutation rate (per bp per ya)')
-    parser.add_argument('--is_wicker', metavar='is_wicker',
-                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
-    parser.add_argument('--is_output_lib', metavar='is_output_lib',
-                        help='Whether to output LTR library.')
-    parser.add_argument('--debug', metavar='recover',
-                        help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
-
-
-    args = parser.parse_args()
-    reference = args.g
-
-    threads = int(args.t)
-    tmp_output_dir = args.tmp_output_dir
-    recover = args.recover
-    use_HybridLTR = int(args.use_HybridLTR)
-    use_NeuralTE = int(args.use_NeuralTE)
-    miu = args.miu
-    is_wicker = args.is_wicker
-    is_output_lib = int(args.is_output_lib)
-    debug = args.debug
-
+def run_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
+                      is_output_lib, use_NeuralTE, is_wicker, log):
     LTR_harvest_parallel_Home = cur_dir + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = cur_dir + '/bin/LTR_FINDER_parallel-master'
     NeuralTE_home = cur_dir + '/bin/NeuralTE'
     TEClass_home = cur_dir + '/classification'
     HybridLTR_home = cur_dir + '/bin/HybridLTR-main'
-
-    if tmp_output_dir is None:
-        tmp_output_dir = os.getcwd()
-
-    tmp_output_dir = os.path.abspath(tmp_output_dir) 
-
-    log = Logger(tmp_output_dir + '/HiTE_ltr.log', level='debug')
-
-    is_recover = False
-    recover = int(recover)
-    if recover == 1:
-        is_recover = True
-
-    if debug is None:
-        debug = 0
-    else:
-        debug = int(debug)
 
     # rename reference
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
@@ -262,11 +211,11 @@ if __name__ == '__main__':
             if file_exist(confident_ltr):
                 os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
             else:
-                log.logger.info('No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
+                log.logger.info(
+                    'No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
         else:
             for check_file in check_files:
                 log.logger.info(check_file + ' exists, skip...')
-
 
     # 初始化文件检查列表
     classified_TE_path = intact_LTR_path + '.classified'
@@ -293,7 +242,6 @@ if __name__ == '__main__':
             threads) + ' -o ' + tmp_output_dir
         log.logger.debug(TEClass_command)
         os.system(TEClass_command)
-
 
     # assign intact LTR labels to `genome.rename.fa.LTRlib.fa`
     classified_names, classified_contigs = read_fasta(classified_TE_path)
@@ -325,5 +273,75 @@ if __name__ == '__main__':
         os.replace(temp_file, confident_intact_ltr_list)
 
 
+if __name__ == '__main__':
+    # 1.parse args
+    parser = argparse.ArgumentParser(description='run HiTE LTR module...')
+    parser.add_argument('-g', metavar='Genome assembly',
+                        help='Input genome assembly path')
+    parser.add_argument('-t', metavar='threads number',
+                        help='Input threads number')
+    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
+                        help='Please enter the directory for output. Use an absolute path.')
+    parser.add_argument('--recover', metavar='recover',
+                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
+    parser.add_argument('--use_HybridLTR', metavar='use_HybridLTR',
+                        help='Whether to use HybridLTR to identify LTRs, 1: true, 0: false.')
+    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
+                        help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
+    parser.add_argument('--miu', metavar='miu',
+                        help='The neutral mutation rate (per bp per ya)')
+    parser.add_argument('--is_wicker', metavar='is_wicker',
+                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
+    parser.add_argument('--is_output_lib', metavar='is_output_lib',
+                        help='Whether to output LTR library.')
+    parser.add_argument('--debug', metavar='recover',
+                        help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
+
+
+    args = parser.parse_args()
+    reference = args.g
+
+    threads = int(args.t)
+    tmp_output_dir = args.tmp_output_dir
+    recover = args.recover
+    use_HybridLTR = int(args.use_HybridLTR)
+    use_NeuralTE = int(args.use_NeuralTE)
+    miu = args.miu
+    is_wicker = args.is_wicker
+    is_output_lib = int(args.is_output_lib)
+    debug = args.debug
+
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
+
+    log = Logger(tmp_output_dir + '/HiTE_ltr.log', level='debug')
+
+    is_recover = False
+    recover = int(recover)
+    if recover == 1:
+        is_recover = True
+
+    if debug is None:
+        debug = 0
+    else:
+        debug = int(debug)
+
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/judge_LTR_transposons_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
+
+    run_LTR_detection(temp_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
+                      is_output_lib, use_NeuralTE, is_wicker, log)
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
 
 

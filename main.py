@@ -622,6 +622,7 @@ if __name__ == '__main__':
                                                  + ' --debug ' + str(debug) \
                                                  + ' --flanking_len ' + str(flanking_len) \
                                                  + ' --ref_index ' + str(ref_index) \
+                                                 + ' --split_ref_dir ' + split_ref_dir \
                                                  + ' --is_denovo_nonltr ' + str(is_denovo_nonltr) \
                                                  + ' -r ' + reference \
                                                  + ' --prev_TE  ' + prev_TE \

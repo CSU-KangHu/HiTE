@@ -9,100 +9,11 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import Logger, rename_reference, multi_process_align, file_exist, create_or_clear_directory, copy_files
 
-if __name__ == '__main__':
-    # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE benchmarking...')
-    parser.add_argument('--BM_RM2', metavar='BM_RM2',
-                        help='Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false.')
-    parser.add_argument('--BM_EDTA', metavar='BM_EDTA',
-                        help='Whether to conduct benchmarking of EDTA, 1: true, 0: false.')
-    parser.add_argument('--BM_HiTE', metavar='BM_HiTE',
-                        help='Whether to conduct benchmarking of HiTE, 1: true, 0: false.')
-    parser.add_argument('--coverage_threshold', metavar='coverage_threshold',
-                        help='coverage threshold')
-    parser.add_argument('-t', metavar='threads number',
-                        help='Input threads number.')
-    parser.add_argument('--TE_lib', metavar='TE_lib',
-                        help='The path of TE library')
-    parser.add_argument('-r', metavar='reference',
-                        help='e.g., Input reference Path')
-    parser.add_argument('--EDTA_home', metavar='EDTA_home',
-                        help='When conducting benchmarking of EDTA, you will be asked to input EDTA home path.')
-    parser.add_argument('--species', metavar='species',
-                        help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
-    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--recover', metavar='is_recover',
-                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
-
-
-    args = parser.parse_args()
-    BM_RM2 = args.BM_RM2
-    BM_EDTA = args.BM_EDTA
-    BM_HiTE = args.BM_HiTE
-    threads = int(args.t)
-    TE_lib = args.TE_lib
-    reference = args.r
-    EDTA_home = args.EDTA_home
-    species = args.species
-    tmp_output_dir = args.tmp_output_dir
-    coverage_threshold = args.coverage_threshold
-    recover = int(args.recover)
-
-    default_coverage_threshold = 0.95
-
-    if coverage_threshold is not None:
-        coverage_threshold = float(coverage_threshold)
-    else:
-        coverage_threshold = default_coverage_threshold
-
-    lib_module = cur_dir + '/library'
+def run_benchmarking(temp_dir, reference, curated_lib, TE_lib, BM_RM2, BM_EDTA, BM_HiTE, threads, coverage_threshold,
+                     recover, EDTA_home, log):
     rm2_script = cur_dir + '/bin/get_family_summary_paper.sh'
     rm2_strict_script = cur_dir + '/bin/get_family_summary_paper_0.99.sh'
-
-
-    if species == "dmel":
-        lib_path = lib_module + "/drorep.ref"
-    elif species == "rice":
-        lib_path = lib_module + "/oryrep.ref"
-    elif species == "cb":
-        lib_path = lib_module + "/cbrrep.ref"
-    elif species == "zebrafish":
-        lib_path = lib_module + "/zebrep.ref"
-    elif species == "maize":
-        lib_path = lib_module + "/maize.ref"
-    elif species == "ath":
-        lib_path = lib_module + "/athrep.ref"
-    elif species == "chicken":
-        lib_path = lib_module + "/chicken.ref"
-    elif species == "zebrafinch":
-        lib_path = lib_module + "/zebrafinch.ref"
-    elif species == "mouse":
-        lib_path = lib_module + "/mouse.ref"
-    elif species == "human":
-        lib_path = lib_module + "/humrep.ref"
-    else:
-        lib_path = lib_module + "/test.ref"
-
-    curated_lib = os.path.abspath(lib_path)
-    TE_lib = os.path.abspath(TE_lib)
-    reference = os.path.abspath(reference)
-    rm2_script = os.path.abspath(rm2_script)
-    rm2_strict_script = os.path.abspath(rm2_strict_script)
-
-    if coverage_threshold == 0.99:
-        rm2_script = rm2_strict_script
-
-    if tmp_output_dir is None:
-        tmp_output_dir = os.getcwd()
-    tmp_output_dir = os.path.abspath(tmp_output_dir)
-
-    log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
-
-    # 创建本地临时目录，存储计算结果
-    unique_id = uuid.uuid4()
-    temp_dir = '/tmp/annotate_genome_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
+    lib_module = cur_dir + '/library'
 
     rm2_test_dir = temp_dir + '/rm2_test'
     rm2_out = temp_dir + '/BM_RM2.log'
@@ -154,7 +65,7 @@ if __name__ == '__main__':
         parent_dir = os.path.dirname(lib_module)
         HiTE_home = parent_dir
 
-        bm_hite_command = 'lib_evaluation.py -g ' + reference + ' --standard_lib ' + lib_path \
+        bm_hite_command = 'lib_evaluation.py -g ' + reference + ' --standard_lib ' + curated_lib \
                           + ' --test_lib ' + TE_lib + ' --work_dir ' + temp_dir \
                           + ' --coverage_threshold ' + str(coverage_threshold) + ' --thread ' + str(threads) \
                           + ' ' + ' --cat Total ' + ' --is_full_length 1 ' + ' >> ' + hite_out
@@ -206,6 +117,103 @@ if __name__ == '__main__':
         os.system(mv_file_command)
     else:
         log.logger.debug('Skip benchmarking of EDTA')
+
+
+if __name__ == '__main__':
+    # 1.parse args
+    parser = argparse.ArgumentParser(description='run HiTE benchmarking...')
+    parser.add_argument('--BM_RM2', metavar='BM_RM2',
+                        help='Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false.')
+    parser.add_argument('--BM_EDTA', metavar='BM_EDTA',
+                        help='Whether to conduct benchmarking of EDTA, 1: true, 0: false.')
+    parser.add_argument('--BM_HiTE', metavar='BM_HiTE',
+                        help='Whether to conduct benchmarking of HiTE, 1: true, 0: false.')
+    parser.add_argument('--coverage_threshold', metavar='coverage_threshold',
+                        help='coverage threshold')
+    parser.add_argument('-t', metavar='threads number',
+                        help='Input threads number.')
+    parser.add_argument('--TE_lib', metavar='TE_lib',
+                        help='The path of TE library')
+    parser.add_argument('-r', metavar='reference',
+                        help='e.g., Input reference Path')
+    parser.add_argument('--EDTA_home', metavar='EDTA_home',
+                        help='When conducting benchmarking of EDTA, you will be asked to input EDTA home path.')
+    parser.add_argument('--species', metavar='species',
+                        help='Which species you want to conduct benchmarking, six species support (dmel, rice, cb, zebrafish, maize, ath).')
+    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
+                        help='Please enter the directory for output. Use an absolute path.')
+    parser.add_argument('--recover', metavar='is_recover',
+                        help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
+
+
+    args = parser.parse_args()
+    BM_RM2 = args.BM_RM2
+    BM_EDTA = args.BM_EDTA
+    BM_HiTE = args.BM_HiTE
+    threads = int(args.t)
+    TE_lib = args.TE_lib
+    reference = args.r
+    EDTA_home = args.EDTA_home
+    species = args.species
+    tmp_output_dir = args.tmp_output_dir
+    coverage_threshold = args.coverage_threshold
+    recover = int(args.recover)
+
+    default_coverage_threshold = 0.95
+
+    if coverage_threshold is not None:
+        coverage_threshold = float(coverage_threshold)
+    else:
+        coverage_threshold = default_coverage_threshold
+
+    lib_module = cur_dir + '/library'
+
+
+    if species == "dmel":
+        lib_path = lib_module + "/drorep.ref"
+    elif species == "rice":
+        lib_path = lib_module + "/oryrep.ref"
+    elif species == "cb":
+        lib_path = lib_module + "/cbrrep.ref"
+    elif species == "zebrafish":
+        lib_path = lib_module + "/zebrep.ref"
+    elif species == "maize":
+        lib_path = lib_module + "/maize.ref"
+    elif species == "ath":
+        lib_path = lib_module + "/athrep.ref"
+    elif species == "chicken":
+        lib_path = lib_module + "/chicken.ref"
+    elif species == "zebrafinch":
+        lib_path = lib_module + "/zebrafinch.ref"
+    elif species == "mouse":
+        lib_path = lib_module + "/mouse.ref"
+    elif species == "human":
+        lib_path = lib_module + "/humrep.ref"
+    else:
+        lib_path = lib_module + "/test.ref"
+
+    curated_lib = os.path.abspath(lib_path)
+    TE_lib = os.path.abspath(TE_lib)
+    reference = os.path.abspath(reference)
+    rm2_script = cur_dir + '/bin/get_family_summary_paper.sh'
+    rm2_strict_script = cur_dir + '/bin/get_family_summary_paper_0.99.sh'
+
+    if coverage_threshold == 0.99:
+        rm2_script = rm2_strict_script
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
+
+    log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
+
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/run_benchmarking_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
+
+    run_benchmarking(temp_dir, reference, curated_lib, TE_lib, BM_RM2, BM_EDTA, BM_HiTE, threads, coverage_threshold,
+                     recover, EDTA_home, log)
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, tmp_output_dir)

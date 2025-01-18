@@ -1,80 +1,27 @@
 #!/usr/bin/env python
 import argparse
 import os
+import shutil
 import sys
-
+import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir, get_domain_info, \
-    ReassignInconsistentLabels, file_exist
-
-if __name__ == '__main__':
-    # 1.parse args
-    parser = argparse.ArgumentParser(description='run HiTE generating non-redundant library...')
-    parser.add_argument('-t', metavar='threads number',
-                        help='Input threads number.')
-    parser.add_argument('--confident_ltr_cut', metavar='confident_ltr_cut',
-                        help='The ltr path')
-    parser.add_argument('--confident_tir', metavar='confident_tir',
-                        help='The tir path')
-    parser.add_argument('--confident_helitron', metavar='confident_helitron',
-                        help='The helitron path')
-    parser.add_argument('--confident_non_ltr', metavar='confident_non_ltr',
-                        help='The denovo non-ltr path')
-    parser.add_argument('--confident_other', metavar='confident_other',
-                        help='The homology non-ltr path')
-    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
-                        help='Please enter the directory for output. Use an absolute path.')
-    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
-                        help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
-    parser.add_argument('--domain', metavar='domain',
-                        help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
-    parser.add_argument('--protein_path', metavar='protein_path',
-                        help='The path of protein domain')
-    parser.add_argument('--curated_lib', metavar='curated_lib',
-                        help='The path of curated library')
-    parser.add_argument('--is_wicker', metavar='is_wicker',
-                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
+    ReassignInconsistentLabels, file_exist, create_or_clear_directory, copy_files
 
 
-    args = parser.parse_args()
-
-    threads = int(args.t)
-    confident_ltr_cut_path = args.confident_ltr_cut
-    confident_tir_path = args.confident_tir
-    confident_helitron_path = args.confident_helitron
-    confident_non_ltr_path = args.confident_non_ltr
-    confident_other_path = args.confident_other
-    tmp_output_dir = args.tmp_output_dir
-    use_NeuralTE = int(args.use_NeuralTE)
-    domain = args.domain
-    curated_lib = args.curated_lib
-    is_wicker = args.is_wicker
-
+def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_path, confident_non_ltr_path,
+                         confident_other_path, confident_ltr_cut_path, threads, use_NeuralTE, is_wicker, curated_lib,
+                         domain, log):
     test_home = cur_dir + '/module'
     NeuralTE_home = cur_dir + '/bin/NeuralTE'
     TEClass_home = cur_dir + '/classification'
     protein_path = cur_dir + '/library/RepeatPeps.lib'
 
-    confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
-    confident_tir_path = os.path.realpath(confident_tir_path)
-    confident_helitron_path = os.path.realpath(confident_helitron_path)
-    confident_non_ltr_path = os.path.realpath(confident_non_ltr_path)
-    confident_other_path = os.path.realpath(confident_other_path)
-
-    if tmp_output_dir is None:
-        tmp_output_dir = os.getcwd()
-
-    tmp_output_dir = os.path.abspath(tmp_output_dir)
-
-    log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
-
-
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
     rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
     rename_fasta(confident_non_ltr_path, confident_non_ltr_path, 'Denovo_Non_LTR')
-
 
     final_confident_tir_path = tmp_output_dir + '/confident_tir.fa'
     final_confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
@@ -166,4 +113,76 @@ if __name__ == '__main__':
         temp_dir = tmp_output_dir + '/domain'
         get_domain_info(confident_TE_consensus, protein_path, output_table, threads, temp_dir)
 
+if __name__ == '__main__':
+    # 1.parse args
+    parser = argparse.ArgumentParser(description='run HiTE generating non-redundant library...')
+    parser.add_argument('-t', metavar='threads number',
+                        help='Input threads number.')
+    parser.add_argument('--confident_ltr_cut', metavar='confident_ltr_cut',
+                        help='The ltr path')
+    parser.add_argument('--confident_tir', metavar='confident_tir',
+                        help='The tir path')
+    parser.add_argument('--confident_helitron', metavar='confident_helitron',
+                        help='The helitron path')
+    parser.add_argument('--confident_non_ltr', metavar='confident_non_ltr',
+                        help='The denovo non-ltr path')
+    parser.add_argument('--confident_other', metavar='confident_other',
+                        help='The homology non-ltr path')
+    parser.add_argument('--tmp_output_dir', metavar='tmp_output_dir',
+                        help='Please enter the directory for output. Use an absolute path.')
+    parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
+                        help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
+    parser.add_argument('--domain', metavar='domain',
+                        help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false.')
+    parser.add_argument('--protein_path', metavar='protein_path',
+                        help='The path of protein domain')
+    parser.add_argument('--curated_lib', metavar='curated_lib',
+                        help='The path of curated library')
+    parser.add_argument('--is_wicker', metavar='is_wicker',
+                        help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
+
+
+    args = parser.parse_args()
+
+    threads = int(args.t)
+    confident_ltr_cut_path = args.confident_ltr_cut
+    confident_tir_path = args.confident_tir
+    confident_helitron_path = args.confident_helitron
+    confident_non_ltr_path = args.confident_non_ltr
+    confident_other_path = args.confident_other
+    tmp_output_dir = args.tmp_output_dir
+    use_NeuralTE = int(args.use_NeuralTE)
+    domain = args.domain
+    curated_lib = args.curated_lib
+    is_wicker = args.is_wicker
+
+
+    confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
+    confident_tir_path = os.path.realpath(confident_tir_path)
+    confident_helitron_path = os.path.realpath(confident_helitron_path)
+    confident_non_ltr_path = os.path.realpath(confident_non_ltr_path)
+    confident_other_path = os.path.realpath(confident_other_path)
+
+    if tmp_output_dir is None:
+        tmp_output_dir = os.getcwd()
+
+    tmp_output_dir = os.path.abspath(tmp_output_dir)
+
+    log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
+
+    # 创建本地临时目录，存储计算结果
+    unique_id = uuid.uuid4()
+    temp_dir = '/tmp/get_nonRedundant_lib_' + str(unique_id)
+    create_or_clear_directory(temp_dir)
+
+    get_nonRedundant_lib(temp_dir, confident_tir_path, confident_helitron_path, confident_non_ltr_path,
+                         confident_other_path, confident_ltr_cut_path, threads, use_NeuralTE, is_wicker, curated_lib,
+                         domain, log)
+
+    # 计算完之后将结果拷贝回输出目录
+    copy_files(temp_dir, tmp_output_dir)
+
+    # 删除临时目录
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
 
