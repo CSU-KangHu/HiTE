@@ -359,6 +359,6 @@ You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) p
 * [Running HiTE for Large Genome Annotation](https://github.com/CSU-KangHu/HiTE/wiki/Running-HiTE-for-Large-Genome-Annotation)
 
 ## Citations
-Please cite our paper if you find `HiTE` useful:
+Please cite our paper and give our repository a star if you find `HiTE` useful:
 
 Hu, K., Ni, P., Xu, M. et al. HiTE: a fast and accurate dynamic boundary adjustment approach for full-length transposable element detection and annotation. Nat Commun 15, 5573 (2024). [https://doi.org/10.1038/s41467-024-49912-8](https://doi.org/10.1038/s41467-024-49912-8)
