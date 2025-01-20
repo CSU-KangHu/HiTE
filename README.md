@@ -356,6 +356,7 @@ You may want to check out this [Wiki](https://github.com/CSU-KangHu/HiTE/wiki) p
 * [Issues with installation and usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
 * [How to make HiTE into a Docker image](https://github.com/CSU-KangHu/HiTE/wiki/How-to-make-HiTE-into-a-Docker-image)
 * [Run HiTE with Nextflow](https://github.com/CSU-KangHu/HiTE/wiki/Run-HiTE-with-Nextflow)
+* [Running HiTE for Large Genome Annotation](https://github.com/CSU-KangHu/HiTE/wiki/Running-HiTE-for-Large-Genome-Annotation)
 
 ## Citations
 Please cite our paper if you find `HiTE` useful:
