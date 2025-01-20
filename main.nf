@@ -36,7 +36,6 @@ def helpMessage() {
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
       --curated_lib                     Provide a fully trusted curated library, which will be used to pre-mask highly homologous sequences in the genome. We recommend using TE libraries from Repbase. default = [ None ]
       --recover                         Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
-      --intact_anno                     Whether to generate annotation of full-length TEs, 1: true, 0: false. default = [ 0 ]
       --miu                             The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
       --classified                      Whether to classify TE models, HiTE uses RepeatClassifier from RepeatModeler to classify TEs, 1: true, 0: false. default = [ 1 ]
       --remove_nested                   Whether to remove nested TE, 1: true, 0: false. default = [ 1 ]
@@ -78,7 +77,6 @@ def printSetting() {
       [Setting] Curated library = [ $params.curated_lib ]
       [Setting] recover = [ $params.recover ]
       [Setting] annotate = [ $params.annotate ]
-      [Setting] intact_anno = [ $params.intact_anno ]
       [Setting] BM_RM2 = [ $params.BM_RM2 ]
       [Setting] BM_EDTA = [ $params.BM_EDTA ]
       [Setting] BM_HiTE = [ $params.BM_HiTE ]
@@ -204,7 +202,7 @@ process coarseBoundary {
     tuple path(cut_ref), path(prev_TE), path(ref)
 
     output:
-    path "longest_repeats_*.flanked.fa"
+    path "longest_repeats_${ref_index}.flanked.fa"
 
     script:
     cores = task.cpus
@@ -440,65 +438,67 @@ process BuildLib {
     """
 }
 
-process IntactTEAnnotation {
+process annotate_chunk {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/IntactTEAnnotation"
+    storeDir "${params.out_dir}/annotate_chunk/${genome_name}"
 
     input:
-    path ch_TEs
-    path all_LTR_pass_list
-    path all_chr_name_map
-    path all_tirs
-    path all_helitrons
-    path all_non_ltrs
-    path all_others
-    path ch_genome
-    path ch_classified_TE
+    val genome_name
+    tuple path(chunk_fasta), path(panTE_lib)
 
     output:
-    path "HiTE_intact.sorted.gff3", emit:ch_intact_gff
-
+    tuple val(genome_name), path("${genome_name}_${ref_index}.gff"), path("${genome_name}_${ref_index}.full_length.gff"), emit: ch_annotated_chunks
 
     script:
-    cores = task.cpus
+    (full, ref_index) = (chunk_fasta =~ /genome.cut(\d+)\.fa/)[0]
     """
-    get_full_length_annotation.py \
-     -t ${cores} --ltr_list ${all_LTR_pass_list} \
-     --tir_lib ${all_tirs}  \
-     --helitron_lib ${all_helitrons} \
-     --nonltr_lib ${all_non_ltrs} \
-     --other_lib ${all_others} \
-     --chr_name_map ${all_chr_name_map} \
-     -r ${ch_genome} \
-     --search_struct ${search_struct} \
-     --classified_TE_path ${ch_classified_TE}
+    pan_annotate_genome.py --threads ${task.cpus} --panTE_lib ${panTE_lib} \
+    --reference ${chunk_fasta} --genome_name ${genome_name}_${ref_index}
     """
 }
 
-process AnnotateGenome {
-    cpus { params.threads ?: 1 }
-
-    storeDir "${params.out_dir}/AnnotateGenome"
+process merge_annotations {
+    storeDir "${params.out_dir}/merge_annotations/${genome_name}"
 
     input:
-    path lib
-    path ref
+    tuple val(genome_name), path(annotated_chunks), path(full_length_annotated_chunks)
 
     output:
-    path "HiTE.out",    emit: ch_HiTE_out
-    path "HiTE.tbl",    emit: ch_HiTE_tbl
-    path "HiTE.gff",    emit: ch_HiTE_gff
+    tuple val(genome_name), path("${genome_name}_merged.gff"), path("${genome_name}_merged.full_length.gff"), emit: ch_merged_annotations
 
     script:
-    cores = task.cpus
     """
-    annotate_genome.py \
-     -t ${cores} --classified_TE_consensus ${lib} \
-     --annotate ${annotate} \
-      -r ${ref}
+    cat ${annotated_chunks} > ${genome_name}_merged.gff
+    cat ${full_length_annotated_chunks} > ${genome_name}_merged.full_length.gff
     """
 }
+
+process recover_split_annotation {
+    storeDir "${params.out_dir}/recover_split_annotation/${genome_name}"
+
+    input:
+    path genome_path
+    tuple val(genome_name), path(input_gff), path(full_length_input_gff), path(te_lib)
+
+    output:
+    path "${genome_name}.sorted.gff", emit: ch_gff
+    path "${genome_name}.sorted.gff.tbl", emit: ch_gff_tbl
+    path "${genome_name}.full_length.sorted.gff", emit: ch_full_length_gff
+    path "${genome_name}.full_length.sorted.gff.tbl", emit: ch_full_length_gff_tbl
+
+    script:
+    """
+    recover_split_annotation.py ${input_gff} ${genome_name}.gff
+    bedtools sort -i ${genome_name}.gff > ${genome_name}.sorted.gff
+    get_summary_count.sh ${te_lib} ${genome_name}.sorted.gff ${genome_path}
+
+    recover_split_annotation.py ${full_length_input_gff} ${genome_name}.full_length.gff
+    bedtools sort -i ${genome_name}.full_length.gff > ${genome_name}.full_length.sorted.gff
+    get_summary_count.sh ${te_lib} ${genome_name}.full_length.sorted.gff ${genome_path} -gff3
+    """
+}
+
 
 process Benchmarking {
     cpus { params.threads ?: 1 }
@@ -570,16 +570,18 @@ workflow {
 
         // After splitting the genome into chunks, we need to associate each chunk with the pre_tes.
         ch_cut_genomes = SplitGenome.out.cut_genomes.flatten()
-        ch_cut_genomes_combined = ch_cut_genomes.combine(MergeLTROther.out.ch_pre_tes)
-        ch_cut_genomes_combined = ch_cut_genomes_combined.combine(ch_genome)
+        ch_cut_genomes_combined = ch_cut_genomes
+            .combine(MergeLTROther.out.ch_pre_tes)
+            .combine(ch_genome)
 
         // Step3: Coarse Boundary Repeat Sequence Identification
         ch_coarse_TEs = coarseBoundary(ch_cut_genomes_combined)
 
         // Combine the coarse boundary results with other outputs and input them into the subsequent module.
-        ch_coarse_TEs_combined = ch_coarse_TEs.combine(MergeLTROther.out.ch_pre_tes)
-        ch_coarse_TEs_combined = ch_coarse_TEs_combined.combine(SplitGenome.out.ref_chr)
-        ch_coarse_TEs_combined = ch_coarse_TEs_combined.combine(ch_genome)
+        ch_coarse_TEs_combined = ch_coarse_TEs
+            .combine(MergeLTROther.out.ch_pre_tes)
+            .combine(SplitGenome.out.ref_chr)
+            .combine(ch_genome)
 
         // Step4: TIR identification
         TIR(ch_coarse_TEs_combined)
@@ -589,7 +591,6 @@ workflow {
 
         // Step6: non-LTR identification
         Non_LTR(ch_coarse_TEs_combined)
-        // test(Non_LTR.out.ch_Non_LTRs) | view { "$it" }
 
         // Merge all chunks and store them in the output directory.
         all_ltrs = LTR.out.ch_LTRs.collectFile(name: "${out_dir}/confident_ltr_cut.fa")
@@ -597,7 +598,7 @@ workflow {
         all_helitrons = Helitron.out.ch_Helitrons.collectFile(name: "${out_dir}/confident_helitron.fa")
         all_non_ltrs = Non_LTR.out.ch_Non_LTRs.collectFile(name: "${out_dir}/confident_non_ltr.fa")
         all_others = OtherTE.out.ch_others.collectFile(name: "${out_dir}/confident_other.fa")
-        all_LTR_pass_list = LTR.out.ch_LTR_pass_list.collectFile(name: "${out_dir}/genome.rename.fa.pass.list")
+        all_LTR_pass_list = LTR.out.ch_LTR_pass_list.collectFile(name: "${out_dir}/intact_LTR.list")
         all_chr_name_map = LTR.out.chr_name_map.collectFile(name: "${out_dir}/chr_name.map")
 
         // Step7: Build TE library
@@ -606,26 +607,26 @@ workflow {
         ch_TEs = BuildLib.out.ch_TEs.collectFile(name: "${out_dir}/confident_TE.cons.fa")
         ch_classified_TE = BuildLib.out.ch_classified_TE.collectFile(name: "${out_dir}/TE_merge_tmp.fa.classified")
 
-        // Step8: Genome annotation
-        AnnotateGenome(ch_TEs, ch_genome)
-        AnnotateGenome.out.ch_HiTE_out.collectFile(name: "${out_dir}/HiTE.out")
-        AnnotateGenome.out.ch_HiTE_tbl.collectFile(name: "${out_dir}/HiTE.tbl")
-        AnnotateGenome.out.ch_HiTE_gff.collectFile(name: "${out_dir}/HiTE.gff")
+        if (params.annotate){
+            // Step8: Genome annotation
+            annotate_input_channel = ch_cut_genomes.combine(ch_TEs)
+
+            annotate_chunk_out = annotate_chunk("HiTE", annotate_input_channel)
+            annotate_chunk_out.ch_annotated_chunks
+                .groupTuple(by: 0)
+                .set { grouped_chunks }
+
+            merge_annotations_out = merge_annotations(grouped_chunks)
+            ch_merge_annotations_out = merge_annotations_out.ch_merged_annotations
+            ch_merge_annotations_out.combine(ch_TEs).set { recover_split_annotation_input_channel }
+            recover_split_annotation_out = recover_split_annotation(ch_genome, recover_split_annotation_input_channel)
+            recover_split_annotation_out.ch_gff.collectFile(name: "${out_dir}/HiTE.sorted.gff")
+            recover_split_annotation_out.ch_gff_tbl.collectFile(name: "${out_dir}/HiTE.sorted.gff.tbl")
+            recover_split_annotation_out.ch_full_length_gff.collectFile(name: "${out_dir}/HiTE.full_length.sorted.gff")
+            recover_split_annotation_out.ch_full_length_gff_tbl.collectFile(name: "${out_dir}/HiTE.full_length.sorted.gff.tbl")
+        }
     } else {
         Channel.fromPath("${out_dir}/confident_TE.cons.fa", type: 'any', checkIfExists: true).set{ ch_TEs }
-    }
-
-    if (params.intact_anno){
-        // Step9: get full-length TE annotation
-        Channel.fromPath("${out_dir}/genome.rename.fa.pass.list", type: 'any', checkIfExists: false).set{ all_LTR_pass_list }
-        Channel.fromPath("${out_dir}/chr_name.map", type: 'any', checkIfExists: false).set{ all_chr_name_map }
-        Channel.fromPath("${out_dir}/confident_tir.fa", type: 'any', checkIfExists: false).set{ all_tirs }
-        Channel.fromPath("${out_dir}/confident_helitron.fa", type: 'any', checkIfExists: false).set{ all_helitrons }
-        Channel.fromPath("${out_dir}/confident_non_ltr.fa", type: 'any', checkIfExists: false).set{ all_non_ltrs }
-        Channel.fromPath("${out_dir}/confident_other.fa", type: 'any', checkIfExists: false).set{ all_others }
-        Channel.fromPath("${out_dir}/TE_merge_tmp.fa.classified", type: 'any', checkIfExists: false).set{ ch_classified_TE }
-        IntactTEAnnotation(ch_TEs, all_LTR_pass_list, all_chr_name_map, all_tirs, all_helitrons, all_non_ltrs, all_others, ch_genome, ch_classified_TE)
-        IntactTEAnnotation.out.ch_intact_gff.collectFile(name: "${out_dir}/HiTE_intact.sorted.gff3")
     }
 
     // Step10: conduct benchmarking

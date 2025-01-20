@@ -238,7 +238,6 @@ hpc { // general HPC configuration
 
 # Please consult your HPC platform to modify the above parameters
 # If running a large and complex genome, you may want to set the `time` parameter a bit higher; otherwise, it may terminate unexpectedly due to exceeding the runtime limit.
-# It is recommended not to set the `queueSize` too high, as too much parallelism could lead to high disk I/O, potentially causing an unexpected termination.
 ```
 
 2. Run panHiTE using conda and HPC

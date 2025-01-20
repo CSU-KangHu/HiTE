@@ -11050,9 +11050,9 @@ def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_thre
     tmp_blast_dir = work_dir + '/LTR_blastn_' + str(type)
     blastnResults_path = work_dir + '/LTR_blastn_' + str(type) + '.out'
     # 1. Start by performing an all-vs-all comparison using blastn.
-    # multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True, is_remove_index=True)
-    # if not os.path.exists(blastnResults_path):
-    #     return redundant_ltr
+    multi_process_align(redundant_ltr, redundant_ltr, blastnResults_path, tmp_blast_dir, threads, is_removed_dir=True, is_remove_index=True)
+    if not os.path.exists(blastnResults_path):
+        return redundant_ltr
     # 2. Next, using the FMEA algorithm, bridge across the gaps and link together sequences that can be connected.
     query_records_file_list = process_blast_results_in_chunks(blastnResults_path, work_dir, type, chunk_size=5_000_000)
     longest_repeats_file_list = FMEA_new1_parallel_large(redundant_ltr, query_records_file_list, coverage_threshold, work_dir, type, num_processes=threads)
@@ -12590,8 +12590,11 @@ def get_full_length_copies_from_gff_v1(TE_lib, reference, gff_path, full_length_
     return full_length_copies, flank_full_length_copies, full_length_annotations
 
 def get_copy_and_length_from_gff(gff_path, full_length_copies_path, panTE_lib):
-    with open(full_length_copies_path, 'r') as f:
-        full_length_copies = json.load(f)
+    full_length_copies = {}
+    with open(full_length_copies_path, "r") as f:
+        for line in f:
+            if line.strip():
+                full_length_copies.update(json.loads(line))
 
     te_names, te_contigs = read_fasta(panTE_lib)
     new_te_contigs = {}

@@ -94,7 +94,7 @@ def get_intact_ltr(genome_path, ltr_list, intact_LTR_path):
     store_fasta(ltr_contigs, intact_LTR_path)
     return segmentLTRs
 
-def run_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
+def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
                       is_output_lib, use_NeuralTE, is_wicker, log):
     LTR_harvest_parallel_Home = cur_dir + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = cur_dir + '/bin/LTR_FINDER_parallel-master'
@@ -334,7 +334,7 @@ if __name__ == '__main__':
     temp_dir = '/tmp/judge_LTR_transposons_' + str(unique_id)
     create_or_clear_directory(temp_dir)
 
-    run_LTR_detection(temp_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
+    run_judge_LTR_detection(temp_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
                       is_output_lib, use_NeuralTE, is_wicker, log)
 
     # 计算完之后将结果拷贝回输出目录

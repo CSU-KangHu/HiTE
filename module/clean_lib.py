@@ -60,7 +60,7 @@ if __name__ == '__main__':
             'HiTE\\.tbl',
             'HiTE\\.gff',
             'HiTE\\.cat\\.gz',
-            'HiTE_intact\\.sorted\\.gff3',
+            'HiTE\\.full_length\\.gff',
             'BM_RM2\\.log',
             'BM_EDTA\\.log',
             'BM_HiTE\\.log',

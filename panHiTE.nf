@@ -218,7 +218,7 @@ process pan_annotate_genomes {
     tuple val(genome_name), path(reference), path(panTE_lib)
 
     output:
-    tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.tbl"), path("${genome_name}.out"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
+    tuple val(genome_name), path("${genome_name}.gff"), path("${genome_name}.tbl"), path("${genome_name}.full_length.gff"), path("${genome_name}.full_length.copies"), emit: annotate_out
 
     script:
     cores = task.cpus
@@ -336,6 +336,80 @@ process pan_detect_de_genes {
     """
 }
 
+process pan_split_genome {
+    storeDir "${params.out_dir}/pan_split_genome/${genome_name}"
+
+    input:
+    tuple val(genome_name), path(reference)
+
+    output:
+    tuple val(genome_name), path("genome.cut*.fa"), emit: ch_chunks
+
+    script:
+    """
+    split_genome_chunks.py -g ${reference} --chrom_seg_length ${params.chrom_seg_length} \
+    --chunk_size ${params.chunk_size} > ${genome_name}.pan_split_genome.log 2>&1
+    """
+}
+
+// Step 2: 并行注释每个 chunk
+process pan_annotate_chunk {
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/pan_annotate_chunk/${genome_name}"
+
+    input:
+    tuple val(genome_name), path(chunk_fasta), path(panTE_lib)
+
+    output:
+    tuple val(genome_name), path("${genome_name}_${ref_index}.gff"), path("${genome_name}_${ref_index}.full_length.gff"), path("${genome_name}_${ref_index}.full_length.copies"), emit: ch_annotated_chunks
+
+    script:
+    (full, ref_index) = (chunk_fasta =~ /genome.cut(\d+)\.fa/)[0]
+    """
+    pan_annotate_genome.py --threads ${task.cpus} --panTE_lib ${panTE_lib} \
+    --reference ${chunk_fasta} --genome_name ${genome_name}_${ref_index} > ${genome_name}_${ref_index}.pan_annotate_chunk.log 2>&1
+    """
+}
+
+// Step 3: 合并每个基因组的注释结果
+process pan_merge_annotations {
+    storeDir "${params.out_dir}/pan_merge_annotations/${genome_name}"
+
+    input:
+    tuple val(genome_name), path(annotated_chunks), path(full_length_annotated_chunks), path(full_length_copies_chunks)
+
+    output:
+    tuple val(genome_name), path("${genome_name}_merged.gff"), path("${genome_name}_merged.full_length.gff"), path("${genome_name}_merged.full_length.copies"), emit: ch_merged_annotations
+
+    script:
+    """
+    cat ${annotated_chunks} > ${genome_name}_merged.gff
+    cat ${full_length_annotated_chunks} > ${genome_name}_merged.full_length.gff
+    awk '1; END {print ""}' ${full_length_copies_chunks} > ${genome_name}_merged.full_length.copies
+    """
+}
+
+process pan_recover_split_annotation {
+    storeDir "${params.out_dir}/pan_annotate_genomes/${genome_name}"
+
+    input:
+    tuple val(genome_name), path(input_gff), path(full_length_input_gff), path(full_length_copies), path(genome_path), path(te_lib)
+
+    output:
+    tuple val(genome_name), path("${genome_name}.sorted.gff"), path("${genome_name}.sorted.gff.tbl"), path("${genome_name}.full_length.sorted.gff"), path("${genome_name}_merged.full_length.copies"), emit: annotate_out
+
+    script:
+    """
+    recover_split_annotation.py ${input_gff} ${genome_name}.gff
+    bedtools sort -i ${genome_name}.gff > ${genome_name}.sorted.gff
+    get_summary_count.sh ${te_lib} ${genome_name}.sorted.gff ${genome_path}
+
+    recover_split_annotation.py ${full_length_input_gff} ${genome_name}.full_length.gff
+    bedtools sort -i ${genome_name}.full_length.gff > ${genome_name}.full_length.sorted.gff
+    get_summary_count.sh ${te_lib} ${genome_name}.full_length.sorted.gff ${genome_path} -gff3
+    """
+}
 
 // 定义工作流
 workflow {
@@ -380,13 +454,37 @@ workflow {
     panTE_merge_lib = merge_out.ch_panTE_merge
     panTE_merge_lib = panTE_merge_lib.collectFile(name: "${params.out_dir}/panTE.merge_recover.fa")
 
-    // 准备panTE library和其他参数，作为channel
-    annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
-        [genome_name, reference]
-    }.combine(panTE_merge_lib).set { annotate_input_channel }
- 
-    // Step 5: 并行注释每个基因组
-    annotate_out = pan_annotate_genomes(annotate_input_channel)
+    genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
+            [genome_name, reference]
+        }.set { split_genome_input_channel }
+    // Step 7: 将基因组切分成chunks，进行并行化注释
+    split_genome_out = pan_split_genome(split_genome_input_channel)
+
+    split_genome_out.ch_chunks.flatMap { genome_name, chunk_files ->
+        // 确保 chunk_files 是数组
+        chunk_files = chunk_files instanceof List ? chunk_files : [chunk_files]
+        chunk_files.collect { chunk_file ->
+            [genome_name, chunk_file]
+        }
+    }
+        .combine(panTE_merge_lib)
+        .set { annotate_input_channel }
+    annotate_chunk_out = pan_annotate_chunk(annotate_input_channel)
+    annotate_chunk_out.ch_annotated_chunks
+        .groupTuple(by: 0)  // 按 genome_name 分组
+        .set { grouped_chunks }
+    // Step 7.1: 将切分成chunks的基因注释进行合并
+    merge_annotations_out = pan_merge_annotations(grouped_chunks)
+    merge_annotations_out.ch_merged_annotations.join(split_genome_input_channel).combine(panTE_merge_lib).set { recover_split_annotation_input_channel }
+    // Step 7.2: 将切分的注释索引恢复
+    annotate_out = pan_recover_split_annotation(recover_split_annotation_input_channel)
+
+//     // 准备panTE library和其他参数，作为channel
+//     annotate_input = genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
+//         [genome_name, reference]
+//     }.combine(panTE_merge_lib).set { annotate_input_channel }
+//     // Step 5: 并行注释每个基因组
+//     annotate_out = pan_annotate_genomes(annotate_input_channel)
 
     // 将注释结果合并到 json 文件中，便于后续统一分析
     genome_info_list.join(annotate_out).map { genome_info ->
@@ -399,8 +497,7 @@ workflow {
             genome_info[5].toString(),
             genome_info[6].toString(),
             genome_info[7].toString(),
-            genome_info[8].toString(),
-            genome_info[9].toString()
+            genome_info[8].toString()
         ]
     }.join(intact_ltr_list_channel).map { genome_info ->
         [
@@ -410,9 +507,9 @@ workflow {
             gene_gtf   : genome_info[3],
             RNA_seq    : genome_info[4],
             TE_gff        : genome_info[5],
-            full_length_TE_gff: genome_info[8],
-            full_length_copies: genome_info[9],
-            intact_LTR_list: genome_info[10].toString()
+            full_length_TE_gff: genome_info[7],
+            full_length_copies: genome_info[8],
+            intact_LTR_list: genome_info[9].toString()
         ]
     }.collect().map { data ->
         def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
@@ -447,8 +544,7 @@ workflow {
                 genome_info[5].toString(),
                 genome_info[6].toString(),
                 genome_info[7].toString(),
-                genome_info[8].toString(),
-                genome_info[9].toString()
+                genome_info[8].toString()
             ]
         }.join(bam_out).map { genome_info ->
             [
@@ -458,8 +554,8 @@ workflow {
                 gene_gtf: genome_info[3],
                 RNA_seq: genome_info[4],
                 TE_gff: genome_info[5],
-                full_length_TE_gff: genome_info[8],
-                bam: genome_info[10].toString()
+                full_length_TE_gff: genome_info[7],
+                bam: genome_info[9].toString()
             ]
         }.collect().map { data ->
             def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"

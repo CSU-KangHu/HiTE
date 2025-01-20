@@ -20,7 +20,7 @@ from Util import read_fasta, store_fasta, Logger, read_scn, store_scn, get_LTR_s
     filter_ltr_by_flanking_cluster, filter_ltr_by_copy_num, filter_single_copy_ltr, remove_dirty_LTR, \
     filter_ltr_by_flank_seq_v2, deredundant_for_LTR_v5, get_all_potential_ltr_lines
 from configs import config
-from utils.data_util import expand_matrix_dir, expand_matrix_dir_v1, expand_matrix_dir_v2, sort_matrix_dir
+from utils.data_util import sort_matrix_dir
 
 
 def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover, debug,

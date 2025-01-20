@@ -28,7 +28,6 @@ if __name__ == '__main__':
     default_curated_lib = None
     default_recover = 0
     default_annotate = 0
-    default_intact_annotate = 0
     default_search_struct = 1
     default_BM_RM2 = 0
     default_BM_EDTA = 0
@@ -39,7 +38,7 @@ if __name__ == '__main__':
     default_flanking_len = 50
     default_is_denovo_nonltr = 1
     default_debug = 0
-    default_chrom_seg_length = 100000
+    default_chrom_seg_length = 1000000
     default_classified = 1
     default_domain = 0
     default_miu = str(1.3e-8)
@@ -77,7 +76,6 @@ if __name__ == '__main__':
     parser.add_argument('--domain', metavar='is_domain', help='Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false. default = [ ' + str(default_domain) + ' ]')
     parser.add_argument('--recover', metavar='is_recover', help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ ' + str(default_recover) + ' ]')
     parser.add_argument('--annotate', metavar='is_annotate', help='Whether to annotate the genome using the TE library generated, 1: true, 0: false. default = [ ' + str(default_annotate) + ' ]')
-    parser.add_argument('--intact_anno', metavar='intact_anno', help='Whether to generate annotation of full-length TEs, 1: true, 0: false. default = [ ' + str(default_intact_annotate) + ' ]')
     parser.add_argument('--search_struct', metavar='search_struct', help='Is the structural information of full-length copies being searched, 1: true, 0: false. default = [ ' + str(default_search_struct) + ' ]')
     parser.add_argument('--BM_RM2', metavar='BM_RM2', help='Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false. default = [ ' + str(default_BM_RM2) + ' ]')
     parser.add_argument('--BM_EDTA', metavar='BM_EDTA', help='Whether to conduct benchmarking of EDTA, 1: true, 0: false. default = [ ' + str(default_BM_EDTA) + ' ]')
@@ -119,7 +117,6 @@ if __name__ == '__main__':
     miu = args.miu
     recover = args.recover
     annotate = args.annotate
-    intact_anno = args.intact_anno
     search_struct = args.search_struct
     BM_RM2 = args.BM_RM2
     BM_EDTA = args.BM_EDTA
@@ -240,11 +237,6 @@ if __name__ == '__main__':
         annotate = default_annotate
     else:
         annotate = int(annotate)
-
-    if intact_anno is None:
-        intact_anno = default_intact_annotate
-    else:
-        intact_anno = int(intact_anno)
 
     if search_struct is None:
         search_struct = default_search_struct
@@ -376,8 +368,7 @@ if __name__ == '__main__':
                     '  [Setting] Retrieve specific type of TE output = [ ' + str(te_type) + ' ]  Default( ' + str(default_te_type) + ' )\n'
                     '  [Setting] Curated library = [ ' + str(curated_lib) + ' ]  Default( ' + str(default_curated_lib) + ' )\n'
                     '  [Setting] recover = [ ' + str(recover) + ' ]  Default( ' + str(default_recover) + ' )\n'
-                    '  [Setting] annotate = [ ' + str(annotate) + ' ]  Default( ' + str(default_annotate) + ' )\n'
-                    '  [Setting] intact_anno = [ ' + str(intact_anno) + ' ]  Default( ' + str(default_intact_annotate) + ' )\n'                                                                                        
+                    '  [Setting] annotate = [ ' + str(annotate) + ' ]  Default( ' + str(default_annotate) + ' )\n'                                                                                    
                     '  [Setting] search_struct = [ ' + str(search_struct) + ' ] Default( ' + str(default_search_struct) + ' )\n'                                                                                        
                     '  [Setting] BM_RM2 = [ ' + str(BM_RM2) + ' ]  Default( ' + str(default_BM_RM2) + ' )\n'
                     '  [Setting] BM_EDTA = [ ' + str(BM_EDTA) + ' ]  Default( ' + str(default_BM_EDTA) + ' )\n'
@@ -704,54 +695,26 @@ if __name__ == '__main__':
     if os.path.exists(low_confident_TEs):
         os.system('cat ' + low_confident_TEs + ' >> ' + all_TEs)
 
-    if intact_anno == 1:
-        starttime = time.time()
-        log.logger.info('Start step4: get full-length TE annotation')
-        chr_name_map = tmp_output_dir + '/chr_name.map'
-        ltr_list = tmp_output_dir + '/intact_LTR.list'
-        confident_tir_path = tmp_output_dir + '/confident_tir.fa'
-        confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
-        confident_non_ltr_path = tmp_output_dir + '/confident_non_ltr.fa'
-        confident_other_path = tmp_output_dir + '/confident_other.fa'
-        classified_TE_path = tmp_output_dir + '/TE_merge_tmp.fa.classified'
-        full_length_anno_command = 'get_full_length_annotation.py' \
-                                   + ' -t ' + str(threads) + ' --ltr_list ' + ltr_list \
-                                   + ' --tir_lib ' + str(confident_tir_path) \
-                                   + ' --helitron_lib ' + confident_helitron_path \
-                                   + ' --nonltr_lib ' + confident_non_ltr_path \
-                                   + ' --other_lib ' + confident_other_path \
-                                   + ' --chr_name_map ' + chr_name_map \
-                                   + ' -r ' + reference \
-                                   + ' --tmp_output_dir ' + tmp_output_dir \
-                                   + ' --search_struct ' + str(search_struct) \
-                                   + ' --classified_TE_path ' + str(classified_TE_path)
-        log.logger.info(full_length_anno_command)
-        os.system(full_length_anno_command)
-
-        endtime = time.time()
-        dtime = endtime - starttime
-        log.logger.info("Running time of step4: %.8s s" % (dtime))
 
     if not file_exist(confident_TE_consensus):
         log.logger.error('Error, Cannot find TE path: ' + confident_TE_consensus)
     else:
         starttime = time.time()
-        log.logger.info('Start step5: annotate genome')
+        log.logger.info('Start step4: annotate genome')
         TEClass_home = project_dir + '/classification'
-        annotate_genome_command = 'annotate_genome.py' \
-                                  + ' -t ' + str(threads) + ' --classified_TE_consensus ' + confident_TE_consensus \
-                                  + ' --annotate ' + str(annotate) \
-                                  + ' -r ' + reference \
-                                  + ' --tmp_output_dir ' + tmp_output_dir
+        annotate_genome_command = 'pan_annotate_genome.py --threads ' + str(threads) \
+                                  + ' --panTE_lib ' + confident_TE_consensus + ' --genome_name HiTE ' \
+                                  + ' --reference ' + reference + ' --annotate ' + str(annotate) \
+                                  + ' --output_dir ' + tmp_output_dir
         log.logger.info(annotate_genome_command)
         os.system(annotate_genome_command)
 
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step5: %.8s s" % (dtime))
+        log.logger.info("Running time of step4: %.8s s" % (dtime))
 
         starttime = time.time()
-        log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
+        log.logger.info('Start step5: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
         benchmarking_command = 'benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
@@ -768,7 +731,7 @@ if __name__ == '__main__':
         os.system(benchmarking_command)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step6: %.8s s" % (dtime))
+        log.logger.info("Running time of step5: %.8s s" % (dtime))
 
     clean_lib_command = 'clean_lib.py' \
                            + ' --tmp_output_dir ' + tmp_output_dir \

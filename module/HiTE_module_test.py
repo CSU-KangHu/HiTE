@@ -3981,30 +3981,41 @@ if __name__ == '__main__':
     # draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
 
 
-    output_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/test'
-    merge_te_file = output_dir + '/pan_te.tmp.fa'
+    # output_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/test'
+    # merge_te_file = output_dir + '/pan_te.tmp.fa'
+    #
+    # unique_id = uuid.uuid4()
+    # temp_dir = '/tmp/HiTE_module_test_' + str(unique_id)
+    # create_or_clear_directory(temp_dir)
+    # os.system('cp ' + merge_te_file + ' ' + temp_dir)
+    # merge_te_file = temp_dir + '/pan_te.tmp.fa'
+    # other_path, internal_path = split_internal_out(merge_te_file, temp_dir)
+    #
+    # terminal_coverage_threshold = 0.95
+    # threads = 40
+    # deredundant_for_LTR_v5(other_path, temp_dir, threads, 'terminal', terminal_coverage_threshold, debug=1)
+    #
+    # internal_coverage_threshold = 0.8
+    # threads = 40
+    # deredundant_for_LTR_v5(internal_path, temp_dir, threads, 'internal', internal_coverage_threshold, debug=1)
+    #
+    # # 计算完之后将结果拷贝回输出目录
+    # copy_files(temp_dir, output_dir)
+    #
+    # # 删除临时目录
+    # if os.path.exists(temp_dir):
+    #     shutil.rmtree(temp_dir)
 
-    unique_id = uuid.uuid4()
-    temp_dir = '/tmp/HiTE_module_test_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
-    os.system('cp ' + merge_te_file + ' ' + temp_dir)
-    merge_te_file = temp_dir + '/pan_te.tmp.fa'
-    other_path, internal_path = split_internal_out(merge_te_file, temp_dir)
 
-    terminal_coverage_threshold = 0.95
-    threads = 40
-    deredundant_for_LTR_v5(other_path, temp_dir, threads, 'terminal', terminal_coverage_threshold, debug=1)
+    # 对于大型基因组而言，难以进行Annotate。我们可以将基因组划分成chunk，在header中保留划分的索引.然后对每个chunk在nextflow上并行化进行RepeatMasker，
 
-    internal_coverage_threshold = 0.8
-    threads = 40
-    deredundant_for_LTR_v5(internal_path, temp_dir, threads, 'internal', internal_coverage_threshold, debug=1)
 
-    # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, output_dir)
 
-    # 删除临时目录
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+
+
+
+
+
 
 
 
