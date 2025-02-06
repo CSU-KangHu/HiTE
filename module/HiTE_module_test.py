@@ -49,7 +49,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
     multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
     get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD, \
-    split_internal_out, create_or_clear_directory, copy_files
+    split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome
 
 
 def filter_repbase_nonTE():
@@ -3966,7 +3966,61 @@ def draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf):
 # work_dir = '/home/hukang/test/HiTE/demo'
 # log = Logger(work_dir + '/HiTE.log', level='debug')
 
+def parse_coordinates(header):
+    """解析header中的坐标信息"""
+    parts = header.split('-')
+    chr_name = parts[0]
+    start = int(parts[1])
+    end = int(parts[2])
+    return (chr_name, start, end)
 
+def calculate_overlap(coord1, coord2):
+    """计算两条序列的重叠比例"""
+    chr1, start1, end1 = coord1
+    chr2, start2, end2 = coord2
+
+    # 如果染色体不同，直接返回0
+    if chr1 != chr2:
+        return 0
+
+    # 计算重叠区域
+    overlap_start = max(start1, start2)
+    overlap_end = min(end1, end2)
+    overlap_length = max(0, overlap_end - overlap_start)
+
+    # 计算每条序列的长度
+    length1 = end1 - start1
+    length2 = end2 - start2
+
+    # 计算重叠比例
+    overlap_ratio1 = overlap_length / length1
+    overlap_ratio2 = overlap_length / length2
+
+    # 返回较大的重叠比例
+    return min(overlap_ratio1, overlap_ratio2)
+
+def remove_duplicates(input_fasta, output_fasta, threshold=0.95):
+    """去除重叠比例超过阈值的重复序列"""
+    input_names, input_contigs = read_fasta(input_fasta)
+    unique_records = []
+    for record in input_names:
+        coords = parse_coordinates(record)
+        is_duplicate = False
+        # 检查是否与已保留的序列重叠超过阈值
+        for unique_record in unique_records:
+            unique_coords = parse_coordinates(unique_record)
+            overlap_ratio = calculate_overlap(coords, unique_coords)
+            if overlap_ratio >= threshold:
+                is_duplicate = True
+                break
+        # 如果不是重复序列，则保留
+        if not is_duplicate:
+            unique_records.append(record)
+    unique_contigs = {}
+    for name in unique_records:
+        unique_contigs[name] = input_contigs[name]
+    # 将去重后的序列写入新的FASTA文件
+    store_fasta(unique_contigs, output_fasta)
 
 
 if __name__ == '__main__':
@@ -4007,10 +4061,13 @@ if __name__ == '__main__':
     #     shutil.rmtree(temp_dir)
 
 
-    # 对于大型基因组而言，难以进行Annotate。我们可以将基因组划分成chunk，在header中保留划分的索引.然后对每个chunk在nextflow上并行化进行RepeatMasker，
+    # 测试一下
+    input_fasta = '/public/home/hpc194701009/test/intact_ltr.fa'
+    intact_ltr_rm_dup = '/public/home/hpc194701009/test/intact_ltr.rm_duplication.fa'
+    remove_duplicates(input_fasta, intact_ltr_rm_dup, threshold=0.95)
 
-
-
+    cd_hit_command = 'cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -d 0 -G 0 -g 1 -A 80 -i ' + intact_ltr_rm_dup + ' -o ' + intact_ltr_rm_dup + '.cons' + ' -T 0 -M 0'
+    os.system(cd_hit_command)
 
 
 

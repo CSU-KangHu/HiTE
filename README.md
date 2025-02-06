@@ -184,27 +184,6 @@ N_111   Gypsy-50_SB_1p#LTR/Gypsy        164     4387    1       1410
 ...
 ```
 
-### Obtaining full-length TE annotations
-To obtain full-length TE annotations on the genome, you need to include the parameter `--intact_anno 1`.
-
-The output file is **HiTE_intact.sorted.gff3**, which is shown as follows:
-```sh
-##gff-version 3
-##date 2024-04-29 03:20:00 UTC
-##ltr_identity: Sequence identity (0-1) between the left and right LTR region.
-##tir_identity: Sequence identity (0-1) between the left and right TIR region.
-##tsd: target site duplication
-chr_0   HiTE    TIR     68394   68599   .       +       .       id=te_intact_352;name=TIR_89;classification=DNA/MULE;tir=1-68,129-206;tir_identity=0.882353;tsd=TA;tsd_len=2
-chr_0   HiTE    Helitron        3534305 3534481 .       -       .       id=te_intact_517;name=Helitron_1;classification=RC/Helitron;hairpin_loop=GCGCCGAAGGCGC
-chr_1   HiTE    Non_LTR 1036    1315    .       +       .       id=te_intact_472;name=Denovo_Non_LTR_0;classification=LINE/L1;polya_t=AAAAAA;tsd=AAAATTGA;tsd_len=8
-chr_1   HiTE    repeat_region   139832  146291  .       -       .       id=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
-chr_1   HiTE    target_site_duplication 139832  139836  .       -       .       id=lTSD_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
-chr_1   HiTE    long_terminal_repeat    139837  140815  .       -       .       id=lLTR_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
-chr_1   HiTE    LTR     139837  146286  .       -       .       id=LTRRT_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
-chr_1   HiTE    long_terminal_repeat    145317  146286  .       -       .       id=rLTR_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
-chr_1   HiTE    target_site_duplication 146287  146291  .       -       .       id=rTSD_1;parent=repeat_region_1;name=chr_1:139837..146286;classification=LTR/Copia;ltr_identity=1.0000;motif=TGCA;tsd=GTATA
-```
-
 ## <a name="inputs"></a>Inputs
 **Required Parameters:**
 * `--genome`. HiTE works with genome assemblies in **fasta**, **fa**, and **fna** formats using the `--genome` parameter.
@@ -280,7 +259,7 @@ Most frequently used commands:
 python main.py --genome $genome_assembly --out_dir $output_dir --thread 40 --plant 0 --recover 1 --annotate 1
 
 usage: main.py [-h] --genome genome --out_dir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--te_type te_type] [--curated_lib curated_lib]
-               [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--intact_anno intact_anno] [--search_struct search_struct] [--BM_RM2 BM_RM2]
+               [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--search_struct search_struct] [--BM_RM2 BM_RM2]
                [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_denovo_nonltr is_denovo_nonltr]
                [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold]
                [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length]
@@ -305,8 +284,6 @@ optional arguments:
   --recover is_recover  Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false. default = [ 0 ]
   --annotate is_annotate
                         Whether to annotate the genome using the TE library generated, 1: true, 0: false. default = [ 0 ]
-  --intact_anno intact_anno
-                        Whether to generate annotation of full-length TEs, 1: true, 0: false. default = [ 0 ]
   --search_struct search_struct
                         Is the structural information of full-length copies being searched, 1: true, 0: false. default = [ 1 ]
   --BM_RM2 BM_RM2       Whether to conduct benchmarking of RepeatModeler2, 1: true, 0: false. default = [ 0 ]

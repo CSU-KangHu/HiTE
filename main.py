@@ -310,8 +310,12 @@ if __name__ == '__main__':
     # 创建新的目录
     os.makedirs(tmp_output_dir, exist_ok=True)
 
-    os.system('cp ' + reference + ' ' + tmp_output_dir)
-    reference = tmp_output_dir + '/' + ref_filename
+    try:
+        shutil.copy2(reference, os.path.join(tmp_output_dir, os.path.basename(reference)))
+    except Exception as e:
+        log.logger.error(f"Error copying file: {e}")
+
+    reference = os.path.join(tmp_output_dir, os.path.basename(reference))
 
     all_low_copy_tir = os.path.join(tmp_output_dir, 'tir_low_copy.fa')
     all_low_copy_helitron = os.path.join(tmp_output_dir, 'helitron_low_copy.fa')

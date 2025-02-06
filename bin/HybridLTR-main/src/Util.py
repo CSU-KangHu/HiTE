@@ -353,7 +353,8 @@ def get_full_length_copies_v1(query_path, split_ref_dir, max_copy_num, full_leng
     repeats_path = (query_path, split_ref_dir, blastn2Results_path)
     all_copies = multiple_alignment_blast_and_get_copies_v2(repeats_path, max_copy_num, full_length_threshold)
     if debug != 1:
-        os.remove(blastn2Results_path)
+        if os.path.exists(blastn2Results_path):
+            os.remove(blastn2Results_path)
     return all_copies
 
 def multiple_alignment_blast_and_get_copies_v2(repeats_path, max_copy_num, full_length_threshold):
@@ -6227,7 +6228,6 @@ def filter_ltr_by_copy_num_sub(candidate_sequence_path, threads, temp_dir, split
         store_fasta(cur_contigs, cur_file)
         split_files.append(cur_file)
         batch_id += 1
-
 
     ex = ProcessPoolExecutor(threads)
     jobs = []

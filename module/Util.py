@@ -9200,7 +9200,8 @@ def get_full_length_copies(query_path, split_ref_dir, debug):
     repeats_path = (query_path, split_ref_dir, blastn2Results_path)
     all_copies = multiple_alignment_blast_and_get_copies_v1(repeats_path)
     if debug != 1:
-        os.remove(blastn2Results_path)
+        if os.path.exists(blastn2Results_path):
+            os.remove(blastn2Results_path)
     return all_copies
 
 def get_full_length_member_batch(query_path, reference, ref_contigs, temp_dir, flanking_len):
