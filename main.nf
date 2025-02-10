@@ -122,7 +122,7 @@ filePrefix = genome_name.substring(0, genome_name.lastIndexOf('.'))
 out_genome_rename = "${params.out_dir}/${filePrefix}.rename.fa"
 
 //parameters of HiTE
-tmp_output_dir = "${params.out_dir}"
+tmp_output_dir = file(params.out_dir).toAbsolutePath()
 chrom_seg_length = "${params.chrom_seg_length}"
 chunk_size = "${params.chunk_size}"
 fixed_extend_base_threshold = "${params.fixed_extend_base_threshold}"

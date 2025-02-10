@@ -130,9 +130,6 @@ if __name__ == '__main__':
     prev_TE = args.prev_TE
     all_low_copy_helitron = args.all_low_copy_helitron
 
-    if not os.path.exists(all_low_copy_helitron):
-        os.system('touch ' + all_low_copy_helitron)
-
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)
 
@@ -150,8 +147,13 @@ if __name__ == '__main__':
         tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
 
     log = Logger(tmp_output_dir+'/HiTE_helitron.log', level='debug')
+    all_low_copy_helitron = os.path.abspath(all_low_copy_helitron)
+    if not os.path.exists(all_low_copy_helitron):
+        os.system('touch ' + all_low_copy_helitron)
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()

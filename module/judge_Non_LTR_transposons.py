@@ -131,10 +131,6 @@ if __name__ == '__main__':
     prev_TE = args.prev_TE
     all_low_copy_non_ltr = args.all_low_copy_non_ltr
 
-    if not os.path.exists(all_low_copy_non_ltr):
-        os.system('touch ' + all_low_copy_non_ltr)
-
-
     reference = os.path.realpath(reference)
 
     if debug is None:
@@ -151,8 +147,14 @@ if __name__ == '__main__':
         tmp_output_dir = os.getcwd()
 
     tmp_output_dir = os.path.abspath(tmp_output_dir)
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
 
     log = Logger(tmp_output_dir + '/HiTE_Non_LTR.log', level='debug')
+
+    all_low_copy_non_ltr = os.path.abspath(all_low_copy_non_ltr)
+    if not os.path.exists(all_low_copy_non_ltr):
+        os.system('touch ' + all_low_copy_non_ltr)
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()

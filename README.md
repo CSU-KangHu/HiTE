@@ -206,7 +206,7 @@ output_dir/
 ├── confident_helitron_*.fa
 ├── confident_non_ltr_*.fa
 ├── confident_other_*.fa
-├── confident_ltr_cut.fa.cons
+├── confident_ltr_cut.fa
 ├── confident_TE.cons.fa
 ├── HiTE.out (require `--annotate 1`)
 ├── HiTE.gff (require `--annotate 1`)

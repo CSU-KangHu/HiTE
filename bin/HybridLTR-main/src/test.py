@@ -635,92 +635,100 @@ work_dir = '/home/hukang/test/HiTE/demo'
 log = Logger(work_dir + '/HiTE.log', level='debug')
 
 if __name__ == '__main__':
-    # 测试一下 deep learning模块的性能
-    work_dir = '/home/hukang/left_LTR_real_dataset/five_species_high_copy_bak/Arabidopsis_thaliana'
-    dl_output_path = work_dir + '/out/is_LTR_deep.txt'
-    true_labels = []
-    predict_labels = []
-    with open(dl_output_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.replace('\n', '').split('\t')
-            seq_name = parts[0]
-            predict_label = int(parts[1])
-            if seq_name.startswith('chr_') or seq_name.startswith('Chr'):
-                true_label = 0
-            else:
-                true_label = 1
-            true_labels.append(true_label)
-            predict_labels.append(predict_label)
+    # # 测试一下 deep learning模块的性能
+    # work_dir = '/home/hukang/left_LTR_real_dataset/five_species_high_copy_bak/Arabidopsis_thaliana'
+    # dl_output_path = work_dir + '/out/is_LTR_deep.txt'
+    # true_labels = []
+    # predict_labels = []
+    # with open(dl_output_path, 'r') as f_r:
+    #     for line in f_r:
+    #         parts = line.replace('\n', '').split('\t')
+    #         seq_name = parts[0]
+    #         predict_label = int(parts[1])
+    #         if seq_name.startswith('chr_') or seq_name.startswith('Chr'):
+    #             true_label = 0
+    #         else:
+    #             true_label = 1
+    #         true_labels.append(true_label)
+    #         predict_labels.append(predict_label)
+    #
+    # # 计算 Precision
+    # precision = precision_score(true_labels, predict_labels, average='macro')
+    # print(f"Precision: {precision:.4f}")
+    # # 计算 Recall
+    # recall = recall_score(true_labels, predict_labels, average='macro')
+    # print(f"Recall: {recall:.4f}")
+    # # 计算 F1 Score
+    # f1 = f1_score(true_labels, predict_labels, average='macro')
+    # print(f"F1 Score: {f1:.4f}")
+    # # 计算 Accuracy
+    # accuracy = accuracy_score(true_labels, predict_labels)
+    # print(f"Accuracy: {accuracy:.4f}")
+    # # 生成分类报告
+    # report = classification_report(true_labels, predict_labels)
+    # print("Classification Report:")
+    # print(report)
+    #
+    # # 测试一下同源算法的性能
+    # threads = 40
+    # flanking_len = 100
+    # positive_hc_output_path = os.path.join(work_dir, 'is_LTR_homo.positive.txt')
+    # type = 'High copy'
+    # high_copy_output_dir = os.path.join(work_dir, 'positive')
+    # judge_ltr_from_both_ends_frame(high_copy_output_dir, positive_hc_output_path, threads, type, flanking_len, log)
+    #
+    # negative_hc_output_path = os.path.join(work_dir, 'is_LTR_homo.negative.txt')
+    # type = 'High copy'
+    # high_copy_output_dir = os.path.join(work_dir, 'negative')
+    # judge_ltr_from_both_ends_frame(high_copy_output_dir, negative_hc_output_path, threads, type, flanking_len, log)
+    #
+    # hc_output_path = os.path.join(work_dir, 'is_LTR_homo.txt')
+    # os.system('cat ' + positive_hc_output_path + ' ' + negative_hc_output_path + ' > ' + hc_output_path)
+    #
+    # alter_dl_output_path = os.path.join(work_dir, 'is_LTR_deep.alter.txt')
+    # alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_path, high_copy_output_dir, log)
+    #
+    # true_labels = []
+    # predict_labels = []
+    # with open(alter_dl_output_path, 'r') as f_r:
+    #     for line in f_r:
+    #         parts = line.replace('\n', '').split('\t')
+    #         seq_name = parts[0]
+    #         predict_label = int(parts[1])
+    #         if seq_name.startswith('chr_') or seq_name.startswith('Chr'):
+    #             true_label = 0
+    #         else:
+    #             true_label = 1
+    #         true_labels.append(true_label)
+    #         predict_labels.append(predict_label)
+    #
+    # # 计算 Precision
+    # precision = precision_score(true_labels, predict_labels, average='macro')
+    # print(f"Precision: {precision:.4f}")
+    # # 计算 Recall
+    # recall = recall_score(true_labels, predict_labels, average='macro')
+    # print(f"Recall: {recall:.4f}")
+    # # 计算 F1 Score
+    # f1 = f1_score(true_labels, predict_labels, average='macro')
+    # print(f"F1 Score: {f1:.4f}")
+    # # 计算 Accuracy
+    # accuracy = accuracy_score(true_labels, predict_labels)
+    # print(f"Accuracy: {accuracy:.4f}")
+    # # 生成分类报告
+    # report = classification_report(true_labels, predict_labels)
+    # print("Classification Report:")
+    # print(report)
 
-    # 计算 Precision
-    precision = precision_score(true_labels, predict_labels, average='macro')
-    print(f"Precision: {precision:.4f}")
-    # 计算 Recall
-    recall = recall_score(true_labels, predict_labels, average='macro')
-    print(f"Recall: {recall:.4f}")
-    # 计算 F1 Score
-    f1 = f1_score(true_labels, predict_labels, average='macro')
-    print(f"F1 Score: {f1:.4f}")
-    # 计算 Accuracy
-    accuracy = accuracy_score(true_labels, predict_labels)
-    print(f"Accuracy: {accuracy:.4f}")
-    # 生成分类报告
-    report = classification_report(true_labels, predict_labels)
-    print("Classification Report:")
-    print(report)
-
-    # 测试一下同源算法的性能
-    threads = 40
-    flanking_len = 100
-    positive_hc_output_path = os.path.join(work_dir, 'is_LTR_homo.positive.txt')
-    type = 'High copy'
-    high_copy_output_dir = os.path.join(work_dir, 'positive')
-    judge_ltr_from_both_ends_frame(high_copy_output_dir, positive_hc_output_path, threads, type, flanking_len, log)
-
-    negative_hc_output_path = os.path.join(work_dir, 'is_LTR_homo.negative.txt')
-    type = 'High copy'
-    high_copy_output_dir = os.path.join(work_dir, 'negative')
-    judge_ltr_from_both_ends_frame(high_copy_output_dir, negative_hc_output_path, threads, type, flanking_len, log)
-
-    hc_output_path = os.path.join(work_dir, 'is_LTR_homo.txt')
-    os.system('cat ' + positive_hc_output_path + ' ' + negative_hc_output_path + ' > ' + hc_output_path)
-
-    alter_dl_output_path = os.path.join(work_dir, 'is_LTR_deep.alter.txt')
-    alter_deep_learning_results(dl_output_path, hc_output_path, alter_dl_output_path, high_copy_output_dir, log)
-
-    true_labels = []
-    predict_labels = []
-    with open(alter_dl_output_path, 'r') as f_r:
-        for line in f_r:
-            parts = line.replace('\n', '').split('\t')
-            seq_name = parts[0]
-            predict_label = int(parts[1])
-            if seq_name.startswith('chr_') or seq_name.startswith('Chr'):
-                true_label = 0
-            else:
-                true_label = 1
-            true_labels.append(true_label)
-            predict_labels.append(predict_label)
-
-    # 计算 Precision
-    precision = precision_score(true_labels, predict_labels, average='macro')
-    print(f"Precision: {precision:.4f}")
-    # 计算 Recall
-    recall = recall_score(true_labels, predict_labels, average='macro')
-    print(f"Recall: {recall:.4f}")
-    # 计算 F1 Score
-    f1 = f1_score(true_labels, predict_labels, average='macro')
-    print(f"F1 Score: {f1:.4f}")
-    # 计算 Accuracy
-    accuracy = accuracy_score(true_labels, predict_labels)
-    print(f"Accuracy: {accuracy:.4f}")
-    # 生成分类报告
-    report = classification_report(true_labels, predict_labels)
-    print("Classification Report:")
-    print(report)
-
-
-
+    # 测试一下在大规模基因组上获取拷贝是否有问题
+    threads = 48
+    full_length_threshold = 0.95
+    tmp_output_dir = '/tmp/judge_LTR_transposons_3d88e304-8a84-4c49-9cf8-bb47526822f2/HybridLTR_output'
+    split_ref_dir = tmp_output_dir + '/ref_chr'
+    intact_ltr_path = tmp_output_dir + '/intact_ltr.fa'
+    temp_dir = tmp_output_dir + '/intact_ltr_filter'
+    reference = '/tmp/judge_LTR_transposons_3d88e304-8a84-4c49-9cf8-bb47526822f2/genome.rename.fa'
+    ltr_copies = filter_ltr_by_copy_num_sub(intact_ltr_path, threads, temp_dir, split_ref_dir, full_length_threshold,
+                                            max_copy_num=10)
 
 
 

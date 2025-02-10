@@ -143,7 +143,7 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
                 file_names = os.listdir(high_copy_output_dir)
                 if len(file_names) > 0:
                     model_path = os.path.join(project_dir, 'models/checkpoint_epoch_14.pth')
-                    feature_output_dir = os.path.join(project_dir, 'feature_output_dir')
+                    feature_output_dir = os.path.join(chunk_dir, 'feature_output_dir')
                     img_features = os.path.join(feature_output_dir, 'img_features.pt')
                     freq_features = os.path.join(feature_output_dir, 'freq_features.pt')
                     seq_names = os.path.join(feature_output_dir, 'seq_names.txt')

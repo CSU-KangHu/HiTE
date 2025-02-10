@@ -16,6 +16,7 @@ import Levenshtein
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Process, Queue
 from collections import defaultdict
+import pickle
 
 class Logger(object):
     level_relations = {
@@ -6201,47 +6202,58 @@ def get_non_redundant_copies(ltr_name, cur_copy_contigs, cur_copy_path, copy_nam
 
 def filter_ltr_by_copy_num_sub(candidate_sequence_path, threads, temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10):
     debug = 0
-    # flanking_len = 100
     if os.path.exists(temp_dir):
         os.system('rm -rf ' + temp_dir)
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
 
-    # We are considering that the current running time is too long, maybe it is related to submitting one sequence for Blastn alignment at a time.
-    # We will try to combine 10 sequences together and run Blastn once.
-    # To increase CPU utilization, we will submit one thread to process 10 sequences.
     batch_size = 1
     batch_id = 0
     names, contigs = read_fasta(candidate_sequence_path)
     split_files = []
     cur_contigs = {}
+
     for i, name in enumerate(names):
-        cur_file = temp_dir + '/' + str(batch_id) + '.fa'
+        cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
         cur_contigs[name] = contigs[name]
         if len(cur_contigs) == batch_size:
             store_fasta(cur_contigs, cur_file)
             split_files.append(cur_file)
             cur_contigs = {}
             batch_id += 1
-    if len(cur_contigs) > 0:
-        cur_file = temp_dir + '/' + str(batch_id) + '.fa'
+
+    if cur_contigs:
+        cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
         store_fasta(cur_contigs, cur_file)
         split_files.append(cur_file)
         batch_id += 1
 
     ex = ProcessPoolExecutor(threads)
     jobs = []
-    for cur_split_files in split_files:
-        job = ex.submit(get_full_length_copies_v1, cur_split_files, split_ref_dir, max_copy_num, full_length_threshold,
-                        debug)
+    result_files = []
+
+    for idx, cur_split_file in enumerate(split_files):
+        result_file = os.path.join(temp_dir, f"result_{idx}.pkl")
+        result_files.append(result_file)
+        job = ex.submit(run_and_save_result, cur_split_file, split_ref_dir, max_copy_num, full_length_threshold, debug, result_file)
         jobs.append(job)
+
     ex.shutdown(wait=True)
+
+    # 合并所有结果
     all_copies = {}
-    for job in as_completed(jobs):
-        cur_all_copies = job.result()
-        all_copies.update(cur_all_copies)
+    for result_file in result_files:
+        if os.path.exists(result_file):
+            with open(result_file, "rb") as f:
+                cur_all_copies = pickle.load(f)
+                all_copies.update(cur_all_copies)
 
     return all_copies
+
+def run_and_save_result(split_file, split_ref_dir, max_copy_num, full_length_threshold, debug, result_file):
+    """运行 get_full_length_copies_v1，并将结果存入文件"""
+    cur_all_copies = get_full_length_copies_v1(split_file, split_ref_dir, max_copy_num, full_length_threshold, debug)
+    with open(result_file, "wb") as f:
+        pickle.dump(cur_all_copies, f)
 
 def get_domain_info(cons, lib, output_table, threads, temp_dir):
     if not os.path.exists(temp_dir):
