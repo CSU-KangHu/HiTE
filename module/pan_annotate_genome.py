@@ -98,6 +98,9 @@ if __name__ == "__main__":
     annotate = args.annotate
     threads = args.threads
 
+    panTE_lib = os.path.abspath(panTE_lib)
+    reference = os.path.abspath(reference)
+
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
