@@ -23,7 +23,7 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
 
 def run_repeat_masker(output_dir, threads, panTE_lib, reference, annotate, genome_name, log):
     if annotate == 1:
-        RepeatMasker_command = f'RepeatMasker -e ncbi -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
+        RepeatMasker_command = f'cd {output_dir} && RepeatMasker -e ncbi -pa {threads} -gff -lib {panTE_lib} -cutoff 225 {reference}'
         log.logger.info(f"Running command: {RepeatMasker_command}")
         os.system(RepeatMasker_command)
 
