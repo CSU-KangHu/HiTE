@@ -49,7 +49,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
     multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
     get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD, \
-    split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome
+    split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome, parse_clstr_file
 
 
 def filter_repbase_nonTE():
@@ -4022,6 +4022,8 @@ def remove_duplicates(input_fasta, output_fasta, threshold=0.95):
     # 将去重后的序列写入新的FASTA文件
     store_fasta(unique_contigs, output_fasta)
 
+from matplotlib_venn import venn3
+from itertools import combinations
 
 if __name__ == '__main__':
     # # 画插入时间图
@@ -4061,16 +4063,54 @@ if __name__ == '__main__':
     #     shutil.rmtree(temp_dir)
 
 
-    # 测试一下
-    input_fasta = '/public/home/hpc194701009/test/intact_ltr.fa'
-    intact_ltr_rm_dup = '/public/home/hpc194701009/test/intact_ltr.rm_duplication.fa'
-    remove_duplicates(input_fasta, intact_ltr_rm_dup, threshold=0.95)
+    # panHiTE, panEDTA 和 Repbase 库三者的交集关系
+    cluster_file = '/home/hukang/test/HiTE/demo/ath_merge.fa.cons.clstr'
+    clusters = parse_clstr_file(cluster_file)
+    # print(clusters)
+    plt.switch_backend('Agg')
 
-    cd_hit_command = 'cd-hit-est -aS 0.95 -aL 0.95 -c 0.8 -d 0 -G 0 -g 1 -A 80 -i ' + intact_ltr_rm_dup + ' -o ' + intact_ltr_rm_dup + '.cons' + ' -T 0 -M 0'
-    os.system(cd_hit_command)
+    venn_input = defaultdict(set)
 
+    # 处理每个簇中的序列
+    for cluster, sequences in clusters.items():
+        for seq in sequences:
+            source = seq.split('_')[0]  # 获取序列的来源
+            venn_input[source].add(cluster)
 
+    # 选择有用的集合（例如考虑3个来源）
+    # 这里只做简单的示例，处理最多3个来源
+    sources = list(venn_input.keys())[:3]
 
+    # 为Venn图输入准备数据
+    set1 = venn_input[sources[0]]
+    set2 = venn_input[sources[1]]
+    set3 = venn_input[sources[2]]
+
+    # 绘制Venn图
+    venn = venn3([set1, set2, set3], set_labels=sources)
+    plt.savefig('/home/hukang/test/HiTE/demo/output_plot.png')
+
+    # 为Venn图输入准备数据
+    sets = [venn_input[source] for source in sources]  # 创建集合来存储每个来源的所有序列
+
+    # 生成所有可能的交集（2个到3个来源的交集）
+    for r in range(2, len(sources) + 1):  # 从2到len(sources)组合
+        for combo in combinations(sources, r):
+            # 计算该组合的交集
+            intersection = set.intersection(*[sets[sources.index(source)] for source in combo])
+
+            # 生成文件名
+            intersection_name = " & ".join(combo)
+            filename = f"/home/hukang/test/HiTE/demo/venn_intersection_{intersection_name}.txt"
+
+            # 将交集的序列名称写入文件
+            with open(filename, 'w') as f:
+                f.write(f"Intersection: {intersection_name}\n")
+                f.write("Sequence Names:\n")
+                # 确保所有元素都是字符串
+                f.write("\n".join(map(str, intersection)) + "\n")
+
+            print(f"交集 {intersection_name} 的序列已保存到 '{filename}'")
 
 
 

@@ -59,6 +59,7 @@ if __name__ == '__main__':
             'HiTE\\.out',
             'HiTE\\.tbl',
             'HiTE\\.gff',
+            'HiTE\\.log',
             'HiTE\\.cat\\.gz',
             'HiTE\\.full_length\\.gff',
             'BM_RM2\\.log',

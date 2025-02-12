@@ -14,10 +14,8 @@ from Util import Logger, create_or_clear_directory, copy_files
 def annotate_genome(tmp_output_dir, classified_TE_consensus, reference, annotate, threads, log):
     # annotate the genome
     if annotate is not None and int(annotate) == 1:
-        RepeatMasker_command = 'RepeatMasker -e ncbi -pa ' + str(threads) \
-                               + ' -no_is -norna -nolow -gff -lib ' + classified_TE_consensus + ' -cutoff 225 ' \
-                               + reference
-        log.logger.debug(RepeatMasker_command)
+        RepeatMasker_command = f'cd {tmp_output_dir} && RepeatMasker -e ncbi -pa {threads} -gff -lib {classified_TE_consensus} -cutoff 225 {reference}'
+        log.logger.info(f"Running command: {RepeatMasker_command}")
         os.system(RepeatMasker_command)
 
         mv_file_command = 'mv ' + reference + '.out ' + tmp_output_dir + '/HiTE.out && mv ' \
@@ -48,6 +46,7 @@ if __name__ == '__main__':
     annotate = args.annotate
     reference = args.r
 
+    classified_TE_consensus = os.path.abspath(classified_TE_consensus)
     reference = os.path.abspath(reference)
 
     if tmp_output_dir is None:
