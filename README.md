@@ -13,19 +13,8 @@
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies. In comparison to other tools, HiTE demonstrates superior performance in detecting a greater number of full-length TEs.
 
-Similar works include:
-* [RepeatModeler](https://github.com/Dfam-consortium/RepeatModeler)
-* [EDTA](https://github.com/oushujun/EDTA)
-* [EarlGrey](https://github.com/TobyBaril/EarlGrey)
+We have developed panHiTE, a comprehensive and accurate pipeline for TE detection in large-scale population genomes. It has been successfully applied to hundreds of plant population genomes, demonstrating its effectiveness and scalability. For detailed instructions, please refer to the [panHiTE tutorial](https://github.com/CSU-KangHu/HiTE/wiki/panHiTE-tutorial).
 
-
-<!-- 
-## Application
-
-HiTE has been successfully applied to multiple practical applications, and you can refer to our most recent case for reference.
-
-[TE annotation in einkorn assemblies using HiTE](https://github.com/CSU-KangHu/HiTE/wiki/TE-annotation-in-einkorn-assemblies-using-HiTE)
--->
 
 ## Table of Contents
 - [Installation](#install)
@@ -34,7 +23,6 @@ HiTE has been successfully applied to multiple practical applications, and you c
   - [Run with Singularity](#install_singularity)
   - [Run with Docker](#install_docker)
   - [Run with nextflow](#install_nextflow)
-  <!-- - [Step-by-step installation](#step-step) -->
 - [Demo data](#demo)
 - [Code Structure](#code)
 - [Usage](#cmd)

@@ -1,14 +1,16 @@
 # HiTE Now Includes panHiTE Support!
-![Version](https://img.shields.io/badge/version-0.0.1--beta-orange)
+![Version](https://img.shields.io/badge/version-1.0.0-orange)
 
 ## panHiTE
-![image](https://github.com/user-attachments/assets/f7b06661-6384-4095-8135-09f2afa04eae)
+![image](https://github.com/user-attachments/assets/8773346a-9ed2-4602-ac29-3be35d675ca7)
 
-We are excited to announce a significant update to HiTE, which now includes the powerful panHiTE functionality. This release introduces the following key features:
+We’re excited to announce a major update to HiTE, now featuring the powerful panHiTE functionality. This new workflow is specifically designed for population genomics, streamlining TE annotation and analysis across multiple genomes.
 
-1. **Improved LTR Detection**: The original `LTR_retriever` has been replaced with our new tool, `FiLTR`, offering improved **accuracy and completeness** in LTR detection.
-2. **Introducing panHiTE**: This new workflow is designed for population genomics, facilitating TE annotation and analysis across multiple genomes. panHiTE accepts `RNA-seq` data, enabling the detection of gene expression changes associated with **specific TE insertions**, making it ideal for exploring individual-specific traits.
+Key features in this release include:
 
+1. **Enhanced LTR Detection**: We’ve replaced the original `LTR_retriever` with our new tool, `FiLTR`, which offers superior **accuracy and completeness** in LTR detection.
+2. **Recovery of Low-Copy TEs**: Low-copy TEs identified in individual genomes are re-aligned to the pan-genomes, ensuring sufficient copy numbers and enabling recovery of the true TEs.
+3. **TIDELs Detection**: TE-induced differential expression loci (TIDELs) contribute to individual-specific variations within populations. By integrating RNA-seq data, panHiTE can pinpoint gene expression changes associated with specific TE insertions, making it an invaluable tool for studying individual-specific traits.
 
 ## Table of Contents
 - [panHiTE Tutorial](#tutorial)
@@ -17,13 +19,13 @@ We are excited to announce a significant update to HiTE, which now includes the 
   - [Data Preparation](#data)
   - [Running panHiTE through Nextflow](#run)
     - [Full Workflow](#full_workflow)
-    - [Skipping Differential Gene Detection Workflow](#skip_de)
+    - [Skipping TIDELs Detection Workflow](#skip_de)
+    - [panTE detection and annotation Workflow](#only_panTE)
     - [Running on HPC Platform](#run_hpc)
     - [Checking the Output](#check_output)
     - [Checkpoint Recovery](#nextflow_restore)
   - [Usage](#cmd)
   - [Output Preview](#output_preview)
-  - [Common issues](#common_issues)
 
 ## <a name="tutorial"></a>panHiTE Tutorial
 
@@ -110,7 +112,8 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
    A tab-delimited file with the following columns:  
    - Column 1: Genome assembly file name  
    - Column 2: Gene annotation file name (optional)  
-   - Columns 3 & 4: Paths to RNA-seq data (optional, single-end data in column 3, paired-end data in columns 3 & 4)  
+   - Columns 3: is paired-end RNA-seq data flag
+   - Columns 4 & 5: Paths to RNA-seq data (optional, single-end data in column `4, 5, ...`, paired-end data in columns `4 & 5`)  
     
     2.1. A Complete Example (_genome_list_):
     ```markdown
@@ -193,9 +196,9 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 # --miu 7e-9 
 ```
 
-#### <a name="skip_de"></a>4.2 Skipping Differential Gene Detection Workflow
+#### <a name="skip_de"></a>4.2 Skipping TIDELs Detection Workflow
 
-If you only require the panTE library and TE annotation for each genome without performing differential gene detection caused by TEs, you do not need to specify the `--RNA_dir` parameter. Additionally, the `--genome_list` input file only needs to include two columns: `genome_name` and `gene_annotation_name`. Refer to the example file `demo/genome_list_no_RNA`.  
+If you do not need to perform TE-induced differential expression loci (TIDELs) detection, you do not need to specify the `--RNA_dir` parameter. Additionally, the `--genome_list` input file only needs to include two columns: `genome_name` and `gene_annotation_name`. Refer to the example file `demo/genome_list_no_RNA`.  
 
 ```bash
 source_dir=xxx
@@ -214,7 +217,26 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --threads ${threads}
 ```
 
-#### <a name="run_hpc"></a>4.3 Running on HPC Platform
+#### <a name="only_panTE"></a>4.3 panTE detection and annotation Workflow
+
+If you only require the panTE library and TE annotation for each genome, you do not need to specify the `--RNA_dir` and `--genes_dir` parameters. Additionally, the `--genome_list` input file only needs to include one column: `genome_name`. Refer to the example file `demo/genome_list_no_RNA_no_gene`.  
+
+```bash
+source_dir=xxx
+pan_genomes_dir=xxx
+genome_list=xxx
+out_dir=xxx
+conda_name=/home/xxx/miniconda3/envs/HiTE  # Replace this with the path to your HiTE conda environment
+
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile conda --conda_name ${conda_name} \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+```
+
+#### <a name="run_hpc"></a>4.4 Running on HPC Platform
 Run HiTE for each genome and annotate each genome using the panTE library. These two steps can be parallelized on the HPC platform to effectively reduce runtime. We tested this on an HPC platform managed by Slurm, and the key step is to provide the correct HPC configuration.
 
 1. Modify the `HiTE/nextflow.config` file
@@ -263,14 +285,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 
 #### <a name="check_output"></a>4.4 Checking the Output
 
-Please verify that the `${out_dir}/run_hite_single/${genome}` directory contains all the necessary output files to ensure that HiTE has successfully run for each genome.  
-
-The complete output should include the following files:  
-- Files (2), (3), (4), (9), (10), and (11) are results from the LTR module.  
-- File (8) is from the TIR module.  
-- File (1) is the output of the Helitron module.  
-- Files (5) and (6) are results from the non-LTR module.  
-- File (7) contains the merged results of all TEs.  
+Please verify that the `${out_dir}/pan_run_hite_single/${genome}` directory contains all the necessary output files to ensure that HiTE has successfully run for each genome.
 
 The expected structure of the output directory is as follows:  
 ```markdown
@@ -285,8 +300,18 @@ The expected structure of the output directory is as follows:
 ├── confident_tir.fa          (8)
 ├── intact_LTR.fa             (9)
 ├── intact_LTR.fa.classified  (10)
-└── intact_LTR.list           (11)
+├── intact_LTR.list           (11)
+├── helitron_low_copy.fa      (12)
+├── non_ltr_low_copy.fa       (13)
+└── tir_low_copy.fa           (14)
 ```
+
+The complete output should include the following files:  
+- Files (2), (3), (4), (9), (10), and (11) are results from the LTR module.  
+- Files (8) and (14) is from the TIR module.  
+- Files (1) and (12) is the output of the Helitron module.  
+- Files (5), (6), and (13) are results from the non-LTR module.  
+- File (7) contains the merged results of all TEs.  
 
 If any file has a size of 0, such as `confident_tir.fa`, it indicates that HiTE did not detect any TIR elements in the genome. This could be due to one of two reasons:  
 1. The genome genuinely lacks TIR elements.  
@@ -296,16 +321,17 @@ To determine the cause, you can check if other similar genomes contain TIR eleme
 
 #### <a name="nextflow_restore"></a>4.5 Checkpoint Recovery
 
-The panHiTE pipeline consists of 9 processes: 
-* `preprocess_genomes`
-* `run_hite_single`
-* `merge_terminal_te`
+The panHiTE pipeline consists of 10 processes: 
+* `pan_preprocess_genomes`
+* `pan_run_hite_single`
 * `pan_remove_redundancy`
-* `annotate_genomes`
-* `summarize_tes`
-* `pan_gene_te_relation`
+* `pan_recover_low_copy_TEs`
+* `pan_merge_TE_recover`
 * `pan_generate_bam_for_RNA_seq`
-* `pan_detect_de_genes`  
+* `pan_annotate_genomes`
+* `pan_summarize_tes`
+* `pan_gene_te_relation`
+* `pan_detect_de_genes`
 
 To ensure smooth execution, the pipeline stores the output files of all processes. If the program is interrupted for any reason, simply rerun the pipeline. Nextflow will automatically detect these intermediate files and skip the completed processes, making it particularly efficient for large-scale pangenome analyses.  
 
@@ -318,7 +344,7 @@ If you need to rerun a specific process and its downstream processes, you can de
 ### <a name="cmd"></a>5. Usage
 Type `nextflow run panHiTE.nf --help` for help.
 ```
-panHiTE - Nextflow PIPELINE (v0.0.1)
+panHiTE - Nextflow PIPELINE (v1.0.0)
 =================================
 Usage:
 The typical command is as follows:
@@ -341,6 +367,63 @@ General options:
 ```
 
 ### <a name="output_preview"></a>6. Output Preview
+- **panHiTE.CorePan_fitmodel.pdf** and **panHiTE.CorePan_fitsmooth.pdf**
+    - Saturation curves of Pan and Core TE family counts based on a fitted model and LOESS smoothing.
+    <div style="text-align: left;">
+        <img src="https://github.com/user-attachments/assets/92075ed8-d32a-41fb-8583-0e6e178ed1e4" alt="panHiTE CorePan_fitmodel" width="400"/>
+    </div>
+
+- **panTE.fa**  
+A pan-TE library generated by panHiTE.
+
+- **TE_summary.pdf**  
+Statistical summaries of core, softcore, dispensable, and private TEs in the pan-genome, including:  
+
+  - **(a) Proportions of TE families** based on full-length TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/7919a974-b699-4b84-a348-a5cff7d05034" alt="Full length TEs Ratio" width="400"/>
+  </div>
+
+  - **(b) Proportions of TE families** based on all TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/a5f4bcb5-61ba-4d17-a412-4b0212231568" alt="TEs Ratio" width="400"/>
+  </div>
+
+  - **(c) Genome coverage statistics** based on full-length TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/4b18cfdc-5568-47bd-9cbf-2c6ebcd3fdb2" alt="Full length Genome Coverage" width="800"/>
+  </div>
+
+  - **(d) Genome coverage statistics** based on all TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/ca7f5609-68ac-44b6-bf74-fd9f783a66d1" alt="Genome Coverage" width="800"/>
+  </div>
+
+  - **(e) Counts of different TE superfamilies** based on full-length TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/5f20d97b-b359-469b-bc3c-d02267729631" alt="Full length TE Classes Ratio" width="800"/>
+  </div>
+
+  - **(f) Counts of different TE superfamilies** based on all TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/566281fd-7350-40aa-a921-3e19bfd84464" alt="TE Classes Ratio" width="800"/>
+  </div>
+
+  - **(g) Genome coverage by TE superfamilies** based on full-length TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/f1608bd9-940f-43a0-ac86-d506c5c3898f" alt="Full length TE Classes Coverage" width="800"/>
+  </div>
+
+  - **(h) Genome coverage by TE superfamilies** based on all TE annotations:
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/2bf445d4-2db1-4932-bbe5-f4c7594313f8" alt="TE Classes Coverage" width="800"/>
+  </div>
+
+  - **(i) Insertion time distributions of Copia and Gypsy TEs** across samples (default mutation rate: 1.3e-8):
+  <div style="text-align: left; display: flex;">
+    <img src="https://github.com/user-attachments/assets/7b3f63b1-9968-4513-a771-d2a1ec95695c" alt="Insertion Time" width="800"/>
+  </div>
+
 
 - **DE_genes_from_TEs.tsv**  
 This file contains TEs inserted upstream, downstream, or inside genes, which significantly alter gene expression levels across populations.  
@@ -400,66 +483,3 @@ Column Descriptions:
   8. `Species`: Species name.
   9. `Distance`: Distance between the TE and the gene.
   10. `expression`: Gene expression level.
-
-- **panHiTE.CorePan_fitmodel.pdf** and **panHiTE.CorePan_fitsmooth.pdf**  
-Saturation curves of Pan and Core TE family counts based on a fitted model and LOESS smoothing.
-
-<div style="text-align: left;">
-    <img src="https://github.com/user-attachments/assets/92075ed8-d32a-41fb-8583-0e6e178ed1e4" alt="panHiTE CorePan_fitmodel" width="800"/>
-</div>
-
-
-- **panTE.fa**  
-A pan-TE library generated by panHiTE.
-
-- **TE_summary.pdf**  
-Statistical summaries of core, softcore, dispensable, and private TEs in the pan-genome, including:  
-
-  - **(a) Proportions of TE families** based on full-length TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/7919a974-b699-4b84-a348-a5cff7d05034" alt="Full length TEs Ratio" width="400"/>
-  </div>
-
-  - **(b) Proportions of TE families** based on all TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/a5f4bcb5-61ba-4d17-a412-4b0212231568" alt="TEs Ratio" width="400"/>
-  </div>
-
-  - **(c) Genome coverage statistics** based on full-length TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/4b18cfdc-5568-47bd-9cbf-2c6ebcd3fdb2" alt="Full length Genome Coverage" width="800"/>
-  </div>
-
-  - **(d) Genome coverage statistics** based on all TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/ca7f5609-68ac-44b6-bf74-fd9f783a66d1" alt="Genome Coverage" width="800"/>
-  </div>
-
-  - **(e) Counts of different TE superfamilies** based on full-length TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/5f20d97b-b359-469b-bc3c-d02267729631" alt="Full length TE Classes Ratio" width="800"/>
-  </div>
-
-  - **(f) Counts of different TE superfamilies** based on all TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/566281fd-7350-40aa-a921-3e19bfd84464" alt="TE Classes Ratio" width="800"/>
-  </div>
-
-  - **(g) Genome coverage by TE superfamilies** based on full-length TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/f1608bd9-940f-43a0-ac86-d506c5c3898f" alt="Full length TE Classes Coverage" width="800"/>
-  </div>
-
-  - **(h) Genome coverage by TE superfamilies** based on all TE annotations:
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/2bf445d4-2db1-4932-bbe5-f4c7594313f8" alt="TE Classes Coverage" width="800"/>
-  </div>
-
-  - **(i) Insertion time distributions of Copia and Gypsy TEs** across samples (default mutation rate: 1.3e-8):
-  <div style="text-align: left; display: flex;">
-    <img src="https://github.com/user-attachments/assets/7b3f63b1-9968-4513-a771-d2a1ec95695c" alt="Insertion Time" width="800"/>
-  </div>
-
-
-### <a name="common_issues"></a>7. Common issues
-...

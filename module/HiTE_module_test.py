@@ -4064,54 +4064,173 @@ if __name__ == '__main__':
 
 
     # panHiTE, panEDTA 和 Repbase 库三者的交集关系
+    # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
+    # 尝试使用BM_RM2的结果调整clusters
     cluster_file = '/home/hukang/test/HiTE/demo/ath_merge.fa.cons.clstr'
     clusters = parse_clstr_file(cluster_file)
-    # print(clusters)
-    plt.switch_backend('Agg')
-
-    venn_input = defaultdict(set)
-
-    # 处理每个簇中的序列
+    new_clusters = defaultdict()
+    # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
+    seq_name2cluster_id = defaultdict()
     for cluster, sequences in clusters.items():
+        names = []
+        for seq in sequences:
+            seq = seq.split('#')[0]
+            names.append(seq)
+            seq_name2cluster_id[seq] = cluster
+        new_clusters[cluster] = names
+    clusters = new_clusters
+
+    file_path = '/home/hukang/test/HiTE/demo/repbase_panHiTE_rm2_test/file_final.0.1.txt'
+    with open(file_path, 'r') as f:
+        for line in f:
+            parts = line.strip().split()
+            seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+            seq2 = parts[4].split('#')[0]  # 第5列：序列2
+            cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+            cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+            similarity = (100 - float(parts[7])) / 100
+            if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+                # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+                repbase_cluster_id = seq_name2cluster_id[seq1]
+                panHiTE_cluster_id = seq_name2cluster_id[seq2]
+                panHiTE_cluster = clusters[panHiTE_cluster_id]
+                repbase_cluster = clusters[repbase_cluster_id]
+                clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+                del clusters[panHiTE_cluster_id]
+
+    file_path = '/home/hukang/test/HiTE/demo/repbase_panEDTA_rm2_test/file_final.0.1.txt'
+    with open(file_path, 'r') as f:
+        for line in f:
+            parts = line.strip().split()
+            seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+            seq2 = parts[4].split('#')[0]  # 第5列：序列2
+            cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+            cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+            similarity = (100 - float(parts[7])) / 100
+            if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+                # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+                repbase_cluster_id = seq_name2cluster_id[seq1]
+                panHiTE_cluster_id = seq_name2cluster_id[seq2]
+                panHiTE_cluster = clusters[panHiTE_cluster_id]
+                repbase_cluster = clusters[repbase_cluster_id]
+                clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+                del clusters[panHiTE_cluster_id]
+
+    file_path = '/home/hukang/test/HiTE/demo/panEDTA_panHiTE_rm2_test/file_final.0.1.txt'
+    with open(file_path, 'r') as f:
+        for line in f:
+            parts = line.strip().split()
+            seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+            seq2 = parts[4].split('#')[0]  # 第5列：序列2
+            cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+            cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+            similarity = (100 - float(parts[7])) / 100
+            if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+                # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+                repbase_cluster_id = seq_name2cluster_id[seq1]
+                panHiTE_cluster_id = seq_name2cluster_id[seq2]
+                panHiTE_cluster = clusters[panHiTE_cluster_id]
+                repbase_cluster = clusters[repbase_cluster_id]
+                clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+                del clusters[panHiTE_cluster_id]
+
+    total_panHiTE = []
+    total_panEDTA = []
+    total_Repbase = []
+
+    only_panHiTE = []
+    only_panEDTA = []
+    only_Repbase = []
+
+    panHiTE_vs_panEDTA = []
+    panHiTE_vs_Repbase = []
+    panEDTA_vs_Repbase = []
+    panHiTE_vs_panEDTA_vs_Repbase = []
+
+    for cluster, sequences in clusters.items():
+        total_sources = set()
+        unique_sequences = []
         for seq in sequences:
             source = seq.split('_')[0]  # 获取序列的来源
-            venn_input[source].add(cluster)
+            if source not in total_sources:
+                unique_sequences.append(seq)
+                if source == 'panHiTE':
+                    total_panHiTE.append(seq)
+                elif source == 'panEDTA':
+                    total_panEDTA.append(seq)
+                elif source == 'Repbase':
+                    total_Repbase.append(seq)
+            total_sources.add(source)
+        if len(total_sources) == 1:
+            seq = sequences[0]
+            source = seq.split('_')[0]  # 获取序列的来源
+            if source == 'panHiTE':
+                only_panHiTE.append(seq)
+            elif source == 'panEDTA':
+                only_panEDTA.append(seq)
+            elif source == 'Repbase':
+                only_Repbase.append(seq)
+        elif len(total_sources) == 2:
+            if 'panHiTE' in total_sources and 'panEDTA' in total_sources:
+                panHiTE_vs_panEDTA.append(unique_sequences)
+            elif 'panHiTE' in total_sources and 'Repbase' in total_sources:
+                panHiTE_vs_Repbase.append(unique_sequences)
+            elif 'panEDTA' in total_sources and 'Repbase' in total_sources:
+                panEDTA_vs_Repbase.append(unique_sequences)
+        elif len(total_sources) == 3:
+            panHiTE_vs_panEDTA_vs_Repbase.append(unique_sequences)
 
-    # 选择有用的集合（例如考虑3个来源）
-    # 这里只做简单的示例，处理最多3个来源
-    sources = list(venn_input.keys())[:3]
+    # 绘制韦恩图
+    plt.figure(figsize=(6, 6))
+    venn = venn3(
+        subsets=(
+            len(only_panEDTA),
+            len(only_panHiTE),
+            len(panHiTE_vs_panEDTA),
+            len(only_Repbase),
+            len(panEDTA_vs_Repbase),
+            len(panHiTE_vs_Repbase),
+            len(panHiTE_vs_panEDTA_vs_Repbase)
+        ),
+        set_labels=('panEDTA', 'panHiTE', 'Repbase')
+    )
 
-    # 为Venn图输入准备数据
-    set1 = venn_input[sources[0]]
-    set2 = venn_input[sources[1]]
-    set3 = venn_input[sources[2]]
-
-    # 绘制Venn图
-    venn = venn3([set1, set2, set3], set_labels=sources)
+    # plt.title("Venn Diagram of Sequence Intersections")
     plt.savefig('/home/hukang/test/HiTE/demo/output_plot.png')
 
-    # 为Venn图输入准备数据
-    sets = [venn_input[source] for source in sources]  # 创建集合来存储每个来源的所有序列
+    # 定义存储文件的路径
+    output_dir = "/home/hukang/test/HiTE/demo/"
 
-    # 生成所有可能的交集（2个到3个来源的交集）
-    for r in range(2, len(sources) + 1):  # 从2到len(sources)组合
-        for combo in combinations(sources, r):
-            # 计算该组合的交集
-            intersection = set.intersection(*[sets[sources.index(source)] for source in combo])
+    # 需要保存的集合及对应的文件名
+    output_files = {
+        "total_panHiTE.txt": total_panHiTE,
+        "total_panEDTA.txt": total_panEDTA,
+        "total_Repbase.txt": total_Repbase,
+        "only_panHiTE.txt": only_panHiTE,
+        "only_panEDTA.txt": only_panEDTA,
+        "only_Repbase.txt": only_Repbase,
+        "panHiTE_vs_panEDTA.txt": panHiTE_vs_panEDTA,
+        "panHiTE_vs_Repbase.txt": panHiTE_vs_Repbase,
+        "panEDTA_vs_Repbase.txt": panEDTA_vs_Repbase,
+        "panHiTE_vs_panEDTA_vs_Repbase.txt": panHiTE_vs_panEDTA_vs_Repbase
+    }
 
-            # 生成文件名
-            intersection_name = " & ".join(combo)
-            filename = f"/home/hukang/test/HiTE/demo/venn_intersection_{intersection_name}.txt"
+    # 遍历字典，写入文件
+    for filename, data_set in output_files.items():
+        file_path = output_dir + filename
+        with open(file_path, "w") as f:
+            for item in data_set:
+                f.write(str(item) + "\n")  # 每个序列单独占一行
 
-            # 将交集的序列名称写入文件
-            with open(filename, 'w') as f:
-                f.write(f"Intersection: {intersection_name}\n")
-                f.write("Sequence Names:\n")
-                # 确保所有元素都是字符串
-                f.write("\n".join(map(str, intersection)) + "\n")
 
-            print(f"交集 {intersection_name} 的序列已保存到 '{filename}'")
-
+    # # 我们想知道 panHiTE unique 里除去-LTR之外，有多少包含完整domain
+    # tmp_output_dir = '/home/hukang/test/HiTE/demo'
+    # threads = 48
+    # protein_path = '/home/hukang/test/HiTE/library/RepeatPeps.lib'
+    # confident_TE_consensus = '/home/hukang/test/HiTE/demo/865.fasta'
+    # output_table = confident_TE_consensus + '.domain'
+    # temp_dir = tmp_output_dir + '/domain'
+    # get_domain_info(confident_TE_consensus, protein_path, output_table, threads, temp_dir)
 
 
 
