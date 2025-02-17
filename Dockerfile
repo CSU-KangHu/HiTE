@@ -21,7 +21,8 @@ RUN cd / && unzip HiTE-master.zip && mv HiTE-master /HiTE && rm HiTE-master.zip
 #    unzip HiTE-v.3.1.1.zip && mv CSU-KangHu-HiTE-* /HiTE
 
 RUN conda install mamba -c conda-forge -y
-RUN mamba env create --name ${DNAME} --file=environment.yml && conda clean -a
+COPY environment.yml /tmp/environment.yml
+RUN mamba env create --name ${DNAME} --file=/tmp/environment.yml && conda clean -a
 RUN cd /HiTE && python configure.py
 
 # Make RUN commands use the new environment

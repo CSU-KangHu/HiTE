@@ -167,5 +167,5 @@ if __name__ == '__main__':
     copy_files(temp_dir, tmp_output_dir)
 
     # 删除临时目录
-    if os.path.exists(temp_dir):
+    if os.path.exists(temp_dir) and debug != 1:
         shutil.rmtree(temp_dir)
