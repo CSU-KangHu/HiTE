@@ -23,7 +23,7 @@ Key features in this release include:
   - [Run pipeline](#run)
     - [Full Workflow](#full_workflow)
     - [Skipping TIDELs Detection Workflow](#skip_de)
-    - [panTE detection and annotation Workflow](#only_panTE)
+    - [Only panTE detection Workflow](#only_panTE)
     - [Running on HPC Platform](#run_hpc)
     - [Checking the Output](#check_output)
     - [Checkpoint Recovery](#nextflow_restore)
@@ -118,7 +118,7 @@ singularity pull HiTE.sif docker://kanghu/hite:3.3.2
 # pull docker image (once for all).
 docker pull kanghu/hite:3.3.2
 ```
-For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14130355](https://zenodo.org/records/14130355).
+For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14881832](https://zenodo.org/records/14881832).
 ```sh
 # Load the Docker image
 docker load -i hite_docker_3.3.2.tar
@@ -206,11 +206,11 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 
 # Example script:
 #source_dir=/home/xxx/HiTE
-#pan_genomes_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genomes
-#gene_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/gff_files
-#RNA_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/RNA_seq_files
-#genome_list=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genome_list
-#out_dir=/home/xxx/ath_pan_genome/pan_genome/ath/panHiTE_output
+#pan_genomes_dir=/home/xxx/demo/genomes
+#gene_dir=/home/xxx/demo/gff_files
+#RNA_dir=/home/xxx/demo/RNA_seq_files
+#genome_list=/home/xxx/demo/genome_list
+#out_dir=/home/xxx/demo/panHiTE_output
 #cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 # -profile conda --conda_name /home/xxx/miniconda3/envs/HiTE \
 # --pan_genomes_dir ${pan_genomes_dir} \
@@ -230,14 +230,14 @@ conda activate nextflow
 # 2. Write the execution script
 # Make sure to replace the `xxx` placeholders with your actual absolute paths.
 source_dir=xxx
+HiTE_sif_path=xxx
 pan_genomes_dir=xxx
 gene_dir=xxx
 RNA_dir=xxx
 genome_list=xxx
 out_dir=xxx
-conda_name=/home/xxx/miniconda3/envs/HiTE  # You need to replace the previously recorded HiTE conda environment path here
-cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
- -profile conda --conda_name ${conda_name} \
+/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+ -profile singularity --singularity_name ${HiTE_sif_path} \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --genes_dir ${gene_dir} \
@@ -248,19 +248,63 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 
 # Example script:
 #source_dir=/home/xxx/HiTE
-#pan_genomes_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genomes
-#gene_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/gff_files
-#RNA_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/RNA_seq_files
-#genome_list=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genome_list
-#out_dir=/home/xxx/ath_pan_genome/pan_genome/ath/panHiTE_output
-#cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
-# -profile conda --conda_name /home/xxx/miniconda3/envs/HiTE \
+#HiTE_sif_path=/home/xxx/hite_3.3.2.sif
+#pan_genomes_dir=/home/xxx/demo/genomes
+#gene_dir=/home/xxx/demo/gff_files
+#RNA_dir=/home/xxx/demo/RNA_seq_files
+#genome_list=/home/xxx/demo/genome_list
+#out_dir=/home/xxx/demo/panHiTE_output
+#threads=40
+#/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+# -profile singularity --singularity_name ${HiTE_sif_path} \
 # --pan_genomes_dir ${pan_genomes_dir} \
 # --genome_list ${genome_list} \
 # --genes_dir ${gene_dir} \
 # --RNA_dir ${RNA_dir} \
 # --out_dir ${out_dir} \
-# --threads 40 \
+# --threads ${threads} \
+# --miu 7e-9 
+```
+
+###### Installation via Docker
+```bash
+# 1. activate nextflow
+conda activate nextflow
+
+# 2. Write the execution script
+# Make sure to replace the `xxx` placeholders with your actual absolute paths.
+source_dir=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+RNA_dir=xxx
+genome_list=xxx
+out_dir=xxx
+/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+ -profile docker --docker_name kanghu/hite:3.3.2 \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --RNA_dir ${RNA_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+
+
+# Example script:
+#source_dir=/home/xxx/HiTE
+#pan_genomes_dir=/home/xxx/demo/genomes
+#gene_dir=/home/xxx/demo/gff_files
+#RNA_dir=/home/xxx/demo/RNA_seq_files
+#genome_list=/home/xxx/demo/genome_list
+#out_dir=/home/xxx/demo/panHiTE_output
+#threads=40
+#/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+# -profile docker --docker_name kanghu/hite:3.3.2 \
+# --pan_genomes_dir ${pan_genomes_dir} \
+# --genome_list ${genome_list} \
+# --genes_dir ${gene_dir} \
+# --RNA_dir ${RNA_dir} \
+# --out_dir ${out_dir} \
+# --threads ${threads} \
 # --miu 7e-9 
 ```
 
@@ -268,6 +312,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 
 If you do not need to perform TE-induced differential expression loci (TIDELs) detection, you do not need to specify the `--RNA_dir` parameter. Additionally, the `--genome_list` input file only needs to include two columns: `genome_name` and `gene_annotation_name`. Refer to the example file `demo/genome_list_no_RNA`.  
 
+###### Installation via Conda
 ```bash
 source_dir=xxx
 pan_genomes_dir=xxx
@@ -284,11 +329,45 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --out_dir ${out_dir} \
  --threads ${threads}
 ```
+###### Installation via Singularity
+```bash
+source_dir=xxx
+HiTE_sif_path=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+genome_list=xxx
+out_dir=xxx
+/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+ -profile singularity --singularity_name ${HiTE_sif_path} \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+```
 
-#### <a name="only_panTE"></a>3.3 panTE detection and annotation Workflow
+###### Installation via Docker
+```bash
+source_dir=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+genome_list=xxx
+out_dir=xxx
+/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+ -profile docker --docker_name kanghu/hite:3.3.2 \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+```
+
+
+#### <a name="only_panTE"></a>3.3 Only panTE detection Workflow
 
 If you only require the panTE library and TE annotation for each genome, you do not need to specify the `--RNA_dir` and `--genes_dir` parameters. Additionally, the `--genome_list` input file only needs to include one column: `genome_name`. Refer to the example file `demo/genome_list_no_RNA_no_gene`.  
 
+###### Installation via Conda
 ```bash
 source_dir=xxx
 pan_genomes_dir=xxx
@@ -304,10 +383,40 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --threads ${threads}
 ```
 
+###### Installation via Singularity
+```bash
+source_dir=xxx
+HiTE_sif_path=xxx
+pan_genomes_dir=xxx
+genome_list=xxx
+out_dir=xxx
+/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+ -profile singularity --singularity_name ${HiTE_sif_path} \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+```
+
+###### Installation via Docker
+```bash
+source_dir=xxx
+pan_genomes_dir=xxx
+genome_list=xxx
+out_dir=xxx
+/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
+ -profile docker --docker_name kanghu/hite:3.3.2 \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+```
+
+
 #### <a name="run_hpc"></a>3.4 Running on HPC Platform
 Run HiTE for each genome and annotate each genome using the panTE library. These two steps can be parallelized on the HPC platform to effectively reduce runtime. We tested this on an HPC platform managed by Slurm, and the key step is to provide the correct HPC configuration.
 
-1. Modify the `HiTE/nextflow.config` file
+###### Modify the `HiTE/nextflow.config` file
 ```markdown
 // HPC with singularity-loading, adapted from nanome
 hpc { // general HPC configuration
@@ -330,7 +439,7 @@ hpc { // general HPC configuration
 # If running a large and complex genome, you may want to set the `time` parameter a bit higher; otherwise, it may terminate unexpectedly due to exceeding the runtime limit.
 ```
 
-2. Run panHiTE using conda and HPC
+###### Option 1. Run panHiTE using Conda and HPC
 ```bash
 # Add the hpc option in the -profile section
 source_dir=xxx
@@ -347,8 +456,46 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --genes_dir ${gene_dir} \
  --RNA_dir ${RNA_dir} \
  --out_dir ${out_dir} \
- --threads ${threads} \
- --skip_analyze 0
+ --threads ${threads}
+```
+
+###### Option 2. Run panHiTE using Singularity and HPC
+```bash
+# Add the hpc option in the -profile section
+source_dir=xxx
+HiTE_sif_path=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+RNA_dir=xxx
+genome_list=xxx
+out_dir=xxx
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile singularity,hpc --singularity_name ${HiTE_sif_path} \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --RNA_dir ${RNA_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+```
+
+###### Option 3. Run panHiTE using Docker and HPC
+```bash
+# Add the hpc option in the -profile section
+source_dir=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+RNA_dir=xxx
+genome_list=xxx
+out_dir=xxx
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile docker,hpc --docker_name kanghu/hite:3.3.2 \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --RNA_dir ${RNA_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
 ```
 
 #### <a name="check_output"></a>3.5 Checking the Output
@@ -387,7 +534,7 @@ If any file has a size of 0, such as `confident_tir.fa`, it indicates that HiTE 
 
 To determine the cause, you can check if other similar genomes contain TIR elements. If you're unable to confirm, the safest approach is to delete the output directory for the affected genome and rerun the pipeline to ensure proper execution.
 
-#### <a name="nextflow_restore"></a>4.5 Checkpoint Recovery
+#### <a name="nextflow_restore"></a>3.6 Checkpoint Recovery
 
 The panHiTE pipeline consists of 10 processes: 
 * `pan_preprocess_genomes`
