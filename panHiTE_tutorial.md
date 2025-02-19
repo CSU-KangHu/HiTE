@@ -14,10 +14,13 @@ Key features in this release include:
 
 ## Table of Contents
 - [panHiTE Tutorial](#tutorial)
-  - [Installation via Conda](#install_conda)
-  - [Install Required R Packages](#install_r)
+  - [Tool Preparation](#tool_pre)
+    - [Install Nextflow](#install_nf)
+    - [Installation via Conda](#install_conda)
+    - [Installation via Singularity](#install_singularity)
+    - [Installation via Docker](#install_docker)
   - [Data Preparation](#data)
-  - [Running panHiTE through Nextflow](#run)
+  - [Run pipeline](#run)
     - [Full Workflow](#full_workflow)
     - [Skipping TIDELs Detection Workflow](#skip_de)
     - [panTE detection and annotation Workflow](#only_panTE)
@@ -31,20 +34,24 @@ Key features in this release include:
 
 In this tutorial, we'll demonstrate how to use panHiTE with a demo data.
 
-### <a name="install_conda"></a>1. Installation via Conda
-*(Docker and Singularity versions will be available once panHiTE stabilizes.)*
+### <a name="tool_pre"></a>1. Tool Preparation
 
+#### <a name="install_nf"></a>Install Nextflow
 ```bash
 # 1. Install Nextflow
 conda create -n nextflow -c conda-forge -c bioconda nextflow==24.10.3
 
 # 2. Download HiTE
 git clone https://github.com/CSU-KangHu/HiTE.git
+```
 
-# 3. Grant execution permissions for the required tools.
+#### <a name="install_conda"></a>Option 1. Installation via Conda
+###### 1. Install Conda environment
+```bash
+# 1. Grant execution permissions for the required tools.
 cd HiTE && python configure.py
 
-# 4. Create the HiTE environment and record the environment path
+# 2. Create the HiTE environment and record the environment path
 source ~/.bashrc # or open a new terminal
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
@@ -53,7 +60,8 @@ which python
 # Record this path as it will be used later: /home/xxx/miniconda3/envs/HiTE
 ```
 
-### <a name="install_r"></a>2. Install Required R Packages
+###### 2. Install Required R Packages
+
 To install R packages, you may need to configure the CRAN mirror first. For example, to use the default CRAN mirror, add the following configuration to your `~/.Rprofile` file:
 
 ```R
@@ -99,8 +107,24 @@ R
 > library(ggplot2)
 ```
 
+#### <a name="install_singularity"></a>Option 2. Installation via Singularity
+```sh
+# pull singularity image (once for all). There will be a HiTE.sif file.
+singularity pull HiTE.sif docker://kanghu/hite:3.3.2
+```
 
-### <a name="data"></a>3. Data Preparation
+#### <a name="install_docker"></a>Option 3. Installation via Docker
+```sh
+# pull docker image (once for all).
+docker pull kanghu/hite:3.3.2
+```
+For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14130355](https://zenodo.org/records/14130355).
+```sh
+# Load the Docker image
+docker load -i hite_docker_3.3.2.tar
+```
+
+### <a name="data"></a>2. Data Preparation
 
 Download the [demo data](https://zenodo.org/records/14280542) from Zenodo.
 A complete genome assembly, annotation, and RNA-seq reads data were downloaded from the publication: _Kang M, Wu H, Liu H, Liu W, Zhu M, Han Y, Liu W, Chen C, Song Y, Tan L, Yin K. *The pan-genome and local adaptation of Arabidopsis thaliana.* Nature Communications. 2023 Oct 6;14(1):6259_.
@@ -151,10 +175,12 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
 5. `RNA_dir` (Optional, required for analysis in example 2.1): Set this as the parent directory for RNA-seq reads. The paths listed in columns 3 & 4 of the `genome_list` should be accessible via this directory.
 
 
-### <a name="run"></a>4. Running panHiTE through Nextflow
+### <a name="run"></a>3. Run pipeline
+We provide the running scripts for panHiTE which is installed via Conda, Singularity, and Docker.
 
-#### <a name="full_workflow"></a>4.1 Full Workflow
-To run panHiTE from start to end, use the following command:  
+#### <a name="full_workflow"></a>3.1 Full Workflow
+To run panHiTE from start to end, use the following command:
+###### Installation via Conda
 ```bash
 # 1. activate nextflow
 conda activate nextflow
@@ -196,7 +222,49 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
 # --miu 7e-9 
 ```
 
-#### <a name="skip_de"></a>4.2 Skipping TIDELs Detection Workflow
+###### Installation via Singularity
+```bash
+# 1. activate nextflow
+conda activate nextflow
+
+# 2. Write the execution script
+# Make sure to replace the `xxx` placeholders with your actual absolute paths.
+source_dir=xxx
+pan_genomes_dir=xxx
+gene_dir=xxx
+RNA_dir=xxx
+genome_list=xxx
+out_dir=xxx
+conda_name=/home/xxx/miniconda3/envs/HiTE  # You need to replace the previously recorded HiTE conda environment path here
+cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+ -profile conda --conda_name ${conda_name} \
+ --pan_genomes_dir ${pan_genomes_dir} \
+ --genome_list ${genome_list} \
+ --genes_dir ${gene_dir} \
+ --RNA_dir ${RNA_dir} \
+ --out_dir ${out_dir} \
+ --threads ${threads}
+
+
+# Example script:
+#source_dir=/home/xxx/HiTE
+#pan_genomes_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genomes
+#gene_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/gff_files
+#RNA_dir=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/RNA_seq_files
+#genome_list=/home/xxx/ath_pan_genome/pan_genome/ath/ath_genome_and_annotation/genome_list
+#out_dir=/home/xxx/ath_pan_genome/pan_genome/ath/panHiTE_output
+#cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
+# -profile conda --conda_name /home/xxx/miniconda3/envs/HiTE \
+# --pan_genomes_dir ${pan_genomes_dir} \
+# --genome_list ${genome_list} \
+# --genes_dir ${gene_dir} \
+# --RNA_dir ${RNA_dir} \
+# --out_dir ${out_dir} \
+# --threads 40 \
+# --miu 7e-9 
+```
+
+#### <a name="skip_de"></a>3.2 Skipping TIDELs Detection Workflow
 
 If you do not need to perform TE-induced differential expression loci (TIDELs) detection, you do not need to specify the `--RNA_dir` parameter. Additionally, the `--genome_list` input file only needs to include two columns: `genome_name` and `gene_annotation_name`. Refer to the example file `demo/genome_list_no_RNA`.  
 
@@ -217,7 +285,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --threads ${threads}
 ```
 
-#### <a name="only_panTE"></a>4.3 panTE detection and annotation Workflow
+#### <a name="only_panTE"></a>3.3 panTE detection and annotation Workflow
 
 If you only require the panTE library and TE annotation for each genome, you do not need to specify the `--RNA_dir` and `--genes_dir` parameters. Additionally, the `--genome_list` input file only needs to include one column: `genome_name`. Refer to the example file `demo/genome_list_no_RNA_no_gene`.  
 
@@ -236,7 +304,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --threads ${threads}
 ```
 
-#### <a name="run_hpc"></a>4.4 Running on HPC Platform
+#### <a name="run_hpc"></a>3.4 Running on HPC Platform
 Run HiTE for each genome and annotate each genome using the panTE library. These two steps can be parallelized on the HPC platform to effectively reduce runtime. We tested this on an HPC platform managed by Slurm, and the key step is to provide the correct HPC configuration.
 
 1. Modify the `HiTE/nextflow.config` file
@@ -283,7 +351,7 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --skip_analyze 0
 ```
 
-#### <a name="check_output"></a>4.4 Checking the Output
+#### <a name="check_output"></a>3.5 Checking the Output
 
 Please verify that the `${out_dir}/pan_run_hite_single/${genome}` directory contains all the necessary output files to ensure that HiTE has successfully run for each genome.
 
@@ -341,7 +409,7 @@ If you need to rerun a specific process and its downstream processes, you can de
     <img src="https://github.com/user-attachments/assets/5b1c55b0-e2fc-4abc-8683-e930ce6b5376" alt="recovery" width="1200"/> 
 </div>
 
-### <a name="cmd"></a>5. Usage
+### <a name="cmd"></a>4. Usage
 Type `nextflow run panHiTE.nf --help` for help.
 ```
 panHiTE - Nextflow PIPELINE (v1.0.0)
@@ -366,7 +434,7 @@ General options:
   --miu                  The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
 ```
 
-### <a name="output_preview"></a>6. Output Preview
+### <a name="output_preview"></a>5. Output Preview
 - **panHiTE.CorePan_fitmodel.pdf** and **panHiTE.CorePan_fitsmooth.pdf**
     - Saturation curves of Pan and Core TE family counts based on a fitted model and LOESS smoothing.
     <div style="text-align: left;">

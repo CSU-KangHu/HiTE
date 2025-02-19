@@ -4066,7 +4066,7 @@ if __name__ == '__main__':
     # panHiTE, panEDTA 和 Repbase 库三者的交集关系
     # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
     # 尝试使用BM_RM2的结果调整clusters
-    cluster_file = '/home/hukang/test/HiTE/demo/ath_merge.fa.cons.clstr'
+    cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
     clusters = parse_clstr_file(cluster_file)
     new_clusters = defaultdict()
     # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
@@ -4080,59 +4080,63 @@ if __name__ == '__main__':
         new_clusters[cluster] = names
     clusters = new_clusters
 
-    file_path = '/home/hukang/test/HiTE/demo/repbase_panHiTE_rm2_test/file_final.0.1.txt'
-    with open(file_path, 'r') as f:
-        for line in f:
-            parts = line.strip().split()
-            seq1 = parts[0].split(' ')[0]  # 第1列：序列1
-            seq2 = parts[4].split('#')[0]  # 第5列：序列2
-            cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
-            cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
-            similarity = (100 - float(parts[7])) / 100
-            if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
-                # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
-                repbase_cluster_id = seq_name2cluster_id[seq1]
-                panHiTE_cluster_id = seq_name2cluster_id[seq2]
-                panHiTE_cluster = clusters[panHiTE_cluster_id]
-                repbase_cluster = clusters[repbase_cluster_id]
-                clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
-                del clusters[panHiTE_cluster_id]
-
-    file_path = '/home/hukang/test/HiTE/demo/repbase_panEDTA_rm2_test/file_final.0.1.txt'
-    with open(file_path, 'r') as f:
-        for line in f:
-            parts = line.strip().split()
-            seq1 = parts[0].split(' ')[0]  # 第1列：序列1
-            seq2 = parts[4].split('#')[0]  # 第5列：序列2
-            cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
-            cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
-            similarity = (100 - float(parts[7])) / 100
-            if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
-                # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
-                repbase_cluster_id = seq_name2cluster_id[seq1]
-                panHiTE_cluster_id = seq_name2cluster_id[seq2]
-                panHiTE_cluster = clusters[panHiTE_cluster_id]
-                repbase_cluster = clusters[repbase_cluster_id]
-                clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
-                del clusters[panHiTE_cluster_id]
-
-    file_path = '/home/hukang/test/HiTE/demo/panEDTA_panHiTE_rm2_test/file_final.0.1.txt'
-    with open(file_path, 'r') as f:
-        for line in f:
-            parts = line.strip().split()
-            seq1 = parts[0].split(' ')[0]  # 第1列：序列1
-            seq2 = parts[4].split('#')[0]  # 第5列：序列2
-            cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
-            cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
-            similarity = (100 - float(parts[7])) / 100
-            if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
-                # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
-                repbase_cluster_id = seq_name2cluster_id[seq1]
-                panHiTE_cluster_id = seq_name2cluster_id[seq2]
-                panHiTE_cluster = clusters[panHiTE_cluster_id]
-                repbase_cluster = clusters[repbase_cluster_id]
-                clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
-                del clusters[panHiTE_cluster_id]
+    # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panHiTE_rm2_test/file_final.0.1.txt'
+    # with open(file_path, 'r') as f:
+    #     for line in f:
+    #         parts = line.strip().split()
+    #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+    #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
+    #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+    #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+    #         similarity = (100 - float(parts[7])) / 100
+    #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+    #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+    #             repbase_cluster_id = seq_name2cluster_id[seq1]
+    #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
+    #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
+    #             repbase_cluster = clusters.get(repbase_cluster_id, [])
+    #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+    #             if panHiTE_cluster_id in clusters:
+    #                 del clusters[panHiTE_cluster_id]
+    #
+    #
+    # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panEDTA_rm2_test/file_final.0.1.txt'
+    # with open(file_path, 'r') as f:
+    #     for line in f:
+    #         parts = line.strip().split()
+    #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+    #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
+    #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+    #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+    #         similarity = (100 - float(parts[7])) / 100
+    #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+    #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+    #             repbase_cluster_id = seq_name2cluster_id[seq1]
+    #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
+    #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
+    #             repbase_cluster = clusters.get(repbase_cluster_id, [])
+    #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+    #             if panHiTE_cluster_id in clusters:
+    #                 del clusters[panHiTE_cluster_id]
+    #
+    # file_path = '/home/hukang/test/demo/three_lib_compare/panEDTA_panHiTE_rm2_test/file_final.0.1.txt'
+    # with open(file_path, 'r') as f:
+    #     for line in f:
+    #         parts = line.strip().split()
+    #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+    #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
+    #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+    #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+    #         similarity = (100 - float(parts[7])) / 100
+    #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+    #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+    #             repbase_cluster_id = seq_name2cluster_id[seq1]
+    #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
+    #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
+    #             repbase_cluster = clusters.get(repbase_cluster_id, [])
+    #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+    #             if panHiTE_cluster_id in clusters:
+    #                 del clusters[panHiTE_cluster_id]
 
     total_panHiTE = []
     total_panEDTA = []
@@ -4196,10 +4200,10 @@ if __name__ == '__main__':
     )
 
     # plt.title("Venn Diagram of Sequence Intersections")
-    plt.savefig('/home/hukang/test/HiTE/demo/output_plot.png')
+    plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
 
     # 定义存储文件的路径
-    output_dir = "/home/hukang/test/HiTE/demo/"
+    output_dir = "/home/hukang/test/demo/three_lib_compare/"
 
     # 需要保存的集合及对应的文件名
     output_files = {

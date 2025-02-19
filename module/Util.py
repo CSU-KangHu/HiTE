@@ -12103,6 +12103,8 @@ def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes,
         cur_genome_fl_te_class_coverage = genome_fl_te_class_coverages[genome_name]
         te_fl_infos = pan_te_fl_infos[genome_name]
         for te_name in te_fl_infos.keys():
+            if te_name not in te_classes or te_name not in te_fl_infos:
+                continue
             cur_class_name = te_classes[te_name]
             cur_copy_num, cur_fl_length = te_fl_infos[te_name]
 
@@ -12136,6 +12138,8 @@ def draw_four_types_TE_class_coverage(genome_names, all_class_names, te_classes,
         cur_genome_te_class_coverage = genome_te_class_coverages[genome_name]
         te_total_infos = pan_te_total_infos[genome_name]
         for te_name in te_total_infos.keys():
+            if te_name not in te_classes or te_name not in te_total_infos:
+                continue
             cur_class_name = te_classes[te_name]
             cur_copy_num, cur_length = te_total_infos[te_name]
 

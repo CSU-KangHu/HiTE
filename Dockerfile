@@ -28,6 +28,7 @@ RUN cd /HiTE && python configure.py
 # Make RUN commands use the new environment
 # name need to be the same with the above ${DNAME}
 SHELL ["conda", "run", "-n", "HiTE", "/bin/bash", "-c"]
+RUN echo "source activate HiTE" >> ~/.bashrc
 
 # avoid different perl version conflict
 ENV PERL5LIB /
