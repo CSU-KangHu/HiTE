@@ -126,7 +126,7 @@ docker load -i hite_docker_3.3.2.tar
 
 ### <a name="data"></a>2. Data Preparation
 
-Download the [demo data](https://zenodo.org/records/14280542) from Zenodo.
+Download the [demo data](https://zenodo.org/records/14893504) from Zenodo.
 A complete genome assembly, annotation, and RNA-seq reads data were downloaded from the publication: _Kang M, Wu H, Liu H, Liu W, Zhu M, Han Y, Liu W, Chen C, Song Y, Tan L, Yin K. *The pan-genome and local adaptation of Arabidopsis thaliana.* Nature Communications. 2023 Oct 6;14(1):6259_.
 
 1. `pan_genomes_dir` (**Required**)  
@@ -144,7 +144,7 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
     # genome_name   gene_annotation_name    is_paired (1:True/0:False)      Illumina RNA-seq reads (tab-delimited)
     44.ket_10.fa    44.ket_10.gff   1       CRR624282_Chr1_f1.fq.gz CRR624282_Chr1_r2.fq.gz
     02.tibet.fa     02.tibet.gff    1       CRR624279_Chr1_f1.fq.gz CRR624279_Chr1_r2.fq.gz
-    25.per_1.fa     25.per_1.gff    0       SRR748686_Chr1.fq.gz    SRR748686_Chr1.copy.fq.gz
+    25.per_1.fa     25.per_1.gff    0       SRR748686_Chr1.fq.gz
     ```
     
     2.2 Example Without Gene Expression Analysis (_genome_list_no_RNA_):
