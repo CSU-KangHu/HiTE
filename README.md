@@ -13,7 +13,12 @@
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies. In comparison to other tools, HiTE demonstrates superior performance in detecting a greater number of full-length TEs.
 
-We have developed panHiTE, a comprehensive and accurate pipeline for TE detection in large-scale population genomes. It has been successfully applied to hundreds of plant population genomes, demonstrating its effectiveness and scalability. For detailed instructions, please refer to the [panHiTE tutorial](https://github.com/CSU-KangHu/HiTE/wiki/panHiTE-tutorial).
+## panHiTE
+We have developed panHiTE, a comprehensive and accurate pipeline for TE detection in large-scale population genomes. It has been successfully applied to hundreds of plant population genomes, demonstrating its effectiveness and scalability.
+
+For detailed instructions, please refer to the [panHiTE tutorial](https://github.com/CSU-KangHu/HiTE/wiki/panHiTE-tutorial).
+
+For an assessment of panHiTE's performance improvements over existing tools, please refer to the preprint article: [https://www.biorxiv.org/content/10.1101/2025.02.15.638472v1](https://www.biorxiv.org/content/10.1101/2025.02.15.638472v1).
 
 
 ## Table of Contents

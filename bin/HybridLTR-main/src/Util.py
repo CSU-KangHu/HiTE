@@ -5996,12 +5996,19 @@ def filter_ltr_by_copy_num(output_path, leftLtr2Candidates, ltr_lines, reference
             intact_ltrs[name] = intact_ltr_seq
     store_fasta(intact_ltrs, intact_ltr_path)
 
+    intact_ltr_cons = intact_ltr_path + '.cons'
+    # 调用 cd-hit-est 去除冗余, 对于全长LTR-RT，我们可以用80-80-80规则来合并冗余序列，以减少后续获取拷贝的计算量
+    cd_hit_command = 'cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
+                     + ' -G 0 -g 1 -A 80 -i ' + intact_ltr_path + ' -o ' + intact_ltr_cons + ' -T 0 -M 0'
+    os.system(cd_hit_command + ' > /dev/null 2>&1')
+
     temp_dir = tmp_output_dir + '/intact_ltr_filter'
-    ltr_copies = filter_ltr_by_copy_num_sub(intact_ltr_path, threads, temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
+    ltr_copies = filter_ltr_by_copy_num_sub(intact_ltr_cons, threads, temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
 
     if not debug:
         os.system('rm -rf ' + temp_dir)
         os.system('rm -f ' + intact_ltr_path)
+        os.system('rm -f ' + intact_ltr_cons)
 
     # 我们获取拷贝之后再和原始结果计算overlap，如果overlap超过 95% 才算一个真的全长拷贝，否则不算。
     # 经常会出现获取了两个拷贝，但是实际上都是同一个拷贝(坐标overlap或者来自冗余contig)，因此我们要对拷贝去冗余

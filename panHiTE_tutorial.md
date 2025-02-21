@@ -19,6 +19,7 @@ Key features in this release include:
     - [Installation via Conda](#install_conda)
     - [Installation via Singularity](#install_singularity)
     - [Installation via Docker](#install_docker)
+    - [Alternative Mirror Download](#bakup_images)
   - [Data Preparation](#data)
   - [Run pipeline](#run)
     - [Full Workflow](#full_workflow)
@@ -118,6 +119,8 @@ singularity pull HiTE.sif docker://kanghu/hite:3.3.2
 # pull docker image (once for all).
 docker pull kanghu/hite:3.3.2
 ```
+
+#### <a name="bakup_images"></a>Alternative Mirror Download
 For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14881832](https://zenodo.org/records/14881832).
 ```sh
 # Load the Docker image
@@ -176,8 +179,9 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
 
 
 ### <a name="run"></a>3. Run pipeline
-We provide the running scripts for panHiTE which is installed via Conda, Singularity, and Docker.
+We provide the running scripts for panHiTE which is installed via Conda, Singularity, and Docker. 
 
+**To prevent unnecessary errors, please use absolute paths in the scripts below.**
 #### <a name="full_workflow"></a>3.1 Full Workflow
 To run panHiTE from start to end, use the following command:
 ###### Installation via Conda

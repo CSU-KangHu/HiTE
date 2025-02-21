@@ -23,6 +23,7 @@ params.genome_list = ''
 params.genes_dir = '/dev/gene'
 params.RNA_dir = '/dev/RNA'
 params.out_dir = './output'
+tmp_output_dir = file(params.out_dir).toAbsolutePath()
 params.te_type = 'all'
 params.skip_analyze = 0
 params.softcore_threshold = 0.8
@@ -72,7 +73,7 @@ if (params.help){
 process pan_preprocess_genomes {
     cpus = 2
 
-    storeDir "${params.out_dir}/pan_preprocess_genomes"
+    storeDir "${tmp_output_dir}/pan_preprocess_genomes"
 
     input:
     path genome_list
@@ -95,7 +96,7 @@ process pan_preprocess_genomes {
 process pan_run_hite_single {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_run_hite_single/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_run_hite_single/${genome_name}"
 
     input:
     tuple val(genome_name), val(raw_name), path(reference), val(te_type), val(miu), val(debug)
@@ -126,7 +127,7 @@ process pan_run_hite_single {
 process merge_terminal_te {
     cpus = 1
 
-    storeDir "${params.out_dir}/merge_terminal_te"
+    storeDir "${tmp_output_dir}/merge_terminal_te"
 
     input:
     path terminal
@@ -148,7 +149,7 @@ process merge_terminal_te {
 process pan_remove_redundancy {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_remove_redundancy"
+    storeDir "${tmp_output_dir}/pan_remove_redundancy"
 
     input:
     file merge_te_file
@@ -166,7 +167,7 @@ process pan_remove_redundancy {
 process pan_recover_low_copy_TEs{
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_recover_low_copy_TEs/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_recover_low_copy_TEs/${genome_name}"
 
     input:
     tuple val(genome_name), path(tir_low_copy), path(helitron_low_copy), path(non_ltr_low_copy), path(panTE_lib)
@@ -189,7 +190,7 @@ process pan_recover_low_copy_TEs{
 process pan_merge_TE_recover {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_merge_TE_recover"
+    storeDir "${tmp_output_dir}/pan_merge_TE_recover"
 
     input:
     path panTE_lib
@@ -212,7 +213,7 @@ process pan_merge_TE_recover {
 process pan_annotate_genomes {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_annotate_genomes/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_annotate_genomes/${genome_name}"
 
     input:
     tuple val(genome_name), path(reference), path(panTE_lib)
@@ -232,7 +233,7 @@ process pan_annotate_genomes {
 process pan_summarize_tes {
     cpus = 2
 
-    storeDir "${params.out_dir}/pan_summarize_tes"
+    storeDir "${tmp_output_dir}/pan_summarize_tes"
 
     input:
     path genome_info_json
@@ -259,7 +260,7 @@ process pan_summarize_tes {
     path "TE_Classes_Coverage.json", emit: ch_te_classes_coverage
     path "intact_LTR_insert_time.csv", emit: ch_ltr_insert_time
 
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*.pdf"
+    publishDir "${tmp_output_dir}", mode: 'copy', pattern: "*.pdf"
 
     script:
     """
@@ -272,7 +273,7 @@ process pan_summarize_tes {
 process pan_gene_te_relation {
     cpus = 2
 
-    storeDir "${params.out_dir}/pan_gene_te_relation"
+    storeDir "${tmp_output_dir}/pan_gene_te_relation"
 
     input:
     path genome_info_json
@@ -280,7 +281,7 @@ process pan_gene_te_relation {
     output:
     path "gene_te_associations.tsv"
 
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "gene_te_associations.tsv"
+    publishDir "${tmp_output_dir}", mode: 'copy', pattern: "gene_te_associations.tsv"
 
     script:
     """
@@ -292,7 +293,7 @@ process pan_gene_te_relation {
 process pan_generate_bam_for_RNA_seq {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_generate_bam_for_RNA_seq"
+    storeDir "${tmp_output_dir}/pan_generate_bam_for_RNA_seq"
 
     input:
     tuple val(genome_name), path(reference), val(RNA_dir), val(RNA_seq)
@@ -311,7 +312,7 @@ process pan_generate_bam_for_RNA_seq {
 process pan_detect_de_genes {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_detect_de_genes"
+    storeDir "${tmp_output_dir}/pan_detect_de_genes"
 
     input:
     path genome_info_for_bam_json
@@ -325,7 +326,7 @@ process pan_detect_de_genes {
     path "TE_express.table", emit: ch_te_express, optional: true
     path "gene_express.table", emit: ch_gene_express, optional: true
 
-    publishDir "${params.out_dir}", mode: 'copy', pattern: "*.tsv"
+    publishDir "${tmp_output_dir}", mode: 'copy', pattern: "*.tsv"
 
     script:
     cores = task.cpus
@@ -337,7 +338,7 @@ process pan_detect_de_genes {
 }
 
 process pan_split_genome {
-    storeDir "${params.out_dir}/pan_split_genome/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_split_genome/${genome_name}"
 
     input:
     tuple val(genome_name), path(reference)
@@ -356,7 +357,7 @@ process pan_split_genome {
 process pan_annotate_chunk {
     cpus { params.threads ?: 1 }
 
-    storeDir "${params.out_dir}/pan_annotate_chunk/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_annotate_chunk/${genome_name}"
 
     input:
     tuple val(genome_name), path(chunk_fasta), path(panTE_lib)
@@ -374,7 +375,7 @@ process pan_annotate_chunk {
 
 // Step 3: 合并每个基因组的注释结果
 process pan_merge_annotations {
-    storeDir "${params.out_dir}/pan_merge_annotations/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_merge_annotations/${genome_name}"
 
     input:
     tuple val(genome_name), path(annotated_chunks), path(full_length_annotated_chunks), path(full_length_copies_chunks)
@@ -391,7 +392,7 @@ process pan_merge_annotations {
 }
 
 process pan_recover_split_annotation {
-    storeDir "${params.out_dir}/pan_annotate_genomes/${genome_name}"
+    storeDir "${tmp_output_dir}/pan_annotate_genomes/${genome_name}"
 
     input:
     tuple val(genome_name), path(input_gff), path(full_length_input_gff), path(full_length_copies), path(genome_path), path(te_lib)
@@ -431,14 +432,14 @@ workflow {
     // Step 3: HiTE 并行处理每个基因组
     hite_out = pan_run_hite_single(hite_input_channel)
     // 将每个 Channel 的输出文件收集并合并
-    all_te = hite_out.ch_te.collectFile(name: "${params.out_dir}/pan_te.tmp.fa")
+    all_te = hite_out.ch_te.collectFile(name: "${tmp_output_dir}/pan_te.tmp.fa")
     intact_ltr_list_channel = hite_out.ch_intact_ltr_list
     // 将所有的低拷贝TE收集并合并
     low_copy_files_channel = hite_out.ch_low_copy_files
 
     // Step 4: 对LTR terminal 和 internal 去冗余，生成panTE library
     panTE_lib = pan_remove_redundancy(all_te)
-    panTE_lib = panTE_lib.collectFile(name: "${params.out_dir}/panTE.fa")
+    panTE_lib = panTE_lib.collectFile(name: "${tmp_output_dir}/panTE.fa")
 
     // 准备panTE library和其他参数，作为channel
     recover_input = low_copy_files_channel.combine(panTE_lib).set { recover_input_channel }
@@ -447,12 +448,12 @@ workflow {
     // 从泛基因组中获取拷贝，判断这些低拷贝TE是否是真实TE
     recover_out = pan_recover_low_copy_TEs(recover_input_channel)
     panTE_recover_lib = recover_out.ch_recover_TEs
-    panTE_recover_lib = panTE_recover_lib.collectFile(name: "${params.out_dir}/panTE.recover.fa")
+    panTE_recover_lib = panTE_recover_lib.collectFile(name: "${tmp_output_dir}/panTE.recover.fa")
 
     // Step 6: 将恢复的低拷贝 TEs 与 panTE lib 合并
     merge_out = pan_merge_TE_recover(panTE_lib, panTE_recover_lib)
     panTE_merge_lib = merge_out.ch_panTE_merge
-    panTE_merge_lib = panTE_merge_lib.collectFile(name: "${params.out_dir}/panTE.merge_recover.fa")
+    panTE_merge_lib = panTE_merge_lib.collectFile(name: "${tmp_output_dir}/panTE.merge_recover.fa")
 
     genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
             [genome_name, reference]
@@ -513,7 +514,7 @@ workflow {
         ]
     }.collect().map { data ->
         def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
-        def filePath = "${params.out_dir}/genome_info.json"
+        def filePath = "${tmp_output_dir}/genome_info.json"
         new File(filePath).write(jsonContent)
         return filePath
     }.set { genome_info_json }
@@ -559,7 +560,7 @@ workflow {
             ]
         }.collect().map { data ->
             def jsonContent = "[\n" + data.collect { JsonOutput.toJson(it) }.join(",\n") + "\n]"
-            def filePath = "${params.out_dir}/genome_info_for_bam.json"
+            def filePath = "${tmp_output_dir}/genome_info_for_bam.json"
             new File(filePath).write(jsonContent)
             return filePath
         }.set { genome_info_for_bam_json }
