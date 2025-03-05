@@ -8,7 +8,7 @@ import uuid
 
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
-from Util import Logger, summary_TEs, create_or_clear_directory, copy_files
+from Util import Logger, summary_TEs, create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
 
 if __name__ == "__main__":
     # 创建解析器
@@ -36,6 +36,8 @@ if __name__ == "__main__":
     # Load the metadata
     with open(genome_info_json, 'r') as f:
         genome_info_list = json.load(f)
+
+    clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()

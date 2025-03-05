@@ -107,11 +107,11 @@ string BackwardTr::toString() {
 
 	return msg;
 }
-int Tr::getIdentity(){
+double Tr::getIdentity(){
 	return id;
 }
 
-void Tr::setIdentity(int newId){
+void Tr::setIdentity(double newId){
 	id = newId;
 }
 

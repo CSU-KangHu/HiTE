@@ -577,8 +577,6 @@ General options:
   --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
   --genes_dir            A directory containing the gene annotation files, gff format.
   --RNA_dir              A directory containing the RNA-seq files.
-  --min_sample_threshold When identifying differentially expressed genes caused by TE insertions, for the groups with TE insertions and without TE insertions, the number of samples in at least one group must be greater than the min_sample_threshold.
-  --min_diff_threshold   The absolute difference in gene expression values between groups with and without TE insertion. diff = min(group1) - max(group2).
   --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
   --threads              Input thread num. default = [ 10 ]
   --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
@@ -648,16 +646,19 @@ Statistical summaries of core, softcore, dispensable, and private TEs in the pan
 This file contains TEs inserted upstream, downstream, or inside genes, which significantly alter gene expression levels across populations.  
 
 ```markdown
-"Gene_name"	"Insert_type"	"fold_change"	"direct"	"diff"	"significant"	"unique_gene_name"	"log10_diff"
-"AT1G25155"	"Upstream"	-6.92725450753374	"down"	49.14	"Significant"	"AT1G25155_Upstream"	1.7001843296222
-"AT1G25155"	"Downstream"	-6.77994780875344	"down"	48.71	"Significant"	"AT1G25155_Downstream"	1.696443763139
-"AT1G73490"	"Downstream"	-6.28426460342408	"down"	23.92	"Significant"	"AT1G73490_Downstream"	1.39654803798713
-"AT1G20620"	"Upstream"	-5.29028111354513	"down"	45.55	"Significant"	"AT1G20620_Upstream"	1.66791968531736
-"AT3G13580"	"Upstream"	-3.99076552523224	"down"	30.15	"Significant"	"AT3G13580_Upstream"	1.49345805099519
-"AT4G26260"	"Upstream"	3.72938522430935	"up"	12.55	"Significant"	"AT4G26260_Upstream"	1.13193929521042
-"AT2G41090"	"Upstream"	3.71870420185856	"up"	4311.58	"Significant"	"AT2G41090_Upstream"	3.63473716448395
-"AT5G41650"	"Upstream"	3.70865905618093	"up"	31.45	"Significant"	"AT5G41650_Upstream"	1.51121470113639
-"AT4G39610"	"Upstream"	3.66693868655106	"up"	34.64	"Significant"	"AT4G39610_Upstream"	1.55193769536484
+"Gene_name"	"Insert_type"	"fold_change"	"P_adjust_value"	"significant"	"direct"
+"AT1G25155"	"Upstream"	-6.92725450753374	0.016414503776662	"Significant"	"down"
+"AT2G42220"	"Upstream"	-4.45176810716045	2.32542377192524e-05	"Significant"	"down"
+"AT3G23050"	"Upstream"	4.34397796164078	0.000293455145666126	"Significant"	"up"
+"AT2G33850"	"Downstream"	3.94925482861562	0.00478988357806407	"Significant"	"up"
+"AT2G14890"	"Downstream"	3.71530705794358	0.0152999573408698	"Significant"	"up"
+"AT1G67810"	"Upstream"	-3.59258449763117	0.00455800117040596	"Significant"	"down"
+"AT1G25210"	"Upstream"	-3.52314372296497	0.0495361618097377	"Significant"	"down"
+"AT3G08030"	"Upstream"	-3.47714210543959	0.0067639204988128	"Significant"	"down"
+"AT3G45010"	"Upstream"	3.3175163272979	0.00131016382787026	"Significant"	"up"
+"AT1G10640"	"Upstream"	-3.14588823685148	0.0156025086537739	"Significant"	"down"
+"AT5G65040"	"Downstream"	-3.09346141153513	0.0351020874076906	"Significant"	"down"
+"AT1G68238"	"Downstream"	-3.06028547336873	0.0163103841689352	"Significant"	"down"
 ...
 ```
 
@@ -665,13 +666,10 @@ This file contains TEs inserted upstream, downstream, or inside genes, which sig
 1. **`Gene_name`**: Name of the gene.  
 2. **`Insert_type`**: Location of the TE insertion relative to the gene: Upstream, Inside, or Downstream.  
 3. **`fold_change`**: Log2 fold change of gene expression in samples with TE insertion compared to those without insertion.  
-4. **`direct`**: Indicates whether the TE insertion leads to upregulation or downregulation of gene expression.  
-5. **`diff`**: The absolute difference in gene expression values between groups with and without TE insertion. For example, if the gene expression values in the group without TE insertion are [10, 20, 30] and the values in the group with TE insertion are [100, 110, 120], then `diff = min(group with TE insertion) - max(group without TE insertion) = 100 - 30 = 70`.  
-6. **`significant`**: Indicates whether there is a significant difference in gene expression.  
-7. **`unique_gene_name`**: A unique value combining `Gene_name` and `Insert_type`.  
-8. **`log10_diff`**: The logarithmic value (base 10) of `diff`.  
+4. **`P_adjust_value`**: Ajusted P-value. Significance was determined using the two-sample t-test with Benjamini-Hochberg p-value adjustment to control for false discovery rate.
+5. **`significant`**: Indicates whether there is a significant difference in gene expression.  
+6. **`direct`**: Indicates whether the TE insertion leads to upregulation or downregulation of gene expression.
 
-  
 The formula for fold change is:  
 `logFoldChange = log2(Upstream + 1) - log2(No_Insertion + 1)`.
 

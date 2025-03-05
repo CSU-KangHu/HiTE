@@ -27,10 +27,6 @@ p <- arg_parser("Gene expression and TE association analysis")
 # Add command-line arguments for the gene expression file and gene-TE associations file
 p <- add_argument(p, "gene_express_file", help = "Path to gene expression file (e.g., gene_express.table)", type = "character")
 p <- add_argument(p, "gene_te_associations_file", help = "Path to gene-TE associations file (e.g., gene_te_associations.tsv)", type = "character")
-# 添加 min_sample_threshold 和 min_diff_threshold 参数
-p <- add_argument(p, "--min_sample_threshold", help = "Minimum sample threshold (default: 5)", type = "numeric", default = 5)
-
-p <- add_argument(p, "--min_diff_threshold", help = "Minimum diff threshold (default: 10)", type = "numeric", default = 10)
 
 # Parse the command-line arguments
 args <- parse_args(p)
@@ -40,8 +36,6 @@ cat("Gene expression file:", args$gene_express_file, "\n")
 cat("Gene-TE associations file:", args$gene_te_associations_file, "\n")
 gene_express_file <- args$gene_express_file
 gene_te_associations_file <- args$gene_te_associations_file
-min_sample_threshold <- args$min_sample_threshold
-min_diff_threshold <- args$min_diff_threshold
 
 # Read the gene expression file
 gene_express <- read_delim(gene_express_file,
@@ -55,7 +49,7 @@ gene_express <- read_delim(gene_express_file,
 
 # Read the gene-TE associations file
 gene_te_associations <- read_delim(gene_te_associations_file,
-                                   delim = "\t", escape_double = FALSE, 
+                                   delim = "\t", escape_double = FALSE,
                                    trim_ws = TRUE)
 
 # Process gene-TE associations to add species and calculate distance
@@ -81,126 +75,67 @@ gene_express <- gene_express %>%
 # Merge gene expression data with gene-TE associations
 gene_position_express <- gene_te_associations %>%
   right_join(gene_express, by = c("Gene_name" = "gene_id", "Species")) %>%
-  mutate(Position = replace_na(Position, 'No_Insertion'))
+  mutate(
+    Position = replace_na(Position, 'No_Insertion'),
+    expression = as.numeric(expression)  # 转换为数值
+    ) %>%
+  distinct(Gene_name, Position, Species, .keep_all = TRUE)
 
-# Calculate species present and species with NA for each gene
-species_info <- gene_position_express %>%
+
+# 定义一个函数，用于安全地进行 t 检验
+safe_t_test <- function(x, y) {
+  # 检查数据是否满足 t 检验的条件
+  if (length(x) > 1 && length(y) > 1 && is.numeric(x) && is.numeric(y)) {  # 确保数据是数值型且每组至少有两个样本
+    tryCatch({
+      return(t.test(x, y)$p.value)  # 返回 p 值
+    }, error = function(e) {
+      return(NA)  # 如果 t 检验出错，返回 NA
+    })
+  } else {
+    return(NA)  # 如果数据不满足条件，返回 NA
+  }
+}
+
+p_value_results <- gene_position_express %>%
   group_by(Gene_name) %>%
   summarise(
-    species_na = paste(unique(Species[is.na(Position)]), collapse = ", "),
-    species_present = paste(unique(Species[!is.na(Position)]), collapse = ", ")
-  )
-
-# Group gene expression by gene and position
-group_express <- gene_position_express %>%
-  group_by(Gene_name, Position)
-
-# Calculate the minimum, maximum, and absolute difference for each gene by position
-diff_express_detail <- group_express %>%
-  summarise(
-    min_expression = min(expression, na.rm = TRUE),
-    max_expression = max(expression, na.rm = TRUE),
-    abs_diff_expression = abs(max(expression, na.rm = TRUE) - min(expression, na.rm = TRUE)),
-    Group_Size = n(), .groups = 'drop'
-  ) %>%
-  ungroup() %>%
-  pivot_wider(names_from = Position, 
-              values_from = c(min_expression, max_expression, abs_diff_expression, Group_Size), 
-              values_fill = list(min_expression = NA, max_expression = NA, abs_diff_expression = NA, Group_Size = NA)) %>%
-  rename_with(~ gsub("min_expression", "min", .), starts_with("min_expression")) %>%
-  rename_with(~ gsub("max_expression", "max", .), starts_with("max_expression")) %>%
-  rename_with(~ gsub("abs_diff_expression", "abs_diff", .), starts_with("abs_diff_expression"))
-
-# 这里我们认为两组表达量[A, ..., B]和[C, ..., D] （假设B>A, D>C, C>B, 数组有序）之间有显著差异，需要满足abs(C-B) > min_diff_threshold
-# 定义计算方向的函数
-assign_direction <- function(min_no_insert, max_insert, min_insert, max_no_insert, min_diff_threshold, size_no_insert, size_insert, min_sample_threshold = 5) {
-  # 检查 size_no_insert 和 size_insert 是否为 NA
-  is_na <- is.na(size_no_insert) | is.na(size_insert)
-  
-  # 检查样本数是否满足阈值
-  below_threshold <- max(size_no_insert, size_insert) < min_sample_threshold
-  
-  # 判断表达变化方向
-  result <- case_when(
-    is_na | below_threshold ~ 'ns',  # 如果样本数为 NA 或样本数不足，直接返回 'ns'
-    (min_no_insert - max_insert) > min_diff_threshold ~ 'down',
-    (min_insert - max_no_insert) > min_diff_threshold ~ 'up',
-    TRUE ~ 'ns'
-  )
-  
-  return(result)
-}
-
-# 定义计算差异绝对值的函数
-calculate_diff <- function(min_no_insert, max_insert, min_insert, max_no_insert, size_no_insert, size_insert, min_sample_threshold = 5) {
-  # 检查 size_no_insert 和 size_insert 是否为 NA
-  is_na <- is.na(size_no_insert) | is.na(size_insert)
-  
-  # 检查样本数是否满足阈值
-  below_threshold <- max(size_no_insert, size_insert) < min_sample_threshold
-  
-  # 计算表达差异
-  case_when(
-    is_na ~ 0,  # 如果样本数为 NA，直接返回 0
-    below_threshold ~ 0,  # 如果样本数不足，直接返回 0
-    (min_no_insert - max_insert) > 0 ~ abs(min_no_insert - max_insert),
-    (min_insert - max_no_insert) > 0 ~ abs(min_insert - max_no_insert),
-    TRUE ~ 0  # 如果没有显著差异，返回 0
-  )
-}
-# 生成方向列
-significant_direct <- diff_express_detail %>%
-  mutate(
-    Upstream_direct = assign_direction(
-      min_No_Insertion, max_Upstream, min_Upstream, max_No_Insertion, min_diff_threshold,
-      Group_Size_No_Insertion, Group_Size_Upstream, min_sample_threshold
+    p_value_upstream = ifelse(
+      length(expression[Position == "Upstream"]) > 0 && length(expression[Position == "No_Insertion"]) > 0,
+      safe_t_test(expression[Position == "Upstream"], expression[Position == "No_Insertion"]),
+      NA
     ),
-    Inside_direct = assign_direction(
-      min_No_Insertion, max_Inside, min_Inside, max_No_Insertion, min_diff_threshold,
-      Group_Size_No_Insertion, Group_Size_Inside, min_sample_threshold
+    p_value_downstream = ifelse(
+      length(expression[Position == "Downstream"]) > 0 && length(expression[Position == "No_Insertion"]) > 0,
+      safe_t_test(expression[Position == "Downstream"], expression[Position == "No_Insertion"]),
+      NA
     ),
-    Downstream_direct = assign_direction(
-      min_No_Insertion, max_Downstream, min_Downstream, max_No_Insertion, min_diff_threshold,
-      Group_Size_No_Insertion, Group_Size_Downstream, min_sample_threshold
+    p_value_inside = ifelse(
+      length(expression[Position == "Inside"]) > 0 && length(expression[Position == "No_Insertion"]) > 0,
+      safe_t_test(expression[Position == "Inside"], expression[Position == "No_Insertion"]),
+      NA
     )
-  ) %>%
-  select(c(Gene_name, Upstream_direct, Inside_direct, Downstream_direct))
+  )
 
-# 生成差异绝对值列
-significant_diff <- diff_express_detail %>%
+p_adjust_value_results <- p_value_results %>%
   mutate(
-    Upstream_diff = calculate_diff(min_No_Insertion, max_Upstream, min_Upstream, max_No_Insertion, Group_Size_No_Insertion, Group_Size_Upstream, min_sample_threshold),
-    Inside_diff = calculate_diff(min_No_Insertion, max_Inside, min_Inside, max_No_Insertion, Group_Size_No_Insertion, Group_Size_Inside, min_sample_threshold),
-    Downstream_diff = calculate_diff(min_No_Insertion, max_Downstream, min_Downstream, max_No_Insertion, Group_Size_No_Insertion, Group_Size_Downstream, min_sample_threshold)
-  )  %>%
-  select(c(Upstream_diff, Inside_diff, Downstream_diff))
-# 合并方向列和差异绝对值列
-significant_direct_diff <- significant_direct %>%
-  bind_cols(significant_diff %>% select(Upstream_diff, Inside_diff, Downstream_diff))
-
-
-# 宽表转长表
-long_significant_direct <- significant_direct_diff %>%
-  select(c(Gene_name, Upstream_direct, Inside_direct, Downstream_direct)) %>%
-  pivot_longer(
-    cols = starts_with("Upstream") | starts_with("Inside") | starts_with("Downstream"),
-    names_to = c("Insert_type"),
-    values_to = "direct",
-    names_pattern = "(.*)_direct"
+    fdr_Upstream = p.adjust(p_value_upstream, method = "fdr"),
+    fdr_Downstream = p.adjust(p_value_downstream, method = "fdr"),
+    fdr_Inside = p.adjust(p_value_inside, method = "fdr")
   )
-long_significant_diff <- significant_direct_diff %>%
-  select(c(Gene_name, Upstream_diff, Inside_diff, Downstream_diff)) %>%
+
+long_p_adjust_value <- p_adjust_value_results %>%
+  select(-starts_with("p_value_")) %>%  # 排除某些列
   pivot_longer(
-    cols = starts_with("Upstream") | starts_with("Inside") | starts_with("Downstream"),
-    names_to = c("Insert_type"),
-    values_to = "diff",
-    names_pattern = "(.*)_diff"
+    cols = starts_with("fdr_"),  # 选择以 "exp_" 开头的列
+    names_to = "Insert_type",      # 新列名，存储原始列名
+    values_to = "P_adjust_value",    # 新列名，存储原始列的值
+    names_pattern = "fdr_(.*)"
   )
-long_significant_direct_diff <- long_significant_direct %>%
-  left_join(long_significant_diff, by = c("Gene_name", "Insert_type"))
+
 
 # Calculate fold changes for different positions compared to No_Insertion
-fold_changes <- group_express %>%
+fold_changes <- gene_position_express %>%
+  group_by(Gene_name, Position) %>%
   summarise(
     mean_expression = mean(expression, na.rm = TRUE)
   ) %>%
@@ -223,20 +158,24 @@ long_fold_changes <- fold_changes %>%
   )
 
 valid_genes <- long_fold_changes %>%
-  left_join(long_significant_direct_diff, by = c("Gene_name", "Insert_type")) %>%
+  inner_join(long_p_adjust_value, by = c("Gene_name", "Insert_type")) %>%
   mutate(
-    significant = if_else(
-      (fold_change > 1 & direct == 'up') | (fold_change < -1 & direct == 'down'),
-      "Significant",
-      "Not Significant"
+    significant = case_when(
+      abs(fold_change) > 1 & P_adjust_value < 0.05 ~ "Significant",
+      TRUE ~ "Not Significant"
     ),
-    unique_gene_name = paste(Gene_name, Insert_type, sep = "_"),
-    log10_diff = log10(diff+1)
+    direct = case_when(
+      significant == "Significant" & fold_change > 0 ~ "up",  # Significant且fold_change > 0
+      significant == "Significant" & fold_change < 0 ~ "down",  # Significant且fold_change < 0
+      significant == "Not Significant" ~ "ns",  # Not Significant时，direct为"ns"
+      TRUE ~ "ns"  # 默认情况下，如果没有匹配条件，也设置为"ns"
+    )
   ) %>%
-  mutate(
-    significant = replace_na(significant, "Not Significant") # 将 NA 替换为 "Not Significant"
-  ) %>%
-  filter(log10_diff != 0 & log10_diff != Inf)
+  # 优先保留 significant 为 "Significant" 的记录
+  arrange(Gene_name, desc(significant == "Significant")) %>%
+  # 按照 Gene_name 去重，只保留第一条记录
+  distinct(Gene_name, .keep_all = TRUE) %>%
+  filter(!is.na(fold_change), !is.na(P_adjust_value), P_adjust_value > 0)
 
 
 # 绘制火山图
@@ -247,42 +186,30 @@ top_fold_change <- valid_genes %>%
   slice_head(n = 5)  # 选择前 5 个点
 
 # 筛选 log10_diff 最大的显著点
-top_log10_diff <- valid_genes %>%
+top_p_adjust_value <- valid_genes %>%
   filter(significant == "Significant") %>%
-  arrange(desc(log10_diff)) %>%
+  arrange(P_adjust_value) %>%
   slice_head(n = 5)  # 选择前 5 个点
 
 # 合并筛选结果
-top_genes <- bind_rows(top_fold_change, top_log10_diff) %>%
+top_genes <- bind_rows(top_fold_change, top_p_adjust_value) %>%
   distinct()  # 去重
 
 pdf("DE_genes_from_TEs.pdf", width = 8, height = 6)
-volcano_plot <- ggplot(valid_genes, aes(x = fold_change, y = log10_diff, color = direct)) +
-  geom_point(alpha = 0.6, size = 2) +  # 绘制所有点
-  geom_point(
-    data = subset(valid_genes, significant == "Significant"),  # 仅对显著基因
-    aes(shape = significant), size = 3, stroke = 1, color = "black"  # 添加黑色边框
-  ) +
+volcano_plot <- ggplot(valid_genes, aes(x = fold_change, y = -log10(P_adjust_value))) +
+  geom_point(aes(color = direct), size = 2) +
   geom_text(
     data = top_genes,  # 为部分显著基因添加标签
     aes(label = Gene_name),  # 使用 Gene_name 作为标签
-    vjust = -1.5, size = 3, color = "black", check_overlap = TRUE  # 调整标签位置和样式
+    vjust = -1.5, size = 5, color = "black", check_overlap = TRUE  # 调整标签位置和样式
   ) +
-  scale_color_manual(values = c("up" = "red", "down" = "blue", "ns" = "grey")) +  # 设置颜色
-  scale_shape_manual(values = c("up" = 1, "down" = 1), guide = "none") +  # 设置形状并隐藏图例
-  theme_minimal() +  # 使用简洁主题
-  labs(
-    title = "",
-    x = "log2(Fold Change)",
-    y = "log10(Diff+1)",
-    color = "Direction",
-    shape = ""
-  ) +
-  geom_hline(yintercept = log10(min_diff_threshold), linetype = "dotdash", color = "black") +  # 添加显著性阈值线
+  geom_point(aes(color = direct), size = 2, alpha = ifelse(valid_genes$direct == "ns", 0.2, 1)) +  # "ns"点透明度降低
+  scale_color_manual(values = c("up" = "red", "down" = "blue", "ns" = "gray")) +  # 上调为红色，下调为蓝色，其他为灰色
+  theme_minimal() +
+  labs(x = "log2(Fold Change)", y = "-log10(P-adjusted)", title = "") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dotdash", color = "black") +  # 添加显著性阈值线
   geom_vline(xintercept = c(-1, 1), linetype = "dotdash", color = "black")  # 添加 Fold Change 阈值线
-
-# 显示图形
-print(volcano_plot)
+  theme(legend.position = "none")
 dev.off()
 
 significant_genes <- valid_genes %>%

@@ -9,7 +9,7 @@ current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
 from Util import Logger, deredundant_for_LTR_v5, ReassignInconsistentLabels, split_internal_out, \
-    create_or_clear_directory, copy_files
+    create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
 
 
 def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, log):
@@ -64,6 +64,8 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
+
+    clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()

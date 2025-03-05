@@ -14,7 +14,7 @@ project_dir = os.path.join(current_folder, ".")
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from Util import Logger, copy_files, create_or_clear_directory, \
     store_fasta, read_fasta, get_full_length_copies, getReverseSequence, run_find_members_v8, rename_fasta, \
-    ReassignInconsistentLabels, file_exist, lib_add_prefix, remove_no_tirs, get_domain_info
+    ReassignInconsistentLabels, file_exist, lib_add_prefix, remove_no_tirs, get_domain_info, clean_old_tmp_files_by_dir
 
 
 def filter_detected_TEs(temp_dir, threads, low_copy_file, panTE_lib, TE_type, log):
@@ -449,78 +449,88 @@ if __name__ == "__main__":
                 sys.exit(-1)
             genome_paths.append((genome_name, cur_genome_path))
 
+    clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
     temp_dir = '/tmp/pan_recover_low_copy_TEs_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
-    # 利用 cd-hit-est 去掉低拷贝中包含在 panTE library 中的序列
-    TE_type = 'tir'
-    keep_tir_low_copy = filter_detected_TEs(temp_dir, threads, tir_low_copy, panTE_lib, TE_type, log)
-    TE_type = 'helitron'
-    keep_helitron_low_copy = filter_detected_TEs(temp_dir, threads, helitron_low_copy, panTE_lib, TE_type, log)
-    TE_type = 'non_ltr'
-    keep_non_ltr_low_copy = filter_detected_TEs(temp_dir, threads, non_ltr_low_copy, panTE_lib, TE_type, log)
-    # 将保留下来的低拷贝候选TE放入一个队列，将队列中的序列依次比对回泛基因组获取拷贝，当低拷贝候选TE 的拷贝数超过 100 个时，将该低拷贝TE移出队列，继续剩余的TE比对，直至队列为空。
-    # 函数返回一个dict: key 为 type, value为 batch_member_files 列表（记录每条序列对应的全长拷贝）
-    get_copies_dir = os.path.join(temp_dir, 'get_copies')
-    pan_genome_copies_dict = get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, get_copies_dir)
+    try:
+        create_or_clear_directory(temp_dir)
+        # 利用 cd-hit-est 去掉低拷贝中包含在 panTE library 中的序列
+        TE_type = 'tir'
+        keep_tir_low_copy = filter_detected_TEs(temp_dir, threads, tir_low_copy, panTE_lib, TE_type, log)
+        TE_type = 'helitron'
+        keep_helitron_low_copy = filter_detected_TEs(temp_dir, threads, helitron_low_copy, panTE_lib, TE_type, log)
+        TE_type = 'non_ltr'
+        keep_non_ltr_low_copy = filter_detected_TEs(temp_dir, threads, non_ltr_low_copy, panTE_lib, TE_type, log)
+        # 将保留下来的低拷贝候选TE放入一个队列，将队列中的序列依次比对回泛基因组获取拷贝，当低拷贝候选TE 的拷贝数超过 100 个时，将该低拷贝TE移出队列，继续剩余的TE比对，直至队列为空。
+        # 函数返回一个dict: key 为 type, value为 batch_member_files 列表（记录每条序列对应的全长拷贝）
+        get_copies_dir = os.path.join(temp_dir, 'get_copies')
+        pan_genome_copies_dict = get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, get_copies_dir)
 
-    subset_script_path = project_dir + '/tools/ready_for_MSA.sh'
-    # 依次对tir, helitron, non_ltr 类型的TE调用动态边界调整算法，过滤出真实的TE
-    recover_panTE_lib = os.path.join(temp_dir, 'panTE.recover.fa')
-    for TE_type in pan_genome_copies_dict.keys():
-        cur_temp_dir, batch_member_files = pan_genome_copies_dict[TE_type]
-        real_TEs = os.path.join(temp_dir, 'real_' + TE_type + '.fa')
-        filter_true_TEs(batch_member_files, real_TEs, cur_temp_dir, subset_script_path, TE_type, plant)
+        subset_script_path = project_dir + '/tools/ready_for_MSA.sh'
+        # 依次对tir, helitron, non_ltr 类型的TE调用动态边界调整算法，过滤出真实的TE
+        recover_panTE_lib = os.path.join(temp_dir, 'panTE.recover.fa')
+        for TE_type in pan_genome_copies_dict.keys():
+            cur_temp_dir, batch_member_files = pan_genome_copies_dict[TE_type]
+            real_TEs = os.path.join(temp_dir, 'real_' + TE_type + '.fa')
+            filter_true_TEs(batch_member_files, real_TEs, cur_temp_dir, subset_script_path, TE_type, plant)
 
-        confident_recover_TE_path = os.path.join(temp_dir, 'confident_recover_' + TE_type + '.fa')
-        # 生成非冗余序列
-        real_TEs_cons = real_TEs + '.cons'
-        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -d 0 -g 1 -A 80 -i ' + real_TEs + ' -o ' + real_TEs_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
-        os.system(cd_hit_command)
+            confident_recover_TE_path = os.path.join(temp_dir, 'confident_recover_' + TE_type + '.fa')
+            # 生成非冗余序列
+            real_TEs_cons = real_TEs + '.cons'
+            cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                             + ' -G 0 -d 0 -g 1 -A 80 -i ' + real_TEs + ' -o ' + real_TEs_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+            os.system(cd_hit_command)
 
-        prefix_map = {'tir': 'TIR_Recover', 'helitron': 'Helitron_Recover', 'non_ltr': 'Non-LTR_Recover'}
-        rename_fasta(real_TEs_cons, confident_recover_TE_path, prefix_map[TE_type])
-        os.system('cat ' + confident_recover_TE_path + ' >> ' + recover_panTE_lib)
+            prefix_map = {'tir': 'TIR_Recover', 'helitron': 'Helitron_Recover', 'non_ltr': 'Non-LTR_Recover'}
+            rename_fasta(real_TEs_cons, confident_recover_TE_path, prefix_map[TE_type])
+            os.system('cat ' + confident_recover_TE_path + ' >> ' + recover_panTE_lib)
 
-    # 调用分类器对恢复的TE进行分类
-    NeuralTE_home = project_dir + '/bin/NeuralTE'
-    TEClass_home = project_dir + '/classification'
-    recover_classified_lib = recover_panTE_lib + '.classified'
-    if use_NeuralTE:
-        # classify LTR using NeuralTE
-        NeuralTE_output_dir = temp_dir + '/NeuralTE_recover'
-        os.makedirs(NeuralTE_output_dir, exist_ok=True)
-        NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + recover_panTE_lib \
-                           + ' --model_path ' + NeuralTE_home + '/models/NeuralTE_model.h5 --out_dir ' \
-                           + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
-        log.logger.debug(NeuralTE_command)
-        os.system(NeuralTE_command + ' > /dev/null 2>&1')
-        NeuralTE_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
-        os.system('cp ' + NeuralTE_TE_path + ' ' + recover_classified_lib)
+        # 调用分类器对恢复的TE进行分类
+        NeuralTE_home = project_dir + '/bin/NeuralTE'
+        TEClass_home = project_dir + '/classification'
+        recover_classified_lib = recover_panTE_lib + '.classified'
+        if use_NeuralTE:
+            # classify LTR using NeuralTE
+            NeuralTE_output_dir = temp_dir + '/NeuralTE_recover'
+            os.makedirs(NeuralTE_output_dir, exist_ok=True)
+            NeuralTE_command = 'python ' + NeuralTE_home + '/src/Classifier.py --data ' + recover_panTE_lib \
+                               + ' --model_path ' + NeuralTE_home + '/models/NeuralTE_model.h5 --out_dir ' \
+                               + NeuralTE_output_dir + ' --thread ' + str(threads) + ' --is_wicker ' + str(is_wicker)
+            log.logger.debug(NeuralTE_command)
+            os.system(NeuralTE_command + ' > /dev/null 2>&1')
+            NeuralTE_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
+            os.system('cp ' + NeuralTE_TE_path + ' ' + recover_classified_lib)
+        else:
+            # classify LTR using RepeatClassifier
+            sample_name = 'test'
+            TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+                              + ' --consensus ' + recover_panTE_lib + ' --genome 1' \
+                              + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + temp_dir
+            log.logger.debug(TEClass_command)
+            os.system(TEClass_command)
+
+        # Reassign Inconsistent Classification Labels
+        ReassignInconsistentLabels(recover_classified_lib)
+
+        raw_name = raw_genome_name.split('.')[0]
+        # 为文件加前缀
+        if file_exist(recover_classified_lib):
+            lib_add_prefix(recover_classified_lib, raw_name)
+
+        # 计算完之后将结果拷贝回输出目录
+        # copy_files(temp_dir, output_dir)
+        shutil.copytree(temp_dir, output_dir, dirs_exist_ok=True)
+
+    except Exception as e:
+        # 如果出现异常，打印错误信息并删除临时目录
+        print(f"An error occurred: {e}")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        raise  # 重新抛出异常，以便上层代码可以处理
+
     else:
-        # classify LTR using RepeatClassifier
-        sample_name = 'test'
-        TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
-                          + ' --consensus ' + recover_panTE_lib + ' --genome 1' \
-                          + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + temp_dir
-        log.logger.debug(TEClass_command)
-        os.system(TEClass_command)
-
-    # Reassign Inconsistent Classification Labels
-    ReassignInconsistentLabels(recover_classified_lib)
-
-    raw_name = raw_genome_name.split('.')[0]
-    # 为文件加前缀
-    if file_exist(recover_classified_lib):
-        lib_add_prefix(recover_classified_lib, raw_name)
-
-    # 计算完之后将结果拷贝回输出目录
-    # copy_files(temp_dir, output_dir)
-    shutil.copytree(temp_dir, output_dir, dirs_exist_ok=True)
-
-    # 删除临时目录
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+        # 如果没有异常，删除临时目录
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)

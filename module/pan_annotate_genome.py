@@ -10,7 +10,8 @@ from datetime import datetime
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1, copy_files, create_or_clear_directory
+from Util import Logger, get_TE_class, get_full_length_copies_from_gff_v1, copy_files, create_or_clear_directory, \
+    clean_old_tmp_files_by_dir
 
 
 def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
@@ -107,16 +108,27 @@ if __name__ == "__main__":
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
+    clean_old_tmp_files_by_dir('/tmp')
+
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
     temp_dir = '/tmp/pan_annotate_genome_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
-    # 调用 RepeatMasker 函数
-    run_repeat_masker(temp_dir, threads, panTE_lib, reference, annotate, genome_name, log)
+    try:
+        create_or_clear_directory(temp_dir)
+        # 调用 RepeatMasker 函数
+        run_repeat_masker(temp_dir, threads, panTE_lib, reference, annotate, genome_name, log)
 
-    # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, output_dir)
+        # 计算完之后将结果拷贝回输出目录
+        copy_files(temp_dir, output_dir)
 
-    # 删除临时目录
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+    except Exception as e:
+        # 如果出现异常，打印错误信息并删除临时目录
+        print(f"An error occurred: {e}")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        raise  # 重新抛出异常，以便上层代码可以处理
+
+    else:
+        # 如果没有异常，删除临时目录
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)

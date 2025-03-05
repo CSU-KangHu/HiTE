@@ -28,7 +28,7 @@ private:
 	int diffThresh;
 	
 	int gapTol;
-	int identity;
+	double identity;
 	std::string csvFileName;
 	std::string bedFileName;
 	std::string name;

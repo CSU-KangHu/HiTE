@@ -9,7 +9,7 @@ import uuid
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import Logger, find_gene_relation_tes, create_or_clear_directory, copy_files
+from Util import Logger, find_gene_relation_tes, create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
 
 if __name__ == "__main__":
     # 创建解析器
@@ -34,18 +34,29 @@ if __name__ == "__main__":
     with open(genome_info_json, 'r') as f:
         genome_info_list = json.load(f)
 
+    clean_old_tmp_files_by_dir('/tmp')
+
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
     temp_dir = '/tmp/pan_gene_te_relation_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
+    try:
+        create_or_clear_directory(temp_dir)
 
-    # 调用 find_gene_relation_tes 函数
-    log.logger.info('Start finding gene-TE relations...')
-    find_gene_relation_tes(genome_info_list, temp_dir, softcore_threshold, log)
+        # 调用 find_gene_relation_tes 函数
+        log.logger.info('Start finding gene-TE relations...')
+        find_gene_relation_tes(genome_info_list, temp_dir, softcore_threshold, log)
 
-    # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, output_dir)
+        # 计算完之后将结果拷贝回输出目录
+        copy_files(temp_dir, output_dir)
 
-    # 删除临时目录
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+    except Exception as e:
+        # 如果出现异常，打印错误信息并删除临时目录
+        print(f"An error occurred: {e}")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        raise  # 重新抛出异常，以便上层代码可以处理
+
+    else:
+        # 如果没有异常，删除临时目录
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)

@@ -17,6 +17,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Process, Queue
 from collections import defaultdict
 import pickle
+import pysam
+from intervaltree import IntervalTree
 
 class Logger(object):
     level_relations = {
@@ -358,25 +360,37 @@ def get_full_length_copies_v1(query_path, split_ref_dir, max_copy_num, full_leng
             os.remove(blastn2Results_path)
     return all_copies
 
+
 def multiple_alignment_blast_and_get_copies_v2(repeats_path, max_copy_num, full_length_threshold):
     split_repeats_path = repeats_path[0]
     split_ref_dir = repeats_path[1]
-    # raw_blastn2Results_path = repeats_path[2]
-    # os.system('rm -f ' + raw_blastn2Results_path)
     blastn2Results_path = repeats_path[2]
-    os.system('rm -f ' + blastn2Results_path)
+    if os.path.exists(blastn2Results_path):
+        os.remove(blastn2Results_path)
     all_copies = {}
     repeat_names, repeat_contigs = read_fasta(split_repeats_path)
     remain_contigs = repeat_contigs
     for chr_name in os.listdir(split_ref_dir):
-        # blastn2Results_path = raw_blastn2Results_path + '_' + str(chr_name)
         if len(remain_contigs) > 0:
             if not str(chr_name).endswith('.fa'):
                 continue
             chr_path = split_ref_dir + '/' + chr_name
-            align_command = 'blastn -db ' + chr_path + ' -num_threads ' \
-                            + str(1) + ' -query ' + split_repeats_path + ' -evalue 1e-20 -outfmt 6 > ' + blastn2Results_path
-            os.system(align_command)
+            # 构建 BLAT 命令
+            align_command = [
+                "blastn",
+                "-db", chr_path,
+                "-num_threads", "1",
+                "-query", split_repeats_path,
+                "-evalue", "1e-20",
+                "-outfmt", "6",
+                "-out", blastn2Results_path
+            ]
+            # 执行命令并捕获输出
+            try:
+                result = subprocess.run(align_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"BLAT alignment failed with error code {e.returncode}.")
+
             # 由于我们只需要100个拷贝，因此如果有序列已经满足了，就不需要进行后续的比对了，这样在mouse这样的高拷贝大基因组上减少运行时间
             cur_all_copies = get_copies_v2(blastn2Results_path, split_repeats_path, max_copy_num, full_length_threshold)
             for query_name in cur_all_copies.keys():
@@ -5883,7 +5897,7 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
             protein_start = int(parts[4])
             protein_end = int(parts[5])
             intact_protein_len = len(protein_contigs[protein_name])
-            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.6:
                 is_single_ltr_has_intact_protein[te_name] = True
 
     if not debug:
@@ -5905,7 +5919,7 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
             protein_start = int(parts[4])
             protein_end = int(parts[5])
             intact_protein_len = len(protein_contigs[protein_name])
-            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.8:
                 is_single_ltr_has_intact_other_protein[te_name] = True
 
     if not debug:
@@ -5977,7 +5991,7 @@ def filter_ltr_by_copy_num(output_path, leftLtr2Candidates, ltr_lines, reference
 
     internal_ltrs = {}
     intact_ltrs = {}
-    intact_ltr_path = tmp_output_dir + '/intact_ltr.fa'
+    intact_ltr_path = os.path.join(tmp_output_dir, 'intact_ltr.fa')
     ref_names, ref_contigs = read_fasta(reference)
     for name, line in confident_lines:
         parts = line.split(' ')
@@ -5996,33 +6010,170 @@ def filter_ltr_by_copy_num(output_path, leftLtr2Candidates, ltr_lines, reference
             intact_ltrs[name] = intact_ltr_seq
     store_fasta(intact_ltrs, intact_ltr_path)
 
-    intact_ltr_cons = intact_ltr_path + '.cons'
-    # 调用 cd-hit-est 去除冗余, 对于全长LTR-RT，我们可以用80-80-80规则来合并冗余序列，以减少后续获取拷贝的计算量
-    cd_hit_command = 'cd-hit-est -aS ' + str(0.8) + ' -aL ' + str(0.8) + ' -c ' + str(0.8) \
-                     + ' -G 0 -g 1 -A 80 -i ' + intact_ltr_path + ' -o ' + intact_ltr_cons + ' -T 0 -M 0'
-    os.system(cd_hit_command + ' > /dev/null 2>&1')
+    # 我们其实应该先用minimap2对 intact_ltr_path 比对去除冗余，这样后续的计算量就会大幅度减少;在大麦上迭代三轮后由345471 -> 95081，减少了250,390条
+    threshold = 1000  # 序列数量减少的阈值
+    max_iterations = 10
+    previous_sequence_count = float('inf')  # 初始值设为无穷大
 
-    temp_dir = tmp_output_dir + '/intact_ltr_filter'
-    ltr_copies = filter_ltr_by_copy_num_sub(intact_ltr_cons, threads, temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
+    iteration = 0
+    while iteration < max_iterations:
+        iteration += 1
+        print(f"Starting intact LTR-RT de-redundant iteration {iteration}...")
+        # 调用 filter_intact_ltr 函数
+        intact_ltr_path = filter_intact_ltr(intact_ltr_path, tmp_output_dir, threads)
+        # 计算当前文件中的序列数量
+        current_sequence_count = count_sequences_in_fasta(intact_ltr_path)
+        print(f"Current sequence count: {current_sequence_count}")
+        # 判断序列数量的变化
+        if previous_sequence_count - current_sequence_count < threshold:
+            print("Sequence count reduction is below the threshold. Stopping iterations.")
+            break
+        # 更新上一轮的序列数量
+        previous_sequence_count = current_sequence_count
+    print("Process completed.")
+
+    # 用minimap2 asm20 -p 0.2 快速过滤出单拷贝的LTR
+    minimap_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_minimap_filter')
+    ltr_copies, minimap_single_copy = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, minimap_temp_dir, reference)
+
+    # blastn_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_blastn_filter')
+    # minimap_single_copy_copies = filter_ltr_by_copy_num_blastn(minimap_single_copy, threads, blastn_temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
+    # # 对 ltr_copies 进行更新
+    # for ltr_name in minimap_single_copy_copies:
+    #     ltr_copies[ltr_name] = minimap_single_copy_copies[ltr_name]
 
     if not debug:
-        os.system('rm -rf ' + temp_dir)
-        os.system('rm -f ' + intact_ltr_path)
-        os.system('rm -f ' + intact_ltr_cons)
+        shutil.rmtree(minimap_temp_dir)
+        # shutil.rmtree(blastn_temp_dir)
+        if os.path.exists(intact_ltr_path):
+            os.remove(intact_ltr_path)
 
     # 我们获取拷贝之后再和原始结果计算overlap，如果overlap超过 95% 才算一个真的全长拷贝，否则不算。
     # 经常会出现获取了两个拷贝，但是实际上都是同一个拷贝(坐标overlap或者来自冗余contig)，因此我们要对拷贝去冗余
     intact_ltr_copies = get_intact_ltr_copies(ltr_copies, ltr_lines, full_length_threshold, reference)
 
-    # 过滤来自冗余contig的拷贝，即取拷贝的左侧100bp+右侧100bp的序列，任意一侧能够很好比对就说明这两个全长拷贝是来自冗余contig造成的
-    temp_dir = tmp_output_dir + '/intact_ltr_deredundant'
-    # intact_ltr_copies = remove_copies_from_redundant_contig(intact_ltr_copies, reference, temp_dir, threads)
-    intact_ltr_copies = remove_copies_from_redundant_contig_v1(intact_ltr_copies, reference, temp_dir, threads)
-
-    if not debug:
-        os.system('rm -rf ' + temp_dir)
+    # 下面的代码废弃，因为我们增加了一个 genome_clean 的脚本来处理输入基因组组装中的冗余contig，因此理论上不存在冗余的contigs了
+    # # 过滤来自冗余contig的拷贝，即取拷贝的左侧100bp+右侧100bp的序列，任意一侧能够很好比对就说明这两个全长拷贝是来自冗余contig造成的
+    # temp_dir = tmp_output_dir + '/intact_ltr_deredundant'
+    # # intact_ltr_copies = remove_copies_from_redundant_contig(intact_ltr_copies, reference, temp_dir, threads)
+    # intact_ltr_copies = remove_copies_from_redundant_contig_v1(intact_ltr_copies, reference, temp_dir, threads)
+    # if not debug:
+    #     os.system('rm -rf ' + temp_dir)
 
     return intact_ltr_copies, internal_ltrs
+
+def count_sequences_in_fasta(file_path):
+    """使用 read_fasta 函数统计序列数量"""
+    contig_names, _ = read_fasta(file_path)
+    return len(contig_names)
+
+def filter_intact_ltr(intact_ltr_path, tmp_output_dir, threads):
+    """
+    使用minimap2对LTR序列进行自比对，去除冗余序列，减少后续计算量。
+
+    参数:
+        intact_ltr_path (str): 完整LTR序列的输入文件路径。
+        tmp_output_dir (str): 临时输出目录路径。
+        threads (int): 运行minimap2时使用的线程数。
+        intact_ltrs (dict): 完整LTR序列的字典，键为LTR名称，值为序列。
+
+    返回:
+        str: 去除冗余后的完整LTR序列文件路径。
+    """
+    # 创建minimap2比对的临时目录
+    self_minimap_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_self_minimap_filter')
+    os.makedirs(self_minimap_temp_dir, exist_ok=True)
+
+    # 使用minimap2比对去除冗余
+    all_copies, _ = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, self_minimap_temp_dir, intact_ltr_path, multi_records=100)
+
+    # 初始化冗余和非冗余LTR名称集合
+    redundant_ltr_names = set()
+    unique_ltr_names = set()
+
+    # 遍历所有比对结果，筛选出非冗余的LTR名称
+    for ltr_name in all_copies:
+        if ltr_name not in redundant_ltr_names:
+            unique_ltr_names.add(ltr_name)
+            for copy in all_copies[ltr_name]:
+                copy_name = copy[0]
+                redundant_ltr_names.add(copy_name)
+
+    intact_ltr_names, intact_ltrs = read_fasta(intact_ltr_path)
+    # 构建去除冗余后的完整LTR序列字典
+    intact_ltr_path = os.path.join(tmp_output_dir, 'intact_ltr.clean.fa')
+    intact_ltrs_clean = {ltr_name: intact_ltrs[ltr_name] for ltr_name in unique_ltr_names}
+
+    # 将去除冗余后的完整LTR序列存储为FASTA文件
+    store_fasta(intact_ltrs_clean, intact_ltr_path)
+
+    shutil.rmtree(self_minimap_temp_dir)
+
+    return intact_ltr_path
+
+def is_highly_overlapping(interval1, interval2, threshold=0.95):
+    """
+    判断两个区间是否高度重叠
+    :param interval1: (start1, end1)
+    :param interval2: (start2, end2)
+    :param threshold: 重叠比例阈值（95%）
+    :return: 是否高度重叠
+    """
+    start1, end1 = interval1
+    start2, end2 = interval2
+
+    overlap_start = max(start1, start2)
+    overlap_end = min(end1, end2)
+    overlap_length = max(0, overlap_end - overlap_start)
+
+    length1 = end1 - start1
+    length2 = end2 - start2
+
+    if length1 == 0 or length2 == 0:
+        return False
+    overlap_ratio1 = overlap_length / length1
+    overlap_ratio2 = overlap_length / length2
+
+    return overlap_ratio1 >= threshold and overlap_ratio2 >= threshold
+
+def remove_redundant_ltr_names(intact_ltr_copies, threshold=0.98):
+    """
+    去除高度重叠的LTR拷贝对应的ltr_name（仅当它们属于不同的ltr_name时）
+    :param intact_ltr_copies: 原始字典
+    :param threshold: 高度重叠的阈值（98%）
+    :return: 去除冗余后的字典
+    """
+    # 提取所有拷贝并按染色体分组
+    intervals_by_chrom = {}
+    for ltr_name, copies in intact_ltr_copies.items():
+        for chrom, start, end in copies:
+            if chrom not in intervals_by_chrom:
+                intervals_by_chrom[chrom] = IntervalTree()
+            intervals_by_chrom[chrom][start:end] = ltr_name
+
+    # 用于记录冗余的ltr_name
+    redundant_ltr_names = set()
+
+    # 检测高度重叠的ltr_name
+    for chrom, tree in intervals_by_chrom.items():
+        for interval in tree:
+            start, end, ltr_name1 = interval.begin, interval.end, interval.data
+            if ltr_name1 in redundant_ltr_names:
+                continue  # 跳过已被标记为冗余的ltr_name
+
+            # 查询与当前区间高度重叠的其他区间
+            overlapping_intervals = tree[start:end]
+            for overlap in overlapping_intervals:
+                ltr_name2 = overlap.data
+                if ltr_name1 != ltr_name2 and ltr_name2 not in redundant_ltr_names:
+                    if is_highly_overlapping((start, end), (overlap.begin, overlap.end), threshold):
+                        redundant_ltr_names.add(ltr_name2)
+
+    # 去除冗余的ltr_name
+    non_redundant_copies = {ltr_name: copies for ltr_name, copies in intact_ltr_copies.items()
+                            if ltr_name not in redundant_ltr_names}
+
+    return non_redundant_copies
 
 def remove_copies_from_redundant_contig_v1(intact_ltr_copies, reference, temp_dir, threads, flanking_len=100):
     if not os.path.exists(temp_dir):
@@ -6080,66 +6231,66 @@ def get_non_redundant_copies_v1_batch(job_list):
         results.append((ltr_name, intact_copies))
     return results
 
-def get_non_redundant_copies_v1(ltr_name, cur_left_copy_contigs, cur_left_copy_path, cur_right_copy_contigs, cur_right_copy_path, copy_name_2_copy_dict):
-    blastn_command = 'blastn -query ' + cur_left_copy_path + ' -subject ' + cur_left_copy_path + ' -num_threads ' + str(1) + ' -outfmt 6 '
-    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            executable='/bin/bash')
+
+def process_copies(copy_contigs, copy_path, redundant_copies, num_threads=1):
+    """
+    使用 blastn 比对拷贝序列，检测冗余序列。
+    """
+    copy_lengths = {name: len(seq) for name, seq in copy_contigs.items()}
+    blastn_command = f"blastn -query {copy_path} -subject {copy_path} -num_threads {num_threads} -outfmt 6"
+    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        print(f"Error running blastn: {result.stderr}")
+        raise RuntimeError("BLASTN failed")
+
+    lines = result.stdout.split('\n')
+    for line in lines:
+        parts = line.split('\t')
+        if len(parts) != 12:
+            continue
+        query_name = parts[0]
+        subject_name = parts[1]
+        if query_name == subject_name:
+            continue
+        query_len = copy_lengths[query_name]
+        subject_len = copy_lengths[subject_name]
+        query_start = int(parts[6])
+        query_end = int(parts[7])
+        subject_start = int(parts[8])
+        subject_end = int(parts[9])
+        if (
+                abs(query_end - query_start) / query_len >= 0.95 and
+                abs(subject_end - subject_start) / subject_len >= 0.95
+        ):
+            redundant_copies.add(query_name)
+            redundant_copies.add(subject_name)
+
+
+def get_non_redundant_copies_v1(
+        ltr_name,
+        left_copy_contigs,
+        left_copy_path,
+        right_copy_contigs,
+        right_copy_path,
+        copy_name_2_copy_dict,
+        num_threads=1
+):
+    """
+    提取非冗余拷贝。
+    """
     redundant_copies = set()
-    if result.returncode == 0:
-        lines = result.stdout.split('\n')
-        for line in lines:
-            parts = line.split('\t')
-            if len(parts) != 12:
-                continue
-            query_name = parts[0]
-            subject_name = parts[1]
-            if query_name == subject_name:
-                continue
-            query_len = len(cur_left_copy_contigs[query_name])
-            subject_len = len(cur_left_copy_contigs[subject_name])
+    process_copies(left_copy_contigs, left_copy_path, redundant_copies, num_threads)
+    process_copies(right_copy_contigs, right_copy_path, redundant_copies, num_threads)
 
-            query_start = int(parts[6])
-            query_end = int(parts[7])
-            subject_start = int(parts[8])
-            subject_end = int(parts[9])
-            if abs(query_end - query_start) / query_len >= 0.95 and abs(
-                    subject_end - subject_start) / subject_len >= 0.95:
-                redundant_copies.add(query_name)
-                redundant_copies.add(subject_name)
-    blastn_command = 'blastn -query ' + cur_right_copy_path + ' -subject ' + cur_right_copy_path + ' -num_threads ' + str(1) + ' -outfmt 6 '
-    result = subprocess.run(blastn_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            executable='/bin/bash')
-    if result.returncode == 0:
-        lines = result.stdout.split('\n')
-        for line in lines:
-            parts = line.split('\t')
-            if len(parts) != 12:
-                continue
-            query_name = parts[0]
-            subject_name = parts[1]
-            if query_name == subject_name:
-                continue
-            query_len = len(cur_right_copy_contigs[query_name])
-            subject_len = len(cur_right_copy_contigs[subject_name])
+    non_redundant_copies = []
+    for copy_name in left_copy_contigs.keys():
+        if copy_name not in redundant_copies:
+            non_redundant_copies.append(copy_name_2_copy_dict[copy_name])
 
-            query_start = int(parts[6])
-            query_end = int(parts[7])
-            subject_start = int(parts[8])
-            subject_end = int(parts[9])
-            if abs(query_end - query_start) / query_len >= 0.95 and abs(
-                    subject_end - subject_start) / subject_len >= 0.95:
-                redundant_copies.add(query_name)
-                redundant_copies.add(subject_name)
+    if redundant_copies:
+        non_redundant_copies.append(copy_name_2_copy_dict[list(redundant_copies)[0]])
 
-    # 遍历 cur_copy_contigs，取所有非冗余的拷贝
-    intact_copies = []
-    for cur_copy_name in cur_left_copy_contigs.keys():
-        if cur_copy_name not in redundant_copies:
-            intact_copies.append(copy_name_2_copy_dict[cur_copy_name])
-    # 在冗余拷贝中任取一个加入到拷贝中
-    if len(redundant_copies) > 0:
-        intact_copies.append(copy_name_2_copy_dict[list(redundant_copies)[0]])
-    return ltr_name, intact_copies
+    return ltr_name, non_redundant_copies
 
 def remove_copies_from_redundant_contig(intact_ltr_copies, reference, temp_dir, threads, flanking_len=100):
     if not os.path.exists(temp_dir):
@@ -6207,58 +6358,159 @@ def get_non_redundant_copies(ltr_name, cur_copy_contigs, cur_copy_path, copy_nam
         intact_copies.append(copy_name_2_copy_dict[list(redundant_copies)[0]])
     return ltr_name, intact_copies
 
-def filter_ltr_by_copy_num_sub(candidate_sequence_path, threads, temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10):
-    debug = 0
+def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95,
+                      full_length_identity_threshold=0.8):
+    """
+    根据覆盖度和一致性阈值筛选比对结果。
+
+    参数:
+        query_fasta_path (str): 查询序列的 FASTA 文件路径。
+        sam_path (str): SAM 文件路径。
+        full_length_coverage_threshold (float): 覆盖度阈值（默认 0.95）。
+        full_length_identity_threshold (float): 一致性阈值（默认 0.8）。
+
+    返回:
+        dict: 包含所有符合条件比对的字典，格式为 {query_name: [(subject_name, subject_start, subject_end, aligned_length, direct), ...]}。
+    """
+    # 读取 FASTA 文件
+    query_names, query_contigs = read_fasta(query_fasta_path)
+
+    # 打开 SAM 文件
+    samfile = pysam.AlignmentFile(sam_path, "r")
+
+    # 存储所有符合条件的比对
+    all_copies = {}
+
+    # 遍历 SAM 文件中的每条比对记录
+    for read in samfile:
+        if not read.is_unmapped:  # 只处理比对上的 reads
+            query_name = read.query_name
+            query_length = len(query_contigs[query_name])  # query 的总长度
+            aligned_length = read.query_alignment_length  # 比对上的 query 长度
+            nm = read.get_tag("NM")  # 编辑距离
+            matches = aligned_length - nm  # 匹配的碱基数
+            identity = matches / aligned_length  # 一致性
+            coverage = aligned_length / query_length  # 覆盖度
+
+            # 提取 subject 信息
+            subject_name = read.reference_name
+            subject_start = read.reference_start + 1  # SAM 坐标从 0 开始，转换为 1-based
+            subject_end = read.reference_end  # pysam 自动计算结束位置
+            direct = "-" if read.is_reverse else "+"  # 比对方向
+
+            # 如果覆盖度和一致性满足阈值，则保存比对信息
+            if coverage >= full_length_coverage_threshold and identity >= full_length_identity_threshold:
+                if query_name not in all_copies:
+                    all_copies[query_name] = []
+                all_copies[query_name].append((subject_name, subject_start, subject_end, aligned_length, direct))
+
+    # 关闭 SAM 文件
+    samfile.close()
+
+    return all_copies
+
+def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100):
+    debug = 1
     if os.path.exists(temp_dir):
         os.system('rm -rf ' + temp_dir)
     os.makedirs(temp_dir, exist_ok=True)
 
-    batch_size = 1
-    batch_id = 0
-    names, contigs = read_fasta(candidate_sequence_path)
-    split_files = []
-    cur_contigs = {}
+    sam_path = os.path.join(temp_dir, 'intact_LTR.sam')
+    # 1. 使用minimap2进行比对
+    build_index_command = ['minimap2', '-I', '20G', '-d', reference + '.mmi', reference]
+    # 执行命令并捕获输出
+    try:
+        result = subprocess.run(build_index_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"minimap2 build index failed with error code {e.returncode}.")
 
-    for i, name in enumerate(names):
-        cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
-        cur_contigs[name] = contigs[name]
-        if len(cur_contigs) == batch_size:
+    align_command = [
+        'minimap2',
+        '-ax', 'asm20',
+        '-N', str(multi_records),
+        '-p', '0.2',
+        "-t", str(threads),
+        reference + '.mmi',
+        candidate_sequence_path
+    ]
+
+    # 执行命令并重定向输出到文件
+    try:
+        with open(sam_path, "w") as sam_file:
+            result = subprocess.run(align_command, stdout=sam_file, stderr=subprocess.DEVNULL, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"minimap2 alignment failed with error code {e.returncode}.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    minimap_single_copy = os.path.join(temp_dir, 'minimap_single_copy.fa')
+    all_ltr_names, all_ltr_contigs = read_fasta(candidate_sequence_path)
+
+    # 解析 sam 文件，获取拷贝
+    all_copies = get_copies_minimap2(candidate_sequence_path, sam_path)
+
+    minimap_single_copy_contigs = {}
+    for ltr_name in all_copies:
+        if len(all_copies[ltr_name]) <= 1:
+            minimap_single_copy_contigs[ltr_name] = all_ltr_contigs[ltr_name]
+    store_fasta(minimap_single_copy_contigs, minimap_single_copy)
+
+    return all_copies, minimap_single_copy
+
+def filter_ltr_by_copy_num_blastn(candidate_sequence_path, threads, temp_dir, split_ref_dir, full_length_threshold,
+                                   max_copy_num=10):
+        debug = 0
+        if os.path.exists(temp_dir):
+            os.system('rm -rf ' + temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+
+        batch_size = 1
+        batch_id = 0
+        names, contigs = read_fasta(candidate_sequence_path)
+        split_files = []
+        cur_contigs = {}
+
+        for i, name in enumerate(names):
+            cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
+            cur_contigs[name] = contigs[name]
+            if len(cur_contigs) == batch_size:
+                store_fasta(cur_contigs, cur_file)
+                split_files.append(cur_file)
+                cur_contigs = {}
+                batch_id += 1
+
+        if cur_contigs:
+            cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
             store_fasta(cur_contigs, cur_file)
             split_files.append(cur_file)
-            cur_contigs = {}
             batch_id += 1
 
-    if cur_contigs:
-        cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
-        store_fasta(cur_contigs, cur_file)
-        split_files.append(cur_file)
-        batch_id += 1
+        ex = ProcessPoolExecutor(threads)
+        jobs = []
+        result_files = []
 
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    result_files = []
+        for idx, cur_split_file in enumerate(split_files):
+            result_file = os.path.join(temp_dir, f"result_{idx}.pkl")
+            result_files.append(result_file)
+            job = ex.submit(run_and_save_result, cur_split_file, split_ref_dir, max_copy_num, full_length_threshold,
+                            debug, result_file)
+            jobs.append(job)
 
-    for idx, cur_split_file in enumerate(split_files):
-        result_file = os.path.join(temp_dir, f"result_{idx}.pkl")
-        result_files.append(result_file)
-        job = ex.submit(run_and_save_result, cur_split_file, split_ref_dir, max_copy_num, full_length_threshold, debug, result_file)
-        jobs.append(job)
+        ex.shutdown(wait=True)
 
-    ex.shutdown(wait=True)
+        # 合并所有结果
+        all_copies = {}
+        for result_file in result_files:
+            if os.path.exists(result_file):
+                with open(result_file, "rb") as f:
+                    cur_all_copies = pickle.load(f)
+                    all_copies.update(cur_all_copies)
 
-    # 合并所有结果
-    all_copies = {}
-    for result_file in result_files:
-        if os.path.exists(result_file):
-            with open(result_file, "rb") as f:
-                cur_all_copies = pickle.load(f)
-                all_copies.update(cur_all_copies)
+        return all_copies
 
-    return all_copies
-
-def run_and_save_result(split_file, split_ref_dir, max_copy_num, full_length_threshold, debug, result_file):
+def run_and_save_result(split_file, reference, max_copy_num, full_length_threshold, debug, result_file):
     """运行 get_full_length_copies_v1，并将结果存入文件"""
-    cur_all_copies = get_full_length_copies_v1(split_file, split_ref_dir, max_copy_num, full_length_threshold, debug)
+    cur_all_copies = get_full_length_copies_v1(split_file, reference, max_copy_num, full_length_threshold, debug)
     with open(result_file, "wb") as f:
         pickle.dump(cur_all_copies, f)
 

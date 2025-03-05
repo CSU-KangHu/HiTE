@@ -7,7 +7,8 @@ import uuid
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
-from Util import Logger, flanking_seq, file_exist, determine_repeat_boundary_v5, create_or_clear_directory, copy_files
+from Util import Logger, flanking_seq, file_exist, determine_repeat_boundary_v5, create_or_clear_directory, copy_files, \
+    clean_old_tmp_files_by_dir
 
 
 def run_coarse_boundary(tmp_output_dir, cut_reference, reference, is_recover, ref_index,
@@ -19,8 +20,7 @@ def run_coarse_boundary(tmp_output_dir, cut_reference, reference, is_recover, re
     if not is_recover or not file_exist(resut_file):
         # -------------------------------This stage is used to do pairwise comparision, determine the repeat boundary-------------------------------
         determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold,
-                                     max_repeat_len,
-                                     tmp_output_dir, thread, ref_index, reference, debug)
+                                     max_repeat_len, tmp_output_dir, thread, ref_index, reference, debug)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
@@ -90,21 +90,32 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir + '/HiTE_coarse.log', level='debug')
 
+    clean_old_tmp_files_by_dir('/tmp')
+
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
     temp_dir = '/tmp/coarse_boundary_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
-
-    run_coarse_boundary(temp_dir, cut_reference, reference, is_recover, ref_index,
+    try:
+        create_or_clear_directory(temp_dir)
+        # 运行计算任务
+        run_coarse_boundary(temp_dir, cut_reference, reference, is_recover, ref_index,
                             prev_TE, fixed_extend_base_threshold, flanking_len, max_repeat_len,
                             thread, debug, log)
 
-    # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, tmp_output_dir)
+        # 计算完之后将结果拷贝回输出目录
+        copy_files(temp_dir, tmp_output_dir)
 
-    # 删除临时目录
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+    except Exception as e:
+        # 如果出现异常，打印错误信息并删除临时目录
+        print(f"An error occurred: {e}")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        raise  # 重新抛出异常，以便上层代码可以处理
+
+    else:
+        # 如果没有异常，删除临时目录
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
 
 

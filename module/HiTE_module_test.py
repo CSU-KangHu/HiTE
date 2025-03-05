@@ -49,7 +49,8 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     multiple_alignment_blast_and_get_copies, split_dict_into_blocks, file_exist, flank_region_align_v5, \
     multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
     get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD, \
-    split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome, parse_clstr_file
+    split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome, parse_clstr_file, \
+    save_to_file
 
 
 def filter_repbase_nonTE():
@@ -4022,8 +4023,16 @@ def remove_duplicates(input_fasta, output_fasta, threshold=0.95):
     # 将去重后的序列写入新的FASTA文件
     store_fasta(unique_contigs, output_fasta)
 
-from matplotlib_venn import venn3
-from itertools import combinations
+# from matplotlib_venn import venn3
+# from itertools import combinations
+
+def run_command(species):
+    cur_dir = os.path.join(work_dir, species)
+    intact_LTR_path = os.path.join(cur_dir, 'intact_LTR.fa')
+    intact_LTR_list = os.path.join(cur_dir, 'intact_LTR.list')
+    cmd = f'python {tool_dir}/recompute_LTR_insertion_time.py --intact_LTR_path {intact_LTR_path} --intact_LTR_list {intact_LTR_list} --miu {miu}'
+    print(f"Running command for {species}: {cmd}")
+    os.system(cmd)
 
 if __name__ == '__main__':
     # # 画插入时间图
@@ -4063,22 +4072,22 @@ if __name__ == '__main__':
     #     shutil.rmtree(temp_dir)
 
 
-    # panHiTE, panEDTA 和 Repbase 库三者的交集关系
-    # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
-    # 尝试使用BM_RM2的结果调整clusters
-    cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
-    clusters = parse_clstr_file(cluster_file)
-    new_clusters = defaultdict()
-    # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
-    seq_name2cluster_id = defaultdict()
-    for cluster, sequences in clusters.items():
-        names = []
-        for seq in sequences:
-            seq = seq.split('#')[0]
-            names.append(seq)
-            seq_name2cluster_id[seq] = cluster
-        new_clusters[cluster] = names
-    clusters = new_clusters
+    # # panHiTE, panEDTA 和 Repbase 库三者的交集关系
+    # # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
+    # # 尝试使用BM_RM2的结果调整clusters
+    # cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
+    # clusters = parse_clstr_file(cluster_file)
+    # new_clusters = defaultdict()
+    # # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
+    # seq_name2cluster_id = defaultdict()
+    # for cluster, sequences in clusters.items():
+    #     names = []
+    #     for seq in sequences:
+    #         seq = seq.split('#')[0]
+    #         names.append(seq)
+    #         seq_name2cluster_id[seq] = cluster
+    #     new_clusters[cluster] = names
+    # clusters = new_clusters
 
     # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panHiTE_rm2_test/file_final.0.1.txt'
     # with open(file_path, 'r') as f:
@@ -4138,93 +4147,93 @@ if __name__ == '__main__':
     #             if panHiTE_cluster_id in clusters:
     #                 del clusters[panHiTE_cluster_id]
 
-    total_panHiTE = []
-    total_panEDTA = []
-    total_Repbase = []
-
-    only_panHiTE = []
-    only_panEDTA = []
-    only_Repbase = []
-
-    panHiTE_vs_panEDTA = []
-    panHiTE_vs_Repbase = []
-    panEDTA_vs_Repbase = []
-    panHiTE_vs_panEDTA_vs_Repbase = []
-
-    for cluster, sequences in clusters.items():
-        total_sources = set()
-        unique_sequences = []
-        for seq in sequences:
-            source = seq.split('_')[0]  # 获取序列的来源
-            if source not in total_sources:
-                unique_sequences.append(seq)
-                if source == 'panHiTE':
-                    total_panHiTE.append(seq)
-                elif source == 'panEDTA':
-                    total_panEDTA.append(seq)
-                elif source == 'Repbase':
-                    total_Repbase.append(seq)
-            total_sources.add(source)
-        if len(total_sources) == 1:
-            seq = sequences[0]
-            source = seq.split('_')[0]  # 获取序列的来源
-            if source == 'panHiTE':
-                only_panHiTE.append(seq)
-            elif source == 'panEDTA':
-                only_panEDTA.append(seq)
-            elif source == 'Repbase':
-                only_Repbase.append(seq)
-        elif len(total_sources) == 2:
-            if 'panHiTE' in total_sources and 'panEDTA' in total_sources:
-                panHiTE_vs_panEDTA.append(unique_sequences)
-            elif 'panHiTE' in total_sources and 'Repbase' in total_sources:
-                panHiTE_vs_Repbase.append(unique_sequences)
-            elif 'panEDTA' in total_sources and 'Repbase' in total_sources:
-                panEDTA_vs_Repbase.append(unique_sequences)
-        elif len(total_sources) == 3:
-            panHiTE_vs_panEDTA_vs_Repbase.append(unique_sequences)
-
-    # 绘制韦恩图
-    plt.figure(figsize=(6, 6))
-    venn = venn3(
-        subsets=(
-            len(only_panEDTA),
-            len(only_panHiTE),
-            len(panHiTE_vs_panEDTA),
-            len(only_Repbase),
-            len(panEDTA_vs_Repbase),
-            len(panHiTE_vs_Repbase),
-            len(panHiTE_vs_panEDTA_vs_Repbase)
-        ),
-        set_labels=('panEDTA', 'panHiTE', 'Repbase')
-    )
-
-    # plt.title("Venn Diagram of Sequence Intersections")
-    plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
-
-    # 定义存储文件的路径
-    output_dir = "/home/hukang/test/demo/three_lib_compare/"
-
-    # 需要保存的集合及对应的文件名
-    output_files = {
-        "total_panHiTE.txt": total_panHiTE,
-        "total_panEDTA.txt": total_panEDTA,
-        "total_Repbase.txt": total_Repbase,
-        "only_panHiTE.txt": only_panHiTE,
-        "only_panEDTA.txt": only_panEDTA,
-        "only_Repbase.txt": only_Repbase,
-        "panHiTE_vs_panEDTA.txt": panHiTE_vs_panEDTA,
-        "panHiTE_vs_Repbase.txt": panHiTE_vs_Repbase,
-        "panEDTA_vs_Repbase.txt": panEDTA_vs_Repbase,
-        "panHiTE_vs_panEDTA_vs_Repbase.txt": panHiTE_vs_panEDTA_vs_Repbase
-    }
-
-    # 遍历字典，写入文件
-    for filename, data_set in output_files.items():
-        file_path = output_dir + filename
-        with open(file_path, "w") as f:
-            for item in data_set:
-                f.write(str(item) + "\n")  # 每个序列单独占一行
+    # total_panHiTE = []
+    # total_panEDTA = []
+    # total_Repbase = []
+    #
+    # only_panHiTE = []
+    # only_panEDTA = []
+    # only_Repbase = []
+    #
+    # panHiTE_vs_panEDTA = []
+    # panHiTE_vs_Repbase = []
+    # panEDTA_vs_Repbase = []
+    # panHiTE_vs_panEDTA_vs_Repbase = []
+    #
+    # for cluster, sequences in clusters.items():
+    #     total_sources = set()
+    #     unique_sequences = []
+    #     for seq in sequences:
+    #         source = seq.split('_')[0]  # 获取序列的来源
+    #         if source not in total_sources:
+    #             unique_sequences.append(seq)
+    #             if source == 'panHiTE':
+    #                 total_panHiTE.append(seq)
+    #             elif source == 'panEDTA':
+    #                 total_panEDTA.append(seq)
+    #             elif source == 'Repbase':
+    #                 total_Repbase.append(seq)
+    #         total_sources.add(source)
+    #     if len(total_sources) == 1:
+    #         seq = sequences[0]
+    #         source = seq.split('_')[0]  # 获取序列的来源
+    #         if source == 'panHiTE':
+    #             only_panHiTE.append(seq)
+    #         elif source == 'panEDTA':
+    #             only_panEDTA.append(seq)
+    #         elif source == 'Repbase':
+    #             only_Repbase.append(seq)
+    #     elif len(total_sources) == 2:
+    #         if 'panHiTE' in total_sources and 'panEDTA' in total_sources:
+    #             panHiTE_vs_panEDTA.append(unique_sequences)
+    #         elif 'panHiTE' in total_sources and 'Repbase' in total_sources:
+    #             panHiTE_vs_Repbase.append(unique_sequences)
+    #         elif 'panEDTA' in total_sources and 'Repbase' in total_sources:
+    #             panEDTA_vs_Repbase.append(unique_sequences)
+    #     elif len(total_sources) == 3:
+    #         panHiTE_vs_panEDTA_vs_Repbase.append(unique_sequences)
+    #
+    # # 绘制韦恩图
+    # plt.figure(figsize=(6, 6))
+    # venn = venn3(
+    #     subsets=(
+    #         len(only_panEDTA),
+    #         len(only_panHiTE),
+    #         len(panHiTE_vs_panEDTA),
+    #         len(only_Repbase),
+    #         len(panEDTA_vs_Repbase),
+    #         len(panHiTE_vs_Repbase),
+    #         len(panHiTE_vs_panEDTA_vs_Repbase)
+    #     ),
+    #     set_labels=('panEDTA', 'panHiTE', 'Repbase')
+    # )
+    #
+    # # plt.title("Venn Diagram of Sequence Intersections")
+    # plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
+    #
+    # # 定义存储文件的路径
+    # output_dir = "/home/hukang/test/demo/three_lib_compare/"
+    #
+    # # 需要保存的集合及对应的文件名
+    # output_files = {
+    #     "total_panHiTE.txt": total_panHiTE,
+    #     "total_panEDTA.txt": total_panEDTA,
+    #     "total_Repbase.txt": total_Repbase,
+    #     "only_panHiTE.txt": only_panHiTE,
+    #     "only_panEDTA.txt": only_panEDTA,
+    #     "only_Repbase.txt": only_Repbase,
+    #     "panHiTE_vs_panEDTA.txt": panHiTE_vs_panEDTA,
+    #     "panHiTE_vs_Repbase.txt": panHiTE_vs_Repbase,
+    #     "panEDTA_vs_Repbase.txt": panEDTA_vs_Repbase,
+    #     "panHiTE_vs_panEDTA_vs_Repbase.txt": panHiTE_vs_panEDTA_vs_Repbase
+    # }
+    #
+    # # 遍历字典，写入文件
+    # for filename, data_set in output_files.items():
+    #     file_path = output_dir + filename
+    #     with open(file_path, "w") as f:
+    #         for item in data_set:
+    #             f.write(str(item) + "\n")  # 每个序列单独占一行
 
 
     # # 我们想知道 panHiTE unique 里除去-LTR之外，有多少包含完整domain
@@ -4235,6 +4244,647 @@ if __name__ == '__main__':
     # output_table = confident_TE_consensus + '.domain'
     # temp_dir = tmp_output_dir + '/domain'
     # get_domain_info(confident_TE_consensus, protein_path, output_table, threads, temp_dir)
+
+
+    # # 重新对32个拟南芥的插入时间进行计算
+    # tool_dir = '/public/home/hpc194701009/test/test/HiTE/tools'
+    # # miu = str(7e-9)
+    # # work_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/rice/16_rice/panHiTE1/LTR_insertion_times'
+    # # miu = str(1.3e-8)
+    # work_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/maize/panHiTE1/LTR_insertion_times'
+    # miu = str(3e-8)
+    #
+    # # 获取所有物种目录
+    # species_list = os.listdir(work_dir)
+    #
+    # # 设置并行进程池的大小（可以根据你的机器配置调整）
+    # max_workers = 40  # 默认使用所有可用的 CPU 核心
+    # print(f"Using {max_workers} processes in parallel.")
+    #
+    # # 使用 ProcessPoolExecutor 并行执行
+    # with ProcessPoolExecutor(max_workers=max_workers) as executor:
+    #     executor.map(run_command, species_list)
+
+    # import pysam
+    # def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95,
+    #                         full_length_identity_threshold=0.8):
+    #     """
+    #     根据覆盖度和一致性阈值筛选比对结果。
+    #
+    #     参数:
+    #         query_fasta_path (str): 查询序列的 FASTA 文件路径。
+    #         sam_path (str): SAM 文件路径。
+    #         full_length_coverage_threshold (float): 覆盖度阈值（默认 0.95）。
+    #         full_length_identity_threshold (float): 一致性阈值（默认 0.8）。
+    #
+    #     返回:
+    #         dict: 包含所有符合条件比对的字典，格式为 {query_name: [(subject_name, subject_start, subject_end, aligned_length, direct), ...]}。
+    #     """
+    #     # 读取 FASTA 文件
+    #     query_names, query_contigs = read_fasta(query_fasta_path)
+    #
+    #     # 打开 SAM 文件
+    #     samfile = pysam.AlignmentFile(sam_path, "r")
+    #
+    #     # 存储所有符合条件的比对
+    #     all_copies = {}
+    #
+    #     # 遍历 SAM 文件中的每条比对记录
+    #     for read in samfile:
+    #         if not read.is_unmapped:  # 只处理比对上的 reads
+    #             query_name = read.query_name
+    #             query_length = len(query_contigs[query_name])  # query 的总长度
+    #             aligned_length = read.query_alignment_length  # 比对上的 query 长度
+    #             nm = read.get_tag("NM")  # 编辑距离
+    #             matches = aligned_length - nm  # 匹配的碱基数
+    #             identity = matches / aligned_length  # 一致性
+    #             coverage = aligned_length / query_length  # 覆盖度
+    #
+    #             # 提取 subject 信息
+    #             subject_name = read.reference_name
+    #             subject_start = read.reference_start + 1  # SAM 坐标从 0 开始，转换为 1-based
+    #             subject_end = read.reference_end  # pysam 自动计算结束位置
+    #             direct = "-" if read.is_reverse else "+"  # 比对方向
+    #
+    #             # 如果覆盖度和一致性满足阈值，则保存比对信息
+    #             if coverage >= full_length_coverage_threshold and identity >= full_length_identity_threshold:
+    #                 if query_name not in all_copies:
+    #                     all_copies[query_name] = []
+    #                 all_copies[query_name].append((subject_name, subject_start, subject_end, aligned_length, direct))
+    #
+    #     # 关闭 SAM 文件
+    #     samfile.close()
+    #
+    #     return all_copies
+    #
+    #
+    # candidate_sequence_path = '/public/home/hpc194701009/ath_pan_genome/pan_genome/wheat/intact_ltr.fa'
+    # sam_path = '/public/home/hpc194701009/ath_pan_genome/pan_genome/wheat/intact_ltr.asm20.sam'
+    # all_copies_path = '/public/home/hpc194701009/ath_pan_genome/pan_genome/wheat/intact_ltr.asm20.copies'
+    # all_copies = get_copies_minimap2(candidate_sequence_path, sam_path)
+    # # 将字典存储为 JSON 文件
+    # with open(all_copies_path, "w", encoding="utf-8") as file:
+    #     json.dump(all_copies, file, indent=4, ensure_ascii=False)
+
+    import pysam
+    def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95,
+                            full_length_identity_threshold=0.8):
+        """
+        根据覆盖度和一致性阈值筛选比对结果。
+
+        参数:
+            query_fasta_path (str): 查询序列的 FASTA 文件路径。
+            sam_path (str): SAM 文件路径。
+            full_length_coverage_threshold (float): 覆盖度阈值（默认 0.95）。
+            full_length_identity_threshold (float): 一致性阈值（默认 0.8）。
+
+        返回:
+            dict: 包含所有符合条件比对的字典，格式为 {query_name: [(subject_name, subject_start, subject_end, aligned_length, direct), ...]}。
+        """
+        # 读取 FASTA 文件
+        query_names, query_contigs = read_fasta(query_fasta_path)
+
+        # 打开 SAM 文件
+        samfile = pysam.AlignmentFile(sam_path, "r")
+
+        # 存储所有符合条件的比对
+        all_copies = {}
+
+        # 遍历 SAM 文件中的每条比对记录
+        for read in samfile:
+            if not read.is_unmapped:  # 只处理比对上的 reads
+                query_name = read.query_name
+                query_length = len(query_contigs[query_name])  # query 的总长度
+                aligned_length = read.query_alignment_length  # 比对上的 query 长度
+                nm = read.get_tag("NM")  # 编辑距离
+                matches = aligned_length - nm  # 匹配的碱基数
+                identity = matches / aligned_length  # 一致性
+                coverage = aligned_length / query_length  # 覆盖度
+
+                # 提取 subject 信息
+                subject_name = read.reference_name
+                subject_start = read.reference_start + 1  # SAM 坐标从 0 开始，转换为 1-based
+                subject_end = read.reference_end  # pysam 自动计算结束位置
+                direct = "-" if read.is_reverse else "+"  # 比对方向
+
+                # 如果覆盖度和一致性满足阈值，则保存比对信息
+                if coverage >= full_length_coverage_threshold:
+                    if query_name not in all_copies:
+                        all_copies[query_name] = []
+                    all_copies[query_name].append((subject_name, subject_start, subject_end, aligned_length, direct))
+
+        # 关闭 SAM 文件
+        samfile.close()
+
+        return all_copies
+
+
+    def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100):
+        debug = 1
+        if os.path.exists(temp_dir):
+            os.system('rm -rf ' + temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+
+        sam_path = os.path.join(temp_dir, 'intact_LTR.sam')
+        # 1. 使用minimap2进行比对
+        build_index_command = ['minimap2', '-I', '20G', '-d', reference + '.mmi', reference]
+        # 执行命令并捕获输出
+        try:
+            result = subprocess.run(build_index_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"minimap2 build index failed with error code {e.returncode}.")
+
+        align_command = [
+            'minimap2',
+            '-ax', 'asm20',
+            '-N', str(multi_records),
+            '-p', '0.2',
+            "-t", str(threads),
+            reference + '.mmi',
+            candidate_sequence_path
+        ]
+
+        # 执行命令并重定向输出到文件
+        try:
+            with open(sam_path, "w") as sam_file:
+                result = subprocess.run(align_command, stdout=sam_file, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"minimap2 alignment failed with error code {e.returncode}.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+        minimap_single_copy = os.path.join(temp_dir, 'minimap_single_copy.fa')
+        all_ltr_names, all_ltr_contigs = read_fasta(candidate_sequence_path)
+
+        # 解析 sam 文件，获取拷贝
+        all_copies = get_copies_minimap2(candidate_sequence_path, sam_path)
+
+        minimap_single_copy_contigs = {}
+        for ltr_name in all_copies:
+            if len(all_copies[ltr_name]) <= 1:
+                minimap_single_copy_contigs[ltr_name] = all_ltr_contigs[ltr_name]
+        store_fasta(minimap_single_copy_contigs, minimap_single_copy)
+
+        return all_copies, minimap_single_copy
+
+    import pickle
+
+    def filter_ltr_by_copy_num_blastn(candidate_sequence_path, threads, temp_dir, split_ref_dir, full_length_threshold,
+                                   max_copy_num=10):
+        debug = 0
+        if os.path.exists(temp_dir):
+            os.system('rm -rf ' + temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+
+        batch_size = 1
+        batch_id = 0
+        names, contigs = read_fasta(candidate_sequence_path)
+        split_files = []
+        cur_contigs = {}
+
+        for i, name in enumerate(names):
+            cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
+            cur_contigs[name] = contigs[name]
+            if len(cur_contigs) == batch_size:
+                store_fasta(cur_contigs, cur_file)
+                split_files.append(cur_file)
+                cur_contigs = {}
+                batch_id += 1
+
+        if cur_contigs:
+            cur_file = os.path.join(temp_dir, f"{batch_id}.fa")
+            store_fasta(cur_contigs, cur_file)
+            split_files.append(cur_file)
+            batch_id += 1
+
+        ex = ProcessPoolExecutor(threads)
+        jobs = []
+        result_files = []
+
+        for idx, cur_split_file in enumerate(split_files):
+            result_file = os.path.join(temp_dir, f"result_{idx}.pkl")
+            result_files.append(result_file)
+            job = ex.submit(run_and_save_result, cur_split_file, split_ref_dir, max_copy_num, full_length_threshold,
+                            debug, result_file)
+            jobs.append(job)
+
+        ex.shutdown(wait=True)
+
+        # 合并所有结果
+        all_copies = {}
+        for result_file in result_files:
+            if os.path.exists(result_file):
+                with open(result_file, "rb") as f:
+                    cur_all_copies = pickle.load(f)
+                    all_copies.update(cur_all_copies)
+
+        return all_copies
+
+
+    def run_and_save_result(split_file, split_ref_dir, max_copy_num, full_length_threshold, debug, result_file):
+        """运行 get_full_length_copies_v1，并将结果存入文件"""
+        cur_all_copies = get_full_length_copies_v1(split_file, split_ref_dir, max_copy_num, full_length_threshold,
+                                                   debug)
+        with open(result_file, "wb") as f:
+            pickle.dump(cur_all_copies, f)
+
+
+    def get_full_length_copies_v1(query_path, split_ref_dir, max_copy_num, full_length_threshold, debug):
+        blastn2Results_path = query_path + '.blast.out'
+        repeats_path = (query_path, split_ref_dir, blastn2Results_path)
+        all_copies = multiple_alignment_blast_and_get_copies_v2(repeats_path, max_copy_num, full_length_threshold)
+        if debug != 1:
+            if os.path.exists(blastn2Results_path):
+                os.remove(blastn2Results_path)
+        return all_copies
+
+
+    def multiple_alignment_blast_and_get_copies_v2(repeats_path, max_copy_num, full_length_threshold):
+        split_repeats_path = repeats_path[0]
+        split_ref_dir = repeats_path[1]
+        # raw_blastn2Results_path = repeats_path[2]
+        # os.system('rm -f ' + raw_blastn2Results_path)
+        blastn2Results_path = repeats_path[2]
+        os.system('rm -f ' + blastn2Results_path)
+        all_copies = {}
+        repeat_names, repeat_contigs = read_fasta(split_repeats_path)
+        remain_contigs = repeat_contigs
+        for chr_name in os.listdir(split_ref_dir):
+            # blastn2Results_path = raw_blastn2Results_path + '_' + str(chr_name)
+            if len(remain_contigs) > 0:
+                if not str(chr_name).endswith('.fa'):
+                    continue
+                chr_path = split_ref_dir + '/' + chr_name
+                align_command = 'blastn -db ' + chr_path + ' -num_threads ' \
+                                + str(
+                    1) + ' -query ' + split_repeats_path + ' -evalue 1e-20 -outfmt 6 > ' + blastn2Results_path
+                os.system(align_command)
+                # 由于我们只需要100个拷贝，因此如果有序列已经满足了，就不需要进行后续的比对了，这样在mouse这样的高拷贝大基因组上减少运行时间
+                cur_all_copies = get_copies_v2(blastn2Results_path, split_repeats_path, max_copy_num,
+                                               full_length_threshold)
+                for query_name in cur_all_copies.keys():
+                    copy_list = cur_all_copies[query_name]
+                    if query_name in all_copies:
+                        prev_copy_list = all_copies[query_name]
+                    else:
+                        prev_copy_list = []
+                    update_copy_list = prev_copy_list + copy_list
+                    all_copies[query_name] = update_copy_list
+                    if len(update_copy_list) >= max_copy_num:
+                        del repeat_contigs[query_name]
+                remain_contigs = repeat_contigs
+                store_fasta(remain_contigs, split_repeats_path)
+
+        # all_copies = get_copies_v1(blastn2Results_path, split_repeats_path, '')
+        return all_copies
+
+
+    def get_copies_v2(blastnResults_path, query_path, max_copy_num, full_length_threshold=0.95):
+        query_names, query_contigs = read_fasta(query_path)
+        longest_repeats = FMEA_new(query_path, blastnResults_path, full_length_threshold)
+        # (query_name, old_query_start_pos, old_query_end_pos, subject_name, old_subject_start_pos, old_subject_end_pos)
+        all_copies = {}
+        for query_name in longest_repeats.keys():
+            longest_queries = longest_repeats[query_name]
+            longest_queries.sort(key=lambda x: -x[2])
+            query_len = len(query_contigs[query_name])
+            copies = []
+            keeped_copies = set()
+            for query in longest_queries:
+                if len(copies) > max_copy_num:
+                    break
+                subject_name = query[3]
+                subject_start = query[4]
+                subject_end = query[5]
+                cur_query_len = abs(query[2] - query[1])
+                direct = '+'
+                if subject_start > subject_end:
+                    tmp = subject_start
+                    subject_start = subject_end
+                    subject_end = tmp
+                    direct = '-'
+                item = (subject_name, subject_start, subject_end)
+
+                if float(cur_query_len) / query_len >= full_length_threshold and item not in keeped_copies:
+                    copies.append((subject_name, subject_start, subject_end, cur_query_len, direct))
+                    keeped_copies.add(item)
+            # copies.sort(key=lambda x: abs(x[3]-(x[2]-x[1]+1)))
+            all_copies[query_name] = copies
+
+        return all_copies
+
+
+    def FMEA_new(query_path, blastn2Results_path, full_length_threshold):
+        longest_repeats = {}
+        if not os.path.exists(blastn2Results_path):
+            return longest_repeats
+        # parse blastn output, determine the repeat boundary
+        # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
+        query_records = {}
+        with open(blastn2Results_path, 'r') as f_r:
+            for idx, line in enumerate(f_r):
+                # print('current line idx: %d' % (idx))
+                parts = line.split('\t')
+                query_name = parts[0]
+                subject_name = parts[1]
+                identity = float(parts[2])
+                alignment_len = int(parts[3])
+                q_start = int(parts[6])
+                q_end = int(parts[7])
+                s_start = int(parts[8])
+                s_end = int(parts[9])
+                if query_name == subject_name and q_start == s_start and q_end == s_end:
+                    continue
+                if not query_records.__contains__(query_name):
+                    query_records[query_name] = {}
+                subject_dict = query_records[query_name]
+
+                if not subject_dict.__contains__(subject_name):
+                    subject_dict[subject_name] = []
+                subject_pos = subject_dict[subject_name]
+                subject_pos.append((q_start, q_end, s_start, s_end))
+        f_r.close()
+
+        query_names, query_contigs = read_fasta(query_path)
+
+        # 我们现在尝试新的策略，直接在生成簇的时候进行扩展，同时新的比对片段和所有的扩展片段进行比较，判断是否可以扩展
+        for idx, query_name in enumerate(query_records.keys()):
+            subject_dict = query_records[query_name]
+
+            if query_name not in query_contigs:
+                continue
+            query_len = len(query_contigs[query_name])
+            skip_gap = query_len * (1 - full_length_threshold)
+
+            longest_queries = []
+            for subject_name in subject_dict.keys():
+                subject_pos = subject_dict[subject_name]
+
+                # cluster all closed fragments, split forward and reverse records
+                forward_pos = []
+                reverse_pos = []
+                for pos_item in subject_pos:
+                    if pos_item[2] > pos_item[3]:
+                        reverse_pos.append(pos_item)
+                    else:
+                        forward_pos.append(pos_item)
+                forward_pos.sort(key=lambda x: (x[2], x[3]))
+                reverse_pos.sort(key=lambda x: (-x[2], -x[3]))
+
+                forward_long_frags = {}
+                frag_index_array = []
+                frag_index = 0
+                for k, frag in enumerate(forward_pos):
+                    is_update = False
+                    cur_subject_start = frag[2]
+                    cur_subject_end = frag[3]
+                    cur_query_start = frag[0]
+                    cur_query_end = frag[1]
+                    for cur_frag_index in reversed(frag_index_array):
+                        cur_frag = forward_long_frags[cur_frag_index]
+                        prev_subject_start = cur_frag[2]
+                        prev_subject_end = cur_frag[3]
+                        prev_query_start = cur_frag[0]
+                        prev_query_end = cur_frag[1]
+
+                        if cur_subject_start - prev_subject_end >= skip_gap:
+                            break
+
+                        if cur_subject_end > prev_subject_end:
+                            # forward extend
+                            if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                    and cur_subject_start - prev_subject_end < skip_gap:  # \
+                                # extend frag
+                                prev_query_start = prev_query_start if prev_query_start < cur_query_start else cur_query_start
+                                prev_query_end = cur_query_end
+                                prev_subject_start = prev_subject_start if prev_subject_start < cur_subject_start else cur_subject_start
+                                prev_subject_end = cur_subject_end
+                                extend_frag = (
+                                prev_query_start, prev_query_end, prev_subject_start, prev_subject_end, subject_name)
+                                forward_long_frags[cur_frag_index] = extend_frag
+                                is_update = True
+                    if not is_update:
+                        frag_index_array.append(frag_index)
+                        forward_long_frags[frag_index] = (
+                        cur_query_start, cur_query_end, cur_subject_start, cur_subject_end, subject_name)
+                        frag_index += 1
+                longest_queries += list(forward_long_frags.values())
+
+                reverse_long_frags = {}
+                frag_index_array = []
+                frag_index = 0
+                for k, frag in enumerate(reverse_pos):
+                    is_update = False
+                    cur_subject_start = frag[2]
+                    cur_subject_end = frag[3]
+                    cur_query_start = frag[0]
+                    cur_query_end = frag[1]
+                    for cur_frag_index in reversed(frag_index_array):
+                        cur_frag = reverse_long_frags[cur_frag_index]
+                        prev_subject_start = cur_frag[2]
+                        prev_subject_end = cur_frag[3]
+                        prev_query_start = cur_frag[0]
+                        prev_query_end = cur_frag[1]
+
+                        if prev_subject_end - cur_subject_start >= skip_gap:
+                            break
+
+                        # reverse
+                        if cur_subject_end < prev_subject_end:
+                            # reverse extend
+                            if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                    and prev_subject_end - cur_subject_start < skip_gap:  # \
+                                # extend frag
+                                prev_query_start = prev_query_start
+                                prev_query_end = cur_query_end
+                                prev_subject_start = prev_subject_start if prev_subject_start > cur_subject_start else cur_subject_start
+                                prev_subject_end = cur_subject_end
+                                extend_frag = (
+                                prev_query_start, prev_query_end, prev_subject_start, prev_subject_end, subject_name)
+                                reverse_long_frags[cur_frag_index] = extend_frag
+                                is_update = True
+                    if not is_update:
+                        frag_index_array.append(frag_index)
+                        reverse_long_frags[frag_index] = (
+                        cur_query_start, cur_query_end, cur_subject_start, cur_subject_end, subject_name)
+                        frag_index += 1
+                longest_queries += list(reverse_long_frags.values())
+
+            if not longest_repeats.__contains__(query_name):
+                longest_repeats[query_name] = []
+            cur_longest_repeats = longest_repeats[query_name]
+            for repeat in longest_queries:
+                # Subject序列处理流程
+                subject_name = repeat[4]
+                old_subject_start_pos = repeat[2] - 1
+                old_subject_end_pos = repeat[3]
+                # Query序列处理流程
+                old_query_start_pos = repeat[0] - 1
+                old_query_end_pos = repeat[1]
+                cur_query_seq_len = abs(old_query_end_pos - old_query_start_pos)
+                cur_longest_repeats.append((query_name, old_query_start_pos, old_query_end_pos, subject_name,
+                                            old_subject_start_pos, old_subject_end_pos))
+
+        return longest_repeats
+
+
+    # work_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/32_ath/panHiTE2_32_ath/pan_run_hite_single/01.col.fa'
+    # candidate_sequence_path = work_dir + '/intact_LTR.fa'
+    # reference = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/32_ath/genomes/01.col.fa'
+    # threads = 40
+    # temp_dir = work_dir + '/copies_temp_bak'
+    # full_length_threshold = 0.95
+    #
+    # # split_ref_dir = work_dir + '/ref_chr'
+    # # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/src'
+    # # split_genome_command = [
+    # #     "cd", test_home, "&&", "python3", f"{test_home}/split_genome_chunks.py",
+    # #     "-g", reference, "--tmp_output_dir", work_dir
+    # # ]
+    # # split_genome_command = " ".join(split_genome_command)
+    # #
+    # # try:
+    # #     result = subprocess.run(split_genome_command, shell=True, check=True)
+    # # except subprocess.CalledProcessError as e:
+    # #     print(f"BLAT alignment failed with error code {e.returncode}.")
+    #
+    # all_copies, _ = filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=20)
+    # all_copies_file = temp_dir + '/all_copies.minimap2.asm20.json'
+    # # all_copies = filter_ltr_by_copy_num_sub(candidate_sequence_path, threads, temp_dir, split_ref_dir, full_length_threshold, max_copy_num=20)
+    # # all_copies_file = temp_dir + '/all_copies.blastn.json'
+    # with open(all_copies_file, "w", encoding="utf-8") as file:
+    #     json.dump(all_copies, file, indent=4, ensure_ascii=False)
+
+
+
+
+
+
+
+
+
+
+
+    # def filter_intact_ltr(intact_ltr_path, tmp_output_dir, threads):
+    #     """
+    #     使用minimap2对LTR序列进行自比对，去除冗余序列，减少后续计算量。
+    #
+    #     参数:
+    #         intact_ltr_path (str): 完整LTR序列的输入文件路径。
+    #         tmp_output_dir (str): 临时输出目录路径。
+    #         threads (int): 运行minimap2时使用的线程数。
+    #         intact_ltrs (dict): 完整LTR序列的字典，键为LTR名称，值为序列。
+    #
+    #     返回:
+    #         str: 去除冗余后的完整LTR序列文件路径。
+    #     """
+    #     # 创建minimap2比对的临时目录
+    #     self_minimap_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_self_minimap_filter')
+    #     os.makedirs(self_minimap_temp_dir, exist_ok=True)
+    #
+    #     # 使用minimap2比对去除冗余
+    #     all_copies, _ = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, self_minimap_temp_dir, intact_ltr_path,
+    #                                                    multi_records=100)
+    #
+    #     # 初始化冗余和非冗余LTR名称集合
+    #     redundant_ltr_names = set()
+    #     unique_ltr_names = set()
+    #
+    #     # 遍历所有比对结果，筛选出非冗余的LTR名称
+    #     for ltr_name in all_copies:
+    #         if ltr_name not in redundant_ltr_names:
+    #             unique_ltr_names.add(ltr_name)
+    #             for copy in all_copies[ltr_name]:
+    #                 copy_name = copy[0]
+    #                 redundant_ltr_names.add(copy_name)
+    #
+    #     intact_ltr_names, intact_ltrs = read_fasta(intact_ltr_path)
+    #     # 构建去除冗余后的完整LTR序列字典
+    #     clean_intact_ltr_path = intact_ltr_path + '.clean'
+    #     intact_ltrs_clean = {ltr_name: intact_ltrs[ltr_name] for ltr_name in unique_ltr_names}
+    #
+    #     # 将去除冗余后的完整LTR序列存储为FASTA文件
+    #     store_fasta(intact_ltrs_clean, clean_intact_ltr_path)
+    #
+    #     shutil.rmtree(self_minimap_temp_dir)
+    #
+    #     return clean_intact_ltr_path
+    #
+    #
+    # def run_test(temp_dir, intact_ltr_path):
+    #     for _ in range(3):
+    #         intact_ltr_path = filter_intact_ltr(intact_ltr_path, temp_dir, threads)
+    #
+    #     # 首先用minimap2 asm5 快速过滤出单拷贝的LTR (可能会误将一些低拷贝的认为是单拷贝)；然后用 blastn 再次对单拷贝的LTR进行比对，准确地获取单拷贝
+    #     minimap_temp_dir = os.path.join(temp_dir, 'intact_ltr_minimap_filter')
+    #     ltr_copies, minimap_single_copy = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, minimap_temp_dir,
+    #                                                                      reference, multi_records=50)
+    #
+    #     # split_ref_dir = temp_dir + '/ref_chr'
+    #     # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/src'
+    #     # split_genome_command = [
+    #     #     "cd", test_home, "&&", "python3", f"{test_home}/split_genome_chunks.py",
+    #     #     "-g", reference, "--tmp_output_dir", temp_dir
+    #     # ]
+    #     # split_genome_command = " ".join(split_genome_command)
+    #     # try:
+    #     #     result = subprocess.run(split_genome_command, shell=True, check=True)
+    #     # except subprocess.CalledProcessError as e:
+    #     #     print(f"BLAT alignment failed with error code {e.returncode}.")
+    #     #
+    #     # blastn_temp_dir = os.path.join(temp_dir, 'intact_ltr_blastn_filter')
+    #     # minimap_single_copy_copies = filter_ltr_by_copy_num_blastn(minimap_single_copy, threads, blastn_temp_dir,
+    #     #                                                            split_ref_dir, full_length_threshold,
+    #     #                                                            max_copy_num=10)
+    #     # # 对 ltr_copies 进行更新
+    #     # for ltr_name in minimap_single_copy_copies:
+    #     #     ltr_copies[ltr_name] = minimap_single_copy_copies[ltr_name]
+    #
+    #     all_intact_ltr_copies = os.path.join(temp_dir, 'all_intact_ltr.copies')
+    #     save_to_file(ltr_copies, all_intact_ltr_copies)
+    #     print('all intact ltr num: ' + str(len(ltr_copies)))
+    #
+    #     # 去掉单拷贝
+    #     multi_copies_path = os.path.join(temp_dir, 'multi_intact_ltr.copies')
+    #     multi_copies = {}
+    #     for ltr_name in ltr_copies:
+    #         if len(ltr_copies[ltr_name]) > 1:
+    #             multi_copies[ltr_name] = ltr_copies[ltr_name]
+    #     save_to_file(multi_copies, multi_copies_path)
+    #     print('multiple intact ltr num: ' + str(len(multi_copies)))
+    #
+    #
+    # tmp_output_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/wheat/test'
+    # intact_ltr_path = tmp_output_dir + '/intact_ltr.fa'
+    # reference = '/public/home/hpc194701009/ath_pan_genome/pan_genome/wheat/genomes/CM42.fa'
+    # threads = 48
+    # full_length_threshold = 0.95
+    #
+    # # 创建本地临时目录，存储计算结果
+    # unique_id = uuid.uuid4()
+    # temp_dir = '/tmp/test' + str(unique_id)
+    # try:
+    #     create_or_clear_directory(temp_dir)
+    #     # 运行计算任务
+    #     run_test(temp_dir, intact_ltr_path)
+    #
+    #     # 计算完之后将结果拷贝回输出目录
+    #     copy_files(temp_dir, tmp_output_dir)
+    #
+    # except Exception as e:
+    #     # 如果出现异常，打印错误信息并删除临时目录
+    #     print(f"An error occurred: {e}")
+    #     if os.path.exists(temp_dir):
+    #         shutil.rmtree(temp_dir)
+    #     raise  # 重新抛出异常，以便上层代码可以处理
+    #
+    # else:
+    #     # 如果没有异常，删除临时目录
+    #     if os.path.exists(temp_dir):
+    #         shutil.rmtree(temp_dir)
+
+
 
 
 

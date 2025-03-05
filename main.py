@@ -63,7 +63,7 @@ if __name__ == '__main__':
     describe_info = '########################## HiTE, version ' + str(version_num) + ' ##########################'
     parser = argparse.ArgumentParser(description=describe_info)
     parser.add_argument('--genome', required=True, metavar='genome', help='Input genome assembly path')
-    parser.add_argument('--out_dir', required=True, metavar='output_dir', help='The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.')
+    parser.add_argument("--out_dir", nargs="?", default=os.getcwd(), help="The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.")
 
     parser.add_argument('--thread', metavar='thread_num', help='Input thread num, default = [ '+str(default_threads)+' ]')
     parser.add_argument('--chunk_size', metavar='chunk_size', help='The chunk size of genome, default = [ ' + str(default_chunk_size) + ' MB ]')
@@ -101,7 +101,6 @@ if __name__ == '__main__':
 
     reference = args.genome
     threads = args.thread
-    output_dir = args.out_dir
     fixed_extend_base_threshold = args.fixed_extend_base_threshold
     chunk_size = args.chunk_size
     tandem_region_cutoff = args.tandem_region_cutoff
@@ -132,10 +131,7 @@ if __name__ == '__main__':
     is_wicker = args.is_wicker
     is_output_LTR_lib = args.is_output_LTR_lib
 
-    if output_dir is None:
-        output_dir = project_dir + '/output'
-    if not os.path.isabs(output_dir):
-        output_dir = os.path.abspath(output_dir)
+    output_dir = os.path.abspath(args.out_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     if reference is None:
@@ -300,7 +296,7 @@ if __name__ == '__main__':
     (ref_name, ref_extension) = os.path.splitext(ref_filename)
 
     # 创建本地临时目录，存储计算结果
-    tmp_output_dir = '/tmp/run_hite_main_' + str(ref_name)
+    tmp_output_dir = output_dir
     if recover == 0:
         # 如果目录已存在，则删除该目录及其中的所有内容
         if os.path.exists(tmp_output_dir):
@@ -315,7 +311,7 @@ if __name__ == '__main__':
     except Exception as e:
         log.logger.error(f"Error copying file: {e}")
 
-    reference = os.path.join(tmp_output_dir, os.path.basename(reference))
+    raw_reference = os.path.join(tmp_output_dir, os.path.basename(reference))
 
     all_low_copy_tir = os.path.join(tmp_output_dir, 'tir_low_copy.fa')
     all_low_copy_helitron = os.path.join(tmp_output_dir, 'helitron_low_copy.fa')
@@ -326,9 +322,6 @@ if __name__ == '__main__':
         os.remove(all_low_copy_helitron)
     if os.path.exists(all_low_copy_non_ltr):
         os.remove(all_low_copy_non_ltr)
-
-    # filter short contigs
-    reference = filter_short_contigs_in_genome(reference)
 
     # preset steps, no needs to execute time-consuming job again
     # when the job is retried due to abnormal termination.
@@ -419,7 +412,26 @@ if __name__ == '__main__':
 
     pipeline_starttime = time.time()
     if skip_HiTE != 1:
-        log.logger.info('Start step0: Structural Based LTR Searching')
+        reference_clean = tmp_output_dir + '/genome.fa.clean'
+        resut_file = reference_clean
+        if not is_recover or not file_exist(resut_file):
+            starttime = time.time()
+            log.logger.info('Start step0: Remove redundant contigs from a genome assembly using minimap2')
+            genome_clean_command = 'genome_clean.py ' \
+                                           + ' -i ' + raw_reference \
+                                           + ' -o ' + reference_clean \
+                                           + ' -t ' + str(threads)
+            log.logger.info(genome_clean_command)
+            os.system(genome_clean_command)
+            endtime = time.time()
+            dtime = endtime - starttime
+            log.logger.info("Running time of step0: %.8s s" % (dtime))
+        else:
+            log.logger.info(resut_file + ' exists, skip...')
+
+        reference = reference_clean
+
+        log.logger.info('Start step1: Structural Based LTR Searching')
         confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
         resut_file = confident_ltr_cut_path
         if not is_recover or not file_exist(resut_file):
@@ -436,7 +448,7 @@ if __name__ == '__main__':
                 os.system(LTR_identification_command)
                 endtime = time.time()
                 dtime = endtime - starttime
-                log.logger.info("Running time of step0: %.8s s" % (dtime))
+                log.logger.info("Running time of step1: %.8s s" % (dtime))
             else:
                 # 创建一个空的输出文件，以跳过nextflow的检查
                 confident_ltr_cut = os.path.join(tmp_output_dir, "confident_ltr_cut.fa")
@@ -458,7 +470,7 @@ if __name__ == '__main__':
         if not is_recover or not file_exist(resut_file):
             if te_type == 'all' or te_type == 'non-ltr':
                 starttime = time.time()
-                log.logger.info('Start step1: homology-based other TE searching')
+                log.logger.info('Start step2: homology-based other TE searching')
                 other_identification_command = 'judge_Other_transposons.py ' \
                                                + ' -r ' + reference \
                                                + ' -t ' + str(threads) \
@@ -468,7 +480,7 @@ if __name__ == '__main__':
                 os.system(other_identification_command)
                 endtime = time.time()
                 dtime = endtime - starttime
-                log.logger.info("Running time of step1: %.8s s" % (dtime))
+                log.logger.info("Running time of step2: %.8s s" % (dtime))
             else:
                 # 创建一个空的输出文件，以跳过nextflow的检查
                 confident_other = os.path.join(tmp_output_dir, "confident_other.fa")
@@ -480,7 +492,7 @@ if __name__ == '__main__':
 
         # --------------------------------------------------------------------------------------
         starttime = time.time()
-        log.logger.info('Start step2.0: Splitting genome assembly into chunks')
+        log.logger.info('Start step3.0: Splitting genome assembly into chunks')
         split_genome_command = 'split_genome_chunks.py -g ' \
                                      + reference + ' --tmp_output_dir ' + tmp_output_dir \
                                      + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
@@ -488,7 +500,7 @@ if __name__ == '__main__':
         os.system(split_genome_command)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step2.0: %.8s s" % (dtime))
+        log.logger.info("Running time of step3.0: %.8s s" % (dtime))
 
         reg_str = 'genome.cut(\d+).fa$'
         cut_references = []
@@ -520,7 +532,7 @@ if __name__ == '__main__':
             if not is_recover or not file_exist(resut_file) or not file_exist(longest_repeats_flanked_path):
                 if te_type != 'ltr':
                     starttime = time.time()
-                    log.logger.info('Start 2.1: Coarse-grained boundary mapping')
+                    log.logger.info('Start 3.1: Coarse-grained boundary mapping')
                     coarse_boundary_command = 'coarse_boundary.py ' \
                                            + ' -g ' + cut_reference + ' --tmp_output_dir ' + tmp_output_dir \
                                            + ' --prev_TE ' + str(prev_TE) \
@@ -536,7 +548,7 @@ if __name__ == '__main__':
                     os.system(coarse_boundary_command)
                     endtime = time.time()
                     dtime = endtime - starttime
-                    log.logger.info("Running time of step2.1: %.8s s" % (dtime))
+                    log.logger.info("Running time of step3.1: %.8s s" % (dtime))
             else:
                 log.logger.info(resut_file + ' exists, skip...')
 
@@ -545,7 +557,7 @@ if __name__ == '__main__':
             if not is_recover or not file_exist(resut_file):
                 if te_type == 'all' or te_type == 'tir':
                     starttime = time.time()
-                    log.logger.info('Start step2.2: determine fine-grained TIR')
+                    log.logger.info('Start step3.2: determine fine-grained TIR')
                     tir_identification_command = 'judge_TIR_transposons.py ' \
                                                  + ' --seqs ' + longest_repeats_flanked_path \
                                                  + ' -t ' + str(threads) \
@@ -564,7 +576,7 @@ if __name__ == '__main__':
                     os.system(tir_identification_command)
                     endtime = time.time()
                     dtime = endtime - starttime
-                    log.logger.info("Running time of step2.2: %.8s s" % (dtime))
+                    log.logger.info("Running time of step3.2: %.8s s" % (dtime))
                 else:
                     # 创建一个空的输出文件，以跳过nextflow的检查
                     confident_tir = os.path.join(tmp_output_dir, 'confident_tir_'+str(ref_index)+'.fa')
@@ -578,7 +590,7 @@ if __name__ == '__main__':
             if not is_recover or not file_exist(resut_file):
                 if te_type == 'all' or te_type == 'helitron':
                     starttime = time.time()
-                    log.logger.info('Start step2.3: determine fine-grained Helitron')
+                    log.logger.info('Start step3.3: determine fine-grained Helitron')
                     helitron_identification_command = 'judge_Helitron_transposons.py --seqs ' \
                                                       + longest_repeats_flanked_path + ' -r ' + reference + ' -t ' + str(threads) \
                                                       + ' --tmp_output_dir ' + tmp_output_dir \
@@ -594,7 +606,7 @@ if __name__ == '__main__':
                     os.system(helitron_identification_command)
                     endtime = time.time()
                     dtime = endtime - starttime
-                    log.logger.info("Running time of step2.3: %.8s s" % (dtime))
+                    log.logger.info("Running time of step3.3: %.8s s" % (dtime))
                 else:
                     # 创建一个空的输出文件，以跳过nextflow的检查
                     confident_helitron = os.path.join(tmp_output_dir, 'confident_helitron_' + str(ref_index) + '.fa')
@@ -608,7 +620,7 @@ if __name__ == '__main__':
             if not is_recover or not file_exist(resut_file):
                 if te_type == 'all' or te_type == 'non-ltr':
                     starttime = time.time()
-                    log.logger.info('Start step2.4: determine fine-grained Non-LTR')
+                    log.logger.info('Start step3.4: determine fine-grained Non-LTR')
                     non_ltr_identification_command = 'judge_Non_LTR_transposons.py'\
                                                  + ' --seqs ' + longest_repeats_flanked_path + ' -t ' + str(threads) \
                                                  + ' --tmp_output_dir ' + tmp_output_dir \
@@ -626,7 +638,7 @@ if __name__ == '__main__':
                     os.system(non_ltr_identification_command)
                     endtime = time.time()
                     dtime = endtime - starttime
-                    log.logger.info("Running time of step2.4: %.8s s" % (dtime))
+                    log.logger.info("Running time of step3.4: %.8s s" % (dtime))
                 else:
                     # 创建一个空的输出文件，以跳过nextflow的检查
                     confident_non_ltr = os.path.join(tmp_output_dir, 'confident_non_ltr_' + str(ref_index) + '.fa')
@@ -655,7 +667,7 @@ if __name__ == '__main__':
                 os.system('cat ' + cur_confident_non_ltr_path + ' >> ' + confident_non_ltr_path)
 
         starttime = time.time()
-        log.logger.info('Start step3: generate non-redundant library')
+        log.logger.info('Start step4: generate non-redundant library')
         TEClass_home = project_dir + '/classification'
         generate_lib_command = 'get_nonRedundant_lib.py' \
                                + ' --confident_ltr_cut ' + confident_ltr_cut_path \
@@ -672,7 +684,7 @@ if __name__ == '__main__':
         os.system(generate_lib_command)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step3: %.8s s" % (dtime))
+        log.logger.info("Running time of step4: %.8s s" % (dtime))
 
     # merge low copy TEs
     low_confident_TEs_merge = os.path.join(tmp_output_dir, 'low_confident_TE.fa')
@@ -704,27 +716,27 @@ if __name__ == '__main__':
         log.logger.error('Error, Cannot find TE path: ' + confident_TE_consensus)
     else:
         starttime = time.time()
-        log.logger.info('Start step4: annotate genome')
+        log.logger.info('Start step5: annotate genome')
         TEClass_home = project_dir + '/classification'
         annotate_genome_command = 'pan_annotate_genome.py --threads ' + str(threads) \
                                   + ' --panTE_lib ' + confident_TE_consensus + ' --genome_name HiTE ' \
-                                  + ' --reference ' + reference + ' --annotate ' + str(annotate) \
+                                  + ' --reference ' + raw_reference + ' --annotate ' + str(annotate) \
                                   + ' --output_dir ' + tmp_output_dir
         log.logger.info(annotate_genome_command)
         os.system(annotate_genome_command)
 
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step4: %.8s s" % (dtime))
+        log.logger.info("Running time of step5: %.8s s" % (dtime))
 
         starttime = time.time()
-        log.logger.info('Start step5: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
+        log.logger.info('Start step6: Start conduct benchmarking of RepeatModeler2, EDTA, and HiTE')
         benchmarking_command = 'benchmarking.py' \
                             + ' --tmp_output_dir ' + tmp_output_dir \
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
                             + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) \
                             + ' --TE_lib ' + str(confident_TE_consensus) \
-                            + ' -r ' + reference + ' --recover ' + str(recover)
+                            + ' -r ' + raw_reference + ' --recover ' + str(recover)
         if EDTA_home is not None and EDTA_home.strip() != '':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
         if species is None or species.strip() == '':
@@ -735,18 +747,15 @@ if __name__ == '__main__':
         os.system(benchmarking_command)
         endtime = time.time()
         dtime = endtime - starttime
-        log.logger.info("Running time of step5: %.8s s" % (dtime))
+        log.logger.info("Running time of step6: %.8s s" % (dtime))
 
-    clean_lib_command = 'clean_lib.py' \
-                           + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --debug ' + str(debug)
-
-    os.system(clean_lib_command)
 
     pipeline_endtime = time.time()
     dtime = pipeline_endtime - pipeline_starttime
     log.logger.info("Running time of the whole pipeline: %.8s s" % (dtime))
 
-    create_or_clear_directory(output_dir)
-    # 计算完之后将结果拷贝回输出目录
-    shutil.copytree(tmp_output_dir, output_dir, dirs_exist_ok=True)
+
+    clean_lib_command = 'clean_lib.py' \
+                           + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --debug ' + str(debug)
+    os.system(clean_lib_command)

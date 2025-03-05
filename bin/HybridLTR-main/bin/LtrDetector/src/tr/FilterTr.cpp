@@ -702,13 +702,13 @@ void FilterTr::fullFormat(int start, int end)
 
 		GlobAlignE *align = new GlobAlignE(cSeq, s1, e1, cSeq, s2, e2, 1, -1, 4, 1);
 
-		int id = 100* align->getIdentity();
+		double id = 100* align->getIdentity();
 
         //expand downstream
 		for (int i =0;i<bound;i+=step){
 
             GlobAlignE * extension = new GlobAlignE(cSeq,e1,e1+step-1,cSeq,e2,e2+step-1,1,-1,5,2);
-			int extensionId = extension->getIdentity() *100;
+			double extensionId = extension->getIdentity() *100;
 
 			if(abs(id-extensionId)>=10){
 				e2+=step-1;
@@ -728,7 +728,7 @@ void FilterTr::fullFormat(int start, int end)
 		{
             // cout<<"expanding upstream"<<endl;
 			GlobAlignE *extension = new GlobAlignE(cSeq, s1-step, s1, cSeq, s2-step, s2, 2, -3, 4, 1);
-			int extensionId = extension->getIdentity() * 100;
+			double extensionId = extension->getIdentity() * 100;
 
 			if (abs(id - extensionId) >= 10 && extensionId>50)
 			{

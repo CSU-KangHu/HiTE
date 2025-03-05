@@ -276,7 +276,7 @@ void MatchTr::smoothAndCollect(){
 				peakLength++;
 			}
 		
-			int minSizeKeep = identity * ltrMin / 100;
+			double minSizeKeep = identity * ltrMin / 100;
 
 			if (peakLength >= minSizeKeep) //added this parameter
 			{

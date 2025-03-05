@@ -8,7 +8,7 @@ import uuid
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, rename_fasta, remove_ltr_from_tir, get_domain_info, \
-    ReassignInconsistentLabels, file_exist, create_or_clear_directory, copy_files
+    ReassignInconsistentLabels, file_exist, create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
 
 
 def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_path, confident_non_ltr_path,
@@ -170,19 +170,30 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
 
+    clean_old_tmp_files_by_dir('/tmp')
+
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
     temp_dir = '/tmp/get_nonRedundant_lib_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
+    try:
+        create_or_clear_directory(temp_dir)
 
-    get_nonRedundant_lib(temp_dir, confident_tir_path, confident_helitron_path, confident_non_ltr_path,
-                         confident_other_path, confident_ltr_cut_path, threads, use_NeuralTE, is_wicker, curated_lib,
-                         domain, log)
+        get_nonRedundant_lib(temp_dir, confident_tir_path, confident_helitron_path, confident_non_ltr_path,
+                             confident_other_path, confident_ltr_cut_path, threads, use_NeuralTE, is_wicker, curated_lib,
+                             domain, log)
 
-    # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, tmp_output_dir)
+        # 计算完之后将结果拷贝回输出目录
+        copy_files(temp_dir, tmp_output_dir)
 
-    # 删除临时目录
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+    except Exception as e:
+        # 如果出现异常，打印错误信息并删除临时目录
+        print(f"An error occurred: {e}")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        raise  # 重新抛出异常，以便上层代码可以处理
+
+    else:
+        # 如果没有异常，删除临时目录
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 

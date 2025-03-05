@@ -8,7 +8,8 @@ import uuid
 current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
-from Util import file_exist, lib_add_prefix, Logger, store_fasta, copy_files, create_or_clear_directory
+from Util import file_exist, lib_add_prefix, Logger, store_fasta, copy_files, create_or_clear_directory, \
+    clean_old_tmp_files_by_dir
 
 
 def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
@@ -113,6 +114,8 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
+
+    clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()

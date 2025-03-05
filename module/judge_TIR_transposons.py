@@ -10,7 +10,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, multi_process_tsd, rename_fasta, file_exist, \
     run_itrsearch, get_short_tir_contigs, flank_region_align_v5, multi_process_tsd_v1, remove_no_tirs, \
-    create_or_clear_directory, copy_files
+    create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant,
@@ -166,17 +166,28 @@ if __name__ == '__main__':
     if not os.path.exists(all_low_copy_tir):
         os.system('touch ' + all_low_copy_tir)
 
+    clean_old_tmp_files_by_dir('/tmp')
+
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
     temp_dir = '/tmp/judge_TIR_transposons_' + str(unique_id)
-    create_or_clear_directory(temp_dir)
+    try:
+        create_or_clear_directory(temp_dir)
 
-    run_TIR_detection(temp_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads, debug,
-                      split_ref_dir, all_low_copy_tir, plant, ref_index, is_recover, log)
+        run_TIR_detection(temp_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads, debug,
+                          split_ref_dir, all_low_copy_tir, plant, ref_index, is_recover, log)
 
-    # 计算完之后将结果拷贝回输出目录
-    copy_files(temp_dir, tmp_output_dir)
+        # 计算完之后将结果拷贝回输出目录
+        copy_files(temp_dir, tmp_output_dir)
 
-    # 删除临时目录
-    if os.path.exists(temp_dir) and debug != 1:
-        shutil.rmtree(temp_dir)
+    except Exception as e:
+        # 如果出现异常，打印错误信息并删除临时目录
+        print(f"An error occurred: {e}")
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        raise  # 重新抛出异常，以便上层代码可以处理
+
+    else:
+        # 如果没有异常，删除临时目录
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)

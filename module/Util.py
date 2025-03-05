@@ -14,9 +14,11 @@ import logging
 import re
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import Process, Queue
-from multiprocessing import Pool, Manager
+import pickle
 from logging import handlers
+
+
+import psutil
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -2858,16 +2860,16 @@ def run_remove_TR(target_file, trf_dir):
 
     (repeat_dir, repeat_filename) = os.path.split(target_file)
     trf_masked_repeats = trf_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
-    # 2. Remove sequences that consist entirely of 'N's.
-    trf_contigNames, trf_contigs = read_fasta(trf_masked_repeats)
-    filter_contigs = {}
-    for name in trf_contigNames:
-        seq = trf_contigs[name]
-        if all(c == "N" for c in seq):
-            continue
-        filter_contigs[name] = seq
-    store_fasta(filter_contigs, target_file)
-
+    target_file = trf_masked_repeats
+    # # 2. Remove sequences that consist entirely of 'N's.
+    # max_n_length = 1000
+    # trimmed_contigs = {}
+    # masked_contig_names, masked_contigs = read_fasta(trf_masked_repeats)
+    # for name in masked_contig_names:
+    #     sequence = masked_contigs[name]
+    #     trimmed_sequence = re.sub(r'N{' + str(max_n_length + 1) + ',}', '', sequence)
+    #     trimmed_contigs[name] = trimmed_sequence
+    # store_fasta(trimmed_contigs, target_file)
     return target_file
 
 def run_TRF(input, input_dir, tandem_region_cutoff, TE_type):
@@ -4062,15 +4064,13 @@ def get_longest_repeats_v5(query_records, fixed_extend_base_threshold, max_singl
             longest_repeats[query_pos] = query_repeats[query_pos]
     return longest_repeats
 
-def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single_repeat_len, debug):
-    split_repeats_path = repeats_path[0]
-    target_files = repeats_path[1]
-    blastn2Results_path = repeats_path[2]
-
+def get_longest_repeats_v4(query_path, target_tuples, fixed_extend_base_threshold, max_single_repeat_len, debug):
+    blastn2Results_path = query_path + '.out'
     subject_contigs = {}
-    for i, cur_target in enumerate(target_files):
+    for i, cur_target_tuple in enumerate(target_tuples):
+        cur_target, _ = cur_target_tuple
         align_command = 'blastn -db ' + cur_target + ' -num_threads ' \
-                        + str(1) + ' -evalue 1e-20 -query ' + split_repeats_path + ' -outfmt 6'
+                        + str(1) + ' -evalue 1e-20 -query ' + query_path + ' -outfmt 6'
         if i == 0:
             align_command += ' > ' + blastn2Results_path
         else:
@@ -4107,7 +4107,6 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
     f_r.close()
 
     skip_gap = fixed_extend_base_threshold
-    keep_longest_query = {}
     # longest_repeats -> {'chr1:100-1000': seq, }
     longest_repeats = {}
     # Recording all possible integer positions, for example, chr1, start: 98, end: 995, will yield the following four coordinate sets:
@@ -4353,7 +4352,11 @@ def get_longest_repeats_v4(repeats_path, fixed_extend_base_threshold, max_single
         merge_contigNames = process_all_seqs(query_repeatNames)
         for name in merge_contigNames:
             longest_repeats[name] = query_repeats[name]
-    return longest_repeats, keep_longest_query, blastn2Results_path
+
+    output_file = query_path + '.longest_repeats.pkl'
+    save_to_file(longest_repeats, output_file)
+
+    return output_file
 
 def get_overlap_len(seq1, seq2):
     """Calculate the overlap length between two sequences."""
@@ -4589,178 +4592,185 @@ def flanking_seq(longest_repeats_path, longest_repeats_flanked_path, reference, 
         flanked_contigs[new_name] = flanked_seq
     store_fasta(flanked_contigs, longest_repeats_flanked_path)
 
+
 def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fixed_extend_base_threshold,
                                  max_single_repeat_len, tmp_output_dir, threads, ref_index, reference, debug):
-    repeatNames, repeatContigs = read_fasta(repeats_path)
-    tmp_blast_dir = tmp_output_dir + '/trf_filter_'+str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
+    """
+    主函数：确定重复序列边界并生成最终结果。
+    """
+    # 确保临时目录存在
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
 
-    # We found that the main reason for the memory spike in blastn alignment is the presence of numerous short tandem repeats, leading to complex alignments.
-    # Since STRs are not our target, we should preprocess and filter out this part of the data.
-    # Use TRF to remove tandem repeats from target files.
-    # Sequence alignment consumes a significant amount of memory and disk space. Therefore, we also split the target sequences into individual sequences to reduce the memory required for each alignment, avoiding out of memory errors.
-    # It is important to calculate the total number of bases in the sequences, and it must meet a sufficient threshold to increase CPU utilization.
-    # 1. Split the sequences into 1Mb files to reduce TRF execution time.
-    base_threshold = 1000000 #1Mb
-    all_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-            cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
-            store_fasta(cur_contigs, cur_target)
-            all_files.append((cur_target, cur_trf))
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-        cur_trf = tmp_blast_dir + '/' + str(file_index) + '_trf'
-        store_fasta(cur_contigs, cur_target)
-        all_files.append((cur_target, cur_trf))
+    # 1. 读取 FASTA 文件
+    repeat_names, repeat_contigs = read_fasta(repeats_path)
 
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for file in all_files:
-        cur_target = file[0]
-        cur_trf = file[1]
-        job = ex.submit(run_remove_TR, cur_target, cur_trf)
-        jobs.append(job)
-    ex.shutdown(wait=True)
+    # 2. 过滤串联重复序列
+    filter_tandem_file = os.path.join(tmp_output_dir, f'filter_tandem_{ref_index}.fa')
+    filter_tandem_repeats(repeat_names, repeat_contigs, tmp_output_dir, ref_index, threads)
 
-    filter_tandem_file = tmp_output_dir + '/filter_tandem_' + str(ref_index) + '.fa'
-    if os.path.exists(filter_tandem_file):
-        os.system('rm -f ' + filter_tandem_file)
-    for job in as_completed(jobs):
-        cur_target_file = job.result()
-        os.system('cat ' + cur_target_file + ' >> ' + filter_tandem_file)
+    # 3. 掩码基因组
+    masked_file_path = mask_genome_with_TE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index)
 
-    if debug != 1:
-        os.system('rm -rf ' + tmp_blast_dir)
+    # 4. 移除连续超过 100 个 N 的序列
+    # filter_tandem_file = remove_long_N_sequences(masked_file_path, tmp_output_dir, ref_index)
 
-    # # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
-    # RepeatMasker_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -e ncbi -pa ' + str(threads) \
-    #                        + ' -q -no_is -norna -nolow -div 20 -gff -lib ' + prev_TE + ' -cutoff 225 ' \
-    #                        + filter_tandem_file
-    # os.system(RepeatMasker_command)
-    # masked_file_path = filter_tandem_file + '.masked'
+    # 5. 分割序列并进行 BLAST
+    longest_repeats_paths = process_blast_alignments(masked_file_path, tmp_output_dir, ref_index, threads,
+                                              fixed_extend_base_threshold, max_single_repeat_len, debug)
 
-    # 2. Mask the genome with the TEs identified in the previous rounds of HiTE.
-    mask_genome_intactTE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index)
-    masked_file_path = filter_tandem_file + '.masked'
+    # 6. 生成最终结果
+    generate_final_result(longest_repeats_paths, longest_repeats_path, reference)
 
-    # 2.1. Remove sequences consisting entirely of 'N'.
-    filter_tandem_file = tmp_output_dir + '/filter_TE_' + str(ref_index) + '.fa'
-    masked_contigNames, masked_contigs = read_fasta(masked_file_path)
-    filter_contigs = {}
-    for name in masked_contigNames:
-        seq = masked_contigs[name]
-        if all(c == "N" for c in seq):
-            continue
-        filter_contigs[name] = seq
-    store_fasta(filter_contigs, filter_tandem_file)
+    # 7. 清理临时文件
+    if not debug:
+        cleanup_temp_files(tmp_output_dir, ref_index)
 
-    # 3.Collect the filtered concatenated sequences and divide them into 10Mb files to enhance blastn CPU utilization.
-    repeatNames, repeatContigs = read_fasta(filter_tandem_file)
-    tmp_blast_dir = tmp_output_dir + '/longest_repeats_blast_' + str(ref_index)
-    os.system('rm -rf ' + tmp_blast_dir)
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
-
-    # Sequence alignment consumes a significant amount of memory and disk space. Therefore, we also split the target sequences into individual sequences to reduce the memory required for each alignment, avoiding out of memory errors.
-    # It is important to calculate the total number of bases in the sequences, and it must meet a sufficient threshold to increase CPU utilization.
-    base_threshold = 1000000  # 1Mb
-    target_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-            store_fasta(cur_contigs, cur_target)
-            target_files.append(cur_target)
-            makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
-            os.system(makedb_command)
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        cur_target = tmp_blast_dir + '/' + str(file_index) + '_target.fa'
-        store_fasta(cur_contigs, cur_target)
-        target_files.append(cur_target)
-        makedb_command = 'makeblastdb -dbtype nucl -in ' + cur_target + ' > /dev/null 2>&1'
-        os.system(makedb_command)
-
-    repeat_files = []
-    file_index = 0
-    base_count = 0
-    cur_contigs = {}
-    for name in repeatNames:
-        cur_seq = repeatContigs[name]
-        cur_contigs[name] = cur_seq
-        base_count += len(cur_seq)
-        if base_count >= base_threshold:
-            split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-            store_fasta(cur_contigs, split_repeat_file)
-            output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-            repeat_files.append((split_repeat_file, target_files, output_file))
-            cur_contigs = {}
-            file_index += 1
-            base_count = 0
-    if len(cur_contigs) > 0:
-        split_repeat_file = tmp_blast_dir + '/' + str(file_index) + '.fa'
-        store_fasta(cur_contigs, split_repeat_file)
-        output_file = tmp_blast_dir + '/' + str(file_index) + '.out'
-        repeat_files.append((split_repeat_file, target_files, output_file))
-
-    ex = ProcessPoolExecutor(threads)
-
-    jobs = []
-    for file in repeat_files:
-        job = ex.submit(get_longest_repeats_v4, file, fixed_extend_base_threshold,
-                        max_single_repeat_len, debug)
-        jobs.append(job)
-    ex.shutdown(wait=True)
-
-    total_out = tmp_output_dir + '/total_blast_' + str(ref_index) + '.out'
-    os.system('rm -f ' + total_out)
-    longest_repeats = {}
-    for job in as_completed(jobs):
-        cur_longest_repeats, cur_keep_longest_query, cur_blastn2Results_path = job.result()
-        longest_repeats.update(cur_longest_repeats)
-        if debug == 1:
-            os.system('cat ' + cur_blastn2Results_path + ' >> ' + total_out)
-        else:
-            os.system('rm -f ' + cur_blastn2Results_path)
-
-    # Currently, it is still in coordinate form. Convert it into a nucleotide sequence and store it.
-    ref_contigNames, ref_contigs = read_fasta(reference)
-    for frag_name in longest_repeats.keys():
-        parts = frag_name.split(':')
-        chr_name = parts[0]
-        pos_info = parts[1].split('-')
-        chr_start = int(pos_info[0])
-        chr_end = int(pos_info[1])
-        frag_seq = ref_contigs[chr_name][chr_start: chr_end]
-        longest_repeats[frag_name] = frag_seq
-    store_fasta(longest_repeats, longest_repeats_path)
-    if debug != 1:
-        os.system('rm -rf ' + tmp_blast_dir)
     return longest_repeats_path
+
+
+def filter_tandem_repeats(repeat_names, repeat_contigs, tmp_output_dir, ref_index, threads):
+    """
+    过滤串联重复序列。
+    """
+    tmp_blast_dir = os.path.join(tmp_output_dir, f'trf_filter_{ref_index}')
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+
+    # 分割序列并存储
+    all_files = split_and_store_sequences(repeat_names, repeat_contigs, tmp_blast_dir, base_threshold=100000)
+
+    # 并行执行 TRF 过滤
+    with ProcessPoolExecutor(max_workers=threads) as ex:
+        jobs = [ex.submit(run_remove_TR, cur_target, cur_trf) for cur_target, cur_trf in all_files]
+        for job in as_completed(jobs):
+            job.result()
+
+    # 合并过滤后的文件
+    filter_tandem_file = os.path.join(tmp_output_dir, f'filter_tandem_{ref_index}.fa')
+    with open(filter_tandem_file, 'w') as outfile:
+        for cur_target, _ in all_files:
+            with open(cur_target, 'r') as infile:
+                outfile.write(infile.read())
+
+
+def mask_genome_with_TE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index):
+    """
+    使用 TE 掩码基因组。
+    """
+    masked_file_path = filter_tandem_file + '.masked'
+    mask_genome_intactTE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index)
+    return masked_file_path
+
+
+def remove_long_N_sequences(masked_file_path, tmp_output_dir, ref_index):
+    """
+    移除连续超过 100 个 N 的序列。
+    """
+    max_n_length = 1000
+    trimmed_contigs = {}
+    masked_names, masked_contigs = read_fasta(masked_file_path)
+    for name in masked_names:
+        sequence = masked_contigs[name]
+        trimmed_sequence = re.sub(r'N{' + str(max_n_length + 1) + ',}', '', sequence)
+        trimmed_contigs[name] = trimmed_sequence
+    filter_tandem_file = os.path.join(tmp_output_dir, f'filter_TE_{ref_index}.fa')
+    store_fasta(trimmed_contigs, filter_tandem_file)
+    return filter_tandem_file
+
+
+def process_blast_alignments(filter_tandem_file, tmp_output_dir, ref_index, threads,
+                             fixed_extend_base_threshold, max_single_repeat_len, debug):
+    """
+    处理 BLAST 比对并获取最长重复序列。
+    """
+    tmp_blast_dir = os.path.join(tmp_output_dir, f'longest_repeats_blast_{ref_index}')
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+
+    # 读取 FASTA 文件
+    repeat_names, repeat_contigs = read_fasta(filter_tandem_file)
+
+    # 分割序列并存储
+    target_tuples = split_and_store_sequences(repeat_names, repeat_contigs, tmp_blast_dir, base_threshold=1000000)
+    for target_file, _ in target_tuples:
+        subprocess.Popen(
+            ['makeblastdb', '-dbtype', 'nucl', '-in', target_file],
+            close_fds=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+    longest_repeats_paths = []
+    # 并行处理 BLAST
+    with ProcessPoolExecutor(max_workers=threads) as ex:
+        jobs = [ex.submit(get_longest_repeats_v4, query_path, target_tuples, fixed_extend_base_threshold, max_single_repeat_len, debug)
+                for query_path, _ in target_tuples]
+        for job in as_completed(jobs):
+            cur_output_file = job.result()
+            longest_repeats_paths.append(cur_output_file)
+
+    return longest_repeats_paths
+
+
+def generate_final_result(longest_repeats_paths, longest_repeats_path, reference):
+    """
+    生成最终结果文件。
+    """
+    final_longest_repeats = {}
+    ref_contig_names, ref_contigs = read_fasta(reference)
+    for cur_output_path in longest_repeats_paths:
+        longest_repeats = load_from_file(cur_output_path)
+        for frag_name in longest_repeats.keys():
+            chr_name, pos_info = frag_name.split(':')
+            chr_start, chr_end = map(int, pos_info.split('-'))
+            final_longest_repeats[frag_name] = ref_contigs[chr_name][chr_start:chr_end]
+    store_fasta(final_longest_repeats, longest_repeats_path)
+
+
+
+def cleanup_temp_files(tmp_output_dir, ref_index):
+    """
+    清理临时文件。
+    """
+    tmp_blast_dir = os.path.join(tmp_output_dir, f'trf_filter_{ref_index}')
+    if os.path.exists(tmp_blast_dir):
+        shutil.rmtree(tmp_blast_dir)
+    tmp_blast_dir = os.path.join(tmp_output_dir, f'longest_repeats_blast_{ref_index}')
+    if os.path.exists(tmp_blast_dir):
+        shutil.rmtree(tmp_blast_dir)
+
+
+def split_and_store_sequences(names, contigs, output_dir, base_threshold):
+    """
+    将序列分割并存储到文件中。
+    """
+    files = []
+    file_index = 0
+    base_count = 0
+    cur_contigs = {}
+    for name in names:
+        cur_seq = contigs[name]
+        cur_contigs[name] = cur_seq
+        base_count += len(cur_seq)
+        if base_count >= base_threshold:
+            cur_target = os.path.join(output_dir, f'{file_index}_target.fa')
+            cur_trf = os.path.join(output_dir, f'{file_index}_trf')
+            store_fasta(cur_contigs, cur_target)
+            files.append((cur_target, cur_trf))
+            cur_contigs = {}
+            file_index += 1
+            base_count = 0
+    if cur_contigs:
+        cur_target = os.path.join(output_dir, f'{file_index}_target.fa')
+        cur_trf = os.path.join(output_dir, f'{file_index}_trf')
+        store_fasta(cur_contigs, cur_target)
+        files.append((cur_target, cur_trf))
+    return files
 
 def filter_out_by_category(TE_out, tmp_output_dir, category):
     tmp_out= tmp_output_dir + '/tmp.out'
-    os.system('cp ' + TE_out + ' ' + tmp_out)
+    shutil.copy(TE_out, tmp_out)
     if category == 'Total':
         return tmp_out
     else:
@@ -4781,6 +4791,33 @@ def filter_out_by_category(TE_out, tmp_output_dir, category):
 
 def run_command(command):
     subprocess.run(command, check=True, shell=True)
+
+def print_system_usage():
+    """
+    打印当前系统的内存和磁盘使用情况。
+    """
+    # 获取内存使用情况
+    memory_info = psutil.virtual_memory()
+    print("===== 内存使用情况 =====")
+    print(f"总内存: {memory_info.total / (1024 ** 3):.2f} GB")
+    print(f"可用内存: {memory_info.available / (1024 ** 3):.2f} GB")
+    print(f"已用内存: {memory_info.used / (1024 ** 3):.2f} GB")
+    print(f"内存使用百分比: {memory_info.percent}%")
+
+    # 获取 /tmp 目录的磁盘使用情况
+    try:
+        disk_info = psutil.disk_usage('/tmp')
+        print("\n===== /tmp 目录磁盘使用情况 =====")
+        print(f"总磁盘空间: {disk_info.total / (1024 ** 3):.2f} GB")
+        print(f"可用磁盘空间: {disk_info.free / (1024 ** 3):.2f} GB")
+        print(f"已用磁盘空间: {disk_info.used / (1024 ** 3):.2f} GB")
+        print(f"磁盘使用百分比: {disk_info.percent}%")
+    except FileNotFoundError:
+        print("\n===== /tmp 目录磁盘使用情况 =====")
+        print("错误: /tmp 目录不存在！")
+    except PermissionError:
+        print("\n===== /tmp 目录磁盘使用情况 =====")
+        print("错误: 没有权限访问 /tmp 目录！")
 
 def identify_terminals(split_file, output_dir, tool_dir):
     #ltr_log = split_file + '.ltr.log'
@@ -5063,7 +5100,200 @@ def run_EAHelitron_v1(temp_dir, all_candidate_helitron_path, EAHelitron, partiti
         copies_hairpin_loops[query_name] = final_hairpin_loop_seq
     return copies_hairpin_loops
 
-def get_structure_info(input_file, query_name, query_copies, flank_query_copies, cluster_dir, search_struct, tools_dir):
+def get_structure_info(input_file, query_name, query_copies, flank_query_copies, cluster_dir, search_struct, tools_dir, output_file):
+    if str(query_name).__contains__('Helitron'):
+        flanking_len = 5
+    else:
+        flanking_len = 50
+
+    annotations = {}
+    if search_struct:
+        (file_dir, filename) = os.path.split(input_file)
+        full_length_copies_file = input_file + '.copies.fa'
+        store_fasta(query_copies, full_length_copies_file)
+        flank_full_length_copies_file = input_file + '.flank.copies.fa'
+        store_fasta(flank_query_copies, flank_full_length_copies_file)
+        if not str(filename).__contains__('Helitron'):
+            if str(filename).__contains__('TIR'):
+                # get LTR/TIR length and identity for TIR transposons
+                TIR_info = identify_terminals(full_length_copies_file, cluster_dir, tools_dir)
+                for copy_name in query_copies:
+                    TIR_str = 'tir='
+                    if TIR_info.__contains__(copy_name):
+                        lTIR_start, lTIR_end, rTIR_start, rTIR_end, identity = TIR_info[copy_name]
+                        TIR_str += str(lTIR_start) + '-' + str(lTIR_end) + ',' + str(rTIR_start) + '-' + str(
+                            rTIR_end) + ';tir_identity=' + str(identity)
+                    else:
+                        TIR_str += 'NA'
+                    update_name = TIR_str
+
+                    flank_seq = flank_query_copies[copy_name]
+                    tir_start = flanking_len + 1
+                    tir_end = len(flank_seq) - flanking_len
+                    tsd_search_distance = flanking_len
+                    cur_tsd, cur_tsd_len, min_distance = search_confident_tsd(flank_seq, tir_start, tir_end,
+                                                                              tsd_search_distance)
+                    update_name += ';tsd=' + cur_tsd + ';tsd_len=' + str(cur_tsd_len)
+                    if not annotations.__contains__(query_name):
+                        annotations[query_name] = []
+                    annotation_list = annotations[query_name]
+                    annotation_list.append((copy_name, update_name))
+            elif str(filename).__contains__('Non_LTR'):
+                # get TSD and polyA/T head or tail for non-ltr transposons
+                for copy_name in query_copies:
+                    sequence = query_copies[copy_name]
+                    max_start, max_end, polyA = find_nearest_polyA_v1(sequence, min_length=6)
+                    max_start, max_end, polyT = find_nearest_polyT_v1(sequence, min_length=6)
+                    polyA_T = polyA if len(polyA) > len(polyT) else polyT
+                    update_name = 'polya_t=' + polyA_T
+
+                    flank_seq = flank_query_copies[copy_name]
+                    tir_start = flanking_len + 1
+                    tir_end = len(flank_seq) - flanking_len
+                    tsd_search_distance = flanking_len
+                    cur_tsd, cur_tsd_len, min_distance = search_confident_tsd(flank_seq, tir_start, tir_end,
+                                                                              tsd_search_distance)
+                    update_name += ';tsd=' + cur_tsd + ';tsd_len=' + str(cur_tsd_len)
+                    if not annotations.__contains__(query_name):
+                        annotations[query_name] = []
+                    annotation_list = annotations[query_name]
+                    annotation_list.append((copy_name, update_name))
+        else:
+            # search for hairpin loop
+            EAHelitron = tools_dir + '/../bin/EAHelitron-master'
+            copies_hairpin_loops = run_EAHelitron_v1(cluster_dir, flank_full_length_copies_file, EAHelitron, query_name)
+            for copy_name in query_copies:
+                if copies_hairpin_loops.__contains__(copy_name):
+                    hairpin_loop = copies_hairpin_loops[copy_name]
+                else:
+                    hairpin_loop = 'NA'
+                update_name = 'hairpin_loop=' + hairpin_loop
+                if not annotations.__contains__(query_name):
+                    annotations[query_name] = []
+                annotation_list = annotations[query_name]
+                annotation_list.append((copy_name, update_name))
+    else:
+        if not annotations.__contains__(query_name):
+            annotations[query_name] = []
+        annotation_list = annotations[query_name]
+        for copy_name in query_copies.keys():
+            annotation_list.append((copy_name, ''))
+    save_to_file(annotations, output_file)
+
+def get_structure_info_v1(query_name, full_length_copies_file, flank_full_length_copies_file, cluster_dir, search_struct, tools_dir, output_file):
+    if str(query_name).__contains__('Helitron'):
+        flanking_len = 5
+    else:
+        flanking_len = 50
+
+    query_copies_names, query_copies = read_fasta(full_length_copies_file)
+    flank_query_copies_names, flank_query_copies = read_fasta(flank_full_length_copies_file)
+    annotations = {}
+    if search_struct:
+        (file_dir, filename) = os.path.split(full_length_copies_file)
+        if not str(filename).__contains__('Helitron'):
+            if str(filename).__contains__('TIR'):
+                # get LTR/TIR length and identity for TIR transposons
+                TIR_info = identify_terminals(full_length_copies_file, cluster_dir, tools_dir)
+                for copy_name in query_copies:
+                    TIR_str = 'tir='
+                    if TIR_info.__contains__(copy_name):
+                        lTIR_start, lTIR_end, rTIR_start, rTIR_end, identity = TIR_info[copy_name]
+                        TIR_str += str(lTIR_start) + '-' + str(lTIR_end) + ',' + str(rTIR_start) + '-' + str(
+                            rTIR_end) + ';tir_identity=' + str(identity)
+                    else:
+                        TIR_str += 'NA'
+                    update_name = TIR_str
+
+                    flank_seq = flank_query_copies[copy_name]
+                    tir_start = flanking_len + 1
+                    tir_end = len(flank_seq) - flanking_len
+                    tsd_search_distance = flanking_len
+                    cur_tsd, cur_tsd_len, min_distance = search_confident_tsd(flank_seq, tir_start, tir_end,
+                                                                              tsd_search_distance)
+                    update_name += ';tsd=' + cur_tsd + ';tsd_len=' + str(cur_tsd_len)
+                    if not annotations.__contains__(query_name):
+                        annotations[query_name] = []
+                    annotation_list = annotations[query_name]
+                    annotation_list.append((copy_name, update_name))
+            elif str(filename).__contains__('Non_LTR'):
+                # get TSD and polyA/T head or tail for non-ltr transposons
+                for copy_name in query_copies:
+                    sequence = query_copies[copy_name]
+                    max_start, max_end, polyA = find_nearest_polyA_v1(sequence, min_length=6)
+                    max_start, max_end, polyT = find_nearest_polyT_v1(sequence, min_length=6)
+                    polyA_T = polyA if len(polyA) > len(polyT) else polyT
+                    update_name = 'polya_t=' + polyA_T
+
+                    flank_seq = flank_query_copies[copy_name]
+                    tir_start = flanking_len + 1
+                    tir_end = len(flank_seq) - flanking_len
+                    tsd_search_distance = flanking_len
+                    cur_tsd, cur_tsd_len, min_distance = search_confident_tsd(flank_seq, tir_start, tir_end,
+                                                                              tsd_search_distance)
+                    update_name += ';tsd=' + cur_tsd + ';tsd_len=' + str(cur_tsd_len)
+                    if not annotations.__contains__(query_name):
+                        annotations[query_name] = []
+                    annotation_list = annotations[query_name]
+                    annotation_list.append((copy_name, update_name))
+        else:
+            # search for hairpin loop
+            EAHelitron = tools_dir + '/../bin/EAHelitron-master'
+            copies_hairpin_loops = run_EAHelitron_v1(cluster_dir, flank_full_length_copies_file, EAHelitron, query_name)
+            for copy_name in query_copies:
+                if copies_hairpin_loops.__contains__(copy_name):
+                    hairpin_loop = copies_hairpin_loops[copy_name]
+                else:
+                    hairpin_loop = 'NA'
+                update_name = 'hairpin_loop=' + hairpin_loop
+                if not annotations.__contains__(query_name):
+                    annotations[query_name] = []
+                annotation_list = annotations[query_name]
+                annotation_list.append((copy_name, update_name))
+    else:
+        if not annotations.__contains__(query_name):
+            annotations[query_name] = []
+        annotation_list = annotations[query_name]
+        for copy_name in query_copies.keys():
+            annotation_list.append((copy_name, ''))
+    lines = set()
+    for query_name in annotations.keys():
+        query_name = str(query_name)
+        for copy_annotation in annotations[query_name]:
+            chr_pos = copy_annotation[0]
+            annotation = copy_annotation[1]
+            parts = chr_pos.split(':')
+            chr_name = parts[0]
+            chr_pos_parts = parts[1].split('-')
+            chr_start = int(chr_pos_parts[0]) + 1
+            chr_end = int(chr_pos_parts[1])
+            new_line = (query_name, chr_name, chr_start, chr_end)
+            lines.add(new_line)
+    save_to_file(lines, output_file)
+    if os.path.exists(full_length_copies_file):
+        os.remove(full_length_copies_file)
+    if os.path.exists(flank_full_length_copies_file):
+        os.remove(flank_full_length_copies_file)
+
+    del query_copies_names
+    del query_copies
+    del flank_query_copies_names
+    del flank_query_copies
+    del lines
+    del annotations
+
+
+def save_to_file(result, file_path):
+    """将结果保存到文件中"""
+    with open(file_path, 'wb') as f:
+        pickle.dump(result, f)
+
+def load_from_file(file_path):
+    """从文件中加载结果"""
+    with open(file_path, 'rb') as f:
+        return pickle.load(f)
+
+def get_structure_info_v2(input_file, query_name, query_copies, flank_query_copies, cluster_dir, search_struct, tools_dir):
     if str(query_name).__contains__('Helitron'):
         flanking_len = 5
     else:
@@ -5396,23 +5626,377 @@ def get_full_length_copies_from_blastn(TE_lib, reference, blastn_out, tmp_output
         store_fasta(query_copies, fc_path)
         split_files.append((fc_path, query_name, query_copies, flank_query_copies))
 
-    ex = ProcessPoolExecutor(threads)
+    ex = ProcessPoolExecutor(max_workers=threads)
     jobs = []
+    output_files = []
+
     for ref_index, cur_file in enumerate(split_files):
         input_file = cur_file[0]
         query_name = cur_file[1]
         query_copies = cur_file[2]
         flank_query_copies = cur_file[3]
+
+        # 为每个进程的输出文件生成唯一路径
+        output_file = os.path.join(cluster_dir, f"result_{ref_index}.pkl")
+        output_files.append(output_file)
+
+        # 提交任务，并将输出文件路径传递给任务函数
         job = ex.submit(get_structure_info, input_file, query_name, query_copies,
-                        flank_query_copies, cluster_dir, search_struct, tools_dir)
+                        flank_query_copies, cluster_dir, search_struct, tools_dir, output_file)
         jobs.append(job)
+
     ex.shutdown(wait=True)
 
+    # 从文件中加载所有结果并合并
     full_length_annotations = {}
-    for job in as_completed(jobs):
-        annotations = job.result()
-        full_length_annotations.update(annotations)
+    for output_file in output_files:
+        if os.path.exists(output_file):
+            annotations = load_from_file(output_file)
+            full_length_annotations.update(annotations)
+
+    # 可选：清理临时文件
+    for output_file in output_files:
+        if os.path.exists(output_file):
+            os.remove(output_file)
+
     return full_length_annotations, copies_direct
+
+def get_full_length_copies_from_blastn_v1(TE_lib, reference, blastn_out, tmp_output_dir, threads, divergence_threshold,
+                                    full_length_threshold, search_struct, tools_dir):
+    ref_names, ref_contigs = read_fasta(reference)
+
+    query_names, query_contigs = read_fasta(TE_lib)
+    new_query_contigs = {}
+    for name in query_names:
+        new_query_contigs[name.split('#')[0]] = query_contigs[name]
+    query_contigs = new_query_contigs
+
+    query_records = {}
+    with open(blastn_out, 'r') as f_r:
+        for line in f_r:
+            if line.startswith('#'):
+                continue
+            info_parts = line.split('\t')
+            query_name = info_parts[0].split('#')[0]
+            subject_name = info_parts[1]
+            q_start = int(info_parts[6])
+            q_end = int(info_parts[7])
+            s_start = int(info_parts[8])
+            s_end = int(info_parts[9])
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+
+    full_length_copies = {}
+    flank_full_length_copies = {}
+    copies_direct = {}
+    for idx, query_name in enumerate(query_records.keys()):
+        subject_dict = query_records[query_name]
+        if query_name not in query_contigs:
+            continue
+        query_len = len(query_contigs[query_name])
+        skip_gap = query_len * full_length_threshold
+
+        if str(query_name).__contains__('Helitron'):
+            flanking_len = 5
+        else:
+            flanking_len = 50
+
+        # if there are more than one longest query overlap with the final longest query over 90%,
+        # then it probably the true TE
+        longest_queries = []
+        for subject_name in subject_dict.keys():
+            subject_pos = subject_dict[subject_name]
+
+            # cluster all closed fragments, split forward and reverse records
+            forward_pos = []
+            reverse_pos = []
+            for pos_item in subject_pos:
+                if pos_item[2] > pos_item[3]:
+                    reverse_pos.append(pos_item)
+                else:
+                    forward_pos.append(pos_item)
+            forward_pos.sort(key=lambda x: (x[2], x[3]))
+            reverse_pos.sort(key=lambda x: (-x[2], -x[3]))
+
+            clusters = {}
+            cluster_index = 0
+            for k, frag in enumerate(forward_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (cur_subject_start - prev_subject_end < skip_gap and cur_query_end > prev_query_end):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            cluster_index += 1
+            for k, frag in enumerate(reverse_pos):
+                if not clusters.__contains__(cluster_index):
+                    clusters[cluster_index] = []
+                cur_cluster = clusters[cluster_index]
+                if k == 0:
+                    cur_cluster.append(frag)
+                else:
+                    is_closed = False
+                    for exist_frag in reversed(cur_cluster):
+                        cur_subject_start = frag[2]
+                        cur_query_end = frag[1]
+                        prev_subject_end = exist_frag[3]
+                        prev_query_end = exist_frag[1]
+                        if (prev_subject_end - cur_subject_start < skip_gap and cur_query_end > prev_query_end):
+                            is_closed = True
+                            break
+                    if is_closed:
+                        cur_cluster.append(frag)
+                    else:
+                        cluster_index += 1
+                        if not clusters.__contains__(cluster_index):
+                            clusters[cluster_index] = []
+                        cur_cluster = clusters[cluster_index]
+                        cur_cluster.append(frag)
+
+            for cluster_index in clusters.keys():
+                cur_cluster = clusters[cluster_index]
+                cur_cluster.sort(key=lambda x: (x[0], x[1]))
+
+                # print('subject pos size: %d' %(len(cur_cluster)))
+                # record visited fragments
+                visited_frag = {}
+                for i in range(len(cur_cluster)):
+                    # keep a longest query start from each fragment
+                    prev_frag = cur_cluster[i]
+                    if visited_frag.__contains__(prev_frag):
+                        continue
+                    prev_query_start = prev_frag[0]
+                    prev_query_end = prev_frag[1]
+                    prev_subject_start = prev_frag[2]
+                    prev_subject_end = prev_frag[3]
+                    prev_query_seq = (min(prev_query_start, prev_query_end), max(prev_query_start, prev_query_end))
+                    prev_subject_seq = (
+                        min(prev_subject_start, prev_subject_end), max(prev_subject_start, prev_subject_end))
+                    prev_query_len = abs(prev_query_end - prev_query_start)
+                    prev_subject_len = abs(prev_subject_end - prev_subject_start)
+                    cur_longest_query_len = prev_query_len
+
+                    cur_extend_num = 0
+                    visited_frag[prev_frag] = 1
+                    # try to extend query
+                    for j in range(i + 1, len(cur_cluster)):
+                        cur_frag = cur_cluster[j]
+                        if visited_frag.__contains__(cur_frag):
+                            continue
+                        cur_query_start = cur_frag[0]
+                        cur_query_end = cur_frag[1]
+                        cur_subject_start = cur_frag[2]
+                        cur_subject_end = cur_frag[3]
+                        cur_query_seq = (min(cur_query_start, cur_query_end), max(cur_query_start, cur_query_end))
+                        cur_subject_seq = (min(cur_subject_start, cur_subject_end), max(cur_subject_start, cur_subject_end))
+
+                        # could extend
+                        # extend right
+                        if cur_query_end > prev_query_end:
+                            # judge subject direction
+                            if prev_subject_start < prev_subject_end and cur_subject_start < cur_subject_end:
+                                # +
+                                if cur_subject_end > prev_subject_end:
+                                    # forward extend
+                                    if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and cur_subject_start - prev_subject_end < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
+                                        # update the longest path
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start < cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
+                                        break
+                            elif prev_subject_start > prev_subject_end and cur_subject_start > cur_subject_end:
+                                # reverse
+                                if cur_subject_end < prev_subject_end:
+                                    # reverse extend
+                                    if cur_query_start - prev_query_end < skip_gap and cur_query_end > prev_query_end \
+                                            and prev_subject_end - cur_subject_start < skip_gap:  # \
+                                        # and not is_same_query and not is_same_subject:
+                                        # update the longest path
+                                        prev_query_start = prev_query_start
+                                        prev_query_end = cur_query_end
+                                        prev_subject_start = prev_subject_start if prev_subject_start > cur_subject_start else cur_subject_start
+                                        prev_subject_end = cur_subject_end
+                                        cur_longest_query_len = prev_query_end - prev_query_start
+                                        cur_extend_num += 1
+                                        visited_frag[cur_frag] = 1
+                                    elif cur_query_start - prev_query_end >= skip_gap:
+                                        break
+                    # keep this longest query
+                    if cur_longest_query_len != -1:
+                        longest_queries.append(
+                            (prev_query_start, prev_query_end, cur_longest_query_len, prev_subject_start,
+                             prev_subject_end, abs(prev_subject_end - prev_subject_start), subject_name,
+                             cur_extend_num))
+
+        # To determine whether each copy has a coverage exceeding the full_length_threshold with respect
+        # to the consensus sequence, retaining full-length copies.
+        query_copies = {}
+        flank_query_copies = {}
+        orig_query_len = len(query_contigs[query_name])
+        # query_copies[query_name] = query_contigs[query_name]
+        for repeat in longest_queries:
+            if repeat[2] < full_length_threshold * query_len:
+                continue
+            # Subject
+            subject_name = repeat[6]
+            subject_chr_start = 0
+
+            if repeat[3] > repeat[4]:
+                direct = '-'
+                old_subject_start_pos = repeat[4] - 1
+                old_subject_end_pos = repeat[3]
+            else:
+                direct = '+'
+                old_subject_start_pos = repeat[3] - 1
+                old_subject_end_pos = repeat[4]
+            subject_start_pos = subject_chr_start + old_subject_start_pos
+            subject_end_pos = subject_chr_start + old_subject_end_pos
+
+            subject_pos = subject_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+            if search_struct:
+                subject_seq = ref_contigs[subject_name][subject_start_pos: subject_end_pos]
+                flank_subject_seq = ref_contigs[subject_name][
+                                    subject_start_pos - flanking_len: subject_end_pos + flanking_len]
+            else:
+                subject_seq = ''
+                flank_subject_seq = ''
+
+            copies_direct[subject_pos] = direct
+            cur_query_len = repeat[2]
+            coverage = float(cur_query_len) / orig_query_len
+            if coverage >= full_length_threshold:
+                query_copies[subject_pos] = subject_seq
+                flank_query_copies[subject_pos] = flank_subject_seq
+        full_length_copies[query_name] = query_copies
+        flank_full_length_copies[query_name] = flank_query_copies
+
+    return full_length_copies, flank_full_length_copies
+
+# Function to handle each batch of data
+def process_batch(batch_full_length_file, batch_flank_full_length_file, batch_start_index, cluster_dir, threads, search_struct, tools_dir):
+    with open(batch_full_length_file, 'rb') as f:
+        batch_full_length_copies = pickle.load(f)
+
+    with open(batch_flank_full_length_file, 'rb') as f:
+        batch_flank_full_length_copies = pickle.load(f)
+
+    split_files = []
+    for query_name in batch_full_length_copies.keys():
+        query_copies = batch_full_length_copies[query_name]
+        flank_query_copies = batch_flank_full_length_copies[query_name]
+        fc_path = cluster_dir + '/' + query_name + '.fa'
+        store_fasta(query_copies, fc_path)
+        flank_fc_path = cluster_dir + '/' + query_name + '.flank.fa'
+        store_fasta(flank_query_copies, flank_fc_path)
+        split_files.append((query_name, fc_path, flank_fc_path))
+
+    del batch_full_length_copies
+    del batch_flank_full_length_copies
+
+    output_files = []
+    for ref_index, cur_file in enumerate(split_files):
+        query_name = cur_file[0]
+        full_length_copies_file = cur_file[1]
+        flank_full_length_copies_file = cur_file[2]
+
+        # 为每个进程的输出文件生成唯一路径
+        output_file = os.path.join(cluster_dir, f"result_{batch_start_index}_{ref_index}.pkl")
+        output_files.append(output_file)
+
+        get_structure_info_v1(query_name, full_length_copies_file, flank_full_length_copies_file, cluster_dir, search_struct, tools_dir, output_file)
+
+    return output_files
+
+def get_structure_from_copies(full_length_copies_result, flank_full_length_copies_result, threads, tmp_output_dir, search_struct,
+                              tools_dir, batch_size=500):
+    # The candidate full-length copies and the consensus are then clustered using cd-hit-est,
+    # retaining copies that belong to the same cluster as the consensus.
+    cluster_dir = tmp_output_dir + '/cluster'
+    os.system('rm -rf ' + cluster_dir)
+    if not os.path.exists(cluster_dir):
+        os.makedirs(cluster_dir)
+
+    full_length_copies = load_from_file(full_length_copies_result)
+    flank_full_length_copies = load_from_file(flank_full_length_copies_result)
+
+    # 将数据分批处理
+    all_query_names = list(full_length_copies.keys())
+    total_batches = (len(all_query_names) // batch_size) + (1 if len(all_query_names) % batch_size != 0 else 0)
+
+    all_output_files = []
+    batch_files = []
+
+    for batch_index in range(total_batches):
+        batch_start_index = batch_index * batch_size
+        batch_end_index = min(batch_start_index + batch_size, len(all_query_names))
+
+        batch_full_length_copies = {query_name: full_length_copies[query_name] for query_name in
+                                    all_query_names[batch_start_index:batch_end_index]}
+        batch_flank_full_length_copies = {query_name: flank_full_length_copies[query_name] for query_name in
+                                          all_query_names[batch_start_index:batch_end_index]}
+
+        # 存储批次数据到文件
+        batch_full_length_file = os.path.join(cluster_dir, f'batch_full_length_{batch_start_index}.pkl')
+        batch_flank_full_length_file = os.path.join(cluster_dir, f'batch_flank_full_length_{batch_start_index}.pkl')
+
+        with open(batch_full_length_file, 'wb') as f:
+            pickle.dump(batch_full_length_copies, f)
+
+        with open(batch_flank_full_length_file, 'wb') as f:
+            pickle.dump(batch_flank_full_length_copies, f)
+
+        # 将文件路径添加到列表
+        batch_files.append((batch_full_length_file, batch_flank_full_length_file, batch_start_index))
+
+        # 释放内存
+        del batch_full_length_copies
+        del batch_flank_full_length_copies
+
+    # 释放 full_length_copies 和 flank_full_length_copies 内存
+    del full_length_copies
+    del flank_full_length_copies
+
+    # 遍历批次文件，调用process_batch处理每个批次
+    for batch_full_length_file, batch_flank_full_length_file, batch_start_index in batch_files:
+        batch_output_files = process_batch(batch_full_length_file, batch_flank_full_length_file, batch_start_index, cluster_dir, threads, search_struct, tools_dir)
+        all_output_files.extend(batch_output_files)
+        if os.path.exists(batch_full_length_file):
+            os.remove(batch_full_length_file)
+        if os.path.exists(batch_flank_full_length_file):
+            os.remove(batch_flank_full_length_file)
+
+    return all_output_files
 
 def generate_full_length_out(BlastnOut, full_length_out, TE_lib, reference, tmp_output_dir, tools_dir, full_length_threshold, category):
     if not os.path.exists(tmp_output_dir):
@@ -5444,35 +6028,65 @@ def generate_full_length_out(BlastnOut, full_length_out, TE_lib, reference, tmp_
 
     return lines
 
+def generate_full_length_out_v1(BlastnOut, TE_lib, reference, tmp_output_dir, tools_dir, full_length_threshold, category):
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
+    filter_tmp_out = filter_out_by_category(BlastnOut, tmp_output_dir, category)
+    if os.path.exists(BlastnOut):
+        os.remove(BlastnOut)
+
+    threads = 1
+    divergence_threshold = 20
+    search_struct = False
+    # 为了避免内存溢出，将所有结果都存在文件中
+    full_length_copies, flank_full_length_copies = get_full_length_copies_from_blastn_v1(TE_lib, reference, filter_tmp_out,
+                                                                             tmp_output_dir, threads,
+                                                                             divergence_threshold,
+                                                                             full_length_threshold,
+                                                                             search_struct, tools_dir)
+
+    full_length_copies_result = os.path.join(tmp_output_dir, 'full_length_copies.pkl')
+    flank_full_length_copies_result = os.path.join(tmp_output_dir, 'flank_full_length_copies.pkl')
+    save_to_file(full_length_copies, full_length_copies_result)
+    save_to_file(flank_full_length_copies, flank_full_length_copies_result)
+    del full_length_copies
+    del flank_full_length_copies
+
+    if os.path.exists(filter_tmp_out):
+        os.remove(filter_tmp_out)
+    output_files = get_structure_from_copies(full_length_copies_result, flank_full_length_copies_result, threads, tmp_output_dir, search_struct, tools_dir)
+
+    return output_files
+
+
 def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index):
     masked_genome_path = genome_path + '.masked'
     if file_exist(TE_lib):
         tmp_blast_dir = work_dir + '/mask_tmp_' + str(ref_index)
         lib_out = work_dir + '/prev_TE_'+str(ref_index)+'.out'
         multi_process_align(TE_lib, genome_path, lib_out, tmp_blast_dir, thread, is_removed_dir=True)
-        full_length_out = work_dir + '/mask_full_length'+str(ref_index)+'.out'
+        # full_length_out = work_dir + '/mask_full_length'+str(ref_index)+'.out'
         coverage_threshold = 0.8
         category = 'Total'
-        sorted_lines = generate_full_length_out(lib_out, full_length_out, TE_lib, genome_path, tmp_blast_dir, '',
+        output_files = generate_full_length_out_v1(lib_out, TE_lib, genome_path, tmp_blast_dir, '',
                                  coverage_threshold, category)
 
-        if os.path.exists(tmp_blast_dir):
-            os.system('rm -rf ' + tmp_blast_dir)
-        if os.path.exists(lib_out):
-            os.remove(lib_out)
-        if os.path.exists(full_length_out):
-            os.remove(full_length_out)
-
         ref_names, ref_contigs = read_fasta(genome_path)
-        # mask genome
-        for query_name, chr_name, chr_start, chr_end in sorted_lines:
-            start = chr_start - 1
-            end = chr_end
-            ref_seq = ref_contigs[chr_name]
-            mask_seq = ref_seq[:start] + 'N' * (end - start) + ref_seq[end:]
-            ref_contigs[chr_name] = mask_seq
-
+        for output_file in output_files:
+            sorted_lines = load_from_file(output_file)
+            # mask genome
+            for query_name, chr_name, chr_start, chr_end in sorted_lines:
+                start = chr_start - 1
+                end = chr_end
+                ref_seq = ref_contigs[chr_name]
+                mask_seq = ref_seq[:start] + 'N' * (end - start) + ref_seq[end:]
+                ref_contigs[chr_name] = mask_seq
+            del sorted_lines
         store_fasta(ref_contigs, masked_genome_path)
+        del ref_contigs
+
+        if os.path.exists(tmp_blast_dir):
+            shutil.rmtree(tmp_blast_dir)
     else:
         os.system('cp ' + genome_path + ' ' + masked_genome_path)
 
@@ -7394,10 +8008,15 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
     with ProcessPoolExecutor(max_workers=threads) as ex:
         jobs = [ex.submit(multiple_alignment_blast, file, '') for file in longest_repeat_files]
         for job in as_completed(jobs):
-            cur_blastn2Results_path = job.result()
-            os.system(f'cat {cur_blastn2Results_path} >> {blastnResults_path}')
-            if os.path.exists(cur_blastn2Results_path):
-                os.remove(cur_blastn2Results_path)
+            try:
+                cur_blastn2Results_path = job.result()
+                subprocess.run(f'cat {cur_blastn2Results_path} >> {blastnResults_path}',
+                               shell=True, check=True)
+            except Exception as e:
+                print(f"Error: {e}")
+            finally:
+                if os.path.exists(cur_blastn2Results_path):
+                    os.remove(cur_blastn2Results_path)
 
     # 清理临时文件和索引
     if is_remove_index:
@@ -7406,7 +8025,7 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
             if os.path.exists(index_file):
                 os.remove(index_file)
     if is_removed_dir:
-        os.system(f'rm -rf {tmp_blast_dir}')
+        shutil.rmtree(tmp_blast_dir)
 
 def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp_output_dir):
     subject_path = confident_ltr_cut_path
@@ -10238,22 +10857,39 @@ def get_full_length_copies_from_gff(TE_lib, reference, gff_path, tmp_output_dir,
         store_fasta(query_copies, fc_path)
         split_files.append((fc_path, query_name, query_copies, flank_query_copies))
 
-    ex = ProcessPoolExecutor(threads)
+    ex = ProcessPoolExecutor(max_workers=threads)
     jobs = []
+    output_files = []
+
     for ref_index, cur_file in enumerate(split_files):
         input_file = cur_file[0]
         query_name = cur_file[1]
         query_copies = cur_file[2]
         flank_query_copies = cur_file[3]
+
+        # 为每个进程的输出文件生成唯一路径
+        output_file = os.path.join(cluster_dir, f"result_{ref_index}.pkl")
+        output_files.append(output_file)
+
+        # 提交任务，并将输出文件路径传递给任务函数
         job = ex.submit(get_structure_info, input_file, query_name, query_copies,
-                        flank_query_copies, cluster_dir, search_struct, tools_dir)
+                        flank_query_copies, cluster_dir, search_struct, tools_dir, output_file)
         jobs.append(job)
+
     ex.shutdown(wait=True)
 
+    # 从文件中加载所有结果并合并
     full_length_annotations = {}
-    for job in as_completed(jobs):
-        annotations = job.result()
-        full_length_annotations.update(annotations)
+    for output_file in output_files:
+        if os.path.exists(output_file):
+            annotations = load_from_file(output_file)
+            full_length_annotations.update(annotations)
+
+    # 可选：清理临时文件
+    for output_file in output_files:
+        if os.path.exists(output_file):
+            os.remove(output_file)
+
     return full_length_annotations, copies_direct
 
 def get_full_length_copies_RM(TE_lib, reference, tmp_output_dir, threads, divergence_threshold, full_length_threshold,
@@ -13290,7 +13926,7 @@ def get_full_length_copies_from_blastn_v2(TE_lib, reference, blastn_out, tmp_out
         query_name = cur_file[1]
         query_copies = cur_file[2]
         flank_query_copies = cur_file[3]
-        job = ex.submit(get_structure_info, input_file, query_name, query_copies,
+        job = ex.submit(get_structure_info_v2, input_file, query_name, query_copies,
                         flank_query_copies, cluster_dir, search_struct, tools_dir)
         jobs.append(job)
     ex.shutdown(wait=True)
@@ -13431,3 +14067,52 @@ def split_internal_out(merge_te_file, output_dir):
     store_fasta(other_contigs, other_path)
     store_fasta(internal_contigs, internal_path)
     return other_path, internal_path
+
+
+def clean_old_tmp_files_by_dir(tmp_dir='/tmp', age_threshold=60*60*24):
+    """删除指定目录下的老旧文件和目录"""
+
+    def is_old(file_path):
+        """检查文件或目录是否老旧（超过阈值）"""
+        current_time = time.time()
+        file_mtime = os.path.getmtime(file_path)  # 获取最后修改时间
+        return current_time - file_mtime > age_threshold
+
+    def can_delete(file_path):
+        """检查当前用户是否有权限删除文件或目录"""
+        if not os.path.exists(file_path):
+            return False
+        # 检查是否有写权限
+        return os.access(file_path, os.W_OK)
+
+    def get_free_space(path):
+        """获取指定路径的剩余空间（以字节为单位）"""
+        stat = os.statvfs(path)
+        return stat.f_bavail * stat.f_frsize
+
+    # 检查/tmp目录的剩余空间
+    free_space = get_free_space(tmp_dir)
+    if free_space >= 100 * 1024 * 1024 * 1024:  # 100GB
+        print(f"Sufficient space available in {tmp_dir}: {free_space / (1024**3):.2f} GB")
+        return
+
+    print(f"Low disk space in {tmp_dir}: {free_space / (1024**3):.2f} GB. Cleaning up old files...")
+
+    # 遍历目录
+    for item in os.listdir(tmp_dir):
+        item_path = os.path.join(tmp_dir, item)
+        try:
+            # 检查是否老旧且有权限删除
+            if is_old(item_path) and can_delete(item_path):
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)  # 递归删除目录
+                    print(f"Deleted directory: {item_path}")
+                else:
+                    os.remove(item_path)  # 删除文件
+                    print(f"Deleted file: {item_path}")
+        except PermissionError:
+            # 没有权限时跳过
+            print(f"Skipping due to permission denied: {item_path}")
+        except Exception as e:
+            # 捕获其他异常并跳过
+            print(f"Skipping due to error: {item_path} ({e})")

@@ -328,6 +328,27 @@ process MergeLTROther {
     """
 }
 
+process GenomeClean {
+    cpus { params.threads ?: 1 }
+
+    storeDir "${params.out_dir}/GenomeClean"
+
+    input:
+    path ref
+
+    output:
+    path "genome.fa.clean",    emit: ch_genome_clean
+
+    script:
+    cores = task.cpus
+    """
+    genome_clean.py \
+     -i ${ref} \
+     -o genome.fa.clean \
+     -t ${cores}
+    """
+}
+
 process OtherTE {
     cpus { params.threads ?: 1 }
 
@@ -555,6 +576,10 @@ workflow {
         // Step0: dependency check
         dependencies = Channel.from(params.dependencies)
         EnvCheck(dependencies) | view { "$it" }
+
+        GenomeClean(ch_genome)
+
+        ch_genome = GenomeClean.out.ch_genome_clean
 
         // Step1: LTR identification
         LTR(ch_genome)

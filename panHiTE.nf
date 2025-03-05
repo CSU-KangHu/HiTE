@@ -31,8 +31,6 @@ params.debug = 0
 params.threads = 10
 params.miu = 1.3e-8
 params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
-params.min_sample_threshold = 5
-params.min_diff_threshold = 10
 
 // 验证 TE 类型是否合法
 if (!params.all_te_types.contains(params.te_type)) {
@@ -56,8 +54,6 @@ def helpMessage() {
       --softcore_threshold   occurrence of core_TE = num_of_genomes, softcore_threshold * num_of_genomes <= softcore_TE < num_of_genomes, 2 <= dispensable_TE < softcore_threshold * num_of_genomes, private_TE = 1. default = [ 0.8 ]
       --genes_dir            A directory containing the gene annotation files, gff format.
       --RNA_dir              A directory containing the RNA-seq files.
-      --min_sample_threshold When identifying differentially expressed genes caused by TE insertions, for the groups with TE insertions and without TE insertions, the number of samples in at least one group must be greater than the min_sample_threshold.
-      --min_diff_threshold   The absolute difference in gene expression values between groups with and without TE insertion. diff = min(group1) - max(group2).
       --te_type              Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
       --threads              Input thread num. default = [ 10 ]
       --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
@@ -113,6 +109,7 @@ process pan_run_hite_single {
     path "confident_other.fa", emit: ch_other
     path "confident_tir.fa", emit: ch_tir
     path "confident_TE.cons.fa", emit: ch_te
+    path "chr_name.map", emit: chr_name_map
     tuple val(genome_name), path("tir_low_copy.fa"), path("helitron_low_copy.fa"), path("non_ltr_low_copy.fa"), emit: ch_low_copy_files
 
     script:
@@ -332,8 +329,7 @@ process pan_detect_de_genes {
     cores = task.cpus
     """
     pan_detect_de_genes.py --genome_info_for_bam_json ${genome_info_for_bam_json} --gene_te_associations ${gene_te_associations} \
-    --min_sample_threshold ${params.min_sample_threshold} --min_diff_threshold ${params.min_diff_threshold} --RNA_dir ${RNA_dir} \
-    --threads ${cores} > pan_detect_de_genes.log 2>&1
+    --RNA_dir ${RNA_dir} --threads ${cores} > pan_detect_de_genes.log 2>&1
     """
 }
 

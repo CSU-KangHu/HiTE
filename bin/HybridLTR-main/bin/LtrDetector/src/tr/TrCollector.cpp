@@ -170,7 +170,7 @@ void TrCollector::outputAnnotation(vector<LtrTe*> * myTEList, string fileName)
 		}
 		else{
 			output << chrom->getHeader().substr(1) << "\t";
-			int id = ltr->getIdentity();
+			double id = ltr->getIdentity();
 			output << curr->getStart()<< '\t' << curr->getEnd() << "\t" << ltr->getS1() << '\t' << ltr->getE1()<<"\t"<<ltr->getS2()<< "\t" <<ltr->getE2()<<"\t"<<id<<"\t" ;
 
 			//NOTE: if either member of pair is string::no_pos then print dash

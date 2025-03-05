@@ -25,7 +25,7 @@ private:
     int minPlateauLen;
     int diffThresh;
     int gapTol;
-    int identity;
+    double identity;
 
     bool isMatch(int,int);
     void forwardMerge();
