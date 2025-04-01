@@ -11,7 +11,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
     read_fasta, store_fasta, run_HybridLTR, assign_label_to_lib, create_or_clear_directory, copy_files, \
-    clean_old_tmp_files_by_dir
+    clean_old_tmp_files_by_dir, mask_genome_with_TE
 
 
 def rename_LTR(ltr_lib, rename_ltr_lib):
@@ -96,7 +96,7 @@ def get_intact_ltr(genome_path, ltr_list, intact_LTR_path):
     return segmentLTRs
 
 def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
-                      is_output_lib, use_NeuralTE, is_wicker, log):
+                      is_output_lib, use_NeuralTE, is_wicker, prev_TE, log):
     LTR_harvest_parallel_Home = cur_dir + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = cur_dir + '/bin/LTR_FINDER_parallel-master'
     NeuralTE_home = cur_dir + '/bin/NeuralTE'
@@ -108,11 +108,18 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
     chr_name_map = tmp_output_dir + '/chr_name.map'
     rename_reference(reference, ref_rename_path, chr_name_map)
 
+    masked_reference = mask_genome_with_TE(prev_TE, ref_rename_path, tmp_output_dir, threads, 0, debug)
+    ref_rename_path = masked_reference
+
     confident_ltr_cut_path = tmp_output_dir + '/confident_ltr_cut.fa'
     confident_ltr_terminal = tmp_output_dir + '/confident_ltr.terminal.fa'
     confident_ltr_internal = tmp_output_dir + '/confident_ltr.internal.fa'
     confident_intact_ltr_list = tmp_output_dir + '/intact_LTR.list'
     intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
+
+    confident_tir_path = os.path.join(tmp_output_dir, "confident_tir_from_ltr.fa")
+    confident_helitron_path = os.path.join(tmp_output_dir, "confident_helitron_from_ltr.fa")
+    confident_non_ltr_path = os.path.join(tmp_output_dir, "confident_non_ltr_from_ltr.fa")
 
     if use_HybridLTR:
         LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
@@ -121,6 +128,10 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
         Hybrid_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
         Hybrid_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
         HybridLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
+
+        Hybrid_confident_tir_path = os.path.join(LTR_output_dir, "confident_tir_from_ltr.fa")
+        Hybrid_confident_helitron_path = os.path.join(LTR_output_dir, "confident_helitron_from_ltr.fa")
+        Hybrid_confident_non_ltr_path = os.path.join(LTR_output_dir, "confident_non_ltr_from_ltr.fa")
 
         check_files = [
             confident_ltr_terminal, confident_ltr_internal, confident_ltr_cut_path,
@@ -133,15 +144,23 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
             run_HybridLTR(ref_rename_path, LTR_output_dir, HybridLTR_home, threads, miu, recover, debug, is_output_lib,
                           log)
             if file_exist(HybridLTR_intact_LTR_path):
-                os.system('cp ' + HybridLTR_intact_LTR_path + ' ' + intact_LTR_path)
+                shutil.copy(HybridLTR_intact_LTR_path, intact_LTR_path)
             if file_exist(Hybrid_ltr_terminal):
-                os.system('cp ' + Hybrid_ltr_terminal + ' ' + confident_ltr_terminal)
+                shutil.copy(Hybrid_ltr_terminal, confident_ltr_terminal)
             if file_exist(Hybrid_ltr_internal):
-                os.system('cp ' + Hybrid_ltr_internal + ' ' + confident_ltr_internal)
+                shutil.copy(Hybrid_ltr_internal, confident_ltr_internal)
             if file_exist(Hybrid_intact_ltr_list):
-                os.system('cp ' + Hybrid_intact_ltr_list + ' ' + confident_intact_ltr_list)
+                shutil.copy(Hybrid_intact_ltr_list, confident_intact_ltr_list)
+
+            if file_exist(Hybrid_confident_tir_path):
+                shutil.copy(Hybrid_confident_tir_path, confident_tir_path)
+            if file_exist(Hybrid_confident_helitron_path):
+                shutil.copy(Hybrid_confident_helitron_path, confident_helitron_path)
+            if file_exist(Hybrid_confident_non_ltr_path):
+                shutil.copy(Hybrid_confident_non_ltr_path, confident_non_ltr_path)
+
             if file_exist(confident_ltr):
-                os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
+                shutil.copy(confident_ltr, confident_ltr_cut_path)
             else:
                 log.logger.info(
                     'No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
@@ -152,7 +171,7 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
         # 删除中间目录，以减少磁盘压力
         if not debug:
             if os.path.exists(LTR_output_dir):
-                os.system('rm -rf ' + LTR_output_dir)
+                shutil.rmtree(LTR_output_dir)
 
     else:
         check_files = [
@@ -208,9 +227,9 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
                         filter_intact_ltr_contigs[intact_ltr_name] = seq
                 store_fasta(filter_intact_ltr_contigs, intact_LTR_path)
             if file_exist(ltr_list):
-                os.system('cp ' + ltr_list + ' ' + confident_intact_ltr_list)
+                shutil.copy(ltr_list, confident_intact_ltr_list)
             if file_exist(confident_ltr):
-                os.system('cp ' + confident_ltr + ' ' + confident_ltr_cut_path)
+                shutil.copy(confident_ltr, confident_ltr_cut_path)
             else:
                 log.logger.info(
                     'No LTR retrotransposons are detected in the genome, HiTE continues to identify other types of transposons')
@@ -233,7 +252,7 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command)
         NeuralTE_output = NeuralTE_output_dir + '/classified_TE.fa'
-        os.system('cp ' + NeuralTE_output + ' ' + classified_TE_path)
+        shutil.copy(NeuralTE_output, classified_TE_path)
     else:
         # classify LTR using RepeatClassifier
         sample_name = 'test'
@@ -297,6 +316,9 @@ if __name__ == '__main__':
                         help='Whether to output LTR library.')
     parser.add_argument('--debug', metavar='recover',
                         help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
+    parser.add_argument('--prev_TE', metavar='prev_TE',
+                        help='TEs fasta file that has already been identified. Please use the absolute path.')
 
 
     args = parser.parse_args()
@@ -311,7 +333,9 @@ if __name__ == '__main__':
     is_wicker = args.is_wicker
     is_output_lib = int(args.is_output_lib)
     debug = args.debug
-
+    prev_TE = args.prev_TE
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     if tmp_output_dir is None:
         tmp_output_dir = os.getcwd()
@@ -330,16 +354,16 @@ if __name__ == '__main__':
     else:
         debug = int(debug)
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/judge_LTR_transposons_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'judge_LTR_transposons_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 
         run_judge_LTR_detection(temp_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
-                          is_output_lib, use_NeuralTE, is_wicker, log)
+                          is_output_lib, use_NeuralTE, is_wicker, prev_TE, log)
 
         # 计算完之后将结果拷贝回输出目录
         copy_files(temp_dir, tmp_output_dir)

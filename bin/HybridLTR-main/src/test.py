@@ -46,7 +46,8 @@ from Util import judge_both_ends_frame_v1, filter_ltr_by_homo, multi_process_ali
     get_copies_v2, get_domain_info_v1, get_domain_info_v2, remove_copies_from_redundant_contig, \
     remove_copies_from_redundant_contig_v1, is_ltr_has_structure, \
     deredundant_for_LTR_v5, get_ltr_from_line, get_all_potential_ltr_lines, \
-    multi_process_align_v1, filter_ltr_by_copy_num_sub, Logger, alter_deep_learning_results
+    multi_process_align_v1, Logger, alter_deep_learning_results, \
+    generate_both_ends_frame_from_seq_minimap2
 from clean_LTR_internal import purge_internal_seq, purge_internal_seq_by_table
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, classification_report
 
@@ -631,10 +632,29 @@ def matrix2align(matrix_file, align_file):
                 f_save.write('>seq_'+str(seq_id) + '\n' + line)
                 seq_id += 1
 
-work_dir = '/home/hukang/test/HiTE/demo'
-log = Logger(work_dir + '/HiTE.log', level='debug')
+# work_dir = '/home/hukang/test/HiTE/demo'
+# log = Logger(work_dir + '/HiTE.log', level='debug')
 
 if __name__ == '__main__':
+    # 测试序列是否具有TSD结构
+    work_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest3'
+    chunk_left_ltr_path = work_dir + '/test.fa'
+    reference = work_dir + '/genome.rename.fa'
+    flanking_len = 100
+    threads = 48
+    temp_dir = os.path.join(work_dir, 'candidate_ltr')
+    output_dir = os.path.join(work_dir, 'ltr_both_frames')
+    full_length_output_dir = os.path.join(work_dir, 'full_length_frames')
+    max_copy_num = 100
+    # generate_both_ends_frame_from_seq_minimap2(chunk_left_ltr_path, reference, flanking_len, threads, temp_dir,
+    #                                           output_dir, full_length_output_dir, max_copy_num)
+
+    cur_matrix_file = work_dir + '/full_length_frames/chr14:9376718-9377754.matrix'
+    ltr_name = 'chr14:9376718-9377754'
+    TE_type = 'tir'
+    ltr_name, is_TE, info, final_cons_seq = judge_boundary_v5(cur_matrix_file, ltr_name, TE_type, flanking_len)
+    print(ltr_name, is_TE, info, final_cons_seq)
+
     # # 测试一下 deep learning模块的性能
     # work_dir = '/home/hukang/left_LTR_real_dataset/five_species_high_copy_bak/Arabidopsis_thaliana'
     # dl_output_path = work_dir + '/out/is_LTR_deep.txt'
@@ -719,16 +739,16 @@ if __name__ == '__main__':
     # print("Classification Report:")
     # print(report)
 
-    # 测试一下在大规模基因组上获取拷贝是否有问题
-    threads = 48
-    full_length_threshold = 0.95
-    tmp_output_dir = '/tmp/judge_LTR_transposons_3d88e304-8a84-4c49-9cf8-bb47526822f2/HybridLTR_output'
-    split_ref_dir = tmp_output_dir + '/ref_chr'
-    intact_ltr_path = tmp_output_dir + '/intact_ltr.fa'
-    temp_dir = tmp_output_dir + '/intact_ltr_filter'
-    reference = '/tmp/judge_LTR_transposons_3d88e304-8a84-4c49-9cf8-bb47526822f2/genome.rename.fa'
-    ltr_copies = filter_ltr_by_copy_num_sub(intact_ltr_path, threads, temp_dir, split_ref_dir, full_length_threshold,
-                                            max_copy_num=10)
+    # # 测试一下在大规模基因组上获取拷贝是否有问题
+    # threads = 48
+    # full_length_threshold = 0.95
+    # tmp_output_dir = '/tmp/judge_LTR_transposons_3d88e304-8a84-4c49-9cf8-bb47526822f2/HybridLTR_output'
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # intact_ltr_path = tmp_output_dir + '/intact_ltr.fa'
+    # temp_dir = tmp_output_dir + '/intact_ltr_filter'
+    # reference = '/tmp/judge_LTR_transposons_3d88e304-8a84-4c49-9cf8-bb47526822f2/genome.rename.fa'
+    # ltr_copies = filter_ltr_by_copy_num_sub(intact_ltr_path, threads, temp_dir, split_ref_dir, full_length_threshold,
+    #                                         max_copy_num=10)
 
 
 

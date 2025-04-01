@@ -124,6 +124,7 @@ if __name__ == '__main__':
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_tir', metavar='all_low_copy_tir',
                         help='all low copy tir path, to recover tir using pan-genome')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     longest_repeats_flanked_path = args.seqs
@@ -139,6 +140,8 @@ if __name__ == '__main__':
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_tir = args.all_low_copy_tir
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)
@@ -166,11 +169,11 @@ if __name__ == '__main__':
     if not os.path.exists(all_low_copy_tir):
         os.system('touch ' + all_low_copy_tir)
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/judge_TIR_transposons_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'judge_TIR_transposons_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

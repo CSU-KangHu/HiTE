@@ -90,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
                         help="Output directory (default: current working directory).")
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     # 解析参数
     args = parser.parse_args()
@@ -98,6 +99,8 @@ if __name__ == "__main__":
     genome_name = args.genome_name
     annotate = args.annotate
     threads = args.threads
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     panTE_lib = os.path.abspath(panTE_lib)
     reference = os.path.abspath(reference)
@@ -108,11 +111,11 @@ if __name__ == "__main__":
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/pan_annotate_genome_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'pan_annotate_genome_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
         # 调用 RepeatMasker 函数

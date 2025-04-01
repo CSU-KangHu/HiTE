@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib
 
 from judge_TIR_transposons import is_transposons
+from module.benchmarking import run_benchmarking
 
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
@@ -50,7 +51,7 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     multi_process_align_v1, FMEA, judge_boundary_v8, judge_boundary_v9, run_find_members_v8, deredundant_for_LTR_v5, \
     get_candidate_non_LTR, get_candidate_non_ltr_parallel, find_nearest_polyA, find_nearest_tandem, search_polyA_TSD, \
     split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome, parse_clstr_file, \
-    save_to_file
+    save_to_file, te_genome_align_minimap2, convert_paf_to_blast6_format, generate_full_length_out_v1, load_from_file
 
 
 def filter_repbase_nonTE():
@@ -1983,7 +1984,7 @@ def get_mask_regions(std_out):
 
 def BM_EDTA():
     # 自己编写程序，尝试获得和BM_EDTA一致的结果
-    work_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/panHiTE_serial_output'
+    work_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest3'
     genome = work_dir + '/genome.rename.fa'
     std_out = work_dir + '/repbase.edta.out'
     test_out = work_dir + '/HiTE.edta.out'
@@ -4327,8 +4328,9 @@ if __name__ == '__main__':
     #     json.dump(all_copies, file, indent=4, ensure_ascii=False)
 
     import pysam
-    def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95,
-                            full_length_identity_threshold=0.8):
+
+
+    def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95):
         """
         根据覆盖度和一致性阈值筛选比对结果。
 
@@ -4336,7 +4338,6 @@ if __name__ == '__main__':
             query_fasta_path (str): 查询序列的 FASTA 文件路径。
             sam_path (str): SAM 文件路径。
             full_length_coverage_threshold (float): 覆盖度阈值（默认 0.95）。
-            full_length_identity_threshold (float): 一致性阈值（默认 0.8）。
 
         返回:
             dict: 包含所有符合条件比对的字典，格式为 {query_name: [(subject_name, subject_start, subject_end, aligned_length, direct), ...]}。
@@ -4356,10 +4357,15 @@ if __name__ == '__main__':
                 query_name = read.query_name
                 query_length = len(query_contigs[query_name])  # query 的总长度
                 aligned_length = read.query_alignment_length  # 比对上的 query 长度
-                nm = read.get_tag("NM")  # 编辑距离
-                matches = aligned_length - nm  # 匹配的碱基数
-                identity = matches / aligned_length  # 一致性
-                coverage = aligned_length / query_length  # 覆盖度
+                # nm = read.get_tag("NM")  # 编辑距离
+                # matches = aligned_length - nm  # 匹配的碱基数
+                query_coverage = aligned_length / query_length  # 覆盖度
+                total_target_length = 0
+                cigar = read.cigartuples
+                for op, length in cigar:
+                    if op == 0 or op == 2:  # M (match) 或 D (deletion)
+                        total_target_length += length
+                target_coverage = aligned_length / total_target_length  # 覆盖度
 
                 # 提取 subject 信息
                 subject_name = read.reference_name
@@ -4368,7 +4374,7 @@ if __name__ == '__main__':
                 direct = "-" if read.is_reverse else "+"  # 比对方向
 
                 # 如果覆盖度和一致性满足阈值，则保存比对信息
-                if coverage >= full_length_coverage_threshold:
+                if query_coverage >= full_length_coverage_threshold and target_coverage >= full_length_coverage_threshold:
                     if query_name not in all_copies:
                         all_copies[query_name] = []
                     all_copies[query_name].append((subject_name, subject_start, subject_end, aligned_length, direct))
@@ -4379,8 +4385,8 @@ if __name__ == '__main__':
         return all_copies
 
 
-    def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100):
-        debug = 1
+    def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100,
+                                       full_length_coverage=0.95):
         if os.path.exists(temp_dir):
             os.system('rm -rf ' + temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
@@ -4408,7 +4414,7 @@ if __name__ == '__main__':
         # 执行命令并重定向输出到文件
         try:
             with open(sam_path, "w") as sam_file:
-                result = subprocess.run(align_command, stdout=sam_file, check=True)
+                result = subprocess.run(align_command, stdout=sam_file, stderr=subprocess.DEVNULL, check=True)
         except subprocess.CalledProcessError as e:
             print(f"minimap2 alignment failed with error code {e.returncode}.")
         except Exception as e:
@@ -4418,7 +4424,8 @@ if __name__ == '__main__':
         all_ltr_names, all_ltr_contigs = read_fasta(candidate_sequence_path)
 
         # 解析 sam 文件，获取拷贝
-        all_copies = get_copies_minimap2(candidate_sequence_path, sam_path)
+        all_copies = get_copies_minimap2(candidate_sequence_path, sam_path,
+                                         full_length_coverage_threshold=full_length_coverage)
 
         minimap_single_copy_contigs = {}
         for ltr_name in all_copies:
@@ -4883,6 +4890,159 @@ if __name__ == '__main__':
     #     # 如果没有异常，删除临时目录
     #     if os.path.exists(temp_dir):
     #         shutil.rmtree(temp_dir)
+
+
+    def genome_genome_align_minimap2(query_fasta, target_fasta, output_paf, threads, multi_records=100):
+        """
+        使用 Minimap2 对两个 FASTA 文件进行比对，并将结果保存为 PAF 格式。
+        :param query_fasta: 查询序列文件路径
+        :param target_fasta: 目标序列文件路径
+        :param output_paf: 输出的 PAF 文件路径
+        """
+        command = [
+            "minimap2",
+            "-x", "asm20",  # 使用适合组装的参数
+            # "-N", str(multi_records),
+            # "-p", "0.2",
+            "-P",
+            "-g 500",
+            "--max-chain-skip 5",
+            "-f 0",
+            "--no-long-join",
+            "-c",
+            "-t", str(threads),
+            target_fasta,
+            query_fasta,
+            "-o", output_paf
+        ]
+        # with open(output_sam, "w") as sam_file:
+        #     result = subprocess.run(command, stdout=sam_file, stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    # # # 测试一下粗比对是否可以用minimap2替代
+    # work_dir = '/home/hukang/test/HiTE/demo/out4'
+    # query_path = os.path.join(work_dir, '9_target.fa')
+    # target_path = os.path.join(work_dir, '0_target.fa')
+    # thread = 1
+    # lib_out = work_dir + '/test.out'
+    # lib_paf = work_dir + '/test.paf'
+    # if os.path.exists(lib_paf):
+    #     os.remove(lib_paf)
+    # # target_dir = os.path.join(work_dir, 'longest_repeats_blast_25')
+    # # for target_name in os.listdir(target_dir):
+    # #     if target_name.endswith('.fa'):
+    # #         target_path = os.path.join(target_dir, target_name)
+    # #         cur_lib_paf = target_name + '.paf'
+    # #         te_genome_align_minimap2(query_path, target_path, cur_lib_paf, thread, multi_records=100)
+    # #         os.system('cat ' + cur_lib_paf + ' >> ' + lib_paf)
+    #
+    # genome_genome_align_minimap2(query_path, target_path, lib_paf, thread, multi_records=100)
+    # # 将 PAF 文件转换为类似 BLAST outfmt 6 的格式
+    # convert_paf_to_blast6_format(lib_paf, lib_out)
+
+    # lib_out = '/tmp/coarse_boundary_083091c4-a07e-4b36-8776-2298bab374f7/prev_TE_0.out'
+    # TE_lib = '/home/hukang/test/HiTE/demo/out14/prev_TE.fa'
+    # genome_path = '/tmp/coarse_boundary_083091c4-a07e-4b36-8776-2298bab374f7/filter_tandem_0.fa'
+    # tmp_blast_dir = '/tmp/coarse_boundary_083091c4-a07e-4b36-8776-2298bab374f7/'
+    # coverage_threshold = 0.8
+    # category = 'Total'
+    # debug = 1
+    # output_files = generate_full_length_out_v1(lib_out, TE_lib, genome_path, tmp_blast_dir, '',
+    #                                            coverage_threshold, category, debug=debug)
+    #
+    # masked_genome_path = genome_path + '.masked'
+    # ref_names, ref_contigs = read_fasta(genome_path)
+    # for output_file in output_files:
+    #     sorted_lines = load_from_file(output_file)
+    #     # mask genome
+    #     for query_name, chr_name, chr_start, chr_end in sorted_lines:
+    #         print(query_name, chr_name, chr_start, chr_end)
+    #         start = chr_start - 1
+    #         end = chr_end
+    #         ref_seq = ref_contigs[chr_name]
+    #         mask_seq = ref_seq[:start] + 'N' * (end - start) + ref_seq[end:]
+    #         ref_contigs[chr_name] = mask_seq
+    #     del sorted_lines
+    # store_fasta(ref_contigs, masked_genome_path)
+    # del ref_contigs
+
+    # candidate_sequence_path = '/home/hukang/test/HiTE/demo/out4/test.fa'
+    # full_length_coverage = 0.98
+    # sam_path = '/home/hukang/test/HiTE/demo/out4/intact_LTR.sam'
+    # all_copies = get_copies_minimap2(candidate_sequence_path, sam_path,
+    #                                  full_length_coverage_threshold=full_length_coverage)
+    # print(all_copies)
+
+
+    # # 我们现在测试一下minimap2和blastn分别在判断一条假阳性的内部序列时，会得到几条拷贝
+    # candidate_sequence_path = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest1/test.fa'
+    # threads = 40
+    # full_length_threshold = 0.95
+    # temp_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest1/temp_dir'
+    # reference = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest1/genome.rename.fa'
+    # all_copies, minimap_single_copy = filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100,
+    #                                full_length_coverage=0.95)
+    # print('minimap2:')
+    # print(all_copies)
+    #
+    # tmp_output_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest1'
+    # blastn_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_blastn_filter')
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/src'
+    # split_genome_command = [
+    #     "cd", test_home, "&&", "python3", f"{test_home}/split_genome_chunks.py",
+    #     "-g", reference, "--tmp_output_dir", tmp_output_dir
+    # ]
+    # split_genome_command = " ".join(split_genome_command)
+    # try:
+    #     result = subprocess.run(split_genome_command, shell=True, check=True)
+    # except subprocess.CalledProcessError as e:
+    #     print(f"BLAT alignment failed with error code {e.returncode}.")
+    # ltr_copies = filter_ltr_by_copy_num_blastn(candidate_sequence_path, threads, blastn_temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
+    # print('blastn:')
+    # print(ltr_copies)
+
+
+
+
+    # temp_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest3'
+    # reference = temp_dir + '/genome.rename.fa'
+    # curated_lib = '/public/home/hpc194701009/test/test/HiTE/library/zebrafish.ltr.ref'
+    # TE_lib = temp_dir + '/confident_TE.cons.fa'
+    # log = Logger(temp_dir + '/benchmarking.log', level='debug')
+    # BM_RM2 = 1
+    # BM_EDTA = 1
+    # BM_HiTE = 1
+    # threads = 48
+    # coverage_threshold = 0.95
+    # recover = 0
+    # EDTA_home = '/public/home/hpc194701009/repeat_detect_tools/EDTA'
+    # run_benchmarking(temp_dir, reference, curated_lib, TE_lib, BM_RM2, BM_EDTA, BM_HiTE, threads, coverage_threshold,
+    #                  recover, EDTA_home, log)
+
+    # # 测试test中是否包含蛋白质
+    # tmp_output_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest3'
+    # single_copy_internals_file = tmp_output_dir + '/test.fa'
+    # temp_dir = tmp_output_dir + '/ltr_domain'
+    # output_table = single_copy_internals_file + '.ltr_domain'
+    # ltr_protein_db = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/databases/LTRPeps.lib'
+    # threads = 48
+    # get_domain_info(single_copy_internals_file, ltr_protein_db, output_table, threads, temp_dir)
+    # is_single_ltr_has_intact_protein = {}
+    # protein_names, protein_contigs = read_fasta(ltr_protein_db)
+    # with open(output_table, 'r') as f_r:
+    #     for i, line in enumerate(f_r):
+    #         if i < 2:
+    #             continue
+    #         parts = line.split('\t')
+    #         te_name = parts[0]
+    #         protein_name = parts[1]
+    #         protein_start = int(parts[4])
+    #         protein_end = int(parts[5])
+    #         intact_protein_len = len(protein_contigs[protein_name])
+    #         if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
+    #             is_single_ltr_has_intact_protein[te_name] = True
+    # print(is_single_ltr_has_intact_protein)
 
 
 

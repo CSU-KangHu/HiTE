@@ -146,7 +146,7 @@ if __name__ == '__main__':
                         help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--recover', metavar='is_recover',
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
-
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     BM_RM2 = args.BM_RM2
@@ -160,6 +160,8 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     coverage_threshold = args.coverage_threshold
     recover = int(args.recover)
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     default_coverage_threshold = 0.95
 
@@ -172,17 +174,21 @@ if __name__ == '__main__':
 
 
     if species == "dmel":
-        lib_path = lib_module + "/drorep.ref"
+        lib_path = lib_module + "/dmel.ltr.ref"
+        # lib_path = lib_module + '/drorep.ref'
     elif species == "rice":
-        lib_path = lib_module + "/oryrep.ref"
+        lib_path = lib_module + "/rice.ltr.ref"
+        # lib_path = lib_module + '/oryrep.ref'
     elif species == "cb":
         lib_path = lib_module + "/cbrrep.ref"
     elif species == "zebrafish":
-        lib_path = lib_module + "/zebrep.ref"
+        lib_path = lib_module + '/zebrep.ref'
+        # lib_path = lib_module + "/zebrafish.ltr.ref"
     elif species == "maize":
-        lib_path = lib_module + "/maize.ref"
+        lib_path = lib_module + "/maize.ltr.ref"
     elif species == "ath":
-        lib_path = lib_module + "/athrep.ref"
+        lib_path = lib_module + "/ath.ltr.ref"
+        # lib_path = lib_module + "/athrep.ref"
     elif species == "chicken":
         lib_path = lib_module + "/chicken.ref"
     elif species == "zebrafinch":
@@ -209,11 +215,11 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/run_benchmarking_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'run_benchmarking_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 
@@ -233,5 +239,6 @@ if __name__ == '__main__':
     else:
         # 如果没有异常，删除临时目录
         if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+            # shutil.rmtree(temp_dir)
+            print('here')
 

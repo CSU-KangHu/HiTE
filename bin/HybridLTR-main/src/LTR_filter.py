@@ -18,7 +18,8 @@ from Util import read_fasta, store_fasta, Logger, read_scn, store_scn, get_LTR_s
     generate_both_ends_frame_from_seq, get_low_copy_LTR, judge_ltr_from_both_ends_frame, file_exist, \
     get_high_copy_LTR, alter_deep_learning_results, filter_tir, filter_sine, filter_helitron, \
     filter_ltr_by_flanking_cluster, filter_ltr_by_copy_num, filter_single_copy_ltr, remove_dirty_LTR, \
-    filter_ltr_by_flank_seq_v2, deredundant_for_LTR_v5, get_all_potential_ltr_lines
+    filter_ltr_by_flank_seq_v2, deredundant_for_LTR_v5, get_all_potential_ltr_lines, \
+    generate_both_ends_frame_from_seq_minimap2
 from configs import config
 from utils.data_util import sort_matrix_dir
 
@@ -42,6 +43,9 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
 
     # Step 3: Filter out false positive sequences based on the flanking regions of the terminal sequences.
     log.logger.info(f'Processing chunk {chunk_id}: Filter out false positive sequences based on the flanking regions of the terminal sequences.')
+    confident_tir = os.path.join(tmp_output_dir, 'tir_' + str(chunk_id) + '.fa')
+    confident_helitron = os.path.join(tmp_output_dir, 'helitron_' + str(chunk_id) + '.fa')
+    confident_non_ltr = os.path.join(tmp_output_dir, 'non_ltr_' + str(chunk_id) + '.fa')
     confident_msa_file = os.path.join(tmp_output_dir, 'msa_flank_'+str(chunk_id)+'.txt')
     result_file = confident_msa_file
 
@@ -56,8 +60,11 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
 
         if not recover or not file_exist(output_dir) or not file_exist(full_length_output_dir):
             log.logger.debug('Generate LTR frames')
-            generate_both_ends_frame_from_seq(chunk_left_ltr_path, reference, flanking_len, threads, temp_dir, output_dir,
-                                              full_length_output_dir, split_ref_dir, max_copy_num, coverage_threshold)
+            # generate_both_ends_frame_from_seq(chunk_left_ltr_path, reference, flanking_len, threads, temp_dir, output_dir,
+            #                                  full_length_output_dir, split_ref_dir, max_copy_num, coverage_threshold)
+
+            generate_both_ends_frame_from_seq_minimap2(chunk_left_ltr_path, reference, flanking_len, threads, temp_dir,
+                                                       output_dir, full_length_output_dir, max_copy_num)
         else:
             log.logger.info(output_dir + ' exists, skip...')
             log.logger.info(full_length_output_dir + ' exists, skip...')
@@ -164,7 +171,7 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
             tir_output_path = os.path.join(chunk_dir, 'is_LTR_tir.txt')
             result_file = tir_output_path
             if not recover or not file_exist(result_file):
-                filter_tir(output_path, tir_output_path, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, tool_dir, flanking_len, log, debug)
+                filter_tir(output_path, tir_output_path, confident_tir, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, tool_dir, flanking_len, log, debug)
             else:
                 log.logger.info(result_file + ' exists, skip...')
             output_path = tir_output_path
@@ -173,7 +180,7 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
             helitron_output_path = os.path.join(chunk_dir, 'is_LTR_helitron.txt')
             result_file = helitron_output_path
             if not recover or not file_exist(result_file):
-                filter_helitron(output_path, helitron_output_path, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, project_dir, flanking_len, log, debug)
+                filter_helitron(output_path, helitron_output_path, confident_helitron, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, project_dir, flanking_len, log, debug)
             else:
                 log.logger.info(result_file + ' exists, skip...')
             output_path = helitron_output_path
@@ -182,7 +189,7 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
             sine_output_path = os.path.join(chunk_dir, 'is_LTR_sine.txt')
             result_file = sine_output_path
             if not recover or not file_exist(result_file):
-                filter_sine(output_path, sine_output_path, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, flanking_len, log, debug)
+                filter_sine(output_path, sine_output_path, confident_non_ltr, full_length_output_dir, threads, left_LTR_contigs, chunk_dir, flanking_len, log, debug)
             else:
                 log.logger.info(result_file + ' exists, skip...')
             output_path = sine_output_path
@@ -194,7 +201,7 @@ def process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, r
     else:
         log.logger.info(result_file + ' exists, skip...')
 
-    return confident_msa_file
+    return confident_msa_file, confident_tir, confident_helitron, confident_non_ltr
 
 
 if __name__ == '__main__':
@@ -642,13 +649,13 @@ if __name__ == '__main__':
         for header in ltr_names:
             chunk.append((header, ltr_contigs[header]))
             if len(chunk) == chunk_size:
-                chunk_result_file = process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover,
+                chunk_result_file, confident_tir, confident_helitron, confident_non_ltr = process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover,
                                                   debug, is_flank_homo_cluster, is_flank_homo_cluster_both,
                                                   is_handle_low_copy, is_use_homo_rule, is_use_deep_model,
                                                   is_filter_TIR, is_filter_Helitron, is_filter_SINE, reference,
                                                   split_ref_dir, max_copy_num, coverage_threshold, project_dir, src_dir,
                                                   left_LTR_contigs, tool_dir)
-                result_files.append(chunk_result_file)
+                result_files.append((chunk_result_file, confident_tir, confident_helitron, confident_non_ltr))
 
                 # 清理当前块的中间文件
                 if not debug:
@@ -661,13 +668,13 @@ if __name__ == '__main__':
 
         # 处理最后一个块
         if chunk:
-            chunk_result_file = process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover,
+            chunk_result_file, confident_tir, confident_helitron, confident_non_ltr = process_chunk(chunk, chunk_id, tmp_output_dir, flanking_len, threads, log, recover,
                                               debug, is_flank_homo_cluster, is_flank_homo_cluster_both,
                                               is_handle_low_copy, is_use_homo_rule, is_use_deep_model, is_filter_TIR,
                                               is_filter_Helitron, is_filter_SINE, reference, split_ref_dir,
                                               max_copy_num, coverage_threshold, project_dir, src_dir, left_LTR_contigs,
                                               tool_dir)
-            result_files.append(chunk_result_file)
+            result_files.append((chunk_result_file, confident_tir, confident_helitron, confident_non_ltr))
 
             # 清理最后一个块的中间文件
             if not debug:
@@ -676,11 +683,16 @@ if __name__ == '__main__':
 
         # 合并所有块的结果文件
         output_path = os.path.join(tmp_output_dir, "msa_flank.txt")
-        with open(output_path, "w") as outfile:
-            for result_file in result_files:
-                with open(result_file, "r") as infile:
-                    shutil.copyfileobj(infile, outfile)
-        log.logger.info(f"Final result saved to {output_path}")
+        confident_tir_path = os.path.join(tmp_output_dir, "confident_tir_from_ltr.fa")
+        confident_helitron_path = os.path.join(tmp_output_dir, "confident_helitron_from_ltr.fa")
+        confident_non_ltr_path = os.path.join(tmp_output_dir, "confident_non_ltr_from_ltr.fa")
+        total_result_files = [output_path, confident_tir_path, confident_helitron_path, confident_non_ltr_path]
+        for i, cur_output_path in enumerate(total_result_files):
+            with open(cur_output_path, "w") as outfile:
+                for items in result_files:
+                    item = items[i]
+                    with open(item, "r") as infile:
+                        shutil.copyfileobj(infile, outfile)
 
     if is_filter_single:
         intact_output_path = tmp_output_dir + '/intact_LTR_homo.txt'

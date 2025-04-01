@@ -38,6 +38,7 @@ if __name__ == '__main__':
                         help='Whether to annotate the genome using the TE library generated, 1: true, 0: false.')
     parser.add_argument('-r', metavar='reference',
                         help='Input reference Path')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     threads = int(args.t)
@@ -45,6 +46,8 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     annotate = args.annotate
     reference = args.r
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     classified_TE_consensus = os.path.abspath(classified_TE_consensus)
     reference = os.path.abspath(reference)
@@ -55,11 +58,11 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_annotate_genome.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/annotate_genome_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'annotate_genome_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

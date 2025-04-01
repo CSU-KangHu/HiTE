@@ -412,6 +412,7 @@ if __name__ == "__main__":
                         help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
     parser.add_argument('--is_wicker', type=int, default=0,
                         help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     # 解析参数
     args = parser.parse_args()
@@ -426,6 +427,8 @@ if __name__ == "__main__":
     threads = args.threads
     use_NeuralTE = args.use_NeuralTE
     is_wicker = args.is_wicker
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -449,11 +452,11 @@ if __name__ == "__main__":
                 sys.exit(-1)
             genome_paths.append((genome_name, cur_genome_path))
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/pan_recover_low_copy_TEs_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'pan_recover_low_copy_TEs_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
         # 利用 cd-hit-est 去掉低拷贝中包含在 panTE library 中的序列

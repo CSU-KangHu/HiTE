@@ -47,8 +47,6 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 # Alternatively, you can download the zip file directly from the repository.
 ```
 
-**Important Notice:** Starting from HiTE version 3.3.1, all temporary computation files will be stored in the `/tmp` directory. Before execution, the program will automatically check if there is at least 100GB of available disk space in `/tmp`. If the space is insufficient, it will delete files and directories under the current user's permissions that have not been modified for more than one day to free up space. In most cases, deleting files in the `/tmp` directory is safe. However, if you have important files or are running other critical programs in `/tmp`, please be aware of the potential risks.
-
 For common issues related to installation and usage, please visit: [https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
 
 ### <a name="install_conda"></a>Option 1. Run with conda

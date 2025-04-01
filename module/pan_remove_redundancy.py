@@ -51,25 +51,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="panHiTE remove redundancy.")
     parser.add_argument("--merge_te_file", type=str, help="merged pan te file.")
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
-    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
-                        help="Output directory (default: current working directory).")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(), help="Output directory (default: current working directory).")
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     # 解析参数
     args = parser.parse_args()
     merge_te_file = args.merge_te_file
     threads = args.threads
-
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/pan_remove_redundancy_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'pan_remove_redundancy_' + str(unique_id))
     create_or_clear_directory(temp_dir)
 
     # 根据文件的header将LTR内部序列和其他元素区分开存储

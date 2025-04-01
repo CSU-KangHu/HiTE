@@ -31,6 +31,7 @@ def helpMessage() {
       --genome      Genome assembly path (format: fasta, fa, and fna)
       --out_dir      Output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
     General options:
+      --work_dir                        Temporary work dir. default = [ /tmp ]
       --threads                         Input thread num. default = [ 10 ]
       --chunk_size                      The chunk size of large genome, default = [ 400 MB ]
       --plant                           Is it a plant genome, 1: true, 0: false. default = [ 1 ]
@@ -67,6 +68,7 @@ def printSetting() {
     log.info"""
     ====================================Parameter settings========================================
       [Setting] Reference sequences / assemblies path = [ $params.genome ]
+      [Setting] work_dir = [ $params.work_dir ]
       [Setting] threads = [ $params.threads ]
       [Setting] Is classified = [ $params.classified ]
       [Setting] Is remove nested TE = [ $params.remove_nested ]
@@ -214,7 +216,7 @@ process coarseBoundary {
      --max_repeat_len ${max_repeat_len} --thread ${cores} \
      --ref_index ${ref_index} --flanking_len ${flanking_len} \
      --tandem_region_cutoff ${tandem_region_cutoff} -r ${ref} \
-     --recover ${recover} --debug ${debug}
+     --recover ${recover} --debug ${debug} -w ${params.work_dir}
     """
 }
 
@@ -245,7 +247,8 @@ process TIR {
     -r ${ref} \
     --split_ref_dir ${ref_chr} \
     --prev_TE ${prev_TE} \
-    --all_low_copy_tir ${tmp_output_dir}/tir_low_copy.fa
+    --all_low_copy_tir ${tmp_output_dir}/tir_low_copy.fa \
+    -w ${params.work_dir}
     """
 
 }
@@ -271,7 +274,8 @@ process Helitron {
     --seqs ${lrf} -r ${ref} -t ${cores} \
     --ref_index ${ref_index} --flanking_len ${flanking_len} \
     --recover ${recover} --debug ${debug} --split_ref_dir ${ref_chr} \
-    --prev_TE ${prev_TE} --all_low_copy_helitron ${tmp_output_dir}/helitron_low_copy.fa
+    --prev_TE ${prev_TE} --all_low_copy_helitron ${tmp_output_dir}/helitron_low_copy.fa \
+    -w ${params.work_dir}
     """
 }
 
@@ -302,17 +306,13 @@ process Non_LTR {
     --split_ref_dir ${ref_chr} \
     --is_denovo_nonltr ${is_denovo_nonltr} \
     -r ${ref} --prev_TE ${prev_TE} \
-    --all_low_copy_non_ltr ${tmp_output_dir}/non_ltr_low_copy.fa
+    --all_low_copy_non_ltr ${tmp_output_dir}/non_ltr_low_copy.fa \
+    -w ${params.work_dir}
     """
 }
 
-
-process MergeLTROther {
+process GetPrevTEs {
     label 'process_low'
-
-    input:
-    path ltr
-    path other
 
     output:
     path "prev_TE.fa",    emit: ch_pre_tes
@@ -320,11 +320,34 @@ process MergeLTROther {
     script:
     cores = task.cpus
     """
-     cat ${ltr} > prev_TE.fa
+     touch prev_TE.fa
 
      if [ -f "${curated_lib}" ]; then
         cat ${curated_lib} >> prev_TE.fa
      fi
+    """
+}
+
+process GetPrevTEsForLTR {
+    label 'process_low'
+
+    input:
+    path tir
+    path helitron
+    path non_ltr
+    path other
+
+    output:
+    path "tmp_lib.fa",    emit: ch_tmp_lib
+
+    script:
+    cores = task.cpus
+    """
+     if [ -f "${curated_lib}" ]; then
+        cat ${curated_lib} > tmp_lib.fa
+     fi
+
+     cat ${tir} ${helitron} ${non_ltr} ${other} >> tmp_lib.fa
     """
 }
 
@@ -345,7 +368,8 @@ process GenomeClean {
     genome_clean.py \
      -i ${ref} \
      -o genome.fa.clean \
-     -t ${cores}
+     -t ${cores} \
+     -w ${params.work_dir}
     """
 }
 
@@ -365,7 +389,8 @@ process OtherTE {
     """
     judge_Other_transposons.py \
      -t ${cores} \
-     --recover ${recover} -r ${ref}
+     --recover ${recover} -r ${ref} \
+     -w ${params.work_dir}
     """
 }
 
@@ -376,6 +401,7 @@ process LTR {
 
     input:
     path ref
+    path tmp_lib
 
     output:
     path "confident_ltr_cut.fa",    emit: ch_LTRs
@@ -391,7 +417,8 @@ process LTR {
      -g ${ref} -t ${cores} --recover ${recover} \
      --use_HybridLTR ${use_HybridLTR} \
      --use_NeuralTE ${use_NeuralTE} --miu ${miu} \
-     --is_wicker ${is_wicker} --is_output_lib ${is_output_LTR_lib}
+     --is_wicker ${is_wicker} --is_output_lib ${is_output_LTR_lib} \
+     -w ${params.work_dir} --prev_TE ${tmp_lib}
     """
 }
 
@@ -455,7 +482,7 @@ process BuildLib {
      --confident_other ${other} \
      --use_NeuralTE ${use_NeuralTE} \
      --domain ${domain} --curated_lib ${curated_lib} \
-     --is_wicker ${is_wicker}
+     --is_wicker ${is_wicker} -w ${params.work_dir}
     """
 }
 
@@ -475,7 +502,7 @@ process annotate_chunk {
     (full, ref_index) = (chunk_fasta =~ /genome.cut(\d+)\.fa/)[0]
     """
     pan_annotate_genome.py --threads ${task.cpus} --panTE_lib ${panTE_lib} \
-    --reference ${chunk_fasta} --genome_name ${genome_name}_${ref_index}
+    --reference ${chunk_fasta} --genome_name ${genome_name}_${ref_index} -w ${params.work_dir}
     """
 }
 
@@ -542,7 +569,7 @@ process Benchmarking {
         benchmarking.py \
          --BM_RM2 ${BM_RM2} --BM_EDTA ${BM_EDTA} --BM_HiTE ${BM_HiTE} \
          -t ${cores} --TE_lib ${TE_lib} \
-         -r ${ref} --species ${species} --EDTA_home ${EDTA_home} --recover ${recover}
+         -r ${ref} --species ${species} --EDTA_home ${EDTA_home} --recover ${recover} -w ${params.work_dir}
         """
     } else {
         """
@@ -550,7 +577,7 @@ process Benchmarking {
          --BM_RM2 ${BM_RM2} \
          --BM_HiTE ${BM_HiTE} \
          -t ${cores} --TE_lib ${TE_lib} \
-         -r ${ref} --species ${species} --recover ${recover}
+         -r ${ref} --species ${species} --recover ${recover} -w ${params.work_dir}
         """
     }
 }
@@ -581,22 +608,19 @@ workflow {
 
         ch_genome = GenomeClean.out.ch_genome_clean
 
-        // Step1: LTR identification
-        LTR(ch_genome)
-
         // Step2: homology Non-LTR identification
         OtherTE(ch_genome)
-
-        //get identified TEs
-        MergeLTROther(LTR.out.ch_LTRs, OtherTE.out.ch_others)
 
         // get split genome
         SplitGenome(ch_genome)
 
+        //get identified TEs
+        GetPrevTEs()
+
         // After splitting the genome into chunks, we need to associate each chunk with the pre_tes.
         ch_cut_genomes = SplitGenome.out.cut_genomes.flatten()
         ch_cut_genomes_combined = ch_cut_genomes
-            .combine(MergeLTROther.out.ch_pre_tes)
+            .combine(GetPrevTEs.out.ch_pre_tes)
             .combine(ch_genome)
 
         // Step3: Coarse Boundary Repeat Sequence Identification
@@ -604,7 +628,7 @@ workflow {
 
         // Combine the coarse boundary results with other outputs and input them into the subsequent module.
         ch_coarse_TEs_combined = ch_coarse_TEs
-            .combine(MergeLTROther.out.ch_pre_tes)
+            .combine(GetPrevTEs.out.ch_pre_tes)
             .combine(SplitGenome.out.ref_chr)
             .combine(ch_genome)
 
@@ -618,11 +642,15 @@ workflow {
         Non_LTR(ch_coarse_TEs_combined)
 
         // Merge all chunks and store them in the output directory.
-        all_ltrs = LTR.out.ch_LTRs.collectFile(name: "${out_dir}/confident_ltr_cut.fa")
         all_tirs = TIR.out.ch_TIRs.collectFile(name: "${out_dir}/confident_tir.fa")
         all_helitrons = Helitron.out.ch_Helitrons.collectFile(name: "${out_dir}/confident_helitron.fa")
         all_non_ltrs = Non_LTR.out.ch_Non_LTRs.collectFile(name: "${out_dir}/confident_non_ltr.fa")
         all_others = OtherTE.out.ch_others.collectFile(name: "${out_dir}/confident_other.fa")
+
+        GetPrevTEsForLTR(all_tirs, all_helitrons, all_non_ltrs, all_others)
+        // Step1: LTR identification
+        LTR(ch_genome, GetPrevTEsForLTR.out.ch_tmp_lib)
+        all_ltrs = LTR.out.ch_LTRs.collectFile(name: "${out_dir}/confident_ltr_cut.fa")
         all_LTR_pass_list = LTR.out.ch_LTR_pass_list.collectFile(name: "${out_dir}/intact_LTR.list")
         all_chr_name_map = LTR.out.chr_name_map.collectFile(name: "${out_dir}/chr_name.map")
 

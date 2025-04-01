@@ -35,8 +35,17 @@ def run_Non_LTR_detection(work_dir, longest_repeats_flanked_path, prev_TE, ref_i
                                                                                       work_dir, threads)
             os.system('cat ' + candidate_SINE_path + ' > ' + candidate_non_ltr_path)
             os.system('cat ' + candidate_LINE_path + ' >> ' + candidate_non_ltr_path)
+
+            candidate_non_ltr_cons = candidate_non_ltr_path + '.cons'
+            resut_file = candidate_non_ltr_cons
+            if not is_recover or not file_exist(resut_file):
+                log.logger.info('------clustering candidate non-LTR')
+                cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                                 + ' -G 0 -g 1 -A 80 -i ' + candidate_non_ltr_path + ' -o ' + candidate_non_ltr_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+                os.system(cd_hit_command)
+
             # 2. Conduct homology search on candidate sequences, and search for polyA tails near homologous boundaries.
-            flank_region_align_v5(candidate_non_ltr_path, confident_non_ltr_path, flanking_len, reference,
+            flank_region_align_v5(candidate_non_ltr_cons, confident_non_ltr_path, flanking_len, reference,
                                   split_ref_dir,
                                   TE_type, work_dir, threads, ref_index, log, subset_script_path,
                                   plant, debug, 0, all_low_copy_non_ltr, result_type='cons')
@@ -116,6 +125,7 @@ if __name__ == '__main__':
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_non_ltr', metavar='all_low_copy_non_ltr',
                         help='all low copy non_ltr path, to recover non_ltr using pan-genome.')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     longest_repeats_flanked_path = args.seqs
@@ -131,6 +141,8 @@ if __name__ == '__main__':
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_non_ltr = args.all_low_copy_non_ltr
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     reference = os.path.realpath(reference)
 
@@ -157,11 +169,11 @@ if __name__ == '__main__':
     if not os.path.exists(all_low_copy_non_ltr):
         os.system('touch ' + all_low_copy_non_ltr)
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/judge_Non_LTR_transposons_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'judge_Non_LTR_transposons_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

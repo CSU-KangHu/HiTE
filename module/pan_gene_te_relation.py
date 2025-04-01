@@ -16,13 +16,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="panHiTE find gene te relations.")
     parser.add_argument("--genome_info_json", type=str, help="genome info json.")
     parser.add_argument("--softcore_threshold", type=float, default=0.8, help="The rate value of softcore.")
-    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
-                        help="Output directory (default: current working directory).")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(), help="Output directory (default: current working directory).")
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     # 解析参数
     args = parser.parse_args()
     genome_info_json = args.genome_info_json
     softcore_threshold = args.softcore_threshold
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -34,11 +36,11 @@ if __name__ == "__main__":
     with open(genome_info_json, 'r') as f:
         genome_info_list = json.load(f)
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/pan_gene_te_relation_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'pan_gene_te_relation_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

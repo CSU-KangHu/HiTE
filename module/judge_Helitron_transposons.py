@@ -17,7 +17,7 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
     HSDIR = cur_dir + '/bin/HelitronScanner/TrainingSet'
     HSJAR = cur_dir + '/bin/HelitronScanner/HelitronScanner.jar'
     sh_dir = cur_dir + '/bin'
-    EAHelitron = cur_dir + '/bin/EAHelitron-master'
+    # EAHelitron = cur_dir + '/bin/EAHelitron-master'
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
 
     candidate_helitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.fa'
@@ -31,23 +31,31 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
             ref_index) + '.HelitronScanner.fa'
         multi_process_helitronscanner(longest_repeats_flanked_path, candidate_helitronscanner_path, sh_dir, HS_temp_dir,
                                       HSDIR, HSJAR, threads, debug)
-        candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
+        # candidate_helitron_contignames, candidate_helitron_contigs = read_fasta(candidate_helitron_path)
         if not debug:
-            os.system('rm -rf ' + HS_temp_dir)
+            shutil.rmtree(HS_temp_dir)
 
-        # run EAHelitron
-        EA_temp_dir = tmp_output_dir + '/EA_temp'
-        if not os.path.exists(EA_temp_dir):
-            os.makedirs(EA_temp_dir)
-        candidate_eahelitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.EAHelitron.fa'
-        multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_eahelitron_path, EA_temp_dir,
-                                 EAHelitron, threads)
-        if not debug:
-            os.system('rm -rf ' + EA_temp_dir)
+        # # run EAHelitron
+        # EA_temp_dir = tmp_output_dir + '/EA_temp'
+        # if not os.path.exists(EA_temp_dir):
+        #     os.makedirs(EA_temp_dir)
+        # candidate_eahelitron_path = tmp_output_dir + '/candidate_helitron_' + str(ref_index) + '.EAHelitron.fa'
+        # multi_process_EAHelitron(longest_repeats_flanked_path, flanking_len, candidate_eahelitron_path, EA_temp_dir,
+        #                          EAHelitron, threads)
+        # if not debug:
+        #     os.system('rm -rf ' + EA_temp_dir)
 
         # Combine results from HelitronScanner and EAHelitron.
         os.system('cat ' + candidate_helitronscanner_path + ' > ' + candidate_helitron_path)
-        os.system('cat ' + candidate_eahelitron_path + ' >> ' + candidate_helitron_path)
+        # os.system('cat ' + candidate_eahelitron_path + ' >> ' + candidate_helitron_path)
+
+    candidate_helitron_cons = candidate_helitron_path + '.cons'
+    resut_file = candidate_helitron_cons
+    if not is_recover or not file_exist(resut_file):
+        log.logger.info('------clustering candidate Helitron')
+        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+                         + ' -G 0 -g 1 -A 80 -i ' + candidate_helitron_path + ' -o ' + candidate_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+        os.system(cd_hit_command)
 
     # Apply homology filtering to the results identified by HelitronScanner.
     confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
@@ -58,7 +66,7 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
         TE_type = 'helitron'
         # Multiple iterations are performed to find more accurate boundaries.
         iter_num = 3
-        input_file = candidate_helitron_path
+        input_file = candidate_helitron_cons
         for i in range(iter_num):
             result_type = 'cons'
             output_file = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.r' + str(i) + '.fa'
@@ -116,6 +124,7 @@ if __name__ == '__main__':
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_helitron', metavar='all_low_copy_helitron',
                         help='all low copy helitron path, to recover helitron using pan-genome')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
 
@@ -130,6 +139,8 @@ if __name__ == '__main__':
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_helitron = args.all_low_copy_helitron
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     longest_repeats_flanked_path = os.path.realpath(longest_repeats_flanked_path)
     reference = os.path.realpath(reference)
@@ -156,11 +167,11 @@ if __name__ == '__main__':
     if not os.path.exists(all_low_copy_helitron):
         os.system('touch ' + all_low_copy_helitron)
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/judge_Helitron_transposons_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'judge_Helitron_transposons_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

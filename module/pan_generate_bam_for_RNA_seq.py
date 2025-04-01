@@ -33,8 +33,8 @@ if __name__ == "__main__":
     parser.add_argument("--RNA_seq", type=str, help="the RNA_seq json string.")
     parser.add_argument("--RNA_dir", type=str, help="RNA sequence data directory.")
     parser.add_argument("--threads", type=int, help="Number of threads to use.")
-    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
-                        help="Output directory (default: current working directory).")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(), help="Output directory (default: current working directory).")
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     # 解析参数
     args = parser.parse_args()
@@ -42,6 +42,8 @@ if __name__ == "__main__":
     reference = args.reference
     RNA_dir = args.RNA_dir
     threads = args.threads
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     if RNA_dir != '/dev/RNA':
         preprocess_RNA_seq = preprocess_RNA_seq(args.RNA_seq)
@@ -55,11 +57,11 @@ if __name__ == "__main__":
 
     log = Logger(output_dir + '/generate_bam_for_RNA_seq.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/pan_generate_bam_for_RNA_seq_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'pan_generate_bam_for_RNA_seq_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
         # Step 7.1: 生成 BAM 文件

@@ -140,7 +140,7 @@ if __name__ == '__main__':
                         help='The path of curated library')
     parser.add_argument('--is_wicker', metavar='is_wicker',
                         help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
-
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
 
@@ -155,7 +155,8 @@ if __name__ == '__main__':
     domain = args.domain
     curated_lib = args.curated_lib
     is_wicker = args.is_wicker
-
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     confident_ltr_cut_path = os.path.realpath(confident_ltr_cut_path)
     confident_tir_path = os.path.realpath(confident_tir_path)
@@ -170,11 +171,11 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_lib.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/get_nonRedundant_lib_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'get_nonRedundant_lib_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

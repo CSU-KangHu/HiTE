@@ -57,7 +57,7 @@ if __name__ == '__main__':
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
     parser.add_argument('--debug', metavar='recover',
                         help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
-
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     cut_reference = args.g
@@ -72,6 +72,8 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
     debug = args.debug
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     if debug is None:
         debug = 0
@@ -90,11 +92,11 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir + '/HiTE_coarse.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/coarse_boundary_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'coarse_boundary_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
         # 运行计算任务

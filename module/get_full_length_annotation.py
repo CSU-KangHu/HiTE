@@ -130,6 +130,7 @@ if __name__ == '__main__':
                         help='Is the structural information of full-length copies being searched?')
     parser.add_argument('--classified_TE_path', metavar='classified_TE_path',
                         help='Input classified TE Path')
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     threads = int(args.t)
@@ -143,6 +144,8 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     search_struct = int(args.search_struct)
     classified_TE_path = args.classified_TE_path
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
     if search_struct == 1:
         search_struct = True
     else:
@@ -157,11 +160,11 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir+'/HiTE_full_length_annotation.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/get_full_length_annotation_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'get_full_length_annotation_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

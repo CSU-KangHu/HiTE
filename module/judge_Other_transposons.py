@@ -82,13 +82,15 @@ if __name__ == '__main__':
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
     parser.add_argument('-r', metavar='Reference path',
                         help='Input Reference path')
-
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
     reference = args.r
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     reference = os.path.realpath(reference)
 
@@ -104,11 +106,11 @@ if __name__ == '__main__':
 
     log = Logger(tmp_output_dir + '/HiTE_other.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/judge_Other_transposons_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'judge_Other_transposons_' + str(unique_id))
     try:
         create_or_clear_directory(temp_dir)
 

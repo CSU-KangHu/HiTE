@@ -97,8 +97,8 @@ if __name__ == "__main__":
     parser.add_argument("--te_type", type=str, help="Type of transposable element (TE).")
     parser.add_argument("--miu", type=float, help="Parameter miu for the process.")
     parser.add_argument("--debug", type=int, help="Enable or disable debug mode (True/False).")
-    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(),
-                        help="Output directory (default: current working directory).")
+    parser.add_argument("--output_dir", nargs="?", default=os.getcwd(), help="Output directory (default: current working directory).")
+    parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     # 解析参数
     args = parser.parse_args()
@@ -108,6 +108,8 @@ if __name__ == "__main__":
     te_type = args.te_type
     miu = args.miu
     debug = args.debug
+    work_dir = args.work_dir
+    work_dir = os.path.abspath(work_dir)
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -115,11 +117,11 @@ if __name__ == "__main__":
 
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
-    clean_old_tmp_files_by_dir('/tmp')
+    # clean_old_tmp_files_by_dir('/tmp')
 
     # 创建本地临时目录，存储计算结果
     unique_id = uuid.uuid4()
-    temp_dir = '/tmp/pan_run_hite_single_' + str(unique_id)
+    temp_dir = os.path.join(work_dir, 'pan_run_hite_single_' + str(unique_id))
     create_or_clear_directory(temp_dir)
     main(genome_name, reference, temp_dir, threads, te_type, miu, debug, log)
 

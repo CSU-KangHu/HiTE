@@ -351,6 +351,49 @@ def get_full_length_copies_batch_v1(confident_ltr_internal, split_ref_dir, threa
         all_copies.update(cur_all_copies)
     return all_copies
 
+def get_full_length_copies_minimap2(query_path, reference, temp_dir, max_copy_num, threads):
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
+
+    reference_index = reference + '.mmi'
+    # 检查索引文件是否存在
+    if not os.path.exists(reference_index):
+        build_index_command = ['minimap2', '-I', '20G', '-d', reference_index, reference]
+        try:
+            subprocess.run(build_index_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"minimap2 build index failed with error code {e.returncode}.")
+    else:
+        print("reference index exist, skip...")
+
+    sam_path = os.path.join(temp_dir, 'query.sam')
+
+    align_command = [
+        'minimap2',
+        '-ax', 'map-ont',
+        '-N', str(max_copy_num * 3),
+        '-p', '0.2',
+        '-f 0',
+        "-t", str(threads),
+        reference_index,
+        query_path
+    ]
+
+    # 执行命令并重定向输出到文件
+    try:
+        with open(sam_path, "w") as sam_file:
+            result = subprocess.run(align_command, stdout=sam_file, stderr=subprocess.DEVNULL, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"minimap2 alignment failed with error code {e.returncode}.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    # 解析 sam 文件，获取拷贝
+    all_copies = get_copies_minimap2(query_path, sam_path)
+
+    return all_copies
+
 def get_full_length_copies_v1(query_path, split_ref_dir, max_copy_num, full_length_threshold, debug):
     blastn2Results_path = query_path + '.blast.out'
     repeats_path = (query_path, split_ref_dir, blastn2Results_path)
@@ -908,6 +951,79 @@ def generate_left_frame_from_seq(candidate_sequence_path, reference, threads, te
     endtime = time.time()
     dtime = endtime - starttime
     return all_left_frames
+
+
+def generate_both_ends_frame_from_seq_minimap2(candidate_sequence_path, reference, flanking_len,
+                                      threads, temp_dir, output_dir, full_length_output_dir,
+                                      max_copy_num):
+    debug = 0
+    starttime = time.time()
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    if os.path.exists(full_length_output_dir):
+        shutil.rmtree(full_length_output_dir)
+    os.makedirs(full_length_output_dir, exist_ok=True)
+
+    all_copies = get_full_length_copies_minimap2(candidate_sequence_path, reference, temp_dir, max_copy_num, threads)
+
+    ref_names, ref_contigs = read_fasta(reference)
+    # extend copies
+    batch_member_files = []
+    new_all_copies = {}
+    for query_name in all_copies.keys():
+        copies = all_copies[query_name]
+        for copy in copies:
+            ref_name = copy[0]
+            copy_ref_start = int(copy[1])
+            copy_ref_end = int(copy[2])
+            direct = copy[4]
+            copy_len = copy_ref_end - copy_ref_start + 1
+            if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
+                continue
+            copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
+            if direct == '-':
+                copy_seq = getReverseSequence(copy_seq)
+            if len(copy_seq) < 100:
+                continue
+            new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
+            if not new_all_copies.__contains__(query_name):
+                new_all_copies[query_name] = {}
+            copy_contigs = new_all_copies[query_name]
+            copy_contigs[new_name] = copy_seq
+            new_all_copies[query_name] = copy_contigs
+    for query_name in new_all_copies.keys():
+        copy_contigs = new_all_copies[query_name]
+        cur_member_file = temp_dir + '/' + query_name + '.blast.bed.fa'
+        store_fasta(copy_contigs, cur_member_file)
+        batch_member_files.append((query_name, cur_member_file))
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    print("Running time of get copies: %.8s s" % (dtime))
+
+    starttime = time.time()
+    # subset_script_path = config.project_dir + '/tools/ready_for_MSA.sh'
+    # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
+    ex = ProcessPoolExecutor(threads)
+    jobs = []
+    for batch_member_file in batch_member_files:
+        job = ex.submit(generate_msa, batch_member_file, temp_dir, output_dir, full_length_output_dir, flanking_len, debug)
+        jobs.append(job)
+    ex.shutdown(wait=True)
+
+    for job in as_completed(jobs):
+        both_end_frame_paths = job.result()
+
+    if not debug:
+        shutil.rmtree(temp_dir)
+
+    endtime = time.time()
+    dtime = endtime - starttime
+    print("Running time of MSA: %.8s s" % (dtime))
 
 def generate_both_ends_frame_from_seq(candidate_sequence_path, reference, flanking_len,
                                       threads, temp_dir, output_dir, full_length_output_dir, split_ref_dir,
@@ -5875,8 +5991,9 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
     # 判断单拷贝的内部序列是否有完整的蛋白质
     single_copy_internals = {}
     for name in ltr_copies.keys():
+        internal_seq = internal_ltrs[name]
         if len(ltr_copies[name]) <= 1:
-            single_copy_internals[name] = internal_ltrs[name]
+            single_copy_internals[name] = internal_seq
     store_fasta(single_copy_internals, single_copy_internals_file)
 
     # temp_dir = tmp_output_dir + '/ltr_domain'
@@ -5897,7 +6014,7 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
             protein_start = int(parts[4])
             protein_end = int(parts[5])
             intact_protein_len = len(protein_contigs[protein_name])
-            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.6:
+            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
                 is_single_ltr_has_intact_protein[te_name] = True
 
     if not debug:
@@ -5919,7 +6036,7 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
             protein_start = int(parts[4])
             protein_end = int(parts[5])
             intact_protein_len = len(protein_contigs[protein_name])
-            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.8:
+            if float(abs(protein_end - protein_start)) / intact_protein_len >= 0.95:
                 is_single_ltr_has_intact_other_protein[te_name] = True
 
     if not debug:
@@ -5948,6 +6065,7 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
     filtered_intact_count = 0
     with open(output_path, 'w') as f_save:
         for name in ltr_copies.keys():
+            internal_seq = internal_ltrs[name]
             if len(ltr_copies[name]) >= 2:
                 cur_is_ltr = 1
                 remain_intact_count += 1
@@ -6010,34 +6128,35 @@ def filter_ltr_by_copy_num(output_path, leftLtr2Candidates, ltr_lines, reference
             intact_ltrs[name] = intact_ltr_seq
     store_fasta(intact_ltrs, intact_ltr_path)
 
-    # 我们其实应该先用minimap2对 intact_ltr_path 比对去除冗余，这样后续的计算量就会大幅度减少;在大麦上迭代三轮后由345471 -> 95081，减少了250,390条
-    threshold = 1000  # 序列数量减少的阈值
-    max_iterations = 10
-    previous_sequence_count = float('inf')  # 初始值设为无穷大
+    # 去冗余会稍微降低性能，由于后续使用minimap2进行比对，速度很快，因此可以不去冗余
+    # # 我们其实应该先用minimap2对 intact_ltr_path 比对去除冗余，这样后续的计算量就会大幅度减少;在大麦上迭代三轮后由345471 -> 95081，减少了250,390条
+    # threshold = 1000  # 序列数量减少的阈值
+    # max_iterations = 10
+    # previous_sequence_count = float('inf')  # 初始值设为无穷大
+    #
+    # iteration = 0
+    # while iteration < max_iterations:
+    #     iteration += 1
+    #     print(f"Starting intact LTR-RT de-redundant iteration {iteration}...")
+    #     # 调用 filter_intact_ltr 函数
+    #     intact_ltr_path = filter_intact_ltr(intact_ltr_path, tmp_output_dir, threads)
+    #     # 计算当前文件中的序列数量
+    #     current_sequence_count = count_sequences_in_fasta(intact_ltr_path)
+    #     print(f"Current sequence count: {current_sequence_count}")
+    #     # 判断序列数量的变化
+    #     if previous_sequence_count - current_sequence_count < threshold:
+    #         print("Sequence count reduction is below the threshold. Stopping iterations.")
+    #         break
+    #     # 更新上一轮的序列数量
+    #     previous_sequence_count = current_sequence_count
+    # print("Process completed.")
 
-    iteration = 0
-    while iteration < max_iterations:
-        iteration += 1
-        print(f"Starting intact LTR-RT de-redundant iteration {iteration}...")
-        # 调用 filter_intact_ltr 函数
-        intact_ltr_path = filter_intact_ltr(intact_ltr_path, tmp_output_dir, threads)
-        # 计算当前文件中的序列数量
-        current_sequence_count = count_sequences_in_fasta(intact_ltr_path)
-        print(f"Current sequence count: {current_sequence_count}")
-        # 判断序列数量的变化
-        if previous_sequence_count - current_sequence_count < threshold:
-            print("Sequence count reduction is below the threshold. Stopping iterations.")
-            break
-        # 更新上一轮的序列数量
-        previous_sequence_count = current_sequence_count
-    print("Process completed.")
-
-    # 用minimap2 asm20 -p 0.2 快速过滤出单拷贝的LTR
+    # 用minimap2 asm20 -p 0.2 和 full_length_coverage=0.985 快速获得全长LTR拷贝
     minimap_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_minimap_filter')
-    ltr_copies, minimap_single_copy = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, minimap_temp_dir, reference)
+    ltr_copies, minimap_single_copy = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, minimap_temp_dir, reference, full_length_coverage=0.985)
 
     # blastn_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_blastn_filter')
-    # minimap_single_copy_copies = filter_ltr_by_copy_num_blastn(minimap_single_copy, threads, blastn_temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
+    # ltr_copies = filter_ltr_by_copy_num_blastn(intact_ltr_path, threads, blastn_temp_dir, split_ref_dir, full_length_threshold, max_copy_num=10)
     # # 对 ltr_copies 进行更新
     # for ltr_name in minimap_single_copy_copies:
     #     ltr_copies[ltr_name] = minimap_single_copy_copies[ltr_name]
@@ -6052,7 +6171,7 @@ def filter_ltr_by_copy_num(output_path, leftLtr2Candidates, ltr_lines, reference
     # 经常会出现获取了两个拷贝，但是实际上都是同一个拷贝(坐标overlap或者来自冗余contig)，因此我们要对拷贝去冗余
     intact_ltr_copies = get_intact_ltr_copies(ltr_copies, ltr_lines, full_length_threshold, reference)
 
-    # 下面的代码废弃，因为我们增加了一个 genome_clean 的脚本来处理输入基因组组装中的冗余contig，因此理论上不存在冗余的contigs了
+    # # 下面的代码废弃，因为我们增加了一个 genome_clean 的脚本来处理输入基因组组装中的冗余contig，因此理论上不存在冗余的contigs了
     # # 过滤来自冗余contig的拷贝，即取拷贝的左侧100bp+右侧100bp的序列，任意一侧能够很好比对就说明这两个全长拷贝是来自冗余contig造成的
     # temp_dir = tmp_output_dir + '/intact_ltr_deredundant'
     # # intact_ltr_copies = remove_copies_from_redundant_contig(intact_ltr_copies, reference, temp_dir, threads)
@@ -6085,7 +6204,8 @@ def filter_intact_ltr(intact_ltr_path, tmp_output_dir, threads):
     os.makedirs(self_minimap_temp_dir, exist_ok=True)
 
     # 使用minimap2比对去除冗余
-    all_copies, _ = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, self_minimap_temp_dir, intact_ltr_path, multi_records=100)
+    all_copies, _ = filter_ltr_by_copy_num_minimap(intact_ltr_path, threads, self_minimap_temp_dir, intact_ltr_path,
+                                                   multi_records=100)
 
     # 初始化冗余和非冗余LTR名称集合
     redundant_ltr_names = set()
@@ -6358,8 +6478,7 @@ def get_non_redundant_copies(ltr_name, cur_copy_contigs, cur_copy_path, copy_nam
         intact_copies.append(copy_name_2_copy_dict[list(redundant_copies)[0]])
     return ltr_name, intact_copies
 
-def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95,
-                      full_length_identity_threshold=0.8):
+def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_threshold=0.95):
     """
     根据覆盖度和一致性阈值筛选比对结果。
 
@@ -6367,7 +6486,6 @@ def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_thresho
         query_fasta_path (str): 查询序列的 FASTA 文件路径。
         sam_path (str): SAM 文件路径。
         full_length_coverage_threshold (float): 覆盖度阈值（默认 0.95）。
-        full_length_identity_threshold (float): 一致性阈值（默认 0.8）。
 
     返回:
         dict: 包含所有符合条件比对的字典，格式为 {query_name: [(subject_name, subject_start, subject_end, aligned_length, direct), ...]}。
@@ -6387,10 +6505,15 @@ def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_thresho
             query_name = read.query_name
             query_length = len(query_contigs[query_name])  # query 的总长度
             aligned_length = read.query_alignment_length  # 比对上的 query 长度
-            nm = read.get_tag("NM")  # 编辑距离
-            matches = aligned_length - nm  # 匹配的碱基数
-            identity = matches / aligned_length  # 一致性
-            coverage = aligned_length / query_length  # 覆盖度
+            # nm = read.get_tag("NM")  # 编辑距离
+            # matches = aligned_length - nm  # 匹配的碱基数
+            query_coverage = aligned_length / query_length  # 覆盖度
+            total_target_length = 0
+            cigar = read.cigartuples
+            for op, length in cigar:
+                if op == 0 or op == 2:  # M (match) 或 D (deletion)
+                    total_target_length += length
+            target_coverage = aligned_length / total_target_length  # 覆盖度
 
             # 提取 subject 信息
             subject_name = read.reference_name
@@ -6399,7 +6522,7 @@ def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_thresho
             direct = "-" if read.is_reverse else "+"  # 比对方向
 
             # 如果覆盖度和一致性满足阈值，则保存比对信息
-            if coverage >= full_length_coverage_threshold and identity >= full_length_identity_threshold:
+            if query_coverage >= full_length_coverage_threshold and target_coverage >= full_length_coverage_threshold:
                 if query_name not in all_copies:
                     all_copies[query_name] = []
                 all_copies[query_name].append((subject_name, subject_start, subject_end, aligned_length, direct))
@@ -6409,8 +6532,7 @@ def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_thresho
 
     return all_copies
 
-def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100):
-    debug = 1
+def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, reference, multi_records=100, full_length_coverage=0.98):
     if os.path.exists(temp_dir):
         os.system('rm -rf ' + temp_dir)
     os.makedirs(temp_dir, exist_ok=True)
@@ -6447,7 +6569,8 @@ def filter_ltr_by_copy_num_minimap(candidate_sequence_path, threads, temp_dir, r
     all_ltr_names, all_ltr_contigs = read_fasta(candidate_sequence_path)
 
     # 解析 sam 文件，获取拷贝
-    all_copies = get_copies_minimap2(candidate_sequence_path, sam_path)
+    all_copies = get_copies_minimap2(candidate_sequence_path, sam_path,
+                                     full_length_coverage_threshold=full_length_coverage)
 
     minimap_single_copy_contigs = {}
     for ltr_name in all_copies:
@@ -9823,7 +9946,7 @@ def is_ltr_has_structure(ltr_name, line, ref_seq):
     # cur_seq_name, cur_is_tp = search_ltr_structure_low_copy(ltr_name, left_seq, right_seq)
     return cur_seq_name, cur_is_tp, tsd_seq
 
-def filter_tir(output_path, tir_output_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, tool_dir, flanking_len, log, debug):
+def filter_tir(output_path, tir_output_path, confident_tir_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, tool_dir, flanking_len, log, debug):
     true_ltr_names = []
     ltr_dict = {}
     with open(output_path, 'r') as f_r:
@@ -9880,7 +10003,6 @@ def filter_tir(output_path, tir_output_path, full_length_output_dir, threads, le
                 confident_tirs[ltr_name] = candidate_tirs[ltr_name]
     candidate_ltr_path = tmp_output_dir + '/candidate_ltr.fa'
     store_fasta(candidate_ltrs, candidate_ltr_path)
-    confident_tir_path = tmp_output_dir + '/confident_tir.fa'
     store_fasta(confident_tirs, confident_tir_path)
 
     # 我们再基于同源搜索比对的方法，过滤掉所有与TIR转座子高度同源的候选LTR序列
@@ -9916,7 +10038,7 @@ def filter_tir(output_path, tir_output_path, full_length_output_dir, threads, le
         os.system('rm -f ' + candidate_ltr_path)
 
 
-def filter_helitron(output_path, helitron_output_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, project_dir, flanking_len, log, debug):
+def filter_helitron(output_path, helitron_output_path, confident_helitron_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, project_dir, flanking_len, log, debug):
     true_ltr_names = []
     ltr_dict = {}
     with open(output_path, 'r') as f_r:
@@ -9978,7 +10100,6 @@ def filter_helitron(output_path, helitron_output_path, full_length_output_dir, t
                 confident_helitrons[ltr_name] = candidate_helitrons[ltr_name]
     candidate_ltr_path = tmp_output_dir + '/candidate_ltr.fa'
     store_fasta(candidate_ltrs, candidate_ltr_path)
-    confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'
     store_fasta(confident_helitrons, confident_helitron_path)
 
     # 我们再基于同源搜索比对的方法，过滤掉所有与TIR转座子高度同源的候选LTR序列
@@ -10015,7 +10136,7 @@ def filter_helitron(output_path, helitron_output_path, full_length_output_dir, t
         os.system('rm -f ' + candidate_helitron_path)
         os.system('rm -f ' + candidate_ltr_path)
 
-def filter_sine(output_path, sine_output_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, flanking_len, log, debug):
+def filter_sine(output_path, sine_output_path, confident_sine_path, full_length_output_dir, threads, left_LTR_contigs, tmp_output_dir, flanking_len, log, debug):
     true_ltr_names = []
     ltr_dict = {}
     with open(output_path, 'r') as f_r:
@@ -10049,7 +10170,6 @@ def filter_sine(output_path, sine_output_path, full_length_output_dir, threads, 
         for cur_seq_name, is_sine, info, cons_seq in results:
             if len(cons_seq) > 0:
                 confident_sines[cur_seq_name] = cons_seq
-    confident_sine_path = tmp_output_dir + '/confident_sine.fa'
     store_fasta(confident_sines, confident_sine_path)
 
     # 剩余的序列都当作候选的LTR转座子
