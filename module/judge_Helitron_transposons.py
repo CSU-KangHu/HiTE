@@ -9,7 +9,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, multi_process_helitronscanner, multi_process_EAHelitron, \
     Logger, rename_fasta, file_exist, flank_region_align_v5, create_or_clear_directory, copy_files, \
-    clean_old_tmp_files_by_dir
+    clean_old_tmp_files_by_dir, update_prev_TE, lib_add_prefix
 
 
 def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_recover, threads, debug,
@@ -97,7 +97,12 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
-    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+    raw_name = os.path.basename(reference).split('.')[0]
+    if file_exist(resut_file):
+        lib_add_prefix(resut_file, raw_name)
+
+    update_prev_TE(prev_TE, resut_file)
+    # os.system('cat ' + resut_file + ' >> ' + prev_TE)
 
 if __name__ == '__main__':
     # 1.parse args

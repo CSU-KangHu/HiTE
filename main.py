@@ -11,7 +11,7 @@ import time
 from multiprocessing import cpu_count
 from pathlib import Path
 from module.Util import Logger, file_exist, read_fasta, filter_short_contigs_in_genome, create_or_clear_directory, \
-    copy_files
+    copy_files, update_prev_TE
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(current_folder, ".")
@@ -97,6 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--tandem_region_cutoff', metavar='tandem_region_cutoff', help='Cutoff of the candidates regarded as tandem region, default = [ '+str(default_tandem_region_cutoff)+' ]')
     parser.add_argument('--max_repeat_len', metavar='max_repeat_len', help='The maximum length of a single repeat, default = [ ' + str(default_max_single_repeat_len) + ' ]')
     parser.add_argument('--chrom_seg_length', metavar='chrom_seg_length', help='The length of genome segments, default = [ ' + str(default_chrom_seg_length) + ' ]')
+    parser.add_argument('--shared_prev_TE', metavar='shared_prev_TE', help='The path of shared previous TEs')
 
     args = parser.parse_args()
 
@@ -131,6 +132,7 @@ if __name__ == '__main__':
     use_NeuralTE = args.use_NeuralTE
     is_wicker = args.is_wicker
     is_output_LTR_lib = args.is_output_LTR_lib
+    shared_prev_TE = args.shared_prev_TE
 
     output_dir = os.path.abspath(args.out_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -481,9 +483,12 @@ if __name__ == '__main__':
                 cut_references.append((ref_index, tmp_output_dir + '/' + filename))
 
         # Using identified TEs to mask the genome in order to reduce computational load in all-vs-all alignments.
-        prev_TE = tmp_output_dir + '/prev_TE.fa'
+        if shared_prev_TE is not None:
+            prev_TE = shared_prev_TE
+        else:
+            prev_TE = tmp_output_dir + '/prev_TE.fa'
         if curated_lib is not None and os.path.exists(curated_lib):
-            os.system('cat ' + curated_lib + ' > ' + prev_TE)
+            update_prev_TE(prev_TE, curated_lib)
         # The outcomes of homologous methods can only serve as supplementary information and should not be used as masks,
         # as this could potentially obscure many genuine non-LTR local masks, rendering the de novo method unable to identify them.
         # os.system('cat ' + confident_other_path + ' >> ' + prev_TE)
@@ -657,7 +662,7 @@ if __name__ == '__main__':
                                              + ' --miu ' + str(miu) + ' --use_HybridLTR ' + str(use_HybridLTR) \
                                              + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
                                              + ' --is_output_lib ' + str(is_output_LTR_lib) + ' --debug ' + str(debug) \
-                                             + ' -w ' + str(work_dir) + ' --prev_TE  ' + tmp_lib
+                                             + ' -w ' + str(work_dir) + ' --prev_TE ' + tmp_lib
                 log.logger.info(LTR_identification_command)
                 os.system(LTR_identification_command)
                 endtime = time.time()

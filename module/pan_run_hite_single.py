@@ -38,7 +38,7 @@ def for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, l
 
 
 
-def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
+def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, shared_prev_TE, debug, log):
     """对单个基因组运行 HiTE"""
     raw_name = genome_name.split('.')[0]
     HiTE_output_dir = output_dir
@@ -63,7 +63,7 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
         HiTE_command = (
             f"python {project_dir}/main.py --genome {reference} --out_dir {HiTE_output_dir} "
             f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 1 "
-            f"--debug {debug} "
+            f"--debug {debug} --shared_prev_TE {shared_prev_TE}"
         )
         log.logger.info(f"Executing: {HiTE_command}")
         start_time = time.time()
@@ -81,10 +81,10 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
 
 
 
-def main(genome_name, reference, output_dir, threads, te_type, miu, debug, log):
+def main(genome_name, reference, output_dir, threads, te_type, miu, shared_prev_TE, debug, log):
     """主函数"""
     # 运行单个基因组的 HiTE 检测
-    run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, debug, log)
+    run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, miu, shared_prev_TE, debug, log)
 
     # for_test(genome_name, reference, output_dir, threads, te_type, miu, debug, log)
 
@@ -99,6 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug", type=int, help="Enable or disable debug mode (True/False).")
     parser.add_argument("--output_dir", nargs="?", default=os.getcwd(), help="Output directory (default: current working directory).")
     parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
+    parser.add_argument('--shared_prev_TE', metavar='shared_prev_TE', help='The path of shared previous TEs')
 
     # 解析参数
     args = parser.parse_args()
@@ -110,6 +111,7 @@ if __name__ == "__main__":
     debug = args.debug
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
+    shared_prev_TE = args.shared_prev_TE
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -123,7 +125,7 @@ if __name__ == "__main__":
     unique_id = uuid.uuid4()
     temp_dir = os.path.join(work_dir, 'pan_run_hite_single_' + str(unique_id))
     create_or_clear_directory(temp_dir)
-    main(genome_name, reference, temp_dir, threads, te_type, miu, debug, log)
+    main(genome_name, reference, temp_dir, threads, te_type, miu, shared_prev_TE, debug, log)
 
     # 计算完之后将结果拷贝回输出目录
     copy_files(temp_dir, output_dir)

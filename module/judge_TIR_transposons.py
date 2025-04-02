@@ -10,7 +10,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, Logger, multi_process_tsd, rename_fasta, file_exist, \
     run_itrsearch, get_short_tir_contigs, flank_region_align_v5, multi_process_tsd_v1, remove_no_tirs, \
-    create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
+    create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir, update_prev_TE, lib_add_prefix
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant,
@@ -92,7 +92,13 @@ def run_TIR_detection(tmp_output_dir, longest_repeats_flanked_path, reference, p
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
-    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+
+    raw_name = os.path.basename(reference).split('.')[0]
+    if file_exist(resut_file):
+        lib_add_prefix(resut_file, raw_name)
+
+    update_prev_TE(prev_TE, resut_file)
+    # os.system('cat ' + resut_file + ' >> ' + prev_TE)
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, store_fasta, rename_fasta, Logger, file_exist, \
     flank_region_align_v5, get_candidate_non_ltr_parallel, get_domain_info, create_or_clear_directory, copy_files, \
-    clean_old_tmp_files_by_dir
+    clean_old_tmp_files_by_dir, update_prev_TE, lib_add_prefix
 
 
 def run_Non_LTR_detection(work_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_denovo_nonltr, is_recover,
@@ -89,7 +89,12 @@ def run_Non_LTR_detection(work_dir, longest_repeats_flanked_path, prev_TE, ref_i
     else:
         os.system('touch ' + confident_non_ltr_path)
 
-    os.system('cat ' + resut_file + ' >> ' + prev_TE)
+    raw_name = os.path.basename(reference).split('.')[0]
+    if file_exist(resut_file):
+        lib_add_prefix(resut_file, raw_name)
+
+    update_prev_TE(prev_TE, resut_file)
+    # os.system('cat ' + resut_file + ' >> ' + prev_TE)
 
 
 if __name__ == '__main__':

@@ -47,9 +47,6 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
     os.system(cd_hit_command + ' > /dev/null 2>&1')
     rename_fasta(confident_non_ltr_cons, final_confident_non_ltr_path, 'Denovo_Non_LTR')
 
-    # Remove TIR elements containing LTR
-    remove_ltr_from_tir(confident_ltr_cut_path, final_confident_tir_path, threads, tmp_output_dir)
-
     # Merge all TE types (TIR+Helitron+Non_LTR+Other)
     confident_TE_path = tmp_output_dir + '/TE_merge_tmp.fa'
     if file_exist(final_confident_tir_path):
@@ -60,6 +57,9 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
         os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)
     if file_exist(confident_other_path):
         os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
+
+    # Remove LTRs consist of other TE elements
+    remove_ltr_from_tir(confident_TE_path, confident_ltr_cut_path, threads, tmp_output_dir)
 
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
     classified_TE_path = confident_TE_path + '.classified'

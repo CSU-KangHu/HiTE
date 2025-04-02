@@ -17,6 +17,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import pickle
 from logging import handlers
 import pysam
+from filelock import FileLock
 
 import psutil
 
@@ -4648,16 +4649,18 @@ def filter_tandem_repeats(repeat_names, repeat_contigs, tmp_output_dir, ref_inde
     # 分割序列并存储
     all_files = split_and_store_sequences(repeat_names, repeat_contigs, tmp_blast_dir, base_threshold=100000)
 
+    output_files = []
     # 并行执行 TRF 过滤
     with ProcessPoolExecutor(max_workers=threads) as ex:
         jobs = [ex.submit(run_remove_TR, cur_target, cur_trf) for cur_target, cur_trf in all_files]
         for job in as_completed(jobs):
-            job.result()
+            target_file = job.result()
+            output_files.append(target_file)
 
     # 合并过滤后的文件
     filter_tandem_file = os.path.join(tmp_output_dir, f'filter_tandem_{ref_index}.fa')
     with open(filter_tandem_file, 'w') as outfile:
-        for cur_target, _ in all_files:
+        for cur_target in output_files:
             with open(cur_target, 'r') as infile:
                 outfile.write(infile.read())
 
@@ -6164,6 +6167,17 @@ def convert_paf_to_blast6_format(input_paf, output_blast6):
         for record in records:
             blast6_file.write("\t".join(map(str, record)) + "\n")
 
+
+def update_prev_TE(prev_TE, cur_file):
+    if not os.path.exists(cur_file):  # 检查文件是否存在
+        print(f"Warning: {cur_file} not found, skipping")
+        return
+
+    lock_path = prev_TE + ".lock"
+    with FileLock(lock_path):
+        with open(prev_TE, "a+") as target_f:
+            with open(cur_file, "r") as source_f:
+                target_f.write(source_f.read() + "\n")
 
 def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index, debug=0):
     masked_genome_path = genome_path + '.masked'
@@ -7762,7 +7776,7 @@ def get_copies_minimap2(query_fasta_path, sam_path, full_length_coverage_thresho
     query_names, query_contigs = read_fasta(query_fasta_path)
 
     # 打开 SAM 文件
-    samfile = pysam.AlignmentFile(sam_path, "r")
+    samfile = pysam.AlignmentFile(sam_path, "r", check_sq=False)
 
     # 存储所有符合条件的比对
     all_copies = {}
@@ -7834,14 +7848,15 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
         split_files.append(cur_file)
         batch_id += 1
 
-    ref_contigs = {}
-    # 遍历目录下的所有文件
-    for filename in os.listdir(split_ref_dir):
-        if filename.endswith('.fa'):
-            file_path = os.path.join(split_ref_dir, filename)
-            cur_names, cur_contigs = read_fasta(file_path)
-            ref_contigs.update(cur_contigs)
+    # ref_contigs = {}
+    # # 遍历目录下的所有文件
+    # for filename in os.listdir(split_ref_dir):
+    #     if filename.endswith('.fa'):
+    #         file_path = os.path.join(split_ref_dir, filename)
+    #         cur_names, cur_contigs = read_fasta(file_path)
+    #         ref_contigs.update(cur_contigs)
 
+    ref_names, ref_contigs = read_fasta(reference)
 
     # 使用minimap2替换
     max_copy_num = 100
@@ -8251,9 +8266,9 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
     if is_removed_dir:
         shutil.rmtree(tmp_blast_dir)
 
-def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp_output_dir):
-    subject_path = confident_ltr_cut_path
-    query_path = confident_tir_path
+def remove_ltr_from_tir(confident_tir_path, confident_ltr_cut_path, threads, tmp_output_dir):
+    subject_path = confident_tir_path
+    query_path = confident_ltr_cut_path
     out_path = query_path + '.out'
     align_command = 'cd ' + tmp_output_dir + ' && RepeatMasker -lib ' + subject_path + ' -nolow -pa ' + str(threads) + ' ' + query_path + ' > /dev/null 2>&1'
     os.system(align_command)
@@ -8272,7 +8287,8 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp
             if len(parts) >= 15:
                 direct = parts[8]
                 query_name = parts[4]
-                subject_name = parts[9]+'#'+parts[10]
+                # subject_name = parts[9]+'#'+parts[10]
+                subject_name = parts[9]
                 if direct == '+':
                     subject_start = int(parts[11])
                     subject_end = int(parts[12])
@@ -8285,11 +8301,7 @@ def remove_ltr_from_tir(confident_ltr_cut_path, confident_tir_path, threads, tmp
                 if float(subject_len)/total_subject_len >= 0.95:
                     delete_tir_names.add(query_name)
     f_r.close()
-    # print(delete_tir_names)
-    # print(len(delete_tir_names))
-    # remain_names = set(query_names).difference(delete_tir_names)
-    # print(remain_names)
-    # print(len(remain_names))
+
     for tir_name in delete_tir_names:
         del query_contigs[tir_name]
     store_fasta(query_contigs, query_path)

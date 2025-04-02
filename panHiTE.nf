@@ -31,6 +31,7 @@ params.debug = 0
 params.threads = 10
 params.miu = 1.3e-8
 params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
+params.shared_prev_TE = "${params.out_dir}/shared_prev_TE.fa"
 
 // 验证 TE 类型是否合法
 if (!params.all_te_types.contains(params.te_type)) {
@@ -116,7 +117,7 @@ process pan_run_hite_single {
     cores = task.cpus
     """
     pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
-    --te_type ${te_type} --miu ${miu} --debug ${debug} > ${genome_name}.run_hite_single.log 2>&1
+    --te_type ${te_type} --miu ${miu} --work_dir ${params.work_dir} --debug ${debug} --shared_prev_TE ${params.shared_prev_TE} > ${genome_name}.run_hite_single.log 2>&1
     """
 }
 
