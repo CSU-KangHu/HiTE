@@ -63,8 +63,10 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
         HiTE_command = (
             f"python {project_dir}/main.py --genome {reference} --out_dir {HiTE_output_dir} "
             f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 1 "
-            f"--debug {debug} --shared_prev_TE {shared_prev_TE}"
+            f"--debug {debug} --work_dir {HiTE_output_dir}"
         )
+        if shared_prev_TE is not None:
+            HiTE_command += f" --shared_prev_TE {shared_prev_TE}"
         log.logger.info(f"Executing: {HiTE_command}")
         start_time = time.time()
         os.system(HiTE_command)
