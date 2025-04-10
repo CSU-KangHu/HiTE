@@ -45,3 +45,4 @@ dependencies:
     - PyMuPDF
     - statannot
     - psutil
+    - intervaltree
