@@ -7295,8 +7295,15 @@ def rename_fasta(input, output, header='N'):
     node_index = 0
     with open(output, 'w') as f_save:
         for name in names:
+            parts = str(name).split('#')
+            class_name = None
+            if len(parts) == 2:
+                class_name = parts[1]
             seq = contigs[name]
-            f_save.write('>'+header+'_'+str(node_index)+'\n'+seq+'\n')
+            new_name = header+'_'+str(node_index)
+            if class_name is not None:
+                new_name += '#' + class_name
+            f_save.write('>'+new_name+'\n'+seq+'\n')
             node_index += 1
     f_save.close()
 

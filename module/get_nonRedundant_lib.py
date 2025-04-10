@@ -55,8 +55,6 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
         os.system('cat ' + final_confident_helitron_path + ' >> ' + confident_TE_path)
     if file_exist(final_confident_non_ltr_path):
         os.system('cat ' + final_confident_non_ltr_path + ' >> ' + confident_TE_path)
-    if file_exist(confident_other_path):
-        os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
 
     # Remove LTRs consist of other TE elements
     remove_ltr_from_tir(confident_TE_path, confident_ltr_cut_path, threads, tmp_output_dir)
@@ -92,6 +90,8 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
         os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
     if file_exist(confident_ltr_cut_path):
         os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
+    if file_exist(confident_other_path):
+        os.system('cat ' + confident_other_path + ' >> ' + confident_TE_path)
     if curated_lib is not None:
         curated_lib = os.path.realpath(curated_lib)
         if file_exist(curated_lib):
@@ -100,7 +100,39 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
     # Reassign Inconsistent Classification Labels
     ReassignInconsistentLabels(confident_TE_path)
 
+    # classify all Unknown TEs with RepeatClassifier
+    unknown_tes = tmp_output_dir + '/unknown_TE.fa'
+    unknown_te_contigs = {}
+    te_names, te_contigs = read_fasta(confident_TE_path)
+    raw_name2full_name = {}
+    for name in te_names:
+        parts = name.split('#')
+        raw_name = parts[0]
+        raw_name2full_name[raw_name] = name
+        if 'Unknown' in name:
+            unknown_te_contigs[raw_name] = te_contigs[name]
+    store_fasta(unknown_te_contigs, unknown_tes)
+
     sample_name = 'test'
+    TEClass_command = 'python ' + TEClass_home + '/TEClass_parallel.py --sample_name ' + sample_name \
+                      + ' --consensus ' + unknown_tes + ' --genome 1' \
+                      + ' --thread_num ' + str(threads) + ' --split_num ' + str(threads) + ' -o ' + tmp_output_dir
+    log.logger.debug(TEClass_command)
+    os.system(TEClass_command)
+    classified_unknown_TE_path = unknown_tes + '.classified'
+    known_te_names, known_te_contigs = read_fasta(classified_unknown_TE_path)
+    for known_te_name in known_te_names:
+        parts = known_te_name.split('#')
+        if len(parts) == 2:
+            raw_name = parts[0]
+            unknown_name = raw_name2full_name[raw_name]
+            unknown_seq = te_contigs[unknown_name]
+            if unknown_name in te_contigs:
+                del te_contigs[unknown_name]
+            te_contigs[known_te_name] = unknown_seq
+    store_fasta(te_contigs, confident_TE_path)
+
+
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
     if file_exist(confident_TE_path):
         cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \

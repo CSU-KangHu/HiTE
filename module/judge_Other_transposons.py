@@ -47,11 +47,15 @@ def run_Other_detection(tmp_output_dir, reference, threads, is_recover, log):
 
         # 2. Take the longest copy as the identified non-LTR element.
         ref_names, ref_contigs = read_fasta(reference)
-        new_all_copies = {}
         for query_name in all_copies.keys():
             copies = all_copies[query_name]
-            max_len_copy_name = ''
+            parts = str(query_name).split('#')
+            class_name = None
+            if len(parts) == 2:
+                class_name = parts[1]
             max_len = 0
+            max_name = None
+            max_copy_seq = None
             for copy in copies:
                 ref_name = copy[0]
                 copy_ref_start = int(copy[1])
@@ -63,9 +67,14 @@ def run_Other_detection(tmp_output_dir, reference, threads, is_recover, log):
                 if len(copy_seq) < 100:
                     continue
                 new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end)
+                if class_name is not None:
+                    new_name += '#' + class_name
                 if len(copy_seq) > max_len:
-                    confident_non_ltr_contigs[new_name] = copy_seq
+                    max_name = new_name
+                    max_copy_seq = copy_seq
                     max_len = len(copy_seq)
+            if max_name is not None and max_copy_seq is not None:
+                confident_non_ltr_contigs[max_name] = max_copy_seq
         store_fasta(confident_non_ltr_contigs, confident_other_path)
         rename_fasta(confident_other_path, confident_other_path, 'Homology_Non_LTR')
     else:

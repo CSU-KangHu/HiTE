@@ -28,7 +28,7 @@ def process_gff(input_file, output_file, te_type_mapping):
                 if len(columns) >= 9:
                     # 提取TE ID
                     te_id = columns[8].split("Motif:")[1].split('"')[0]
-                    te_type = te_type_mapping.get(te_id, "Unknown")
+                    te_type = te_type_mapping.get(te_id, "SSR/low_complexity")
                     columns[1] = 'HiTE'
                     # 替换第三列信息为TE类型
                     columns[2] = te_type

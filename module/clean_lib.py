@@ -74,6 +74,7 @@ if __name__ == '__main__':
             '\\.command\\.err',
             '\\.exitcode',
             '\\.command\\.log',
+            '.*.log',
             '.*_low_copy.fa'
         ]
 

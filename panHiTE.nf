@@ -115,14 +115,14 @@ process pan_run_hite_single {
 
     script:
     cores = task.cpus
-    """
-    pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
-    --te_type ${te_type} --miu ${miu} --work_dir ${params.work_dir} --debug ${debug} > ${genome_name}.run_hite_single.log 2>&1
-    """
 //     """
 //     pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
-//     --te_type ${te_type} --miu ${miu} --work_dir ${params.work_dir} --debug ${debug} --shared_prev_TE ${params.shared_prev_TE} > ${genome_name}.run_hite_single.log 2>&1
+//     --te_type ${te_type} --miu ${miu} --work_dir ${params.work_dir} --debug ${debug} > ${genome_name}.run_hite_single.log 2>&1
 //     """
+    """
+    pan_run_hite_single.py --genome_name ${genome_name} --reference ${reference} --threads ${cores} \
+    --te_type ${te_type} --miu ${miu} --work_dir ${params.work_dir} --debug ${debug} --shared_prev_TE ${params.shared_prev_TE} > ${genome_name}.run_hite_single.log 2>&1
+    """
 }
 
 // 合并 pan_te.tmp.fa 到 pan_internal.tmp.fa

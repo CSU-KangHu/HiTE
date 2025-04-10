@@ -239,6 +239,5 @@ if __name__ == '__main__':
     else:
         # 如果没有异常，删除临时目录
         if os.path.exists(temp_dir):
-            # shutil.rmtree(temp_dir)
-            print('here')
+            shutil.rmtree(temp_dir)
 
