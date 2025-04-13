@@ -9,7 +9,7 @@ cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import read_fasta, multi_process_helitronscanner, multi_process_EAHelitron, \
     Logger, rename_fasta, file_exist, flank_region_align_v5, create_or_clear_directory, copy_files, \
-    clean_old_tmp_files_by_dir, update_prev_TE, lib_add_prefix
+    clean_old_tmp_files_by_dir, update_prev_TE, lib_add_prefix, store_fasta
 
 
 def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_recover, threads, debug,
@@ -87,6 +87,14 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
         cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                          + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
         os.system(cd_hit_command)
+
+        # 去除 Helitron header 中包含 #
+        cur_names, cur_contigs = read_fasta(cur_confident_helitron_cons)
+        new_cur_contigs = {}
+        for name in cur_names:
+            new_cur_contigs[name.split('#')[0]] = cur_contigs[name]
+        store_fasta(new_cur_contigs, cur_confident_helitron_cons)
+
         rename_fasta(cur_confident_helitron_cons, confident_helitron_path, 'Helitron_' + str(ref_index))
 
         # remove temp files
