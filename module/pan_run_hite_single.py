@@ -62,7 +62,7 @@ def run_hite_for_genome(genome_name, reference, output_dir, threads, te_type, mi
     if file_exist(reference):
         HiTE_command = (
             f"python {project_dir}/main.py --genome {reference} --out_dir {HiTE_output_dir} "
-            f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 1 "
+            f"--thread {threads} --annotate 0 --te_type {te_type} --miu {miu} --is_output_LTR_lib 1 --recover 1  "
             f"--debug {debug} --work_dir {HiTE_output_dir}"
         )
         if shared_prev_TE is not None:
@@ -137,8 +137,8 @@ if __name__ == "__main__":
     except Exception as e:
         # 如果出现异常，打印错误信息并删除临时目录
         print(f"An error occurred: {e}")
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+        # if os.path.exists(temp_dir):
+        #     shutil.rmtree(temp_dir)
         raise  # 重新抛出异常，以便上层代码可以处理
 
     else:
