@@ -44,7 +44,7 @@ def run_Other_detection(tmp_output_dir, reference, threads, is_recover, log):
         TE_type = 'non_ltr'
         all_copies = multi_process_align_and_get_copies(non_LTR_lib, reference, other_TE_dir, TE_type, threads,
                                                         is_removed_dir=True, query_coverage=0.95, subject_coverage=0)
-        print(all_copies)
+        
         # 2. Take the longest copy as the identified non-LTR element.
         ref_names, ref_contigs = read_fasta(reference)
         for query_name in all_copies.keys():
