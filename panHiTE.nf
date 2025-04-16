@@ -59,6 +59,7 @@ def helpMessage() {
       --threads              Input thread num. default = [ 10 ]
       --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
       --miu                  The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
+      --work_dir             Temporary work dir. default = [ /tmp ]
     """.stripIndent()
 }
 

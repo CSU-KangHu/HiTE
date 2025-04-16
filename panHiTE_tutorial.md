@@ -179,9 +179,12 @@ A complete genome assembly, annotation, and RNA-seq reads data were downloaded f
 
 
 ### <a name="run"></a>3. Run pipeline
-We provide the running scripts for panHiTE which is installed via Conda, Singularity, and Docker. 
+• Primary Installation Method: Conda (recommended)  
+• Alternative Methods:  
+  - Singularity  
+  - Docker  
+  Note: Container images may lag behind Conda in version updates
 
-**To prevent unnecessary errors, please use absolute paths in the scripts below.**
 #### <a name="full_workflow"></a>3.1 Full Workflow
 To run panHiTE from start to end, use the following command:
 ###### Installation via Conda
@@ -197,6 +200,7 @@ gene_dir=xxx
 RNA_dir=xxx
 genome_list=xxx
 out_dir=xxx
+work_dir=xxx   # (default: /tmp on each compute node) When the default /tmp partition on compute nodes has insufficient space, specify a shared storage path that is universally accessible across all nodes in the cluster.
 conda_name=/home/xxx/miniconda3/envs/HiTE  # You need to replace the previously recorded HiTE conda environment path here
 cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  -profile conda --conda_name ${conda_name} \
@@ -205,7 +209,8 @@ cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
  --genes_dir ${gene_dir} \
  --RNA_dir ${RNA_dir} \
  --out_dir ${out_dir} \
- --threads ${threads}
+ --threads ${threads} \
+ --work_dir ${work_dir}
 
 
 # Example script:
@@ -581,6 +586,7 @@ General options:
   --threads              Input thread num. default = [ 10 ]
   --skip_analyze         Whether to skip analyze, only generate panTE library. default = [ 0 ]
   --miu                  The neutral mutation rate (per bp per ya). default = [ 1.3e-8 ]
+  --work_dir             Temporary work dir. default = [ /tmp ]
 ```
 
 ### <a name="output_preview"></a>5. Output Preview

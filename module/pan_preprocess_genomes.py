@@ -19,7 +19,7 @@ def preprocess_genomes(genome_list_path, genes_dir, RNA_dir, pan_genomes_dir, ou
     # 1.1. 读取 genomes, gff, RNA-seq reads
     with open(genome_list_path, 'r') as f_r:
         for line in f_r:
-            if line.startswith('#'):
+            if line.startswith('#') or line.strip() == '':
                 continue
             parts = line.strip().split('\t')
             genome_name = parts[0]

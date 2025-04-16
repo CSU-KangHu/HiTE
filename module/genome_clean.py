@@ -9,7 +9,7 @@ import sys
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 
-from Util import clean_old_tmp_files_by_dir, create_or_clear_directory, read_fasta
+from Util import clean_old_tmp_files_by_dir, create_or_clear_directory, read_fasta, store_fasta
 
 
 def run_minimap2(assembly_file, short_fasta, output_paf, threads):
@@ -81,17 +81,27 @@ def main():
         paf_file = os.path.join(temp_dir, 'genome_self.asm5.paf')
         redundant_txt = os.path.join(temp_dir, 'redundant_contigs.txt')
         short_fasta = os.path.join(temp_dir, 'short.fasta')
+        temp_input_path = os.path.join(temp_dir, 'reference.rename.fasta')
 
-        extract_small_sequences(input_path, short_fasta, max_size=10000000)
+        # rename reference header to Chr1, Chr2
+        ref_names, ref_contigs = read_fasta(input_path)
+        ref_idx = 1
+        rename_ref_contigs = {}
+        for name in ref_names:
+            rename_ref_contigs['Chr'+str(ref_idx)] = ref_contigs[name]
+            ref_idx += 1
+        store_fasta(rename_ref_contigs, temp_input_path)
+
+        extract_small_sequences(temp_input_path, short_fasta, max_size=10000000)
 
         # Step 1: Run minimap2 for self-alignment
-        run_minimap2(input_path, short_fasta, paf_file, args.threads)
+        run_minimap2(temp_input_path, short_fasta, paf_file, args.threads)
 
         # Step 2: Filter redundant contigs
         filter_redundant_contigs(paf_file, redundant_txt)
 
         # Step 3: Remove redundant contigs and generate new assembly
-        remove_redundant_contigs(input_path, redundant_txt, output_path)
+        remove_redundant_contigs(temp_input_path, redundant_txt, output_path)
     except Exception as e:
         # 如果出现异常，打印错误信息并删除临时目录
         print(f"An error occurred: {e}")
