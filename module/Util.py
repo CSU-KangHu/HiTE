@@ -2807,7 +2807,7 @@ def filter_dup_itr_v3(cur_copies_out_contigs, TIR_len_dict):
         tir_len = TIR_len_dict[min_distance_name]
     new_name = orig_query_name + '-tir_' + str(tir_len) + '-tsd_' + str(tsd)
     # full-length TIR should shorter than 10K bp
-    if len(cur_copies_out_contigs[min_distance_name]) < 10000:
+    if len(cur_copies_out_contigs[min_distance_name]) < 30_000:
         res_contigs[new_name] = cur_copies_out_contigs[min_distance_name]
     return res_contigs
 

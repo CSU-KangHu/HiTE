@@ -13,7 +13,7 @@ from Util import read_fasta, store_fasta, rename_fasta, Logger, file_exist, \
 
 
 def run_Non_LTR_detection(work_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_denovo_nonltr, is_recover,
-                          threads, flanking_len, reference,plant, debug, all_low_copy_non_ltr, split_ref_dir, log):
+                          threads, flanking_len, reference,plant, debug, all_low_copy_non_ltr, split_ref_dir, min_TE_len, log):
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
     library_dir = cur_dir + '/library'
 
@@ -83,6 +83,15 @@ def run_Non_LTR_detection(work_dir, longest_repeats_flanked_path, prev_TE, ref_i
             cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
                              + ' -G 0 -g 1 -A 80 -i ' + confident_non_ltr_path + ' -o ' + confident_non_ltr_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
             os.system(cd_hit_command)
+
+            # filter TE by length
+            confident_non_ltr_names, confident_non_ltr_contigs = read_fasta(confident_non_ltr_cons)
+            filter_confident_non_ltr_contigs = {}
+            for name in confident_non_ltr_contigs.keys():
+                if len(confident_non_ltr_contigs[name]) >= min_TE_len:
+                    filter_confident_non_ltr_contigs[name] = confident_non_ltr_contigs[name]
+            store_fasta(filter_confident_non_ltr_contigs, confident_non_ltr_cons)
+
             rename_fasta(confident_non_ltr_cons, confident_non_ltr_path, 'Non-LTR_' + str(ref_index))
         else:
             log.logger.info(resut_file + ' exists, skip...')
@@ -130,6 +139,8 @@ if __name__ == '__main__':
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_non_ltr', metavar='all_low_copy_non_ltr',
                         help='all low copy non_ltr path, to recover non_ltr using pan-genome.')
+    parser.add_argument('--min_TE_len', metavar='min_TE_len',
+                        help='The minimum TE length')
     parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
@@ -146,6 +157,7 @@ if __name__ == '__main__':
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_non_ltr = args.all_low_copy_non_ltr
+    min_TE_len = int(args.min_TE_len)
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
@@ -183,7 +195,7 @@ if __name__ == '__main__':
         create_or_clear_directory(temp_dir)
 
         run_Non_LTR_detection(temp_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_denovo_nonltr, is_recover,
-                              threads, flanking_len, reference, plant, debug, all_low_copy_non_ltr, split_ref_dir, log)
+                              threads, flanking_len, reference, plant, debug, all_low_copy_non_ltr, split_ref_dir, min_TE_len, log)
 
         # 计算完之后将结果拷贝回输出目录
         copy_files(temp_dir, tmp_output_dir)

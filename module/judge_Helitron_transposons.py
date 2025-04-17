@@ -13,7 +13,7 @@ from Util import read_fasta, multi_process_helitronscanner, multi_process_EAHeli
 
 
 def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_recover, threads, debug,
-                           flanking_len, reference, split_ref_dir, all_low_copy_helitron, log):
+                           flanking_len, reference, split_ref_dir, all_low_copy_helitron, min_TE_len, log):
     HSDIR = cur_dir + '/bin/HelitronScanner/TrainingSet'
     HSJAR = cur_dir + '/bin/HelitronScanner/HelitronScanner.jar'
     sh_dir = cur_dir + '/bin'
@@ -88,13 +88,13 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
                          + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
         os.system(cd_hit_command)
 
-        # 去除 Helitron header 中包含 #
+        # 去除 Helitron header 中包含 #, and filter TE by length
         cur_names, cur_contigs = read_fasta(cur_confident_helitron_cons)
         new_cur_contigs = {}
         for name in cur_names:
-            new_cur_contigs[name.split('#')[0]] = cur_contigs[name]
+            if len(cur_contigs[name]) >= min_TE_len:
+                new_cur_contigs[name.split('#')[0]] = cur_contigs[name]
         store_fasta(new_cur_contigs, cur_confident_helitron_cons)
-
         rename_fasta(cur_confident_helitron_cons, confident_helitron_path, 'Helitron_' + str(ref_index))
 
         # remove temp files
@@ -137,6 +137,8 @@ if __name__ == '__main__':
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_helitron', metavar='all_low_copy_helitron',
                         help='all low copy helitron path, to recover helitron using pan-genome')
+    parser.add_argument('--min_TE_len', metavar='min_TE_len',
+                        help='The minimum TE length')
     parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
@@ -152,6 +154,7 @@ if __name__ == '__main__':
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_helitron = args.all_low_copy_helitron
+    min_TE_len = int(args.min_TE_len)
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
@@ -189,7 +192,7 @@ if __name__ == '__main__':
         create_or_clear_directory(temp_dir)
 
         run_Helitron_detection(temp_dir, longest_repeats_flanked_path, prev_TE, ref_index, is_recover, threads, debug,
-                               flanking_len, reference, split_ref_dir, all_low_copy_helitron, log)
+                               flanking_len, reference, split_ref_dir, all_low_copy_helitron, min_TE_len, log)
 
         # 计算完之后将结果拷贝回输出目录
         copy_files(temp_dir, tmp_output_dir)

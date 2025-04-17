@@ -97,8 +97,8 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
         if file_exist(curated_lib):
             os.system('cat ' + curated_lib + ' >> ' + confident_TE_path)
 
-    # Reassign Inconsistent Classification Labels
-    ReassignInconsistentLabels(confident_TE_path)
+    # # Reassign Inconsistent Classification Labels
+    # ReassignInconsistentLabels(confident_TE_path)
 
     # classify all Unknown TEs with RepeatClassifier
     unknown_tes = tmp_output_dir + '/unknown_TE.fa'
@@ -131,7 +131,6 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
                 del te_contigs[unknown_name]
             te_contigs[known_te_name] = unknown_seq
     store_fasta(te_contigs, confident_TE_path)
-
 
     confident_TE_consensus = tmp_output_dir + '/confident_TE.cons.fa'
     if file_exist(confident_TE_path):

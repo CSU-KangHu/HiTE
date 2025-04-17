@@ -47,6 +47,7 @@ if __name__ == '__main__':
     default_use_NeuralTE = 1
     default_is_wicker = 0
     default_is_output_LTR_lib = 1
+    default_min_TE_len = 80
 
     version_num = '3.3.2'
 
@@ -91,6 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [' + str(default_use_NeuralTE) + ' ]')
     parser.add_argument('--is_wicker', metavar='is_wicker', help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [ ' + str(default_is_wicker) + ' ]')
     parser.add_argument('--is_output_LTR_lib', metavar='is_output_LTR_lib', help='Whether to output LTR library. default = [ ' + str(default_is_output_LTR_lib) + ' ]')
+    parser.add_argument('--min_TE_len', metavar='min_TE_len', help='The minimum TE length, default = [ ' + str(default_min_TE_len) + ' bp ]')
 
     parser.add_argument('--flanking_len', metavar='flanking_len', help='The flanking length of candidates to find the true boundaries, default = [ ' + str(default_flanking_len) + ' ]')
     parser.add_argument('--fixed_extend_base_threshold', metavar='fixed_extend_base_threshold', help='The length of variation can be tolerated during pairwise alignment, default = [ '+str(default_fixed_extend_base_threshold)+' ]')
@@ -132,6 +134,7 @@ if __name__ == '__main__':
     use_NeuralTE = args.use_NeuralTE
     is_wicker = args.is_wicker
     is_output_LTR_lib = args.is_output_LTR_lib
+    min_TE_len = args.min_TE_len
     shared_prev_TE = args.shared_prev_TE
 
     output_dir = os.path.abspath(args.out_dir)
@@ -211,6 +214,11 @@ if __name__ == '__main__':
         is_output_LTR_lib = default_is_output_LTR_lib
     else:
         is_output_LTR_lib = int(is_output_LTR_lib)
+
+    if min_TE_len is None:
+        min_TE_len = default_min_TE_len
+    else:
+        min_TE_len = int(min_TE_len)
 
     if remove_nested is None:
         remove_nested = default_remove_nested
@@ -447,6 +455,7 @@ if __name__ == '__main__':
                                                + ' -t ' + str(threads) \
                                                + ' --tmp_output_dir ' + tmp_output_dir  \
                                                + ' --recover ' + str(recover) \
+                                               + ' --min_TE_len ' + str(min_TE_len) \
                                                + ' -w ' + str(work_dir)
                 log.logger.info(other_identification_command)
                 os.system(other_identification_command)
@@ -545,6 +554,7 @@ if __name__ == '__main__':
                                                  + ' --split_ref_dir ' + split_ref_dir \
                                                  + ' --prev_TE  ' + prev_TE \
                                                  + ' --all_low_copy_tir ' + all_low_copy_tir \
+                                                 + ' --min_TE_len ' + str(min_TE_len) \
                                                  + ' -w ' + str(work_dir)
                     log.logger.debug(tir_identification_command)
                     os.system(tir_identification_command)
@@ -575,6 +585,7 @@ if __name__ == '__main__':
                                                       + ' --split_ref_dir ' + split_ref_dir \
                                                       + ' --prev_TE  ' + prev_TE \
                                                       + ' --all_low_copy_helitron ' + all_low_copy_helitron \
+                                                      + ' --min_TE_len ' + str(min_TE_len) \
                                                       + ' -w ' + str(work_dir)
 
                     log.logger.info(helitron_identification_command)
@@ -609,6 +620,7 @@ if __name__ == '__main__':
                                                  + ' -r ' + reference \
                                                  + ' --prev_TE  ' + prev_TE \
                                                  + ' --all_low_copy_non_ltr ' + all_low_copy_non_ltr \
+                                                 + ' --min_TE_len ' + str(min_TE_len) \
                                                  + ' -w ' + str(work_dir)
                     log.logger.debug(non_ltr_identification_command)
                     os.system(non_ltr_identification_command)
@@ -683,14 +695,14 @@ if __name__ == '__main__':
         else:
             log.logger.info(resut_file + ' exists, skip...')
 
-        # tir, helitron, non_ltr detected by LTR module
-        tir_from_ltr_path = os.path.join(tmp_output_dir, "confident_tir_from_ltr.fa")
-        helitron_from_ltr_path = os.path.join(tmp_output_dir, "confident_helitron_from_ltr.fa")
-        # non_ltr_from_ltr_path = os.path.join(tmp_output_dir, "confident_non_ltr_from_ltr.fa")
-        if os.path.exists(tir_from_ltr_path):
-            os.system('cat ' + tir_from_ltr_path + ' >> ' + confident_tir_path)
-        if os.path.exists(helitron_from_ltr_path):
-            os.system('cat ' + helitron_from_ltr_path + ' >> ' + confident_helitron_path)
+        # # tir, helitron, non_ltr detected by LTR module
+        # tir_from_ltr_path = os.path.join(tmp_output_dir, "confident_tir_from_ltr.fa")
+        # helitron_from_ltr_path = os.path.join(tmp_output_dir, "confident_helitron_from_ltr.fa")
+        # # non_ltr_from_ltr_path = os.path.join(tmp_output_dir, "confident_non_ltr_from_ltr.fa")
+        # if os.path.exists(tir_from_ltr_path):
+        #     os.system('cat ' + tir_from_ltr_path + ' >> ' + confident_tir_path)
+        # if os.path.exists(helitron_from_ltr_path):
+        #     os.system('cat ' + helitron_from_ltr_path + ' >> ' + confident_helitron_path)
 
         starttime = time.time()
         log.logger.info('Start step5: generate non-redundant library')

@@ -14,7 +14,7 @@ from Util import read_fasta, store_fasta, Logger, multi_process_tsd, rename_fast
 
 
 def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_index, log, subset_script_path, plant,
-                   debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, is_recover):
+                   debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, min_TE_len, is_recover):
     log.logger.info('determine true TIR')
     log.logger.info('------flank TIR copy and see if the flanking regions are repeated')
     starttime = time.time()
@@ -40,6 +40,14 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.r' + str(iter_num-1) + '.fa'
     delete_files.append(confident_tir_path)
 
+    # filter TE by length
+    confident_tir_names, confident_tir_contigs = read_fasta(confident_tir_path)
+    filter_confident_tir_contigs = {}
+    for name in confident_tir_contigs.keys():
+        if len(confident_tir_contigs[name]) >= min_TE_len:
+            filter_confident_tir_contigs[name] = confident_tir_contigs[name]
+    store_fasta(filter_confident_tir_contigs, confident_tir_path)
+
     final_confident_tir_path = tmp_output_dir + '/confident_tir_' + str(ref_index) + '.fa'
     rename_fasta(confident_tir_path, final_confident_tir_path, 'TIR_' + str(ref_index))
 
@@ -53,7 +61,7 @@ def is_transposons(filter_dup_path, reference, threads, tmp_output_dir, ref_inde
     log.logger.info("Running time of flanking TIR copy and see if the flanking regions are repeated: %.8s s" % (dtime))
 
 def run_TIR_detection(tmp_output_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads,
-                      debug, split_ref_dir, all_low_copy_tir, plant, ref_index, is_recover, log):
+                      debug, split_ref_dir, all_low_copy_tir, plant, ref_index, min_TE_len, is_recover, log):
     TRsearch_dir = cur_dir + '/tools'
     subset_script_path = cur_dir + '/tools/ready_for_MSA.sh'
 
@@ -88,7 +96,7 @@ def run_TIR_detection(tmp_output_dir, longest_repeats_flanked_path, reference, p
     if not is_recover or not file_exist(resut_file):
         # Utilize homologous boundary search method to determine the authenticity of TE sequences.
         is_transposons(tir_tsd_cons, reference, threads, tmp_output_dir, ref_index, log,
-                       subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, is_recover)
+                       subset_script_path, plant, debug, TRsearch_dir, split_ref_dir, all_low_copy_tir, min_TE_len, is_recover)
     else:
         log.logger.info(resut_file + ' exists, skip...')
 
@@ -130,6 +138,8 @@ if __name__ == '__main__':
                         help='TEs fasta file that has already been identified. Please use the absolute path.')
     parser.add_argument('--all_low_copy_tir', metavar='all_low_copy_tir',
                         help='all low copy tir path, to recover tir using pan-genome')
+    parser.add_argument('--min_TE_len', metavar='min_TE_len',
+                        help='The minimum TE length')
     parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
@@ -146,6 +156,7 @@ if __name__ == '__main__':
     split_ref_dir = args.split_ref_dir
     prev_TE = args.prev_TE
     all_low_copy_tir = args.all_low_copy_tir
+    min_TE_len = int(args.min_TE_len)
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
@@ -184,7 +195,7 @@ if __name__ == '__main__':
         create_or_clear_directory(temp_dir)
 
         run_TIR_detection(temp_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads, debug,
-                          split_ref_dir, all_low_copy_tir, plant, ref_index, is_recover, log)
+                          split_ref_dir, all_low_copy_tir, plant, ref_index, min_TE_len, is_recover, log)
 
         # 计算完之后将结果拷贝回输出目录
         copy_files(temp_dir, tmp_output_dir)
@@ -198,5 +209,5 @@ if __name__ == '__main__':
 
     else:
         # 如果没有异常，删除临时目录
-        if os.path.exists(temp_dir):
+        if os.path.exists(temp_dir) and debug != 1:
             shutil.rmtree(temp_dir)

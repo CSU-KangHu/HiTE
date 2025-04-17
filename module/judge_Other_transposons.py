@@ -28,7 +28,7 @@ def preprocess():
     store_path = '/public/home/hpc194701009/KmerRepFinder_test/library/KmerRepFinder_lib/test_2022_0914/oryza_sativa/non_LTR.lib'
     extract_sequence_from_db(db_path, features, store_path)
 
-def run_Other_detection(tmp_output_dir, reference, threads, is_recover, log):
+def run_Other_detection(tmp_output_dir, reference, threads, min_TE_len, is_recover, log):
     library_dir = cur_dir + '/library'
     confident_other_path = tmp_output_dir + '/confident_other.fa'
     resut_file = confident_other_path
@@ -75,7 +75,12 @@ def run_Other_detection(tmp_output_dir, reference, threads, is_recover, log):
                     max_len = len(copy_seq)
             if max_name is not None and max_copy_seq is not None:
                 confident_non_ltr_contigs[max_name] = max_copy_seq
-        store_fasta(confident_non_ltr_contigs, confident_other_path)
+        # filter TE by length
+        filter_confident_non_ltr_contigs = {}
+        for name in confident_non_ltr_contigs.keys():
+            if len(confident_non_ltr_contigs[name]) >= min_TE_len:
+                filter_confident_non_ltr_contigs[name] = confident_non_ltr_contigs[name]
+        store_fasta(filter_confident_non_ltr_contigs, confident_other_path)
         rename_fasta(confident_other_path, confident_other_path, 'Homology_Non_LTR')
     else:
         log.logger.info(resut_file + ' exists, skip...')
@@ -91,6 +96,8 @@ if __name__ == '__main__':
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
     parser.add_argument('-r', metavar='Reference path',
                         help='Input Reference path')
+    parser.add_argument('--min_TE_len', metavar='min_TE_len',
+                        help='The minimum TE length')
     parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
 
     args = parser.parse_args()
@@ -98,6 +105,7 @@ if __name__ == '__main__':
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
     reference = args.r
+    min_TE_len = int(args.min_TE_len)
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
@@ -123,7 +131,7 @@ if __name__ == '__main__':
     try:
         create_or_clear_directory(temp_dir)
 
-        run_Other_detection(temp_dir, reference, threads, is_recover, log)
+        run_Other_detection(temp_dir, reference, threads, min_TE_len, is_recover, log)
 
         # 计算完之后将结果拷贝回输出目录
         copy_files(temp_dir, tmp_output_dir)
