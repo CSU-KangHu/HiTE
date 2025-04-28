@@ -11,7 +11,7 @@ import time
 from multiprocessing import cpu_count
 from pathlib import Path
 from module.Util import Logger, file_exist, read_fasta, filter_short_contigs_in_genome, create_or_clear_directory, \
-    copy_files, update_prev_TE
+    copy_files, update_prev_TE, get_fixed_extend_base_threshold, get_genome_size
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(current_folder, ".")
@@ -19,7 +19,7 @@ project_dir = os.path.join(current_folder, ".")
 if __name__ == '__main__':
     # We define the default parameters for HiTE.
     default_threads = int(cpu_count())
-    default_fixed_extend_base_threshold = 1000
+    default_fixed_extend_base_threshold = 4000
     default_chunk_size = 400
     default_tandem_region_cutoff = 0.5
     default_max_single_repeat_len = 30000
@@ -325,6 +325,8 @@ if __name__ == '__main__':
         log.logger.error(f"Error copying file: {e}")
 
     raw_reference = os.path.join(tmp_output_dir, os.path.basename(reference))
+    genome_size = get_genome_size(raw_reference)
+    fixed_extend_base_threshold = get_fixed_extend_base_threshold(genome_size)
 
     all_low_copy_tir = os.path.join(tmp_output_dir, 'tir_low_copy.fa')
     all_low_copy_helitron = os.path.join(tmp_output_dir, 'helitron_low_copy.fa')

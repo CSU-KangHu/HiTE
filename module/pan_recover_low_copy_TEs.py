@@ -225,7 +225,21 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
             extend_member_file = cur_tir_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
             store_fasta(copy_contigs, extend_member_file)
             query_seq = raw_tir_contigs[query_name]
-            tir_batch_member_files.append((query_name, query_seq, extend_member_file))
+
+            trunc_copies = {}
+            for extend_seq_name in copy_contigs.keys():
+                extend_copy_seq = copy_contigs[extend_seq_name]
+                # 当序列长度超过2 kbp时，为了节省多序列比对运行时间，我们只取首尾1000 bp 组合的序列
+                if len(extend_copy_seq) > 2000:
+                    trunc_len = 1000
+                    rec_seq = extend_copy_seq[0:trunc_len] + extend_copy_seq[-trunc_len:]
+                    trunc_copies[extend_seq_name] = rec_seq
+            if len(trunc_copies) == len(copy_contigs):
+                trunc_member_file = cur_tir_temp_dir + '/' + valid_query_filename + '.trunc.blast.bed.fa'
+                store_fasta(trunc_copies, trunc_member_file)
+            else:
+                trunc_member_file = None
+            tir_batch_member_files.append((query_name, query_seq, trunc_member_file, extend_member_file))
 
     helitron_batch_member_files = []
     cur_helitron_temp_dir = os.path.join(temp_dir, 'helitron_members')
@@ -237,7 +251,21 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
             extend_member_file = cur_helitron_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
             store_fasta(copy_contigs, extend_member_file)
             query_seq = raw_helitron_contigs[query_name]
-            helitron_batch_member_files.append((query_name, query_seq, extend_member_file))
+
+            trunc_copies = {}
+            for extend_seq_name in copy_contigs.keys():
+                extend_copy_seq = copy_contigs[extend_seq_name]
+                # 当序列长度超过2 kbp时，为了节省多序列比对运行时间，我们只取首尾1000 bp 组合的序列
+                if len(extend_copy_seq) > 2000:
+                    trunc_len = 1000
+                    rec_seq = extend_copy_seq[0:trunc_len] + extend_copy_seq[-trunc_len:]
+                    trunc_copies[extend_seq_name] = rec_seq
+            if len(trunc_copies) == len(copy_contigs):
+                trunc_member_file = cur_helitron_temp_dir + '/' + valid_query_filename + '.trunc.blast.bed.fa'
+                store_fasta(trunc_copies, trunc_member_file)
+            else:
+                trunc_member_file = None
+            helitron_batch_member_files.append((query_name, query_seq, trunc_member_file, extend_member_file))
 
     non_ltr_batch_member_files = []
     cur_non_ltr_temp_dir = os.path.join(temp_dir, 'non_ltr_members')
@@ -249,7 +277,21 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
             extend_member_file = cur_non_ltr_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
             store_fasta(copy_contigs, extend_member_file)
             query_seq = raw_non_ltr_contigs[query_name]
-            non_ltr_batch_member_files.append((query_name, query_seq, extend_member_file))
+
+            trunc_copies = {}
+            for extend_seq_name in copy_contigs.keys():
+                extend_copy_seq = copy_contigs[extend_seq_name]
+                # 当序列长度超过2 kbp时，为了节省多序列比对运行时间，我们只取首尾1000 bp 组合的序列
+                if len(extend_copy_seq) > 2000:
+                    trunc_len = 1000
+                    rec_seq = extend_copy_seq[0:trunc_len] + extend_copy_seq[-trunc_len:]
+                    trunc_copies[extend_seq_name] = rec_seq
+            if len(trunc_copies) == len(copy_contigs):
+                trunc_member_file = cur_non_ltr_temp_dir + '/' + valid_query_filename + '.trunc.blast.bed.fa'
+                store_fasta(trunc_copies, trunc_member_file)
+            else:
+                trunc_member_file = None
+            non_ltr_batch_member_files.append((query_name, query_seq, trunc_member_file, extend_member_file))
 
     pan_genome_copies_dict = {}
     pan_genome_copies_dict['tir'] = (cur_tir_temp_dir, tir_batch_member_files)

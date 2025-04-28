@@ -7884,6 +7884,7 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
     # extend copies
     batch_member_files = []
     extend_all_copies = {}
+    trunc_all_copies = {}
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
         for copy in copies:
@@ -7905,22 +7906,38 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             copy_contigs = extend_all_copies[query_name]
             copy_contigs[new_name] = extend_copy_seq
             extend_all_copies[query_name] = copy_contigs
+            # 当序列长度超过2 kbp时，为了节省多序列比对运行时间，我们只取首尾1000 bp 组合的序列
+            if len(extend_copy_seq) > 2000:
+                trunc_len = 1000
+                rec_seq = extend_copy_seq[0:trunc_len] + extend_copy_seq[-trunc_len:]
+                if not trunc_all_copies.__contains__(query_name):
+                    trunc_all_copies[query_name] = {}
+                trunc_contigs = trunc_all_copies[query_name]
+                trunc_contigs[new_name] = rec_seq
+                trunc_all_copies[query_name] = trunc_contigs
     for query_name in extend_all_copies.keys():
         copy_contigs = extend_all_copies[query_name]
         valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
         extend_member_file = temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
         store_fasta(copy_contigs, extend_member_file)
         query_seq = contigs[query_name]
-        batch_member_files.append((query_name, query_seq, extend_member_file))
+        if query_name in trunc_all_copies:
+            trunc_contigs = trunc_all_copies[query_name]
+            trunc_member_file = temp_dir + '/' + valid_query_filename + '.trunc.blast.bed.fa'
+            store_fasta(trunc_contigs, trunc_member_file)
+        else:
+            trunc_member_file = None
+        batch_member_files.append((query_name, query_seq, trunc_member_file, extend_member_file))
 
-    # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
-    ex = ProcessPoolExecutor(threads)
-    jobs = []
-    for batch_member_file in batch_member_files:
-        job = ex.submit(run_find_members_v8, batch_member_file, temp_dir, subset_script_path,
-                        plant, TE_type, debug, result_type)
-        jobs.append(job)
-    ex.shutdown(wait=True)
+    futures = []
+    # 2. 优化执行策略（长任务优先 + 动态调度）
+    with ProcessPoolExecutor(max_workers=threads) as ex:
+        for task in batch_member_files:
+            futures.append(ex.submit(
+                run_find_members_v8,
+                task, temp_dir, subset_script_path,
+                plant, TE_type, debug, result_type
+            ))
 
     not_found_boundary = 0
     full_length1 = 0
@@ -7932,8 +7949,8 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
     if not os.path.exists(low_copy_dir):
         os.makedirs(low_copy_dir)
     low_copy_path = low_copy_dir + '/low_copy_elements.fa'
-    for job in as_completed(jobs):
-        result_info = job.result()
+    for future in as_completed(futures):
+        result_info = future.result()
         cur_name, cur_seq, info, copy_count, extend_member_file = result_info
         if info == 'nb':
             not_found_boundary += 1
@@ -10165,20 +10182,19 @@ def remove_sparse_col_in_align_file(align_file):
             f_save.write('>' + name + '\n' + new_seq + '\n')
     return clean_align_file
 
-def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
-    (query_name, cur_seq, extend_member_file) = batch_member_file
-    member_names, member_contigs = read_fasta(extend_member_file)
+def is_TE_from_align_file(cur_align_file, query_name, cur_seq, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
+    member_names, member_contigs = read_fasta(cur_align_file)
     if len(member_names) > 100:
-        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + extend_member_file + ' 100 100 ' + ' > /dev/null 2>&1'
+        sub_command = 'cd ' + temp_dir + ' && sh ' + subset_script_path + ' ' + cur_align_file + ' 100 100 ' + ' > /dev/null 2>&1'
         os.system(sub_command)
-        extend_member_file += '.rdmSubset.fa'
-    if not os.path.exists(extend_member_file):
-        return (None, None, '', 0, extend_member_file)
-    align_file = extend_member_file + '.maf.fa'
-    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + extend_member_file + ' > ' + align_file
+        cur_align_file += '.rdmSubset.fa'
+    if not os.path.exists(cur_align_file):
+        return (None, None, '', 0, cur_align_file)
+    align_file = cur_align_file + '.maf.fa'
+    align_command = 'cd ' + temp_dir + ' && mafft --preservecase --quiet --thread 1 ' + cur_align_file + ' > ' + align_file
     os.system(align_command)
 
-    align_file= remove_sparse_col_in_align_file(align_file)
+    align_file = remove_sparse_col_in_align_file(align_file)
 
     # Due to the characteristics of TIR, Helitron, and non-LTR elements,
     # their homology filtering methods have slight differences.
@@ -10194,9 +10210,21 @@ def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, 
         is_TE, info, cons_seq, copy_num = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
 
     if is_TE:
-        return (query_name, cons_seq, info, copy_num, extend_member_file)
+        return (query_name, cons_seq, info, copy_num, cur_align_file)
     else:
-        return (None, None, info, 0, extend_member_file)
+        return (None, None, info, 0, cur_align_file)
+
+def run_find_members_v8(batch_member_file, temp_dir, subset_script_path, plant, TE_type, debug, result_type):
+    (query_name, cur_seq, trunc_member_file, extend_member_file) = batch_member_file
+    # 如果存在截断比对文件，说明序列长度过长，先判断截断文件的TE真实性
+    if trunc_member_file is not None:
+        query_name, cons_seq, info, copy_num, trunc_member_file = is_TE_from_align_file(trunc_member_file, query_name, cur_seq, temp_dir, subset_script_path, plant, TE_type, debug, result_type)
+        if query_name is not None:
+            return is_TE_from_align_file(extend_member_file, query_name, cur_seq, temp_dir, subset_script_path, plant, TE_type, debug, result_type)
+        return query_name, cons_seq, info, copy_num, trunc_member_file
+    else:
+        return is_TE_from_align_file(extend_member_file, query_name, cur_seq, temp_dir, subset_script_path, plant,
+                                     TE_type, debug, result_type)
 
 
 def FMEA(blastn2Results_path, fixed_extend_base_threshold):
@@ -11279,6 +11307,32 @@ def ReassignInconsistentLabels(TE_lib):
         else:
             new_TE_contigs[name] = TE_contigs[name]
     store_fasta(new_TE_contigs, TE_lib)
+
+def ReassignUnknownLabels(TE_lib):
+    # Set conflicting labels to "Unknown".
+    TE_names, TE_contigs = read_fasta(TE_lib)
+    new_lib_contigs = {}
+    for name in TE_names:
+        seq = TE_contigs[name]
+        parts = name.split('#')
+        raw_name = parts[0]
+        class_name = parts[1]
+        if class_name == 'Unknown':
+            if 'Non-LTR_' in raw_name:
+                new_class_name = 'Non-LTR/other'
+            elif 'LTR_' in raw_name:
+                new_class_name = 'LTR/other'
+            elif 'TIR_' in raw_name:
+                new_class_name = 'DNA/other'
+            elif 'Helitron_' in raw_name:
+                new_class_name = 'RC/Helitron'
+            else:
+                new_class_name = class_name
+            new_name = raw_name + '#' + new_class_name
+        else:
+            new_name = name
+        new_lib_contigs[new_name] = seq
+    store_fasta(new_lib_contigs, TE_lib)
 
 def lib_add_prefix(HiTE_lib, prefix):
     lib_names, lib_contigs = read_fasta(HiTE_lib)
@@ -14359,3 +14413,30 @@ def clean_old_tmp_files_by_dir(tmp_dir='/tmp', age_threshold=60*60*24):
         except Exception as e:
             # 捕获其他异常并跳过
             print(f"Skipping due to error: {item_path} ({e})")
+
+def get_fixed_extend_base_threshold(genome_size):
+    """
+    根据参考基因组的大小设置 fixed_extend_base_threshold 参数
+    :param genome_size: 参考基因组的大小（以字节为单位）
+    :return: fixed_extend_base_threshold 的值
+    """
+    if genome_size < 200_000_000:  # < 200 MB
+        return 1000
+    elif genome_size < 400_000_000:  # < 400 MB
+        return 1500
+    elif genome_size < 2_000_000_000:  # < 2 GB
+        return 2000
+    else:  # >= 2 GB
+        return 4000
+
+def get_genome_size(fasta_file):
+    """
+    计算参考基因组的总大小
+    :param fasta_file: 参考基因组的 FASTA 文件路径
+    :return: 基因组的总大小（以碱基对为单位）
+    """
+    total_size = 0
+    ref_names, ref_contigs = read_fasta(fasta_file)
+    for name in ref_names:
+        total_size += len(ref_contigs[name])
+    return total_size
