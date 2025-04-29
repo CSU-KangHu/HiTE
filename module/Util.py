@@ -4090,6 +4090,35 @@ def sequence2sequenceBlastn(query_path, target_path):
 
     return blastn2Results_path
 
+def sequence2sequenceMinimap2(query_path, target_path, multi_records=100):
+    """
+    使用 Minimap2 比对 query_path 和 target_path，并提取重复序列。
+    """
+    output_paf = f"{query_path}_vs_{os.path.basename(target_path)}.paf"
+    output_blastn = f"{query_path}_vs_{os.path.basename(target_path)}.out"
+
+    # 运行 BLAST 进行比对
+    align_command = [
+        "minimap2",
+        "-x", "map-ont",  # 使用适合组装的参数
+        "-N", str(multi_records),
+        "-p", "0.2",
+        "-f 0",
+        "-t 1",
+        target_path,
+        query_path,
+        "-o", output_paf
+    ]
+
+    try:
+        subprocess.run(align_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        convert_paf_to_blast6_format(output_paf, output_blastn)
+    except subprocess.CalledProcessError as e:
+        print(f"BLAST fail: {query_path} vs {target_path}, error: {e}")
+        return None
+
+    return output_blastn
+
 def get_longest_repeats_v4(blastn2Results_path, fixed_extend_base_threshold, max_single_repeat_len, debug):
     # parse blastn output, determine the repeat boundary
     # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
@@ -4625,8 +4654,9 @@ def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fi
     masked_file_path = mask_genome_with_TE(prev_TE, filter_tandem_file, tmp_output_dir, threads, ref_index, debug)
 
     # 5. 分割序列并进行 BLAST
-    longest_repeats_paths = process_blast_alignments(masked_file_path, tmp_output_dir, ref_index, threads,
-                                              fixed_extend_base_threshold, max_single_repeat_len, debug)
+    longest_repeats_paths = process_blast_alignments(masked_file_path, tmp_output_dir, ref_index, threads, fixed_extend_base_threshold,
+                                                        max_single_repeat_len, debug)
+    # longest_repeats_paths = process_minimap2_alignments(masked_file_path, tmp_output_dir, ref_index, threads, max_single_repeat_len)
 
     # 6. 生成最终结果
     generate_final_result(longest_repeats_paths, longest_repeats_path, reference)
@@ -4763,6 +4793,156 @@ def generate_final_result(longest_repeats_paths, longest_repeats_path, reference
             final_longest_repeats[frag_name] = ref_contigs[chr_name][chr_start:chr_end]
     store_fasta(final_longest_repeats, longest_repeats_path)
 
+def get_repeats_from_minimap2(blastn2Results_path, max_single_repeat_len):
+    # parse blastn output, determine the repeat boundary
+    # query_records = {query_name: {subject_name: [(q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end), (q_start, q_end, s_start, s_end)] }}
+    query_records = {}
+    with open(blastn2Results_path, 'r') as f_r:
+        for idx, line in enumerate(f_r):
+            if line.startswith('#'):
+                continue
+            #print('current line idx: %d' % (idx))
+            parts = line.split('\t')
+            query_name = parts[0]
+            subject_name = parts[1]
+            identity = float(parts[2])
+            alignment_len = int(parts[3])
+            q_start = int(parts[6])
+            q_end = int(parts[7])
+            s_start = int(parts[8])
+            s_end = int(parts[9])
+            if (query_name==subject_name and q_start==s_start and q_end==s_end):
+                continue
+            if not query_records.__contains__(query_name):
+                query_records[query_name] = {}
+            subject_dict = query_records[query_name]
+
+            if not subject_dict.__contains__(subject_name):
+                subject_dict[subject_name] = []
+            subject_pos = subject_dict[subject_name]
+            subject_pos.append((q_start, q_end, s_start, s_end))
+    f_r.close()
+
+    regions = []
+    for idx, query_name in enumerate(query_records.keys()):
+        query_parts = query_name.split('$')
+        query_chr_name = query_parts[0]
+        query_chr_offset = int(query_parts[1])
+        subject_dict = query_records[query_name]
+        for subject_name in subject_dict.keys():
+            subject_parts = subject_name.split('$')
+            subject_chr_name = subject_parts[0]
+            subject_chr_offset = int(subject_parts[1])
+            for q_start, q_end, s_start, s_end in subject_dict[subject_name]:
+                q_start += query_chr_offset
+                q_end += query_chr_offset
+                s_start += subject_chr_offset
+                s_end += subject_chr_offset
+                regions.append((query_chr_name, q_start, q_end))
+                regions.append((subject_chr_name, s_start, s_end))
+    filtered_regions = filter_redundant_regions(regions, max_single_repeat_len)
+    # cur_repeats -> {'chr1:100-1000': 1, }
+    cur_repeats = {}
+    for r in filtered_regions:
+        query_pos = r[0] + ':' + str(r[1]) + '-' + str(r[2])
+        cur_repeats[query_pos] = 1
+    output_file = blastn2Results_path + '.lr.pkl'
+    save_to_file(cur_repeats, output_file)
+    return output_file
+
+def calc_overlap(start1, end1, start2, end2):
+    overlap_start = max(start1, start2)
+    overlap_end = min(end1, end2)
+    overlap_len = max(0, overlap_end - overlap_start)
+    return overlap_len
+
+def filter_redundant_regions(regions, max_single_repeat_len):
+    # regions: List of (chr, start, end)
+    regions = sorted(regions, key=lambda x: (x[0], x[1], x[2]-x[1]), reverse=False)  # 按 chr、start、长度升序
+    keep = []
+    for region in regions:
+        chr1, start1, end1 = region
+        length1 = end1 - start1
+        # 超长的直接丢弃
+        if length1 < 80 or length1 > max_single_repeat_len:
+            continue
+        redundant = False
+        for kept in keep:
+            chr2, start2, end2 = kept
+            if chr1 != chr2:
+                continue
+            length2 = end2 - start2
+            overlap = calc_overlap(start1, end1, start2, end2)
+            if overlap > 0:
+                # 按较短区间计算重叠比例
+                min_length = min(length1, length2)
+                if overlap / min_length >= 0.95:
+                    if length1 > length2:
+                        keep.remove(kept)
+                        keep.append(region)
+                    redundant = True
+                    break
+        if not redundant:
+            keep.append(region)
+    return keep
+
+def process_minimap2_alignments(filter_tandem_file, tmp_output_dir, ref_index, threads, max_single_repeat_len):
+    """
+    处理 BLAST 比对并获取最长重复序列。
+    """
+    tmp_blast_dir = os.path.join(tmp_output_dir, f'longest_repeats_blast_{ref_index}')
+    if not os.path.exists(tmp_blast_dir):
+        os.makedirs(tmp_blast_dir)
+
+    # 读取 FASTA 文件
+    repeat_names, repeat_contigs = read_fasta(filter_tandem_file)
+
+    # 分割序列并存储
+    target_tuples = split_and_store_sequences(repeat_names, repeat_contigs, tmp_blast_dir, base_threshold=1_000_000)
+
+    # 生成所有 (query_path, target_path) 组合
+    blast_tasks = [(query_path, target_path)
+                   for query_path, _ in target_tuples
+                   for target_path, _ in target_tuples]
+
+    multi_records = 100
+    # 并行执行 BLAST 比对
+    blast_results = {}
+    with ProcessPoolExecutor(max_workers=threads) as ex:
+        jobs = {ex.submit(sequence2sequenceMinimap2, query_path, target_path, multi_records): (query_path, target_path)
+                for query_path, target_path in blast_tasks}
+
+        for job in as_completed(jobs):
+            try:
+                result_file = job.result()
+                if result_file:
+                    query_path = result_file.split("_vs_")[0]  # 解析 query_path
+                    if query_path not in blast_results:
+                        blast_results[query_path] = []
+                    blast_results[query_path].append(result_file)
+            except Exception as e:
+                print(f"BLAST error: {jobs[job]} - {e}")
+
+    # 合并 BLAST 结果
+    final_output_paths = []
+    for query_path, result_files in blast_results.items():
+        final_output_path = f"{query_path}.final.out"
+        with open(final_output_path, "w") as fout:
+            for result_file in result_files:
+                with open(result_file, "r") as fin:
+                    fout.write(fin.read())
+        final_output_paths.append(final_output_path)
+
+    longest_repeats_paths = []
+    # 并行处理 BLAST
+    with ProcessPoolExecutor(max_workers=threads) as ex:
+        jobs = [ex.submit(get_repeats_from_minimap2, blastn2Results_path, max_single_repeat_len)
+                for blastn2Results_path in final_output_paths]
+        for job in as_completed(jobs):
+            cur_output_file = job.result()
+            longest_repeats_paths.append(cur_output_file)
+
+    return longest_repeats_paths
 
 
 def cleanup_temp_files(tmp_output_dir, ref_index):

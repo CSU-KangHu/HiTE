@@ -174,11 +174,11 @@ if __name__ == '__main__':
 
 
     if species == "dmel":
-        lib_path = lib_module + "/dmel.ltr.ref"
-        # lib_path = lib_module + '/drorep.ref'
+        # lib_path = lib_module + "/dmel.ltr.ref"
+        lib_path = lib_module + '/drorep.ref'
     elif species == "rice":
-        lib_path = lib_module + "/rice.ltr.ref"
-        # lib_path = lib_module + '/oryrep.ref'
+        # lib_path = lib_module + "/rice.ltr.ref"
+        lib_path = lib_module + '/oryrep.ref'
     elif species == "cb":
         lib_path = lib_module + "/cbrrep.ref"
     elif species == "zebrafish":

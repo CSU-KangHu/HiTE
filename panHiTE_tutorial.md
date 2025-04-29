@@ -46,7 +46,7 @@ conda create -n nextflow -c conda-forge -c bioconda nextflow==24.10.3
 git clone https://github.com/CSU-KangHu/HiTE.git
 ```
 
-#### <a name="install_conda"></a>Option 1. Installation via Conda
+#### <a name="install_conda"></a>Option 1. Installation via Conda (recommended)
 ###### 1. Install Conda environment
 ```bash
 # 1. Grant execution permissions for the required tools.
@@ -110,12 +110,14 @@ R
 
 #### <a name="install_singularity"></a>Option 2. Installation via Singularity
 ```sh
+# Note: Container images may lag behind Conda in version updates
 # pull singularity image (once for all). There will be a HiTE.sif file.
 singularity pull HiTE.sif docker://kanghu/hite:3.3.2
 ```
 
 #### <a name="install_docker"></a>Option 3. Installation via Docker
 ```sh
+# Note: Container images may lag behind Conda in version updates
 # pull docker image (once for all).
 docker pull kanghu/hite:3.3.2
 ```
