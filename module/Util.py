@@ -4656,6 +4656,7 @@ def determine_repeat_boundary_v5(repeats_path, longest_repeats_path, prev_TE, fi
     # 5. 分割序列并进行 BLAST
     longest_repeats_paths = process_blast_alignments(masked_file_path, tmp_output_dir, ref_index, threads, fixed_extend_base_threshold,
                                                         max_single_repeat_len, debug)
+    # minimap2 在水稻上导致perfect数量下降，因为它找不到准确的比对边界，总是尝试获得更长的比对片段；此外也导致后续的运行时间显著增加
     # longest_repeats_paths = process_minimap2_alignments(masked_file_path, tmp_output_dir, ref_index, threads, max_single_repeat_len)
 
     # 6. 生成最终结果
@@ -4823,7 +4824,7 @@ def get_repeats_from_minimap2(blastn2Results_path, max_single_repeat_len):
             subject_pos.append((q_start, q_end, s_start, s_end))
     f_r.close()
 
-    regions = []
+    region_pairs = []
     for idx, query_name in enumerate(query_records.keys()):
         query_parts = query_name.split('$')
         query_chr_name = query_parts[0]
@@ -4838,53 +4839,79 @@ def get_repeats_from_minimap2(blastn2Results_path, max_single_repeat_len):
                 q_end += query_chr_offset
                 s_start += subject_chr_offset
                 s_end += subject_chr_offset
-                regions.append((query_chr_name, q_start, q_end))
-                regions.append((subject_chr_name, s_start, s_end))
-    filtered_regions = filter_redundant_regions(regions, max_single_repeat_len)
-    # cur_repeats -> {'chr1:100-1000': 1, }
+                query_item = (query_chr_name, q_start, q_end)
+                subject_item = (subject_chr_name, s_start, s_end)
+                region_pairs.append((query_item, subject_item))
+
     cur_repeats = {}
-    for r in filtered_regions:
-        query_pos = r[0] + ':' + str(r[1]) + '-' + str(r[2])
-        cur_repeats[query_pos] = 1
+    chr_pos_candidates = {}
+    query_repeatNames = []
+    query_repeats = {}
+    for query_item, subject_item in region_pairs:
+        # Subject
+        subject_chr_name = subject_item[0]
+        subject_start_pos = subject_item[1]
+        subject_end_pos = subject_item[2]
+
+        # Rounding the positional coordinates to the nearest multiple of 10,
+        # for example, 567, we obtain two numbers: 560 and 570.
+        subject_start_pos1, subject_start_pos2 = get_integer_pos(subject_start_pos)
+        subject_end_pos1, subject_end_pos2 = get_integer_pos(subject_end_pos)
+        # Record the chromosomal coordinates corresponding to this segment.
+        subject_pos = subject_chr_name + ':' + str(subject_start_pos) + '-' + str(subject_end_pos)
+        subject_pos1 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos1)
+        subject_pos2 = subject_chr_name + ':' + str(subject_start_pos1) + '-' + str(subject_end_pos2)
+        subject_pos3 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos1)
+        subject_pos4 = subject_chr_name + ':' + str(subject_start_pos2) + '-' + str(subject_end_pos2)
+
+        # Query
+        query_chr_name = query_item[0]
+        query_start_pos = query_item[1]
+        query_end_pos = query_item[2]
+        cur_query_seq_len = abs(query_end_pos - query_start_pos)
+
+        query_start_pos1, query_start_pos2 = get_integer_pos(query_start_pos)
+        query_end_pos1, query_end_pos2 = get_integer_pos(query_end_pos)
+
+        query_pos = query_chr_name + ':' + str(query_start_pos) + '-' + str(query_end_pos)
+        query_pos1 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos1)
+        query_pos2 = query_chr_name + ':' + str(query_start_pos1) + '-' + str(query_end_pos2)
+        query_pos3 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos1)
+        query_pos4 = query_chr_name + ':' + str(query_start_pos2) + '-' + str(query_end_pos2)
+
+        # Determine if this sequence has already been saved. If not, record the sequence of this subject segment.
+        if not chr_pos_candidates.__contains__(subject_pos1) \
+                and not chr_pos_candidates.__contains__(subject_pos2) \
+                and not chr_pos_candidates.__contains__(subject_pos3) \
+                and not chr_pos_candidates.__contains__(subject_pos4) \
+                and not chr_pos_candidates.__contains__(query_pos1) \
+                and not chr_pos_candidates.__contains__(query_pos2) \
+                and not chr_pos_candidates.__contains__(query_pos3) \
+                and not chr_pos_candidates.__contains__(query_pos4):
+
+            if cur_query_seq_len >= 80 and cur_query_seq_len < max_single_repeat_len:
+                query_repeatNames.append(query_pos)
+                query_repeats[query_pos] = 1
+
+        chr_pos_candidates[subject_pos1] = 1
+        chr_pos_candidates[subject_pos2] = 1
+        chr_pos_candidates[subject_pos3] = 1
+        chr_pos_candidates[subject_pos4] = 1
+        chr_pos_candidates[query_pos1] = 1
+        chr_pos_candidates[query_pos2] = 1
+        chr_pos_candidates[query_pos3] = 1
+        chr_pos_candidates[query_pos4] = 1
+
+    # Merging query repeats, if the overlap exceeds 95%, then discard.
+    merge_contigNames = process_all_seqs(query_repeatNames)
+    for name in merge_contigNames:
+        cur_repeats[name] = query_repeats[name]
+
     output_file = blastn2Results_path + '.lr.pkl'
     save_to_file(cur_repeats, output_file)
+
     return output_file
 
-def calc_overlap(start1, end1, start2, end2):
-    overlap_start = max(start1, start2)
-    overlap_end = min(end1, end2)
-    overlap_len = max(0, overlap_end - overlap_start)
-    return overlap_len
-
-def filter_redundant_regions(regions, max_single_repeat_len):
-    # regions: List of (chr, start, end)
-    regions = sorted(regions, key=lambda x: (x[0], x[1], x[2]-x[1]), reverse=False)  # 按 chr、start、长度升序
-    keep = []
-    for region in regions:
-        chr1, start1, end1 = region
-        length1 = end1 - start1
-        # 超长的直接丢弃
-        if length1 < 80 or length1 > max_single_repeat_len:
-            continue
-        redundant = False
-        for kept in keep:
-            chr2, start2, end2 = kept
-            if chr1 != chr2:
-                continue
-            length2 = end2 - start2
-            overlap = calc_overlap(start1, end1, start2, end2)
-            if overlap > 0:
-                # 按较短区间计算重叠比例
-                min_length = min(length1, length2)
-                if overlap / min_length >= 0.95:
-                    if length1 > length2:
-                        keep.remove(kept)
-                        keep.append(region)
-                    redundant = True
-                    break
-        if not redundant:
-            keep.append(region)
-    return keep
 
 def process_minimap2_alignments(filter_tandem_file, tmp_output_dir, ref_index, threads, max_single_repeat_len):
     """
@@ -6361,7 +6388,7 @@ def update_prev_TE(prev_TE, cur_file):
 
 def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index, debug=0):
     masked_genome_path = genome_path + '.masked'
-    if file_exist(TE_lib):
+    if TE_lib is not None and file_exist(TE_lib):
         tmp_blast_dir = work_dir + '/mask_tmp_' + str(ref_index)
         lib_out = work_dir + '/prev_TE_'+str(ref_index)+'.out'
         lib_paf = work_dir + '/prev_TE_' + str(ref_index) + '.paf'
@@ -8086,9 +8113,9 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
             copy_contigs = extend_all_copies[query_name]
             copy_contigs[new_name] = extend_copy_seq
             extend_all_copies[query_name] = copy_contigs
-            # 当序列长度超过2 kbp时，为了节省多序列比对运行时间，我们只取首尾1000 bp 组合的序列
-            if len(extend_copy_seq) > 2000:
-                trunc_len = 1000
+            # 当序列长度超过1 kbp时，为了节省多序列比对运行时间，我们只取首尾 500 bp 组合的序列
+            if len(extend_copy_seq) > 1000:
+                trunc_len = 500
                 rec_seq = extend_copy_seq[0:trunc_len] + extend_copy_seq[-trunc_len:]
                 if not trunc_all_copies.__contains__(query_name):
                     trunc_all_copies[query_name] = {}

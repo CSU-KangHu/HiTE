@@ -9,7 +9,6 @@
 [![Conda](https://img.shields.io/badge/Conda-support-yellow)](https://docs.conda.io/en/latest/)
 [![Nextflow](https://img.shields.io/badge/Nextflow-support-red)](https://www.nextflow.io/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10576547.svg)](https://doi.org/10.5281/zenodo.10576547)
-[<img src="https://api.gitsponsors.com/api/badge/img?id=581174729" height="20">](https://api.gitsponsors.com/api/badge/link?p=PL6kwlCpx6fGhvRjvjUOMxwvKraeW2+x88QI//SPTQXBVM9M+dg+Cd30b4M5vDmMD5rHCyli3SsQktn6hcEzNsYzTImp4gfSjtlBI/GzY8BdG76/MgBOn7VH3RwXXCEriK/DCUhdPCluCG0PRDdgmw==)
 
 `HiTE` is a Python software that uses a dynamic boundary adjustment approach to detect and annotate full-length Transposable Elements in Genome Assemblies. In comparison to other tools, HiTE demonstrates superior performance in detecting a greater number of full-length TEs.
 

@@ -75,7 +75,8 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command + ' > /dev/null 2>&1')
         NeuralTE_TE_path = NeuralTE_output_dir + '/classified_TE.fa'
-        os.system('cp ' + NeuralTE_TE_path + ' ' + classified_TE_path)
+        if os.path.exists(NeuralTE_TE_path):
+            shutil.copy(NeuralTE_TE_path, classified_TE_path)
     else:
         # classify LTR using RepeatClassifier
         sample_name = 'test'
@@ -88,7 +89,7 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
     # merge classified LTRs and TEs
     confident_TE_path = tmp_output_dir + '/confident_TE.fa'
     if file_exist(classified_TE_path):
-        os.system('cp ' + classified_TE_path + ' ' + confident_TE_path)
+        shutil.copy(classified_TE_path, confident_TE_path)
     if file_exist(confident_ltr_cut_path):
         os.system('cat ' + confident_ltr_cut_path + ' >> ' + confident_TE_path)
     if file_exist(confident_other_path):

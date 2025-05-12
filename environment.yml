@@ -39,7 +39,7 @@ dependencies:
   - r-mass
   - tqdm
   - pip
-  - minimap2
+  - minimap2=2.28
   - pip:
     - python-Levenshtein
     - PyPDF2

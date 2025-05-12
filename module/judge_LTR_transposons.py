@@ -252,7 +252,8 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
         log.logger.debug(NeuralTE_command)
         os.system(NeuralTE_command)
         NeuralTE_output = NeuralTE_output_dir + '/classified_TE.fa'
-        shutil.copy(NeuralTE_output, classified_TE_path)
+        if os.path.exists(NeuralTE_output):
+            shutil.copy(NeuralTE_output, classified_TE_path)
     else:
         # classify LTR using RepeatClassifier
         sample_name = 'test'
@@ -377,7 +378,7 @@ if __name__ == '__main__':
 
     else:
         # 如果没有异常，删除临时目录
-        if os.path.exists(temp_dir):
+        if os.path.exists(temp_dir) and debug != 1:
             shutil.rmtree(temp_dir)
 
 

@@ -49,16 +49,17 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 #### <a name="install_conda"></a>Option 1. Installation via Conda (recommended)
 ###### 1. Install Conda environment
 ```bash
-# 1. Grant execution permissions for the required tools.
-cd HiTE && python configure.py
-
-# 2. Create the HiTE environment and record the environment path
+cd HiTE
+# 1. Create the HiTE environment and record the environment path
 source ~/.bashrc # or open a new terminal
 conda env create --name HiTE -f environment.yml
 conda activate HiTE
 which python 
 # For example, the output might be: /home/xxx/miniconda3/envs/HiTE/bin/python. 
 # Record this path as it will be used later: /home/xxx/miniconda3/envs/HiTE
+
+# 2. Grant execution permissions for the required tools.
+python configure.py
 ```
 
 ###### 2. Install Required R Packages

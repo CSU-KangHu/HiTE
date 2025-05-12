@@ -973,7 +973,8 @@ def generate_both_ends_frame_from_seq_minimap2(candidate_sequence_path, referenc
     ref_names, ref_contigs = read_fasta(reference)
     # extend copies
     batch_member_files = []
-    new_all_copies = {}
+    extend_all_copies = {}
+    trunc_all_copies = {}
     for query_name in all_copies.keys():
         copies = all_copies[query_name]
         for copy in copies:
@@ -984,22 +985,37 @@ def generate_both_ends_frame_from_seq_minimap2(candidate_sequence_path, referenc
             copy_len = copy_ref_end - copy_ref_start + 1
             if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
                 continue
-            copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
+            extend_copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
             if direct == '-':
-                copy_seq = getReverseSequence(copy_seq)
-            if len(copy_seq) < 100:
+                extend_copy_seq = getReverseSequence(extend_copy_seq)
+            if len(extend_copy_seq) < 100:
                 continue
             new_name = ref_name + ':' + str(copy_ref_start) + '-' + str(copy_ref_end) + '(' + direct + ')'
-            if not new_all_copies.__contains__(query_name):
-                new_all_copies[query_name] = {}
-            copy_contigs = new_all_copies[query_name]
-            copy_contigs[new_name] = copy_seq
-            new_all_copies[query_name] = copy_contigs
-    for query_name in new_all_copies.keys():
-        copy_contigs = new_all_copies[query_name]
-        cur_member_file = temp_dir + '/' + query_name + '.blast.bed.fa'
-        store_fasta(copy_contigs, cur_member_file)
-        batch_member_files.append((query_name, cur_member_file))
+            if not extend_all_copies.__contains__(query_name):
+                extend_all_copies[query_name] = {}
+            copy_contigs = extend_all_copies[query_name]
+            copy_contigs[new_name] = extend_copy_seq
+            extend_all_copies[query_name] = copy_contigs
+            # 当序列长度超过1 kbp时，为了节省多序列比对运行时间，我们只取首尾 500 bp 组合的序列
+            if len(extend_copy_seq) > 1000:
+                trunc_len = 500
+                rec_seq = extend_copy_seq[0:trunc_len] + extend_copy_seq[-trunc_len:]
+                if not trunc_all_copies.__contains__(query_name):
+                    trunc_all_copies[query_name] = {}
+                trunc_contigs = trunc_all_copies[query_name]
+                trunc_contigs[new_name] = rec_seq
+                trunc_all_copies[query_name] = trunc_contigs
+    for query_name in extend_all_copies.keys():
+        copy_contigs = extend_all_copies[query_name]
+        extend_member_file = temp_dir + '/' + query_name + '.blast.bed.fa'
+        store_fasta(copy_contigs, extend_member_file)
+        if query_name in trunc_all_copies:
+            trunc_contigs = trunc_all_copies[query_name]
+            trunc_member_file = temp_dir + '/' + query_name + '.trunc.blast.bed.fa'
+            store_fasta(trunc_contigs, trunc_member_file)
+        else:
+            trunc_member_file = None
+        batch_member_files.append((query_name, trunc_member_file, extend_member_file))
 
     endtime = time.time()
     dtime = endtime - starttime
@@ -1297,8 +1313,12 @@ def extract_copies(member_file, max_num):
     return member_file
 
 def generate_msa(batch_member_file, temp_dir, output_dir, full_length_output_dir, flanking_len, debug):
-    (query_name, member_file) = batch_member_file
-
+    (query_name, trunc_member_file, extend_member_file) = batch_member_file
+    # 如果存在截断比对文件，说明序列长度过长，直接使用截断比对文件进行判断
+    if trunc_member_file is not None:
+        member_file = trunc_member_file
+    else:
+        member_file = extend_member_file
     member_names, member_contigs = read_fasta(member_file)
     if len(member_names) > 100:
         # 抽取100条最长的 拷贝
@@ -7715,6 +7735,9 @@ def process_blast_results_in_chunks(blastnResults_path, work_dir, type, chunk_si
 
 def deredundant_for_LTR_v5(redundant_ltr, work_dir, threads, type, coverage_threshold, debug):
     starttime = time.time()
+    if not file_exist(redundant_ltr):
+        return redundant_ltr
+
     # We found that performing a direct mafft alignment on the redundant LTR library was too slow.
     # Therefore, we first need to use Blastn for alignment clustering, and then proceed with mafft processing.
     tmp_blast_dir = work_dir + '/LTR_blastn_' + str(type)
@@ -9982,8 +10005,10 @@ def filter_tir(output_path, tir_output_path, confident_tir_path, full_length_out
     for job in as_completed(jobs):
         results = job.result()
         for cur_seq_name, is_tir, info, cons_seq in results:
-            if len(cons_seq) > 0:
-                candidate_tirs[cur_seq_name] = cons_seq
+            if cur_seq_name in left_LTR_contigs:
+                cur_seq = left_LTR_contigs[cur_seq_name]
+                if is_tir and len(cur_seq) > 0:
+                    candidate_tirs[cur_seq_name] = cur_seq
 
     candidate_tir_path = tmp_output_dir + '/candidate_tir.fa'
     store_fasta(candidate_tirs, candidate_tir_path)
@@ -10070,9 +10095,11 @@ def filter_helitron(output_path, helitron_output_path, confident_helitron_path, 
     candidate_helitrons = {}
     for job in as_completed(jobs):
         results = job.result()
-        for cur_seq_name, is_tir, info, cons_seq in results:
-            if len(cons_seq) > 0:
-                candidate_helitrons[cur_seq_name] = cons_seq
+        for cur_seq_name, is_helitron, info, cons_seq in results:
+            if cur_seq_name in left_LTR_contigs:
+                cur_seq = left_LTR_contigs[cur_seq_name]
+                if is_helitron and len(cur_seq) > 0:
+                    candidate_helitrons[cur_seq_name] = cur_seq
 
     candidate_helitron_path = tmp_output_dir + '/candidate_helitron.fa'
     store_fasta(candidate_helitrons, candidate_helitron_path)
@@ -10168,8 +10195,10 @@ def filter_sine(output_path, sine_output_path, confident_sine_path, full_length_
     for job in as_completed(jobs):
         results = job.result()
         for cur_seq_name, is_sine, info, cons_seq in results:
-            if len(cons_seq) > 0:
-                confident_sines[cur_seq_name] = cons_seq
+            if cur_seq_name in left_LTR_contigs:
+                cur_seq = left_LTR_contigs[cur_seq_name]
+                if is_sine and len(cur_seq) > 0:
+                    confident_sines[cur_seq_name] = cur_seq
     store_fasta(confident_sines, confident_sine_path)
 
     # 剩余的序列都当作候选的LTR转座子
