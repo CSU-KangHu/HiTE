@@ -9,7 +9,7 @@ current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 project_dir = os.path.join(current_folder, ".")
 
 from Util import Logger, deredundant_for_LTR_v5, ReassignInconsistentLabels, split_internal_out, \
-    create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir
+    create_or_clear_directory, copy_files, clean_old_tmp_files_by_dir, ReassignUnknownLabels
 
 
 def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, threads, log):
@@ -42,7 +42,8 @@ def remove_redundancy(pan_terminal_tmp_lib, pan_internal_tmp_lib, output_dir, th
     os.system(f'cat {pan_terminal_tmp_lib_cons} {pan_internal_tmp_lib_cons} > {panTE_lib}')
 
     # Reassign inconsistent classification labels
-    ReassignInconsistentLabels(panTE_lib)
+    # ReassignInconsistentLabels(panTE_lib)
+    # ReassignUnknownLabels(panTE_lib)
     log.logger.info('Redundancy removal and library merge completed')
 
 

@@ -4100,38 +4100,41 @@ if __name__ == '__main__':
     # store_fasta(new_clariTeRep_contigs, new_clariTeRep_path)
 
 
-    cur_dir = '/home/hukang/test/HiTE/demo/out29/NeuralTE_all/'
-    # lib = cur_dir + 'panTE.merge_recover.fa'
-    # new_lib = cur_dir + 'panTE.merge_recover.reclassified.fa'
-    # names, contigs = read_fasta(lib)
-    # new_lib_contigs = {}
-    # for name in names:
-    #     seq = contigs[name]
-    #     parts = name.split('#')
-    #     raw_name = parts[0]
-    #     class_name = parts[1]
-    #     if class_name == 'Unknown':
-    #         if 'Non-LTR_' in raw_name:
-    #             new_class_name = 'Non-LTR/Unknown'
-    #         elif 'LTR_' in raw_name:
-    #             new_class_name = 'LTR/Unknown'
-    #         elif 'TIR_' in raw_name:
-    #             new_class_name = 'DNA/Unknown'
-    #         elif 'Helitron_' in raw_name:
-    #             new_class_name = 'RC/Helitron'
-    #         else:
-    #             new_class_name = class_name
-    #         new_name = raw_name + '#' + new_class_name
-    #     else:
-    #         new_name = name
-    #     new_lib_contigs[new_name] = seq
-    # store_fasta(new_lib_contigs, new_lib)
+    cur_dir = '/home/hukang/test/HiTE/demo/out43'
+    lib = cur_dir + '/panTE.merge_recover.fa'
+    org_lib = cur_dir + '/panTE.merge_recover.original.fa'
+    total_lib = cur_dir + '/total_TE.cons.fa'
+    names, contigs = read_fasta(lib)
+    total_names, total_contigs = read_fasta(total_lib)
+    total_dict = {}
+    for name in total_names:
+        parts = name.split('#')
+        raw_name = parts[0]
+        class_name = parts[1]
+        total_dict[raw_name] = class_name
 
-    tmp_output_dir = cur_dir
-    ref_index = 0
-    tmp_blast_dir = os.path.join(tmp_output_dir, f'longest_repeats_blast_{ref_index}')
-    if not os.path.exists(tmp_blast_dir):
-        os.makedirs(tmp_blast_dir)
+    new_lib_contigs = {}
+    for name in names:
+        seq = contigs[name]
+        parts = name.split('#')
+        raw_name = parts[0]
+        class_name = parts[1]
+        if class_name == 'Unknown':
+            if raw_name in total_dict:
+                new_class_name = total_dict[raw_name]
+                new_name = raw_name + '#' + new_class_name
+            else:
+                new_name = name
+        else:
+            new_name = name
+        new_lib_contigs[new_name] = seq
+    store_fasta(new_lib_contigs, org_lib)
+
+    # tmp_output_dir = cur_dir
+    # ref_index = 0
+    # tmp_blast_dir = os.path.join(tmp_output_dir, f'longest_repeats_blast_{ref_index}')
+    # if not os.path.exists(tmp_blast_dir):
+    #     os.makedirs(tmp_blast_dir)
 
     # filter_tandem_file = tmp_output_dir + '/genome.cut0.fa'
     # # 读取 FASTA 文件
@@ -4140,28 +4143,7 @@ if __name__ == '__main__':
     # # 分割序列并存储
     # target_tuples = split_and_store_sequences(repeat_names, repeat_contigs, tmp_blast_dir, base_threshold=1_000_000)
 
-    import time
 
-
-    # 定义一个示例函数
-    def example_function():
-        query_file = tmp_blast_dir + '/0_target.fa'
-        for j in range(0, 120):
-            target_file = tmp_blast_dir + '/' + str(j) + '_target.fa'
-            # cmd = 'minimap2 -x map-ont -N 100 -p 0.2 -f 0 -t 1 ' + target_file + ' ' + query_file + ' -o ' + tmp_blast_dir + '/test1.paf'
-            # os.system(cmd) #82.682008 秒
-
-            cmd = 'blastn -num_threads 1 -evalue 1e-20 -subject ' + target_file + ' -query ' + query_file + ' -outfmt 6 -out ' + tmp_blast_dir + '/test.out'
-            os.system(cmd) # 140.578198 秒
-
-    # 测试代码运行时间
-    start_time = time.time()  # 获取当前时间
-    result = example_function()  # 执行函数
-    end_time = time.time()  # 获取当前时间
-
-    # 计算运行时间
-    elapsed_time = end_time - start_time
-    print(f"运行时间: {elapsed_time:.6f} 秒")
 
 
 

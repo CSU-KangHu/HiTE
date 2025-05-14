@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # 为避免tensorflow版本与环境不兼容问题，屏蔽所有 GPU
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 # Add the path to the 'configs' folder to the Python path
