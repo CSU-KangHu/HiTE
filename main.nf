@@ -59,6 +59,7 @@ def helpMessage() {
       --fixed_extend_base_threshold     The length of variation can be tolerated during pairwise alignment, default = [ 1000 ]
       --tandem_region_cutoff            Cutoff of the candidates regarded as tandem region, default = [ 0.5 ]
       --max_repeat_len                  The maximum length of a single repeat, default = [ 30000 ]
+      --min_TE_len                      The minimum TE length, default = [ 80 ]
       --chrom_seg_length                The length of genome segments, default = [ 500000 ]
     """.stripIndent()
 }
@@ -129,6 +130,7 @@ chrom_seg_length = "${params.chrom_seg_length}"
 chunk_size = "${params.chunk_size}"
 fixed_extend_base_threshold = "${params.fixed_extend_base_threshold}"
 max_repeat_len = "${params.max_repeat_len}"
+min_TE_len = "${params.min_TE_len}"
 flanking_len = "${params.flanking_len}"
 tandem_region_cutoff = "${params.tandem_region_cutoff}"
 recover = "${params.recover}"
@@ -390,6 +392,7 @@ process OtherTE {
     judge_Other_transposons.py \
      -t ${cores} \
      --recover ${recover} -r ${ref} \
+     --min_TE_len ${min_TE_len} \
      -w ${params.work_dir}
     """
 }

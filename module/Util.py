@@ -14628,11 +14628,11 @@ def get_fixed_extend_base_threshold(genome_size):
     :return: fixed_extend_base_threshold 的值
     """
     if genome_size < 200_000_000:  # < 200 MB
-        return 1000
-    elif genome_size < 400_000_000:  # < 400 MB
-        return 1500
-    elif genome_size < 2_000_000_000:  # < 2 GB
         return 2000
+    elif genome_size < 400_000_000:  # < 400 MB
+        return 2500
+    elif genome_size < 2_000_000_000:  # < 2 GB
+        return 3000
     else:  # >= 2 GB
         return 4000
 

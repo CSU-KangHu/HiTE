@@ -4101,34 +4101,60 @@ if __name__ == '__main__':
 
 
     cur_dir = '/home/hukang/test/HiTE/demo/out43'
-    lib = cur_dir + '/panTE.merge_recover.fa'
-    org_lib = cur_dir + '/panTE.merge_recover.original.fa'
-    total_lib = cur_dir + '/total_TE.cons.fa'
-    names, contigs = read_fasta(lib)
-    total_names, total_contigs = read_fasta(total_lib)
-    total_dict = {}
-    for name in total_names:
-        parts = name.split('#')
-        raw_name = parts[0]
-        class_name = parts[1]
-        total_dict[raw_name] = class_name
+    tbl_file = cur_dir + '/wheat_A.fasta.sorted.gff.tbl'
+    rawname_value = {}
+    with open(tbl_file, 'r') as f_r:
+        for line in f_r:
+            line = line.replace('\n', '')
+            elements = line.split()
+            rawname_value[elements[0]] = elements[3]
+    lib_path = cur_dir + '/panTE.merge_recover.fa'
+    names, contigs = read_fasta(lib_path)
 
-    new_lib_contigs = {}
+    target_rawname_value = {}
     for name in names:
-        seq = contigs[name]
         parts = name.split('#')
-        raw_name = parts[0]
         class_name = parts[1]
-        if class_name == 'Unknown':
-            if raw_name in total_dict:
-                new_class_name = total_dict[raw_name]
-                new_name = raw_name + '#' + new_class_name
-            else:
-                new_name = name
-        else:
-            new_name = name
-        new_lib_contigs[new_name] = seq
-    store_fasta(new_lib_contigs, org_lib)
+        raw_name = parts[0]
+        # if 'MULE' in class_name or 'Harbinger' in class_name or 'TcMar' in class_name or 'Unknown' in class_name:
+        if 'MULE' in class_name or 'Harbinger' in class_name or 'TcMar' in class_name:
+            target_rawname_value[raw_name] = rawname_value[raw_name]
+
+    # 排序（去掉百分号并转成 float）
+    sorted_data = dict(
+        sorted(target_rawname_value.items(), key=lambda x: float(x[1].strip('%')), reverse=True)
+    )
+    print(sorted_data)
+
+
+    # lib = cur_dir + '/panTE.merge_recover.fa'
+    # org_lib = cur_dir + '/panTE.merge_recover.original.fa'
+    # total_lib = cur_dir + '/total_TE.cons.fa'
+    # names, contigs = read_fasta(lib)
+    # total_names, total_contigs = read_fasta(total_lib)
+    # total_dict = {}
+    # for name in total_names:
+    #     parts = name.split('#')
+    #     raw_name = parts[0]
+    #     class_name = parts[1]
+    #     total_dict[raw_name] = class_name
+    #
+    # new_lib_contigs = {}
+    # for name in names:
+    #     seq = contigs[name]
+    #     parts = name.split('#')
+    #     raw_name = parts[0]
+    #     class_name = parts[1]
+    #     if class_name == 'Unknown':
+    #         if raw_name in total_dict:
+    #             new_class_name = total_dict[raw_name]
+    #             new_name = raw_name + '#' + new_class_name
+    #         else:
+    #             new_name = name
+    #     else:
+    #         new_name = name
+    #     new_lib_contigs[new_name] = seq
+    # store_fasta(new_lib_contigs, org_lib)
 
     # tmp_output_dir = cur_dir
     # ref_index = 0

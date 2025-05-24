@@ -248,26 +248,30 @@ python main.py --genome $genome_assembly --out_dir $output_dir
 Most frequently used commands:
 python main.py --genome $genome_assembly --out_dir $output_dir --thread 40 --plant 0 --recover 1 --annotate 1
 
-usage: main.py [-h] --genome genome --out_dir output_dir [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--te_type te_type] [--curated_lib curated_lib]
-               [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--search_struct search_struct] [--BM_RM2 BM_RM2]
-               [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE] [--is_denovo_nonltr is_denovo_nonltr]
-               [--debug is_debug] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold]
-               [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length]
+usage: main.py [-h] --genome genome [--out_dir [OUT_DIR]] [--work_dir [WORK_DIR]] [--thread thread_num] [--chunk_size chunk_size] [--miu miu] [--plant is_plant] [--te_type te_type]
+               [--curated_lib curated_lib] [--remove_nested is_remove_nested] [--domain is_domain] [--recover is_recover] [--annotate is_annotate] [--search_struct search_struct]
+               [--BM_RM2 BM_RM2] [--BM_EDTA BM_EDTA] [--BM_HiTE BM_HiTE] [--EDTA_home EDTA_home] [--coverage_threshold coverage_threshold] [--species species] [--skip_HiTE skip_HiTE]
+               [--is_denovo_nonltr is_denovo_nonltr] [--debug is_debug] [--use_HybridLTR use_HybridLTR] [--use_NeuralTE use_NeuralTE] [--is_wicker is_wicker]
+               [--is_output_LTR_lib is_output_LTR_lib] [--min_TE_len min_TE_len] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold]
+               [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length] [--shared_prev_TE shared_prev_TE]
 
-########################## HiTE, version 3.3.1 ##########################
+########################## HiTE, version 3.3.2 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit
   --genome genome       Input genome assembly path
-  --out_dir output_dir   The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
-  --thread thread_num   Input thread num, default = [ 40 ]
+  --out_dir [OUT_DIR]   The path of output directory; It is recommended to use a new directory to avoid automatic deletion of important files.
+  --work_dir [WORK_DIR]
+                        The temporary work directory for HiTE.
+  --thread thread_num   Input thread num, default = [ 48 ]
   --chunk_size chunk_size
                         The chunk size of genome, default = [ 400 MB ]
   --miu miu             The neutral mutation rate (per bp per ya), default = [ 1.3e-08 ]
   --plant is_plant      Is it a plant genome, 1: true, 0: false. default = [ 1 ]
   --te_type te_type     Retrieve specific type of TE output [ltr|tir|helitron|non-ltr|all]. default = [ all ]
   --curated_lib curated_lib
-                        Provide a fully trusted curated library, which will be used to pre-mask highly homologous sequences in the genome. We recommend using TE libraries from RepbaseWe recommend using TE libraries from Repbase and ensuring the format follows >header#class_name. default = [ None ]
+                        Provide a fully trusted curated library, which will be used to pre-mask highly homologous sequences in the genome. We recommend using TE libraries from Repbase and
+                        ensuring the format follows >header#class_name. default = [ None ]
   --remove_nested is_remove_nested
                         Whether to remove nested TE, 1: true, 0: false. default = [ 1 ]
   --domain is_domain    Whether to obtain TE domains, HiTE uses RepeatPeps.lib from RepeatMasker to obtain TE domains, 1: true, 0: false. default = [ 0 ]
@@ -289,20 +293,28 @@ optional arguments:
   --is_denovo_nonltr is_denovo_nonltr
                         Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 1 ]
   --debug is_debug      Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
+  --use_HybridLTR use_HybridLTR
+                        Whether to use HybridLTR to identify LTRs, 1: true, 0: false. default = [1 ]
   --use_NeuralTE use_NeuralTE
                         Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1 ]
   --is_wicker is_wicker
                         Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [ 0 ]
+  --is_output_LTR_lib is_output_LTR_lib
+                        Whether to output LTR library. default = [ 1 ]
+  --min_TE_len min_TE_len
+                        The minimum TE length, default = [ 80 bp ]
   --flanking_len flanking_len
                         The flanking length of candidates to find the true boundaries, default = [ 50 ]
   --fixed_extend_base_threshold fixed_extend_base_threshold
-                        The length of variation can be tolerated during pairwise alignment, default = [ 1000 ]
+                        The length of variation can be tolerated during pairwise alignment, default = [ 4000 ]
   --tandem_region_cutoff tandem_region_cutoff
                         Cutoff of the candidates regarded as tandem region, default = [ 0.5 ]
   --max_repeat_len max_repeat_len
                         The maximum length of a single repeat, default = [ 30000 ]
   --chrom_seg_length chrom_seg_length
-                        The length of genome segments, default = [ 100000 ]
+                        The length of genome segments, default = [ 1000000 ]
+  --shared_prev_TE shared_prev_TE
+                        The path of shared previous TEs
 ```
 
 ## <a name="ER"></a>Experiment reproduction
