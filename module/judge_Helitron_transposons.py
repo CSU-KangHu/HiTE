@@ -2,6 +2,7 @@
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 import uuid
 
@@ -46,16 +47,33 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
         #     os.system('rm -rf ' + EA_temp_dir)
 
         # Combine results from HelitronScanner and EAHelitron.
-        os.system('cat ' + candidate_helitronscanner_path + ' > ' + candidate_helitron_path)
+        with open(candidate_helitron_path, 'w') as outfile:
+            subprocess.run(['cat', candidate_helitronscanner_path], stdout=outfile)
+
+        # os.system('cat ' + candidate_helitronscanner_path + ' > ' + candidate_helitron_path)
         # os.system('cat ' + candidate_eahelitron_path + ' >> ' + candidate_helitron_path)
 
     candidate_helitron_cons = candidate_helitron_path + '.cons'
     resut_file = candidate_helitron_cons
     if not is_recover or not file_exist(resut_file):
         log.logger.info('------clustering candidate Helitron')
-        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + candidate_helitron_path + ' -o ' + candidate_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
-        os.system(cd_hit_command)
+        # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+        #                  + ' -G 0 -g 1 -A 80 -i ' + candidate_helitron_path + ' -o ' + candidate_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+        # os.system(cd_hit_command)
+        cd_hit_command = [
+            'cd-hit-est',
+            '-aS', '0.95',
+            '-aL', '0.95',
+            '-c', '0.8',
+            '-G', '0',
+            '-g', '1',
+            '-A', '80',
+            '-i', candidate_helitron_path,
+            '-o', candidate_helitron_cons,
+            '-T', '0',
+            '-M', '0'
+        ]
+        subprocess.run(cd_hit_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Apply homology filtering to the results identified by HelitronScanner.
     confident_helitron_path = tmp_output_dir + '/confident_helitron_' + str(ref_index) + '.fa'
@@ -84,9 +102,23 @@ def run_Helitron_detection(tmp_output_dir, longest_repeats_flanked_path, prev_TE
         delete_files.append(cur_confident_helitron_path)
         delete_files.append(cur_confident_helitron_cons)
         # clustering
-        cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
-                         + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
-        os.system(cd_hit_command)
+        # cd_hit_command = 'cd-hit-est -aS ' + str(0.95) + ' -aL ' + str(0.95) + ' -c ' + str(0.8) \
+        #                  + ' -G 0 -g 1 -A 80 -i ' + cur_confident_helitron_path + ' -o ' + cur_confident_helitron_cons + ' -T 0 -M 0' + ' > /dev/null 2>&1'
+        # os.system(cd_hit_command)
+        cd_hit_command = [
+            'cd-hit-est',
+            '-aS', '0.95',
+            '-aL', '0.95',
+            '-c', '0.8',
+            '-G', '0',
+            '-g', '1',
+            '-A', '80',
+            '-i', cur_confident_helitron_path,
+            '-o', cur_confident_helitron_cons,
+            '-T', '0',
+            '-M', '0'
+        ]
+        subprocess.run(cd_hit_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         # 去除 Helitron header 中包含 #, and filter TE by length
         cur_names, cur_contigs = read_fasta(cur_confident_helitron_cons)

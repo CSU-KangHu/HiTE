@@ -8379,8 +8379,11 @@ def multi_process_align_and_get_copies(query_path, subject_path, tmp_blast_dir, 
 
     orig_names, orig_contigs = read_fasta(query_path)
 
-    blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
-    os.system(blast_db_command)
+    # blast_db_command = 'makeblastdb -dbtype nucl -in ' + subject_path + ' > /dev/null 2>&1'
+    # os.system(blast_db_command)
+
+    blast_db_command = ['makeblastdb', '-dbtype', 'nucl', '-in', subject_path]
+    subprocess.run(blast_db_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     longest_repeat_files = []
     file_index = 0
