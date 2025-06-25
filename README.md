@@ -75,7 +75,7 @@ python main.py \
 ### <a name="install_singularity"></a>Option 2. Run with Singularity
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
-singularity pull HiTE.sif docker://kanghu/hite:3.3.2
+singularity pull HiTE.sif docker://kanghu/hite:3.3.3
 
 # run HiTE
 singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiTE/main.py \
@@ -98,10 +98,10 @@ singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiT
 ### <a name="install_docker"></a>Option 3. Run with Docker
 ```sh
 # pull docker image (once for all).
-docker pull kanghu/hite:3.3.2
+docker pull kanghu/hite:3.3.3
 
 # run HiTE
-docker run -v ${host_path}:${container_path} kanghu/hite:3.3.2 python main.py \
+docker run -v ${host_path}:${container_path} kanghu/hite:3.3.3 python main.py \
  --genome ${genome} \
  --thread ${thread} \
  --out_dir ${output_dir} \
@@ -113,7 +113,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.3.2 python main.py \
  #     It is recommended to set ${host_path} and ${container_path} to your user directory, and ensure 
  #     that all input and output files are located within the user directory.
  
- # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.3.2 python main.py \
+ # e.g., my command: docker run -v /home/hukang:/home/hukang kanghu/hite:3.3.3 python main.py \
  # --genome /home/hukang/HiTE/demo/genome.fa \
  # --thread 40 \
  # --out_dir /home/hukang/HiTE/demo/test/
@@ -121,7 +121,7 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.3.2 python main.py \
 For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14881832](https://zenodo.org/records/14881832).
 ```sh
 # Load the Docker image
-docker load -i hite_docker_3.3.2.tar
+docker load -i hite_docker_3.3.3.tar
 ```
 
 ### <a name="install_nextflow"></a>Option 4. Run with nextflow
@@ -255,7 +255,7 @@ usage: main.py [-h] --genome genome [--out_dir [OUT_DIR]] [--work_dir [WORK_DIR]
                [--is_output_LTR_lib is_output_LTR_lib] [--min_TE_len min_TE_len] [--flanking_len flanking_len] [--fixed_extend_base_threshold fixed_extend_base_threshold]
                [--tandem_region_cutoff tandem_region_cutoff] [--max_repeat_len max_repeat_len] [--chrom_seg_length chrom_seg_length] [--shared_prev_TE shared_prev_TE]
 
-########################## HiTE, version 3.3.2 ##########################
+########################## HiTE, version 3.3.3 ##########################
 
 optional arguments:
   -h, --help            show this help message and exit

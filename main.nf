@@ -250,6 +250,7 @@ process TIR {
     --split_ref_dir ${ref_chr} \
     --prev_TE ${prev_TE} \
     --all_low_copy_tir ${tmp_output_dir}/tir_low_copy.fa \
+    --min_TE_len ${min_TE_len} \
     -w ${params.work_dir}
     """
 
@@ -277,6 +278,7 @@ process Helitron {
     --ref_index ${ref_index} --flanking_len ${flanking_len} \
     --recover ${recover} --debug ${debug} --split_ref_dir ${ref_chr} \
     --prev_TE ${prev_TE} --all_low_copy_helitron ${tmp_output_dir}/helitron_low_copy.fa \
+    --min_TE_len ${min_TE_len} \
     -w ${params.work_dir}
     """
 }
@@ -309,6 +311,7 @@ process Non_LTR {
     --is_denovo_nonltr ${is_denovo_nonltr} \
     -r ${ref} --prev_TE ${prev_TE} \
     --all_low_copy_non_ltr ${tmp_output_dir}/non_ltr_low_copy.fa \
+    --min_TE_len ${min_TE_len} \
     -w ${params.work_dir}
     """
 }

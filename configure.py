@@ -86,7 +86,7 @@ def main():
         return
 
     # Update ~/.bashrc
-    update_bashrc(lib_path)
+    # update_bashrc(lib_path)
 
     # 将项目根目录添加到 PATH 并更新 .bashrc
     add_project_root_to_bashrc()

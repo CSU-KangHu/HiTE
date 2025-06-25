@@ -113,21 +113,21 @@ R
 ```sh
 # Note: Container images may lag behind Conda in version updates
 # pull singularity image (once for all). There will be a HiTE.sif file.
-singularity pull HiTE.sif docker://kanghu/hite:3.3.2
+singularity pull HiTE.sif docker://kanghu/hite:3.3.3
 ```
 
 #### <a name="install_docker"></a>Option 3. Installation via Docker
 ```sh
 # Note: Container images may lag behind Conda in version updates
 # pull docker image (once for all).
-docker pull kanghu/hite:3.3.2
+docker pull kanghu/hite:3.3.3
 ```
 
 #### <a name="bakup_images"></a>Alternative Mirror Download
 For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14881832](https://zenodo.org/records/14881832).
 ```sh
 # Load the Docker image
-docker load -i hite_docker_3.3.2.tar
+docker load -i hite_docker_3.3.3.tar
 ```
 
 ### <a name="data"></a>2. Data Preparation
@@ -260,7 +260,7 @@ out_dir=xxx
 
 # Example script:
 #source_dir=/home/xxx/HiTE
-#HiTE_sif_path=/home/xxx/hite_3.3.2.sif
+#HiTE_sif_path=/home/xxx/hite_3.3.3.sif
 #pan_genomes_dir=/home/xxx/demo/genomes
 #gene_dir=/home/xxx/demo/gff_files
 #RNA_dir=/home/xxx/demo/RNA_seq_files
@@ -292,7 +292,7 @@ RNA_dir=xxx
 genome_list=xxx
 out_dir=xxx
 /usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
- -profile docker --docker_name kanghu/hite:3.3.2 \
+ -profile docker --docker_name kanghu/hite:3.3.3 \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --genes_dir ${gene_dir} \
@@ -310,7 +310,7 @@ out_dir=xxx
 #out_dir=/home/xxx/demo/panHiTE_output
 #threads=40
 #/usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
-# -profile docker --docker_name kanghu/hite:3.3.2 \
+# -profile docker --docker_name kanghu/hite:3.3.3 \
 # --pan_genomes_dir ${pan_genomes_dir} \
 # --genome_list ${genome_list} \
 # --genes_dir ${gene_dir} \
@@ -366,7 +366,7 @@ gene_dir=xxx
 genome_list=xxx
 out_dir=xxx
 /usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
- -profile docker --docker_name kanghu/hite:3.3.2 \
+ -profile docker --docker_name kanghu/hite:3.3.3 \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --genes_dir ${gene_dir} \
@@ -417,7 +417,7 @@ pan_genomes_dir=xxx
 genome_list=xxx
 out_dir=xxx
 /usr/bin/time -v nextflow run ${source_dir}/panHiTE.nf \
- -profile docker --docker_name kanghu/hite:3.3.2 \
+ -profile docker --docker_name kanghu/hite:3.3.3 \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --out_dir ${out_dir} \
@@ -501,7 +501,7 @@ RNA_dir=xxx
 genome_list=xxx
 out_dir=xxx
 cd $source_dir && /usr/bin/time -v nextflow run panHiTE.nf \
- -profile docker,hpc --docker_name kanghu/hite:3.3.2 \
+ -profile docker,hpc --docker_name kanghu/hite:3.3.3 \
  --pan_genomes_dir ${pan_genomes_dir} \
  --genome_list ${genome_list} \
  --genes_dir ${gene_dir} \

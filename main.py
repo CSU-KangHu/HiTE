@@ -49,7 +49,7 @@ if __name__ == '__main__':
     default_is_output_LTR_lib = 1
     default_min_TE_len = 80
 
-    version_num = '3.3.2'
+    version_num = '3.3.3'
 
     describe_image = '\n' + \
     '     __  __     __     ______   ______    \n' + \
