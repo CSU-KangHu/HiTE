@@ -124,7 +124,7 @@ docker pull kanghu/hite:3.3.3
 ```
 
 #### <a name="bakup_images"></a>Alternative Mirror Download
-For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/14881832](https://zenodo.org/records/14881832).
+For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/15734031](https://zenodo.org/records/15734031).
 ```sh
 # Load the Docker image
 docker load -i hite_docker_3.3.3.tar
