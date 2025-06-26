@@ -66,7 +66,7 @@ def add_execute_permission(file_paths):
     for file_path in file_paths:
         if os.path.isfile(file_path):  # 检查是否为文件
             st = os.stat(file_path)
-            os.chmod(file_path, st.st_mode | stat.S_IEXEC)  # 添加执行权限
+            os.chmod(file_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)  # 添加执行权限
             print(f"Added execute permission to: {file_path}")
 
 

@@ -8461,6 +8461,9 @@ def multi_process_align(query_path, subject_path, blastnResults_path, tmp_blast_
     if os.path.exists(blastnResults_path):
         os.remove(blastnResults_path)
 
+    if not file_exist(subject_path):
+        return
+
     # 构建BLAST数据库
     blast_db_command = f'makeblastdb -dbtype nucl -in {subject_path} > /dev/null 2>&1'
     if os.system(blast_db_command) != 0:
