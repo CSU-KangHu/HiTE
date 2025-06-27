@@ -100,12 +100,12 @@ process pan_run_hite_single {
     tuple val(genome_name), val(raw_name), path(reference), val(te_type), val(miu), val(debug)
 
     output:
-    tuple val(genome_name), path("intact_LTR.list"), emit: ch_intact_ltr_list, optional: true
+    tuple val(genome_name), path("intact_LTR.list"), emit: ch_intact_ltr_list
     path "confident_ltr.terminal.fa", emit: ch_ltr_terminal
     path "confident_ltr.internal.fa", emit: ch_ltr_internal
     path "confident_ltr_cut.fa", emit: ch_ltr_cut
-    path "intact_LTR.fa", emit: ch_intact_ltr, optional: true
-    path "intact_LTR.fa.classified", emit: ch_intact_classified_ltr, optional: true
+    path "intact_LTR.fa", emit: ch_intact_ltr
+    path "intact_LTR.fa.classified", emit: ch_intact_classified_ltr
     path "confident_helitron.fa", emit: ch_helitron
     path "confident_non_ltr.fa", emit: ch_non_ltr
     path "confident_other.fa", emit: ch_other
