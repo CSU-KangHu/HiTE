@@ -45,11 +45,13 @@ if __name__ == "__main__":
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
-    if RNA_dir != '/dev/RNA':
-        preprocess_RNA_seq = preprocess_RNA_seq(args.RNA_seq)
-        RNA_seq = json.loads(preprocess_RNA_seq)
-    else:
-        RNA_seq = {}
+    RNA_seq = {}  # 默认空字典
+
+    if preprocess_RNA_seq and isinstance(preprocess_RNA_seq, str):  # 确保非空且是字符串
+        try:
+            RNA_seq = json.loads(preprocess_RNA_seq)
+        except (json.JSONDecodeError, TypeError):  # 捕获 JSON 解析错误或类型错误
+            RNA_seq = {}  # 解析失败时设为空字典
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)

@@ -20,9 +20,9 @@ import groovy.json.JsonOutput
 // 定义用户输入参数
 params.pan_genomes_dir = ''
 params.genome_list = ''
-params.genes_dir = '/dev/gene'
-params.RNA_dir = '/dev/RNA'
 params.out_dir = './output'
+params.genes_dir = "${params.out_dir}/gene"
+params.RNA_dir = "${params.out_dir}/RNA"
 tmp_output_dir = file(params.out_dir).toAbsolutePath()
 params.te_type = 'all'
 params.skip_analyze = 0
