@@ -22,7 +22,7 @@ def get_nonRedundant_lib(tmp_output_dir, confident_tir_path, confident_helitron_
 
     rename_fasta(confident_tir_path, confident_tir_path, 'TIR')
     rename_fasta(confident_helitron_path, confident_helitron_path, 'Helitron')
-    rename_fasta(confident_non_ltr_path, confident_non_ltr_path, 'Denovo_Non_LTR')
+    rename_fasta(confident_non_ltr_path, confident_non_ltr_path, 'Denovo_Non-LTR')
 
     final_confident_tir_path = tmp_output_dir + '/confident_tir.fa'
     final_confident_helitron_path = tmp_output_dir + '/confident_helitron.fa'

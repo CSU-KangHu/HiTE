@@ -3967,8 +3967,8 @@ def draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf):
     # plt.show()
     plt.savefig(output_pdf, format='pdf', bbox_inches='tight')
 
-work_dir = '/home/hukang/test/HiTE/demo'
-log = Logger(work_dir + '/HiTE.log', level='debug')
+# work_dir = '/home/hukang/test/HiTE/demo'
+# log = Logger(work_dir + '/HiTE.log', level='debug')
 
 def parse_coordinates(header):
     """解析header中的坐标信息"""
@@ -4100,31 +4100,31 @@ if __name__ == '__main__':
     # store_fasta(new_clariTeRep_contigs, new_clariTeRep_path)
 
 
-    cur_dir = '/home/hukang/test/HiTE/demo/out43'
-    tbl_file = cur_dir + '/wheat_A.fasta.sorted.gff.tbl'
-    rawname_value = {}
-    with open(tbl_file, 'r') as f_r:
-        for line in f_r:
-            line = line.replace('\n', '')
-            elements = line.split()
-            rawname_value[elements[0]] = elements[3]
-    lib_path = cur_dir + '/panTE.merge_recover.fa'
-    names, contigs = read_fasta(lib_path)
-
-    target_rawname_value = {}
-    for name in names:
-        parts = name.split('#')
-        class_name = parts[1]
-        raw_name = parts[0]
-        # if 'MULE' in class_name or 'Harbinger' in class_name or 'TcMar' in class_name or 'Unknown' in class_name:
-        if 'MULE' in class_name or 'Harbinger' in class_name or 'TcMar' in class_name:
-            target_rawname_value[raw_name] = rawname_value[raw_name]
-
-    # 排序（去掉百分号并转成 float）
-    sorted_data = dict(
-        sorted(target_rawname_value.items(), key=lambda x: float(x[1].strip('%')), reverse=True)
-    )
-    print(sorted_data)
+    # cur_dir = '/home/hukang/test/HiTE/demo/out43'
+    # tbl_file = cur_dir + '/wheat_A.fasta.sorted.gff.tbl'
+    # rawname_value = {}
+    # with open(tbl_file, 'r') as f_r:
+    #     for line in f_r:
+    #         line = line.replace('\n', '')
+    #         elements = line.split()
+    #         rawname_value[elements[0]] = elements[3]
+    # lib_path = cur_dir + '/panTE.merge_recover.fa'
+    # names, contigs = read_fasta(lib_path)
+    #
+    # target_rawname_value = {}
+    # for name in names:
+    #     parts = name.split('#')
+    #     class_name = parts[1]
+    #     raw_name = parts[0]
+    #     # if 'MULE' in class_name or 'Harbinger' in class_name or 'TcMar' in class_name or 'Unknown' in class_name:
+    #     if 'MULE' in class_name or 'Harbinger' in class_name or 'TcMar' in class_name:
+    #         target_rawname_value[raw_name] = rawname_value[raw_name]
+    #
+    # # 排序（去掉百分号并转成 float）
+    # sorted_data = dict(
+    #     sorted(target_rawname_value.items(), key=lambda x: float(x[1].strip('%')), reverse=True)
+    # )
+    # print(sorted_data)
 
 
     # lib = cur_dir + '/panTE.merge_recover.fa'
@@ -5370,30 +5370,39 @@ if __name__ == '__main__':
     # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
     # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
     # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
-    # reference = '/home/hukang/test/HiTE/demo/genome.fa'
-    # # test_home = '/home/hukang/test/HiTE/module'
-    # tmp_output_dir = work_dir
-    # if not os.path.exists(tmp_output_dir):
-    #     os.makedirs(tmp_output_dir)
-    # chrom_seg_length = 100000
-    # chunk_size = 400
-    # split_genome_command = 'split_genome_chunks.py -g ' \
-    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
-    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    reference = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/athaliana.fna'
+    # test_home = '/home/hukang/test/HiTE/module'
+    tmp_output_dir = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/tirs'
+    work_dir = tmp_output_dir
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
+    chrom_seg_length = 1_000_000
+    chunk_size = 400
+    split_genome_command = 'split_genome_chunks.py -g ' \
+                           + reference + ' --tmp_output_dir ' + tmp_output_dir \
+                           + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
     # os.system(split_genome_command)
-    # #
-    # TE_type = 'non_ltr'
-    # split_ref_dir = tmp_output_dir + '/ref_chr'
-    # threads = 40
-    # ref_index = 0
-    # subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
-    # plant = 1
-    # debug = 1
-    # flank_region_align_v5(candidate_tir_path, confident_tir_path, flanking_len, reference, split_ref_dir,
-    #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
-    #                       plant, debug, 1, result_type='cons')
 
-
+    TE_type = 'helitron'
+    split_ref_dir = tmp_output_dir + '/ref_chr'
+    threads = 40
+    ref_index = 0
+    subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
+    plant = 0
+    debug = 1
+    # candidate_tir_path = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/result.fa'
+    candidate_tir_path = tmp_output_dir + '/test.fa'
+    contig_names, contigs = read_fasta(candidate_tir_path)
+    #candidate_tir_path_rename = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/result.rename.fa'
+    candidate_tir_path_rename = tmp_output_dir + '/test.fa'
+    store_fasta(contigs, candidate_tir_path_rename)
+    confident_tir_path = tmp_output_dir + '/confident.fa'
+    all_low_copy = tmp_output_dir + '/all_low_copy.fa'
+    log = Logger(tmp_output_dir + '/test.log', level='debug')
+    flanking_len = 200
+    flank_region_align_v5(candidate_tir_path_rename, confident_tir_path, flanking_len, reference, split_ref_dir,
+                          TE_type, work_dir, threads, ref_index, log, subset_script_path,
+                          plant, debug, 1, all_low_copy, result_type='cons')
 
 
 
