@@ -17,28 +17,6 @@ nextflow.enable.dsl=2
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-// 定义用户输入参数
-params.pan_genomes_dir = ''
-params.genome_list = ''
-params.out_dir = './output'
-params.genes_dir = "${params.out_dir}/gene"
-params.RNA_dir = "${params.out_dir}/RNA"
-tmp_output_dir = file(params.out_dir).toAbsolutePath()
-params.te_type = 'all'
-params.skip_analyze = 0
-params.softcore_threshold = 0.8
-params.debug = 0
-params.threads = 10
-params.miu = 1.3e-8
-params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
-params.shared_prev_TE = "${params.out_dir}/shared_prev_TE.fa"
-
-// 验证 TE 类型是否合法
-if (!params.all_te_types.contains(params.te_type)) {
-    error "Invalid TE type: ${params.te_type}. Please choose from ${params.all_te_types}"
-}
-
-
 def helpMessage() {
     log.info"""
     panHiTE - Nextflow PIPELINE (v$workflow.manifest.version)
@@ -66,6 +44,27 @@ def helpMessage() {
 if (params.help){
     helpMessage()
     exit 0
+}
+
+// 定义用户输入参数
+params.pan_genomes_dir = ''
+params.genome_list = ''
+params.out_dir = './output'
+params.genes_dir = "${params.out_dir}/gene"
+params.RNA_dir = "${params.out_dir}/RNA"
+tmp_output_dir = file(params.out_dir).toAbsolutePath()
+params.te_type = 'all'
+params.skip_analyze = 0
+params.softcore_threshold = 0.8
+params.debug = 0
+params.threads = 10
+params.miu = 1.3e-8
+params.all_te_types = ['ltr', 'tir', 'helitron', 'non-ltr', 'all']
+params.shared_prev_TE = "${params.out_dir}/shared_prev_TE.fa"
+
+// 验证 TE 类型是否合法
+if (!params.all_te_types.contains(params.te_type)) {
+    error "Invalid TE type: ${params.te_type}. Please choose from ${params.all_te_types}"
 }
 
 process pan_preprocess_genomes {
@@ -570,4 +569,5 @@ workflow {
 
         pan_detect_de_genes(genome_info_for_bam_json, gene_te_associations_out, params.RNA_dir)
     }
+
 }
