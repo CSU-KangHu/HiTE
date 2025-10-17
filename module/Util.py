@@ -6401,7 +6401,7 @@ def mask_genome_intactTE(TE_lib, genome_path, work_dir, thread, ref_index, debug
         # multi_process_align(TE_lib, genome_path, lib_out, tmp_blast_dir, thread, is_removed_dir=True)
         # full_length_out = work_dir + '/mask_full_length'+str(ref_index)+'.out'
 
-        coverage_threshold = 0.8
+        coverage_threshold = 0.95
         category = 'Total'
         output_files = generate_full_length_out_v1(lib_out, TE_lib, genome_path, tmp_blast_dir, '',
                                  coverage_threshold, category, debug=debug)
@@ -8192,6 +8192,15 @@ def flank_region_align_v5(candidate_sequence_path, real_TEs, flanking_len, refer
                 true_tes[cur_name] = cur_seq
                 true_te_names.add(cur_name)
     store_fasta(low_copy_contigs, low_copy_path)
+
+    # remove the tandem repeats in low copy sequences
+    if file_exist(low_copy_path):
+        trf_command = 'cd ' + low_copy_dir + ' && trf ' + low_copy_path + ' 2 7 7 80 10 50 500 -f -d -m -h'
+        os.system(trf_command + ' > /dev/null 2>&1')
+
+        (repeat_dir, repeat_filename) = os.path.split(low_copy_path)
+        trf_masked_repeats = low_copy_dir + '/' + repeat_filename + '.2.7.7.80.10.50.500.mask'
+        low_copy_path = trf_masked_repeats
 
     if TE_type == 'tir':
         # 找回具有TIR结构的低拷贝TIR
@@ -13833,17 +13842,17 @@ def convertGeneAnnotation2GTF(genome_paths, script_dir, output_dir, log):
         os.system(command)
     return new_genome_paths
 
-def run_HybridLTR(reference, tmp_output_dir, HybridLTR_home, threads, miu, recover, debug, is_output_lib, log):
+def run_FiLTR(reference, tmp_output_dir, FiLTR_home, threads, miu, recover, debug, is_output_lib, log):
     starttime = time.time()
-    log.logger.debug('start HybridLTR detection...')
-    HybridLTR_command = 'cd ' + HybridLTR_home + ' && python main.py --genome ' + reference \
+    log.logger.debug('start FiLTR detection...')
+    FiLTR_command = 'cd ' + FiLTR_home + ' && python main.py --genome ' + reference \
                             + ' --out_dir ' + tmp_output_dir + ' --thread ' + str(threads) + ' --miu ' + str(miu) \
                         + ' --recover ' + str(recover) + ' --debug ' + str(debug) + ' --is_output_lib ' + str(is_output_lib)
-    log.logger.debug(HybridLTR_command)
-    os.system(HybridLTR_command)
+    log.logger.debug(FiLTR_command)
+    os.system(FiLTR_command)
     endtime = time.time()
     dtime = endtime - starttime
-    log.logger.debug("HybridLTR running time: %.8s s" % (dtime))
+    log.logger.debug("FiLTR running time: %.8s s" % (dtime))
 
 def assign_label_to_lib(lib, intact_LTR_labels):
     ltr_names, ltr_contigs = read_fasta(lib)

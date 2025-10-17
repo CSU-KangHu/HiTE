@@ -97,7 +97,7 @@ def main():
         os.path.join(project_root, "module/*"),
         os.path.join(project_root, "bin/NeuralTE/tools/*"),
         os.path.join(project_root, "bin/LTR_FINDER_parallel-master/bin/LTR_FINDER.x86_64-1.0.7/ltr_finder"),
-        os.path.join(project_root, "bin/HybridLTR-main/tools/*")
+        os.path.join(project_root, "bin/FiLTR-main/tools/*")
     ]
 
     # 为每个文件添加执行权限
@@ -108,7 +108,7 @@ def main():
     # 对LtrDetector进行重新编译
     print(f"Recompile LtrDetector...")
     project_root = os.path.abspath(os.path.dirname(__file__))
-    LtrDetector_dir = project_root + '/bin/HybridLTR-main/bin/LtrDetector'
+    LtrDetector_dir = project_root + '/bin/FiLTR-main/bin/LtrDetector'
     LtrDetector_exe = LtrDetector_dir + '/bin/LtrDetector'
     if os.path.exists(LtrDetector_dir):
         recompile_cmd = 'cd ' + LtrDetector_dir + ' && rm -rf bin && cd src && make bin && make tr -j'

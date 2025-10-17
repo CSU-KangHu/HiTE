@@ -14,7 +14,8 @@ project_dir = os.path.join(current_folder, ".")
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from Util import Logger, copy_files, create_or_clear_directory, \
     store_fasta, read_fasta, get_full_length_copies, getReverseSequence, run_find_members_v8, rename_fasta, \
-    ReassignInconsistentLabels, file_exist, lib_add_prefix, remove_no_tirs, get_domain_info, clean_old_tmp_files_by_dir
+    ReassignInconsistentLabels, file_exist, lib_add_prefix, remove_no_tirs, get_domain_info, clean_old_tmp_files_by_dir, \
+    get_full_length_copies_minimap2
 
 
 def filter_detected_TEs(temp_dir, threads, low_copy_file, panTE_lib, TE_type, log):
@@ -71,7 +72,7 @@ def for_test(output_dir, threads, panTE_lib, reference, genome_name, log):
     os.system('touch ' + gff_path)
 
 
-def get_single_genome_copies(candidate_sequence_path, split_ref_dir, flanking_len, genome_name, debug):
+def get_single_genome_copies(candidate_sequence_path, split_ref_dir, flanking_len, genome_name, threads, temp_dir, debug):
     batch_size = 10
     batch_id = 0
     names, contigs = read_fasta(candidate_sequence_path)
@@ -135,7 +136,158 @@ def get_single_genome_copies(candidate_sequence_path, split_ref_dir, flanking_le
             extend_all_copies[query_name] = copy_contigs
     return extend_all_copies
 
-def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, temp_dir):
+from collections import Counter, defaultdict
+def parse_panHiTE_miss_bed(bed_file):
+    """
+    解析panHiTE_miss.out.bed文件，提取TE拷贝信息
+    返回: TE_copies, TE_full_copies
+    """
+    TE_copies = defaultdict(list)
+    TE_full_copies = defaultdict(list)
+
+    with open(bed_file, 'r') as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            if len(parts) < 4:
+                continue
+
+            # 解析TE信息
+            info_parts = parts[3].split(';')
+            if len(info_parts) < 14:
+                continue
+
+            ref_name = info_parts[4]
+            copy_ref_start = int(info_parts[5])
+            copy_ref_end = int(info_parts[6])
+
+            TE_name = info_parts[9]
+            direction = info_parts[8]
+            div = float(info_parts[1])
+            # 解析位置信息
+            try:
+                if direction == '+':
+                    TE_start = int(info_parts[11])
+                    TE_end = int(info_parts[12])
+                    TE_remain = int(info_parts[13].replace('(', '').replace(')', ''))
+                else:
+                    TE_start = int(info_parts[13])
+                    TE_end = int(info_parts[12])
+                    TE_remain = int(info_parts[11].replace('(', '').replace(')', ''))
+
+                # 计算TE长度和完整性
+                total_TE_length = TE_end + TE_remain
+                TE_length = TE_end - TE_start
+                completeness_ratio = TE_length / total_TE_length if total_TE_length > 0 else 0
+
+                # 存储拷贝信息
+                # copy_info = (TE_start, TE_end, TE_remain, div)
+                copy_info = (ref_name, copy_ref_start, copy_ref_end, TE_length, direction)
+                TE_copies[TE_name].append(copy_info)
+
+                # 判断是否为全长拷贝（完整性≥95%）
+                if completeness_ratio >= 0.95:
+                    TE_full_copies[TE_name].append(copy_info)
+
+            except (ValueError, IndexError) as e:
+                print(f"警告: 解析行时出错: {line.strip()}, 错误: {e}")
+                continue
+
+    return TE_copies, TE_full_copies
+
+def get_pan_genome_copies_bak(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, threads, temp_dir, log):
+    keep_tir_extend_copies = {}
+    raw_tir_names, raw_tir_contigs = read_fasta(keep_tir_low_copy)
+    for i, (genome_name, genome_path) in enumerate(genome_paths):
+        cur_temp_dir = os.path.join(temp_dir, genome_name)
+        create_or_clear_directory(cur_temp_dir)
+
+        (ref_dir, ref_filename) = os.path.split(genome_path)
+        reference = cur_temp_dir + '/' + ref_filename
+        os.system('cp ' + genome_path + ' ' + reference)
+
+        flanking_len = 50
+        debug = 0
+
+        ref_names, ref_contigs = read_fasta(reference)
+        # 获取TIR拷贝
+        # max_copy_num = 100
+        # cur_temp_dir = os.path.join(temp_dir, 'minimap2_copies')
+        # all_copies = get_full_length_copies_minimap2(keep_tir_low_copy, reference, cur_temp_dir, max_copy_num, threads)
+
+        cur_temp_dir = os.path.join(temp_dir, 'RM_copies')
+        create_or_clear_directory(cur_temp_dir)
+        RepeatMasker_command = 'RepeatMasker -e ncbi -pa ' + str(threads) \
+                               + ' -no_is -norna -nolow -lib ' + keep_tir_low_copy + ' -cutoff 225 ' + reference \
+                               + ' && mv ' + reference + '.out ' + cur_temp_dir + '/copies.out'
+        os.system(RepeatMasker_command + '> /dev/null 2>&1')
+
+        RM2bed_command = 'perl /public/home/hpc194701009/test/test/HiTE/tools/RMout_to_bed.pl ' + cur_temp_dir + '/copies.out base1'
+        os.system(RM2bed_command)
+
+        copies_bed = cur_temp_dir + '/copies.out.bed'
+        TE_copies, all_copies = parse_panHiTE_miss_bed(copies_bed)
+
+        # extend copies
+        extend_all_copies = {}
+        for query_name in all_copies.keys():
+            copies = all_copies[query_name]
+            for copy in copies:
+                ref_name = copy[0]
+                copy_ref_start = int(copy[1])
+                copy_ref_end = int(copy[2])
+                direct = copy[4]
+                copy_len = copy_ref_end - copy_ref_start + 1
+                if copy_ref_start - 1 - flanking_len < 0 or copy_ref_end + flanking_len > len(ref_contigs[ref_name]):
+                    continue
+                extend_copy_seq = ref_contigs[ref_name][copy_ref_start - 1 - flanking_len: copy_ref_end + flanking_len]
+                if direct == '-':
+                    extend_copy_seq = getReverseSequence(extend_copy_seq)
+                if len(extend_copy_seq) < 100:
+                    continue
+                new_name = genome_name + ':' + ref_name + ':' + str(copy_ref_start) + '-' + str(
+                    copy_ref_end) + '(' + direct + ')'
+                if not extend_all_copies.__contains__(query_name):
+                    extend_all_copies[query_name] = {}
+                copy_contigs = extend_all_copies[query_name]
+                copy_contigs[new_name] = extend_copy_seq
+                extend_all_copies[query_name] = copy_contigs
+        tir_extend_copies = extend_all_copies
+        # tir_extend_copies = get_single_genome_copies(keep_tir_low_copy, split_ref_dir, flanking_len, genome_name, threads, temp_dir, debug)
+        remain_tir_contigs = {}
+        for query_name in tir_extend_copies.keys():
+            copy_contigs = tir_extend_copies[query_name]
+            # 将当前获取的拷贝存储到已识别拷贝中
+            if query_name not in keep_tir_extend_copies:
+                keep_tir_extend_copies[query_name] = {}
+            cur_exist_copies = keep_tir_extend_copies[query_name]
+            cur_exist_copies.update(copy_contigs)
+            # 如果当前获得了超过100个拷贝或者当前已经是最后一轮，则不需要进行下一轮
+            if not (len(cur_exist_copies) >= 100 or i == len(genome_paths) - 1):
+                if query_name in raw_tir_contigs:
+                    remain_tir_contigs[query_name] = raw_tir_contigs[query_name]
+        # 经过一轮获取拷贝之后，剩下的序列仍然没有获得100个拷贝，因此需要进一步比对到其他基因组上
+        store_fasta(remain_tir_contigs, keep_tir_low_copy)
+
+    # 将那些经过泛基因组之后，获得>=5拷贝存成文件
+    tir_batch_member_files = []
+    cur_tir_temp_dir = os.path.join(temp_dir, 'tir_members')
+    os.makedirs(cur_tir_temp_dir, exist_ok=True)
+    for query_name in keep_tir_extend_copies.keys():
+        copy_contigs = keep_tir_extend_copies[query_name]
+        if len(copy_contigs) >= 5:
+            valid_query_filename = re.sub(r'[<>:"/\\|?*]', '-', query_name)
+            extend_member_file = cur_tir_temp_dir + '/' + valid_query_filename + '.blast.bed.fa'
+            store_fasta(copy_contigs, extend_member_file)
+            query_seq = raw_tir_contigs[query_name]
+            tir_batch_member_files.append((query_name, query_seq, None, extend_member_file))
+
+    pan_genome_copies_dict = {}
+    pan_genome_copies_dict['tir'] = (cur_tir_temp_dir, tir_batch_member_files)
+    return pan_genome_copies_dict
+
+
+def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, threads,
+                          temp_dir, log):
     keep_tir_extend_copies = {}
     keep_helitron_extend_copies = {}
     keep_non_ltr_extend_copies = {}
@@ -151,7 +303,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         os.system('cp ' + genome_path + ' ' + reference)
 
         split_genome_command = 'split_genome_chunks.py -g ' \
-                               + reference + ' --tmp_output_dir ' + cur_temp_dir \
+                               + reference + ' --tmp_output_dir ' + str(cur_temp_dir) \
                                + ' --chrom_seg_length ' + str(100000) + ' --chunk_size ' + str(400)
         log.logger.info(split_genome_command)
         os.system(split_genome_command)
@@ -159,8 +311,9 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
 
         flanking_len = 50
         debug = 0
+
         # 获取TIR拷贝
-        tir_extend_copies = get_single_genome_copies(keep_tir_low_copy, split_ref_dir, flanking_len, genome_name, debug)
+        tir_extend_copies = get_single_genome_copies(keep_tir_low_copy, split_ref_dir, flanking_len, genome_name, threads, temp_dir, debug)
         remain_tir_contigs = {}
         for query_name in tir_extend_copies.keys():
             copy_contigs = tir_extend_copies[query_name]
@@ -177,7 +330,8 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         store_fasta(remain_tir_contigs, keep_tir_low_copy)
 
         # 获取Helitron拷贝
-        helitron_extend_copies = get_single_genome_copies(keep_helitron_low_copy, split_ref_dir, flanking_len, genome_name, debug)
+        helitron_extend_copies = get_single_genome_copies(keep_helitron_low_copy, split_ref_dir, flanking_len,
+                                                          genome_name, threads, temp_dir, debug)
         remain_helitron_contigs = {}
         for query_name in helitron_extend_copies.keys():
             copy_contigs = helitron_extend_copies[query_name]
@@ -194,7 +348,8 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
         store_fasta(remain_helitron_contigs, keep_helitron_low_copy)
 
         # 获取non_ltr拷贝
-        non_ltr_extend_copies = get_single_genome_copies(keep_non_ltr_low_copy, split_ref_dir, flanking_len, genome_name, debug)
+        non_ltr_extend_copies = get_single_genome_copies(keep_non_ltr_low_copy, split_ref_dir, flanking_len,
+                                                         genome_name, threads, temp_dir, debug)
         remain_non_ltr_contigs = {}
         for query_name in non_ltr_extend_copies.keys():
             copy_contigs = non_ltr_extend_copies[query_name]
@@ -299,8 +454,7 @@ def get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_lt
     pan_genome_copies_dict['non_ltr'] = (cur_non_ltr_temp_dir, non_ltr_batch_member_files)
     return pan_genome_copies_dict
 
-
-def filter_true_TEs(batch_member_files, real_TEs, temp_dir, subset_script_path, TE_type, plant):
+def filter_true_TEs(batch_member_files, real_TEs, temp_dir, subset_script_path, TE_type, plant, threads):
     # Determine whether the multiple sequence alignment of each copied file satisfies the homology rule
     ex = ProcessPoolExecutor(threads)
     jobs = []
@@ -511,7 +665,7 @@ if __name__ == "__main__":
         # 将保留下来的低拷贝候选TE放入一个队列，将队列中的序列依次比对回泛基因组获取拷贝，当低拷贝候选TE 的拷贝数超过 100 个时，将该低拷贝TE移出队列，继续剩余的TE比对，直至队列为空。
         # 函数返回一个dict: key 为 type, value为 batch_member_files 列表（记录每条序列对应的全长拷贝）
         get_copies_dir = os.path.join(temp_dir, 'get_copies')
-        pan_genome_copies_dict = get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, get_copies_dir)
+        pan_genome_copies_dict = get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, threads, get_copies_dir, log)
 
         subset_script_path = project_dir + '/tools/ready_for_MSA.sh'
         # 依次对tir, helitron, non_ltr 类型的TE调用动态边界调整算法，过滤出真实的TE

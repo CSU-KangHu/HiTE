@@ -43,7 +43,7 @@ if __name__ == '__main__':
     default_domain = 0
     default_miu = str(1.3e-8)
     default_remove_nested = 1
-    default_use_HybridLTR = 1
+    default_use_FiLTR = 1
     default_use_NeuralTE = 1
     default_is_wicker = 0
     default_is_output_LTR_lib = 1
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--skip_HiTE', metavar='skip_HiTE', help='Whether to skip_HiTE, 1: true, 0: false. default = [ ' + str(default_skip_HiTE) + ' ]')
     parser.add_argument('--is_denovo_nonltr', metavar='is_denovo_nonltr', help='Whether to detect non-ltr de novo, 1: true, 0: false. default = [ ' + str(default_is_denovo_nonltr) + ' ]')
     parser.add_argument('--debug', metavar='is_debug', help='Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ ' + str(default_debug) + ' ]')
-    parser.add_argument('--use_HybridLTR', metavar='use_HybridLTR', help='Whether to use HybridLTR to identify LTRs, 1: true, 0: false. default = [' + str(default_use_HybridLTR) + ' ]')
+    parser.add_argument('--use_FiLTR', metavar='use_FiLTR', help='Whether to use FiLTR to identify LTRs, 1: true, 0: false. default = [' + str(default_use_FiLTR) + ' ]')
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE', help='Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [' + str(default_use_NeuralTE) + ' ]')
     parser.add_argument('--is_wicker', metavar='is_wicker', help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [ ' + str(default_is_wicker) + ' ]')
     parser.add_argument('--is_output_LTR_lib', metavar='is_output_LTR_lib', help='Whether to output LTR library. default = [ ' + str(default_is_output_LTR_lib) + ' ]')
@@ -130,7 +130,7 @@ if __name__ == '__main__':
     skip_HiTE = args.skip_HiTE
     is_denovo_nonltr = args.is_denovo_nonltr
     debug = args.debug
-    use_HybridLTR = args.use_HybridLTR
+    use_FiLTR = args.use_FiLTR
     use_NeuralTE = args.use_NeuralTE
     is_wicker = args.is_wicker
     is_output_LTR_lib = args.is_output_LTR_lib
@@ -160,10 +160,10 @@ if __name__ == '__main__':
     else:
         threads = int(threads)
 
-    if use_HybridLTR is None:
-        use_HybridLTR = int(default_use_HybridLTR)
+    if use_FiLTR is None:
+        use_FiLTR = int(default_use_FiLTR)
     else:
-        use_HybridLTR = int(use_HybridLTR)
+        use_FiLTR = int(use_FiLTR)
 
     if use_NeuralTE is None:
         use_NeuralTE = int(default_use_NeuralTE)
@@ -389,7 +389,7 @@ if __name__ == '__main__':
                     '  [Setting] coverage_threshold = [ ' + str(coverage_threshold) + ' ]  Default( ' + str(default_coverage_threshold) + ' )\n'
                     '  [Setting] skip_HiTE = [ ' + str(skip_HiTE) + ' ]  Default( ' + str(default_skip_HiTE) + ' )\n'
                     '  [Setting] is_denovo_nonltr = [ ' + str(is_denovo_nonltr) + ' ]  Default( ' + str(default_is_denovo_nonltr) + ' )\n'
-                    '  [Setting] use_HybridLTR = [ ' + str(use_HybridLTR) + ' ]  Default( ' + str(default_use_HybridLTR) + ' )\n'                                                                                                                                    
+                    '  [Setting] use_FiLTR = [ ' + str(use_FiLTR) + ' ]  Default( ' + str(default_use_FiLTR) + ' )\n'                                                                                                                                    
                     '  [Setting] use_NeuralTE = [ ' + str(use_NeuralTE) + ' ]  Default( ' + str(default_use_NeuralTE) + ' )\n'
                     '  [Setting] is_wicker = [ ' + str(is_wicker) + ' ]  Default( ' + str(default_is_wicker) + ' )\n'
                     '  [Setting] debug = [ ' + str(debug) + ' ]  Default( ' + str(default_debug) + ' )\n'
@@ -673,7 +673,7 @@ if __name__ == '__main__':
                 LTR_identification_command = 'judge_LTR_transposons.py ' \
                                              + ' -g ' + reference + ' -t ' + str(threads) \
                                              + ' --tmp_output_dir ' + tmp_output_dir + ' --recover ' + str(recover) \
-                                             + ' --miu ' + str(miu) + ' --use_HybridLTR ' + str(use_HybridLTR) \
+                                             + ' --miu ' + str(miu) + ' --use_FiLTR ' + str(use_FiLTR) \
                                              + ' --use_NeuralTE ' + str(use_NeuralTE) + ' --is_wicker ' + str(is_wicker) \
                                              + ' --is_output_lib ' + str(is_output_LTR_lib) + ' --debug ' + str(debug) \
                                              + ' -w ' + str(work_dir) + ' --prev_TE ' + tmp_lib

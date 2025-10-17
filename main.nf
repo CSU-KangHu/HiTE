@@ -50,7 +50,7 @@ def helpMessage() {
       --skip_HiTE                       Whether to skip_HiTE, 1: true, 0: false. default = [ 0 ]
       --is_denovo_nonltr                Whether to detect non-ltr de novo, 1: true, 0: false. default = [ 0 ]
       --debug                           Open debug mode, and temporary files will be kept, 1: true, 0: false. default = [ 0 ]
-      --use_HybridLTR                   Whether to use HybridLTR to identify LTRs, 1: true, 0: false. default = [1]
+      --use_FiLTR                       Whether to use FiLTR to identify LTRs, 1: true, 0: false. default = [1]
       --use_NeuralTE                    Whether to use NeuralTE to classify TEs, 1: true, 0: false. default = [1]
       --is_wicker                       Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker. default = [0]
       --is_output_LTR_lib               Whether to output LTR library. default = [1]
@@ -87,7 +87,7 @@ def printSetting() {
       [Setting] is_denovo_nonltr = [ $params.is_denovo_nonltr ]
       [Setting] debug = [ $params.debug ]
       [Setting] Output Directory = [ $params.out_dir ]
-      [Setting] use_HybridLTR = [ $params.use_HybridLTR ]
+      [Setting] use_FiLTR = [ $params.use_FiLTR ]
       [Setting] use_NeuralTE = [ $params.use_NeuralTE ]
       [Setting] is_wicker = [ $params.is_wicker ]
 
@@ -144,7 +144,7 @@ threads = "${params.threads}"
 is_denovo_nonltr = "${params.is_denovo_nonltr}"
 miu = "${params.miu}"
 ref = "${params.genome}"
-use_HybridLTR = "${params.use_HybridLTR}"
+use_FiLTR = "${params.use_FiLTR}"
 use_NeuralTE = "${params.use_NeuralTE}"
 is_output_LTR_lib = "${params.is_output_LTR_lib}"
 is_wicker = "${params.is_wicker}"
@@ -421,7 +421,7 @@ process LTR {
     """
     judge_LTR_transposons.py \
      -g ${ref} -t ${cores} --recover ${recover} \
-     --use_HybridLTR ${use_HybridLTR} \
+     --use_FiLTR ${use_FiLTR} \
      --use_NeuralTE ${use_NeuralTE} --miu ${miu} \
      --is_wicker ${is_wicker} --is_output_lib ${is_output_LTR_lib} \
      -w ${params.work_dir} --prev_TE ${tmp_lib}

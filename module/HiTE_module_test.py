@@ -16,6 +16,7 @@ import uuid
 #import regex
 from fuzzysearch import find_near_matches
 import Levenshtein
+from matplotlib_venn import venn3
 from numpy import median
 import numpy as np
 import matplotlib
@@ -29,11 +30,11 @@ import seaborn as sns
 import pandas as pd
 from openpyxl.utils import get_column_letter
 from pandas import ExcelWriter
-
+import matplotlib.ticker as ticker
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
@@ -53,7 +54,10 @@ from Util import read_fasta, store_fasta, Logger, read_fasta_v1, rename_fasta, g
     split_internal_out, create_or_clear_directory, copy_files, filter_short_contigs_in_genome, parse_clstr_file, \
     save_to_file, te_genome_align_minimap2, convert_paf_to_blast6_format, generate_full_length_out_v1, load_from_file, \
     multi_process_tsd_v1, judge_boundary_v5, get_genome_size, get_fixed_extend_base_threshold, \
-    remove_sparse_col_in_align_file, split_and_store_sequences
+    remove_sparse_col_in_align_file, split_and_store_sequences, get_full_length_copies_minimap2, \
+    sequence2sequenceBlastn, is_TE_from_align_file
+from judge_TIR_transposons import run_TIR_detection
+from pan_recover_low_copy_TEs import get_pan_genome_copies, filter_true_TEs
 
 
 def filter_repbase_nonTE():
@@ -1986,8 +1990,9 @@ def get_mask_regions(std_out):
 
 def BM_EDTA():
     # 自己编写程序，尝试获得和BM_EDTA一致的结果
-    work_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest3'
-    genome = work_dir + '/genome.rename.fa'
+    genome_dir = '/home/hukang/test/HiTE/demo/ath/BM_EDTA'
+    work_dir = '/home/hukang/test/HiTE/demo/ath/BM_EDTA/01_out'
+    genome = genome_dir + '/01.col.fa'
     std_out = work_dir + '/repbase.edta.out'
     test_out = work_dir + '/HiTE.edta.out'
     # Convert .out file to .bed file
@@ -4037,6 +4042,321 @@ def run_command(species):
     print(f"Running command for {species}: {cmd}")
     os.system(cmd)
 
+
+def parse_panHiTE_miss_bed(bed_file):
+    """
+    解析panHiTE_miss.out.bed文件，提取TE拷贝信息
+    返回: TE_copies, TE_full_copies
+    """
+    TE_copies = defaultdict(list)
+    TE_full_copies = defaultdict(list)
+
+    with open(bed_file, 'r') as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            if len(parts) < 4:
+                continue
+
+            # 解析TE信息
+            info_parts = parts[3].split(';')
+            if len(info_parts) < 14:
+                continue
+
+            TE_name = info_parts[9]
+            direction = info_parts[8]
+            div = float(info_parts[1])
+            # 解析位置信息
+            try:
+                if direction == '+':
+                    TE_start = int(info_parts[11])
+                    TE_end = int(info_parts[12])
+                    TE_remain = int(info_parts[13].replace('(', '').replace(')', ''))
+                else:
+                    TE_start = int(info_parts[13])
+                    TE_end = int(info_parts[12])
+                    TE_remain = int(info_parts[11].replace('(', '').replace(')', ''))
+
+                # 计算TE长度和完整性
+                total_TE_length = TE_end + TE_remain
+                TE_length = TE_end - TE_start
+                completeness_ratio = TE_length / total_TE_length if total_TE_length > 0 else 0
+
+                # 存储拷贝信息
+                copy_info = (TE_start, TE_end, TE_remain, div)
+                TE_copies[TE_name].append(copy_info)
+
+                # 判断是否为全长拷贝（完整性≥95%）
+                if completeness_ratio >= 0.95:
+                    TE_full_copies[TE_name].append(copy_info)
+
+            except (ValueError, IndexError) as e:
+                print(f"警告: 解析行时出错: {line.strip()}, 错误: {e}")
+                continue
+
+    return TE_copies, TE_full_copies
+
+
+def load_te_metadata(repbase_path, panEDTA_unique_file, total_repbase_header):
+    """
+    加载TE元数据：类型和长度信息
+    """
+    # 从Repbase加载所有TE信息
+    repbase_names, repbase_contigs = read_fasta_v1(repbase_path)
+
+    TE_types = {}
+    TE_lengths = {}
+
+    class_map = {'LTR Retrotransposon': 'LTR', 'Non-LTR Retrotransposon': 'Non-LTR', 'DNA transposon': 'DNA', 'EnSpm/CACTA': 'CACTA'}
+
+    for name in repbase_names:
+        parts = name.split('\t')
+        if len(parts) >= 2:
+            TE_name = parts[0]
+            classification = parts[1]
+            if classification in class_map:
+                classification = class_map[classification]
+            TE_types[TE_name] = classification
+            TE_lengths[TE_name] = len(repbase_contigs[name])
+
+    # 从panEDTA文件加载特定的TE子集
+    panEDTA_types = {}
+    panEDTA_lengths = {}
+    with open(panEDTA_unique_file, 'r') as f:
+        for line in f:
+            TE_name = line.strip()
+            if TE_name in TE_types:
+                panEDTA_types[TE_name] = TE_types[TE_name]
+                panEDTA_lengths[TE_name] = TE_lengths[TE_name]
+            else:
+                print(f"警告: TE名称 {TE_name} 在Repbase中未找到")
+
+    # 其余来自Repbase的TE
+    other_types = {}
+    other_lengths = {}
+    with open(total_repbase_header, 'r') as f:
+        for line in f:
+            TE_name = line.strip()
+            if TE_name not in panEDTA_types:
+                other_types[TE_name] = TE_types[TE_name]
+                other_lengths[TE_name] = TE_lengths[TE_name]
+
+    return panEDTA_types, panEDTA_lengths, other_types, other_lengths, TE_types, TE_lengths
+
+
+def plot_TE_distribution(TE_types, TE_lengths, TE_full_copies, output_dir):
+    """
+    绘制TE分布图：全长拷贝分布、类型数量、长度分布、平均identity分布
+    """
+    # 设置全局字体为DejaVu Sans
+    plt.rcParams['font.family'] = 'DejaVu Sans'
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+
+    # 统计每个类型的TE数量
+    type_counter = Counter(TE_types.values())
+
+    # 按类型分组数据
+    type_lengths = defaultdict(list)
+    type_copy_counts = defaultdict(list)  # 存储每个TE的拷贝数量
+    type_avg_identities = defaultdict(list)  # 存储每个TE的平均identity
+
+    for te_name, te_type in TE_types.items():
+        # 长度数据
+        if te_name in TE_lengths:
+            type_lengths[te_type].append(TE_lengths[te_name])
+
+        # 拷贝数量和identity数据
+        if te_name in TE_full_copies:
+            copies_list = TE_full_copies[te_name]
+            copy_count = len(copies_list)
+            type_copy_counts[te_type].append(copy_count)
+
+            # 计算该TE所有拷贝的平均identity
+            identities = []
+            for copy_info in copies_list:
+                if len(copy_info) >= 4:  # 确保有div值
+                    div = copy_info[3]
+                    identity = float(100 - div) /100
+                    identities.append(identity)
+
+            if identities:  # 如果有有效的identity数据
+                avg_identity = np.mean(identities)
+                type_avg_identities[te_type].append(avg_identity)
+
+
+    # 计算统计信息
+    type_avg_length = {te_type: np.mean(lengths) if lengths else 0
+                       for te_type, lengths in type_lengths.items()}
+    type_median_length = {te_type: np.median(lengths) if lengths else 0
+                          for te_type, lengths in type_lengths.items()}
+    type_avg_copies = {te_type: np.mean(copies) if copies else 0
+                       for te_type, copies in type_copy_counts.items()}
+    type_median_copies = {te_type: np.median(copies) if copies else 0
+                          for te_type, copies in type_copy_counts.items()}
+    type_avg_of_avg_identity = {te_type: np.mean(identities) if identities else 0
+                                for te_type, identities in type_avg_identities.items()}
+    type_median_of_avg_identity = {te_type: np.median(identities) if identities else 0
+                                   for te_type, identities in type_avg_identities.items()}
+
+    # 按数量排序类型
+    types_sorted = [k for k, v in sorted(type_counter.items(),
+                                         key=lambda x: x[1], reverse=True)]
+    counts_sorted = [type_counter[t] for t in types_sorted]
+
+    # 创建图形 - 2行2列布局
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(18, 14))
+
+    # 图1: TE全长拷贝数量分布（左上）
+    copy_bins = [0, 1, 5, 10, 20, 50, 100, float('inf')]
+    copy_labels = ['1', '2-5', '6-10', '11-20', '21-50', '51-100', '>100']
+
+    copy_distribution = {}
+    for te_type in types_sorted:
+        copy_distribution[te_type] = [0] * len(copy_labels)
+        for copy_count in type_copy_counts[te_type]:
+            for i, (start, end) in enumerate(zip(copy_bins[:-1], copy_bins[1:])):
+                if start <= copy_count < end:
+                    copy_distribution[te_type][i] += 1
+                    break
+
+    bottom = np.zeros(len(copy_labels))
+    colors_viridis = plt.cm.viridis(np.linspace(0, 1, len(types_sorted)))
+
+    for i, te_type in enumerate(types_sorted):
+        ax1.bar(copy_labels, copy_distribution[te_type], bottom=bottom,
+                label=te_type, color=colors_viridis[i], alpha=0.8)
+        bottom += copy_distribution[te_type]
+
+    ax1.set_title('(a) TE Full-length Copy Distribution by Type',
+                  fontsize=18, fontweight='bold', fontname='DejaVu Sans')
+    ax1.set_xlabel('Copy Number Range', fontsize=18, fontname='DejaVu Sans')
+    ax1.set_ylabel('Number of TEs', fontsize=18, fontname='DejaVu Sans')
+    ax1.tick_params(axis='x', rotation=45, labelsize=15)
+    ax1.tick_params(axis='y', labelsize=15)
+    ax1.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+    # 图2: TE类型数量分布（右上）
+    colors_set3 = plt.cm.Set3(np.linspace(0, 1, len(types_sorted)))
+    bars2 = ax2.bar(types_sorted, counts_sorted, color=colors_set3)
+    ax2.set_title('(b) TE Classification Distribution',
+                  fontsize=18, fontweight='bold', fontname='DejaVu Sans')
+    ax2.set_xlabel('TE Classification', fontsize=18, fontname='DejaVu Sans')
+    ax2.set_ylabel('Number of TEs', fontsize=18, fontname='DejaVu Sans')
+    ax2.tick_params(axis='x', rotation=45, labelsize=15)
+    ax2.tick_params(axis='y', labelsize=15)
+    ax2.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+    # 添加数量标签
+    for bar, count in zip(bars2, counts_sorted):
+        ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                 f'{count}', ha='center', va='bottom', fontsize=9, fontname='DejaVu Sans')
+
+    # 图3: TE长度分布（左下）
+    length_bins = [0, 500, 1000, 2000, 5000, 10000, float('inf')]
+    bin_labels = ['<500', '500-1k', '1k-2k', '2k-5k', '5k-10k', '>10k']
+
+    length_distribution = {}
+    for te_type in types_sorted:
+        length_distribution[te_type] = [0] * len(bin_labels)
+        for length in type_lengths[te_type]:
+            for i, (start, end) in enumerate(zip(length_bins[:-1], length_bins[1:])):
+                if start <= length < end:
+                    length_distribution[te_type][i] += 1
+                    break
+
+    bottom = np.zeros(len(bin_labels))
+    for i, te_type in enumerate(types_sorted):
+        ax3.bar(bin_labels, length_distribution[te_type], bottom=bottom,
+                label=te_type, color=colors_viridis[i], alpha=0.8)
+        bottom += length_distribution[te_type]
+
+    ax3.set_title('(c) TE Length Distribution by Type',
+                  fontsize=18, fontweight='bold', fontname='DejaVu Sans')
+    ax3.set_xlabel('Length Range (bp)', fontsize=18, fontname='DejaVu Sans')
+    ax3.set_ylabel('Number of TEs', fontsize=18, fontname='DejaVu Sans')
+    ax3.tick_params(axis='x', rotation=45, labelsize=15)
+    ax3.tick_params(axis='y', labelsize=15)
+    ax3.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+    # 图4: TE平均Identity分布（右下）- 修改为按TE平均值
+    identity_bins = [0, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99, 1.0]
+    identity_labels = ['<0.7', '0.7-0.8', '0.8-0.9', '0.9-0.95', '0.95-0.98', '0.98-0.99', '≥0.99']
+
+    identity_distribution = {}
+    for te_type in types_sorted:
+        identity_distribution[te_type] = [0] * len(identity_labels)
+        for avg_identity in type_avg_identities[te_type]:
+            for i, (start, end) in enumerate(zip(identity_bins[:-1], identity_bins[1:])):
+                if start <= avg_identity < end:
+                    identity_distribution[te_type][i] += 1
+                    break
+            else:
+                # avg_identity == 1.0 的情况
+                identity_distribution[te_type][-1] += 1
+
+    bottom = np.zeros(len(identity_labels))
+    for i, te_type in enumerate(types_sorted):
+        ax4.bar(identity_labels, identity_distribution[te_type], bottom=bottom,
+                label=te_type, color=colors_viridis[i], alpha=0.8)
+        bottom += identity_distribution[te_type]
+
+    ax4.set_title('(d) TE Average Identity Distribution by Type',
+                  fontsize=18, fontweight='bold', fontname='DejaVu Sans')
+    ax4.set_xlabel('Average Identity Range', fontsize=18, fontname='DejaVu Sans')
+    ax4.set_ylabel('Number of TEs', fontsize=18, fontname='DejaVu Sans')  # 注意：这里是TE数量
+    ax4.tick_params(axis='x', rotation=45, labelsize=15)
+    ax4.tick_params(axis='y', labelsize=15)
+    ax4.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+    # 添加图例
+    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=18, prop={'family': 'DejaVu Sans'})
+    ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=18, prop={'family': 'DejaVu Sans'})
+    ax4.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=18, prop={'family': 'DejaVu Sans'})
+
+    # 调整布局并保存
+    plt.tight_layout()
+    output_path = os.path.join(output_dir, 'TE_comprehensive_distribution.png')
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    # 打印统计摘要
+    print_summary(types_sorted, counts_sorted, type_avg_length,
+                  type_median_length, type_avg_copies, type_median_copies,
+                  type_avg_of_avg_identity, type_median_of_avg_identity)
+
+
+def print_summary(types_sorted, counts_sorted, avg_lengths,
+                  median_lengths, avg_copies, median_copies,
+                  avg_identities, median_identities):
+    """打印统计摘要"""
+    print("\n" + "=" * 50)
+    print("TE Distribution Summary")
+    print("=" * 50)
+    print(f"Total number of TEs: {sum(counts_sorted)}")
+    print(f"Number of TE types: {len(types_sorted)}")
+
+    print("\nTop 5 TE types by count:")
+    for i in range(min(5, len(types_sorted))):
+        te_type = types_sorted[i]
+        print(f"  {te_type}: {counts_sorted[i]} TEs")
+
+    print("\nLength statistics (top 5 types):")
+    for te_type in types_sorted[:5]:
+        if te_type in avg_lengths:
+            print(f"  {te_type}: avg={avg_lengths[te_type]:.1f}bp, "
+                  f"median={median_lengths[te_type]:.1f}bp")
+
+    print("\nCopy number statistics (top 5 types):")
+    for te_type in types_sorted[:5]:
+        if te_type in avg_copies:
+            print(f"  {te_type}: avg={avg_copies[te_type]:.1f}, "
+                  f"median={median_copies[te_type]:.1f}")
+
+    print("\nAverage identity statistics (top 5 types):")
+    for te_type in types_sorted[:5]:
+        if te_type in avg_identities and avg_identities[te_type] > 0:
+            print(f"  {te_type}: avg={avg_identities[te_type]:.3f}, "
+                  f"median={median_identities[te_type]:.3f}")
+
 if __name__ == '__main__':
     # # 画插入时间图
     # data_dir = '/home/hukang/test/data'
@@ -4047,6 +4367,162 @@ if __name__ == '__main__':
     #     cur_list = input_dir + '/intact_LTR.list'
     #     intact_ltr_paths.append((genome_name, cur_list))
     # draw_intact_LTR_insert_time(intact_ltr_paths, output_pdf)
+
+
+
+    """主函数"""
+    # 设置目录和文件路径
+    cur_dir = '/home/hukang/panHiTE_reviewer_test/panHiTE_uncover_TEs_analysis'
+
+    # 文件路径
+    panHiTE_miss_bed = os.path.join(cur_dir, 'panHiTE_miss.out.bed')
+    total_repbase_header = os.path.join(cur_dir, 'panHiTE_miss.txt')
+    panEDTA_unique_file = os.path.join(cur_dir, 'panEDTA_vs_Repbase.header.txt')
+    repbase_path = os.path.join(cur_dir, 'athrep.ref')
+    copies_output_file = os.path.join(cur_dir, 'panHiTE_miss.full_length.txt')
+
+    # 1. 加载TE元数据
+    print("Loading TE metadata...")
+    panEDTA_types, panEDTA_lengths, other_types, other_lengths, all_TE_types, all_TE_lengths = load_te_metadata(
+        repbase_path, panEDTA_unique_file, total_repbase_header)
+
+    # 2. 解析panHiTE结果
+    print("Parsing panHiTE miss results...")
+    TE_copies, TE_full_copies = parse_panHiTE_miss_bed(panHiTE_miss_bed)
+
+    # 3. 保存全长拷贝信息
+    print("Saving full-length copy information...")
+    with open(copies_output_file, 'w') as f:
+        for te_name, copies_list in TE_full_copies.items():
+            f.write(f"{te_name}\t{len(copies_list)}\t{copies_list}\n")
+
+    # 4. 筛选panEDTA相关的全长拷贝
+    panEDTA_copies = {te_name: copies for te_name, copies in TE_copies.items()
+                           if te_name in panEDTA_types}
+    panEDTA_full_copies = {te_name: copies for te_name, copies in TE_full_copies.items()
+                           if te_name in panEDTA_types}
+
+    print(f"Total TEs in panEDTA: {len(panEDTA_types)}")
+    print(f"Total TEs in Other Repbase: {len(other_types)}")
+    print(f"TEs with full-length copies: {len(panEDTA_full_copies)}")
+
+    # 5. 筛选其他Repbase相关的全长拷贝
+    other_copies = {te_name: copies for te_name, copies in TE_copies.items()
+                         if te_name not in panEDTA_types}
+    other_full_copies = {te_name: copies for te_name, copies in TE_full_copies.items()
+                         if te_name not in panEDTA_types}
+
+    # 6. 绘制分布图
+    print("Plotting TE distributions...")
+    # plot_TE_distribution(panEDTA_types, panEDTA_lengths, panEDTA_full_copies, cur_dir)
+    # print(len(panEDTA_copies), len(panEDTA_full_copies))
+    plot_TE_distribution(other_types, other_lengths, other_full_copies, cur_dir)
+    print(len(other_copies), len(other_full_copies))
+
+
+    # cur_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/32_ath/panHiTE2_32_ath'
+    # original_candidates = cur_dir + '/865.fasta'
+    # keep_tir_low_copy = cur_dir + '/865_tir_low.fasta'
+    # keep_helitron_low_copy = cur_dir + '/865_helitron_low.fasta'
+    # keep_non_ltr_low_copy = cur_dir + '/865_non_ltr_low.fasta'
+    # original_candidates = cur_dir + '/514.fasta'
+    # keep_tir_low_copy = cur_dir + '/514_tir_low.fasta'
+    # keep_helitron_low_copy = cur_dir + '/514_helitron_low.fasta'
+    # keep_non_ltr_low_copy = cur_dir + '/514_non_ltr_low.fasta'
+    # original_candidates = cur_dir + '/415.fasta'
+    # keep_tir_low_copy = cur_dir + '/415_tir_low.fasta'
+    # keep_helitron_low_copy = cur_dir + '/415_helitron_low.fasta'
+    # keep_non_ltr_low_copy = cur_dir + '/415_non_ltr_low.fasta'
+    # os.system('cp ' + original_candidates + ' ' + keep_tir_low_copy)
+    # os.system('cp ' + original_candidates + ' ' + keep_helitron_low_copy)
+    # os.system('cp ' + original_candidates + ' ' + keep_non_ltr_low_copy)
+    # genome_dir = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/32_ath/genomes/'
+    # genome_path = '/public/home/hpc194701009/ath_pan_genome/pan_genome/ath/32_ath/genome_list_bak'
+    # genome_paths = []
+    # with open(genome_path, 'r') as f_r:
+    #     for line in f_r:
+    #         genome_name = line.replace('\n', '')
+    #         genome_paths.append((genome_name, genome_dir + '/' + genome_name))
+    # # temp_dir = cur_dir + '/514_copies'
+    # # temp_dir = cur_dir + '/865_copies'
+    # temp_dir = cur_dir + '/415_copies'
+    # threads = 48
+    # log = Logger(cur_dir + '/pan_recover_low_copy_TEs.log', level='debug')
+    # get_copies_dir = os.path.join(temp_dir, 'get_copies')
+    # pan_genome_copies_dict = get_pan_genome_copies(keep_tir_low_copy, keep_helitron_low_copy, keep_non_ltr_low_copy, genome_paths, threads, get_copies_dir, log)
+    #
+    # # store connected_repeats for testing
+    # pan_genome_copies_dict_file = temp_dir + '/pan_genome_copies_dict.csv'
+    # with codecs.open(pan_genome_copies_dict_file, 'w', encoding='utf-8') as f:
+    #     json.dump(pan_genome_copies_dict, f)
+    #
+    # project_dir = '/public/home/hpc194701009/test/test/HiTE'
+    # subset_script_path = project_dir + '/tools/ready_for_MSA.sh'
+    # plant = 0
+    # debug = 0
+    # result_type = 'cons'
+    # # 依次对tir, helitron, non_ltr 类型的TE调用动态边界调整算法，过滤出真实的TE
+    # for TE_type in pan_genome_copies_dict.keys():
+    #     cur_temp_dir, batch_member_files = pan_genome_copies_dict[TE_type]
+    #     real_TEs = os.path.join(temp_dir, 'real_' + TE_type + '.fa')
+    #     for batch_member_file in batch_member_files:
+    #         (query_name, cur_seq, trunc_member_file, extend_member_file) = batch_member_file
+    #         is_TE_from_align_file(extend_member_file, query_name, cur_seq, temp_dir, subset_script_path, plant, TE_type, debug, result_type)
+
+
+    # te_names, te_contigs = read_fasta(original_candidates)
+    # not_found_names = []
+    # msa_dir = cur_dir + '/panHiTE_unique_msa_files'
+    # for file_name in os.listdir(msa_dir):
+    #     te_name = file_name.split('.')[0]
+    #     del te_contigs[te_name]
+    # print(te_contigs.keys())
+    # print(len(te_contigs.keys()))
+    #
+    # remain_candidates = cur_dir + '/371.fasta'
+    # store_fasta(te_contigs, remain_candidates)
+
+
+
+
+
+    # max_copy_num = 100
+    # threads = 40
+    # temp_dir = cur_dir + '/get_copies'
+    # for ref_name, reference in genomes:
+    #     ref_names, ref_contigs = read_fasta(reference)
+    #     all_copies = get_full_length_copies_minimap2(panHiTE_miss, reference, temp_dir, max_copy_num, threads)
+    #     store_dir = cur_dir + '/' + ref_name
+    #     if not os.path.exists(store_dir):
+    #         os.makedirs(store_dir)
+    #     copies_file = store_dir + '/TE_copy_numbers.txt'
+    #     with open(copies_file, 'w') as f_save:
+    #         for te_name, copies_list in all_copies.items():
+    #             copy_count = len(copies_list)
+    #             f_save.write(f"{te_name}\t{copy_count}\n")
+    #     for query_name in all_copies:
+    #         query_file = store_dir + '/' + query_name + '.fa'
+    #         query_contigs = {}
+    #         query_contigs[query_name] = panHiTE_miss_contigs[query_name]
+    #         store_fasta(query_contigs, query_file)
+    #
+    #         query_copy_file = store_dir + '/' + query_name + '.copies.fa'
+    #         copy_contigs = {}
+    #         for copy in all_copies[query_name]:
+    #             subject_name = copy[0]
+    #             subject_start = copy[1]
+    #             subject_end = copy[2]
+    #             copy_seq = ref_contigs[subject_name][subject_start: subject_end]
+    #             copy_name = subject_name + ':' + str(subject_start) + '-' + str(subject_end)
+    #             copy_contigs[copy_name] = copy_seq
+    #         store_fasta(copy_contigs, query_copy_file)
+    #         blastn2Results_path = sequence2sequenceBlastn(query_file, query_copy_file)
+    #
+    #         avg_identity = 0
+    #         line_num = 0
+    #         get_longest_repeats_v4, blastn2Results_path, fixed_extend_base_threshold, max_single_repeat_len, debug
+
+
 
 
     # cur_dir = '/home/hukang/test/HiTE/demo/out29/NeuralTE_all'
@@ -4279,6 +4755,23 @@ if __name__ == '__main__':
     # l = load_from_file(a)
     # print(l)
 
+    # tmp_output_dir = '/home/hukang/test/HiTE/demo/test'
+    # longest_repeats_flanked_path = tmp_output_dir + '/longest_repeats_0.flanked.fa'
+    # reference = '/home/hukang/test/HiTE/demo/GCF_000004555.2_CB4_genomic.rename.fna'
+    # prev_TE = None
+    # flanking_len = 50
+    # threads = 1
+    # debug = 0
+    # split_ref_dir = None
+    # all_low_copy_tir = tmp_output_dir + '/all_low_copy_tir.fa'
+    # plant = 0
+    # ref_index = 0
+    # min_TE_len = 80
+    # is_recover = 1
+    # log = Logger(tmp_output_dir+'/HiTE_tir.log', level='debug')
+    # run_TIR_detection(tmp_output_dir, longest_repeats_flanked_path, reference, prev_TE, flanking_len, threads,
+    #                   debug, split_ref_dir, all_low_copy_tir, plant, ref_index, min_TE_len, is_recover, log)
+
     # project_dir = '/home/hukang/test/HiTE'
     # TRsearch_dir = project_dir + '/tools'
     # subset_script_path = project_dir + '/tools/ready_for_MSA.sh'
@@ -4346,7 +4839,8 @@ if __name__ == '__main__':
     # # panHiTE, panEDTA 和 Repbase 库三者的交集关系
     # # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
     # # 尝试使用BM_RM2的结果调整clusters
-    # cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
+    # # cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
+    # cluster_file = '/home/hukang/test/demo/maize_lib_compare/maize_merge.fa.cons.clstr'
     # clusters = parse_clstr_file(cluster_file)
     # new_clusters = defaultdict()
     # # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
@@ -4359,65 +4853,65 @@ if __name__ == '__main__':
     #         seq_name2cluster_id[seq] = cluster
     #     new_clusters[cluster] = names
     # clusters = new_clusters
-
-    # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panHiTE_rm2_test/file_final.0.1.txt'
-    # with open(file_path, 'r') as f:
-    #     for line in f:
-    #         parts = line.strip().split()
-    #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
-    #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
-    #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
-    #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
-    #         similarity = (100 - float(parts[7])) / 100
-    #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
-    #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
-    #             repbase_cluster_id = seq_name2cluster_id[seq1]
-    #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
-    #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
-    #             repbase_cluster = clusters.get(repbase_cluster_id, [])
-    #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
-    #             if panHiTE_cluster_id in clusters:
-    #                 del clusters[panHiTE_cluster_id]
     #
+    # # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panHiTE_rm2_test/file_final.0.1.txt'
+    # # with open(file_path, 'r') as f:
+    # #     for line in f:
+    # #         parts = line.strip().split()
+    # #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+    # #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
+    # #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+    # #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+    # #         similarity = (100 - float(parts[7])) / 100
+    # #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+    # #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+    # #             repbase_cluster_id = seq_name2cluster_id[seq1]
+    # #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
+    # #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
+    # #             repbase_cluster = clusters.get(repbase_cluster_id, [])
+    # #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+    # #             if panHiTE_cluster_id in clusters:
+    # #                 del clusters[panHiTE_cluster_id]
+    # #
+    # #
+    # # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panEDTA_rm2_test/file_final.0.1.txt'
+    # # with open(file_path, 'r') as f:
+    # #     for line in f:
+    # #         parts = line.strip().split()
+    # #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+    # #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
+    # #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+    # #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+    # #         similarity = (100 - float(parts[7])) / 100
+    # #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+    # #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+    # #             repbase_cluster_id = seq_name2cluster_id[seq1]
+    # #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
+    # #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
+    # #             repbase_cluster = clusters.get(repbase_cluster_id, [])
+    # #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+    # #             if panHiTE_cluster_id in clusters:
+    # #                 del clusters[panHiTE_cluster_id]
+    # #
+    # # file_path = '/home/hukang/test/demo/three_lib_compare/panEDTA_panHiTE_rm2_test/file_final.0.1.txt'
+    # # with open(file_path, 'r') as f:
+    # #     for line in f:
+    # #         parts = line.strip().split()
+    # #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
+    # #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
+    # #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
+    # #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
+    # #         similarity = (100 - float(parts[7])) / 100
+    # #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
+    # #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
+    # #             repbase_cluster_id = seq_name2cluster_id[seq1]
+    # #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
+    # #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
+    # #             repbase_cluster = clusters.get(repbase_cluster_id, [])
+    # #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
+    # #             if panHiTE_cluster_id in clusters:
+    # #                 del clusters[panHiTE_cluster_id]
     #
-    # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panEDTA_rm2_test/file_final.0.1.txt'
-    # with open(file_path, 'r') as f:
-    #     for line in f:
-    #         parts = line.strip().split()
-    #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
-    #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
-    #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
-    #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
-    #         similarity = (100 - float(parts[7])) / 100
-    #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
-    #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
-    #             repbase_cluster_id = seq_name2cluster_id[seq1]
-    #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
-    #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
-    #             repbase_cluster = clusters.get(repbase_cluster_id, [])
-    #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
-    #             if panHiTE_cluster_id in clusters:
-    #                 del clusters[panHiTE_cluster_id]
-    #
-    # file_path = '/home/hukang/test/demo/three_lib_compare/panEDTA_panHiTE_rm2_test/file_final.0.1.txt'
-    # with open(file_path, 'r') as f:
-    #     for line in f:
-    #         parts = line.strip().split()
-    #         seq1 = parts[0].split(' ')[0]  # 第1列：序列1
-    #         seq2 = parts[4].split('#')[0]  # 第5列：序列2
-    #         cov1 = float(parts[3])  # 第4列：序列1对序列2的覆盖度
-    #         cov2 = float(parts[6])  # 第7列：序列2对序列1的覆盖度
-    #         similarity = (100 - float(parts[7])) / 100
-    #         if seq1 != seq2 and cov1 > 0.8 and cov2 > 0.8 and similarity > 0.8:
-    #             # 读取clusters，将panHiTE的cluster加入到Repbase cluster，并将原本的panHiTE的cluster删除掉
-    #             repbase_cluster_id = seq_name2cluster_id[seq1]
-    #             panHiTE_cluster_id = seq_name2cluster_id[seq2]
-    #             panHiTE_cluster = clusters.get(panHiTE_cluster_id, [])
-    #             repbase_cluster = clusters.get(repbase_cluster_id, [])
-    #             clusters[repbase_cluster_id] = repbase_cluster + panHiTE_cluster
-    #             if panHiTE_cluster_id in clusters:
-    #                 del clusters[panHiTE_cluster_id]
-
     # total_panHiTE = []
     # total_panEDTA = []
     # total_Repbase = []
@@ -4480,10 +4974,12 @@ if __name__ == '__main__':
     # )
     #
     # # plt.title("Venn Diagram of Sequence Intersections")
-    # plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
+    # # plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
+    # plt.savefig('/home/hukang/test/demo/maize_lib_compare/output_plot.png')
     #
     # # 定义存储文件的路径
-    # output_dir = "/home/hukang/test/demo/three_lib_compare/"
+    # # output_dir = "/home/hukang/test/demo/three_lib_compare/"
+    # output_dir = "/home/hukang/test/demo/maize_lib_compare"
     #
     # # 需要保存的集合及对应的文件名
     # output_files = {
@@ -5014,7 +5510,7 @@ if __name__ == '__main__':
     # full_length_threshold = 0.95
     #
     # # split_ref_dir = work_dir + '/ref_chr'
-    # # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/src'
+    # # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/src'
     # # split_genome_command = [
     # #     "cd", test_home, "&&", "python3", f"{test_home}/split_genome_chunks.py",
     # #     "-g", reference, "--tmp_output_dir", work_dir
@@ -5099,7 +5595,7 @@ if __name__ == '__main__':
     #                                                                      reference, multi_records=50)
     #
     #     # split_ref_dir = temp_dir + '/ref_chr'
-    #     # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/src'
+    #     # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/src'
     #     # split_genome_command = [
     #     #     "cd", test_home, "&&", "python3", f"{test_home}/split_genome_chunks.py",
     #     #     "-g", reference, "--tmp_output_dir", temp_dir
@@ -5258,7 +5754,7 @@ if __name__ == '__main__':
     # tmp_output_dir = '/public/home/hpc194701009/LTR_libraries/Ours/zebrafish/HiTE_LTR_latest1'
     # blastn_temp_dir = os.path.join(tmp_output_dir, 'intact_ltr_blastn_filter')
     # split_ref_dir = tmp_output_dir + '/ref_chr'
-    # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/src'
+    # test_home = '/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/src'
     # split_genome_command = [
     #     "cd", test_home, "&&", "python3", f"{test_home}/split_genome_chunks.py",
     #     "-g", reference, "--tmp_output_dir", tmp_output_dir
@@ -5295,7 +5791,7 @@ if __name__ == '__main__':
     # single_copy_internals_file = tmp_output_dir + '/test.fa'
     # temp_dir = tmp_output_dir + '/ltr_domain'
     # output_table = single_copy_internals_file + '.ltr_domain'
-    # ltr_protein_db = '/public/home/hpc194701009/test/test/HiTE/bin/HybridLTR-main/databases/LTRPeps.lib'
+    # ltr_protein_db = '/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/databases/LTRPeps.lib'
     # threads = 48
     # get_domain_info(single_copy_internals_file, ltr_protein_db, output_table, threads, temp_dir)
     # is_single_ltr_has_intact_protein = {}
@@ -5354,55 +5850,59 @@ if __name__ == '__main__':
     # is_TE, info, cons_seq = judge_boundary_v9(cur_seq, align_file, debug, TE_type, plant, result_type)
     # print(is_TE, info, cons_seq)
 
-    # work_dir = '/tmp/run_hite_main'
-    # # candidate_tir_path = work_dir + '/more_tir.fa'
-    # # candidate_tir_path = work_dir + '/confident_helitron.fa'
-    # # candidate_tir_path = work_dir + '/confident_tir.fa'
-    # candidate_tir_path = work_dir + '/test.fa'
-    # confident_tir_path = work_dir + '/test.final.fa'
-    # flanking_len = 50
-    # # reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
-    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/39.ah_7.fa'
-    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
-    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
-    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
-    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
-    # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
-    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
-    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
-    reference = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/athaliana.fna'
-    # test_home = '/home/hukang/test/HiTE/module'
-    tmp_output_dir = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/tirs'
-    work_dir = tmp_output_dir
-    if not os.path.exists(tmp_output_dir):
-        os.makedirs(tmp_output_dir)
-    chrom_seg_length = 1_000_000
-    chunk_size = 400
-    split_genome_command = 'split_genome_chunks.py -g ' \
-                           + reference + ' --tmp_output_dir ' + tmp_output_dir \
-                           + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
-    # os.system(split_genome_command)
+    # # work_dir = '/tmp/run_hite_main'
+    # # # candidate_tir_path = work_dir + '/more_tir.fa'
+    # # # candidate_tir_path = work_dir + '/confident_helitron.fa'
+    # # # candidate_tir_path = work_dir + '/confident_tir.fa'
+    # # candidate_tir_path = work_dir + '/test.fa'
+    # # confident_tir_path = work_dir + '/test.final.fa'
+    # # flanking_len = 50
+    # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/ucsc_genome/rice.fa'
+    # # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/39.ah_7.fa'
+    # # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/03.yilong.fa'
+    # # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/01.col.fa'
+    # # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/23.sij_1.fa'
+    # # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/41.sorbo.fa'
+    # # # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/04.bor_1.fa'
+    # # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/04.bor_1.fa'
+    # # # # reference = '/homeb/hukang/KmerRepFinder_test/genome/02.tibet.fa'
+    # reference = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/athaliana.fna'
+    # # test_home = '/home/hukang/test/HiTE/module'
+    # tmp_output_dir = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/tirs'
+    # work_dir = tmp_output_dir
+    # if not os.path.exists(tmp_output_dir):
+    #     os.makedirs(tmp_output_dir)
+    # chrom_seg_length = 1_000_000
+    # chunk_size = 400
+    # split_genome_command = 'split_genome_chunks.py -g ' \
+    #                        + reference + ' --tmp_output_dir ' + tmp_output_dir \
+    #                        + ' --chrom_seg_length ' + str(chrom_seg_length) + ' --chunk_size ' + str(chunk_size)
+    # # os.system(split_genome_command)
+    #
 
-    TE_type = 'helitron'
-    split_ref_dir = tmp_output_dir + '/ref_chr'
-    threads = 40
-    ref_index = 0
-    subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
-    plant = 0
-    debug = 1
-    # candidate_tir_path = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/result.fa'
-    candidate_tir_path = tmp_output_dir + '/test.fa'
-    contig_names, contigs = read_fasta(candidate_tir_path)
-    #candidate_tir_path_rename = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/result.rename.fa'
-    candidate_tir_path_rename = tmp_output_dir + '/test.fa'
-    store_fasta(contigs, candidate_tir_path_rename)
-    confident_tir_path = tmp_output_dir + '/confident.fa'
-    all_low_copy = tmp_output_dir + '/all_low_copy.fa'
-    log = Logger(tmp_output_dir + '/test.log', level='debug')
-    flanking_len = 200
-    flank_region_align_v5(candidate_tir_path_rename, confident_tir_path, flanking_len, reference, split_ref_dir,
-                          TE_type, work_dir, threads, ref_index, log, subset_script_path,
-                          plant, debug, 1, all_low_copy, result_type='cons')
+    # reference = '/home/hukang/test/test/HiTE/demo/32_ath/genomes/13.got_22.fa'
+    # tmp_output_dir = '/home/hukang/test/HiTE/demo/ath/BM_EDTA'
+    # work_dir = tmp_output_dir
+    # TE_type = 'tir'
+    # split_ref_dir = tmp_output_dir + '/ref_chr'
+    # threads = 40
+    # ref_index = 0
+    # subset_script_path = '/home/hukang/test/HiTE/tools/ready_for_MSA.sh'
+    # plant = 0
+    # debug = 1
+    # # candidate_tir_path = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/result.fa'
+    # candidate_tir_path = tmp_output_dir + '/test.fa'
+    # contig_names, contigs = read_fasta(candidate_tir_path)
+    # #candidate_tir_path_rename = '/home/hukang/repeat_detect_tools/TEtrimmer-main/liuyuyang/result.rename.fa'
+    # candidate_tir_path_rename = tmp_output_dir + '/test.fa'
+    # store_fasta(contigs, candidate_tir_path_rename)
+    # confident_tir_path = tmp_output_dir + '/confident.fa'
+    # all_low_copy = tmp_output_dir + '/all_low_copy.fa'
+    # log = Logger(tmp_output_dir + '/test.log', level='debug')
+    # flanking_len = 200
+    # flank_region_align_v5(candidate_tir_path_rename, confident_tir_path, flanking_len, reference, split_ref_dir,
+    #                       TE_type, work_dir, threads, ref_index, log, subset_script_path,
+    #                       plant, debug, 1, all_low_copy, result_type='cons')
 
 
 

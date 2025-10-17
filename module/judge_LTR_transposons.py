@@ -10,7 +10,7 @@ import uuid
 cur_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(cur_dir)
 from Util import rename_reference, file_exist, Logger, run_LTR_detection, run_LTR_retriever, \
-    read_fasta, store_fasta, run_HybridLTR, assign_label_to_lib, create_or_clear_directory, copy_files, \
+    read_fasta, store_fasta, run_FiLTR, assign_label_to_lib, create_or_clear_directory, copy_files, \
     clean_old_tmp_files_by_dir, mask_genome_with_TE
 
 
@@ -95,13 +95,13 @@ def get_intact_ltr(genome_path, ltr_list, intact_LTR_path):
     store_fasta(ltr_contigs, intact_LTR_path)
     return segmentLTRs
 
-def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
+def run_judge_LTR_detection(tmp_output_dir, reference, use_FiLTR, is_recover, threads, miu, recover, debug,
                       is_output_lib, use_NeuralTE, is_wicker, prev_TE, log):
     LTR_harvest_parallel_Home = cur_dir + '/bin/LTR_HARVEST_parallel'
     LTR_finder_parallel_Home = cur_dir + '/bin/LTR_FINDER_parallel-master'
     NeuralTE_home = cur_dir + '/bin/NeuralTE'
     TEClass_home = cur_dir + '/classification'
-    HybridLTR_home = cur_dir + '/bin/HybridLTR-main'
+    FiLTR_home = cur_dir + '/bin/FiLTR-main'
 
     # rename reference
     ref_rename_path = tmp_output_dir + '/genome.rename.fa'
@@ -121,13 +121,13 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
     confident_helitron_path = os.path.join(tmp_output_dir, "confident_helitron_from_ltr.fa")
     confident_non_ltr_path = os.path.join(tmp_output_dir, "confident_non_ltr_from_ltr.fa")
 
-    if use_HybridLTR:
+    if use_FiLTR:
         LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
         confident_ltr = LTR_output_dir + '/confident_ltr.fa'
         Hybrid_ltr_terminal = LTR_output_dir + '/confident_ltr.terminal.fa'
         Hybrid_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
         Hybrid_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
-        HybridLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
+        FiLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
 
         Hybrid_confident_tir_path = os.path.join(LTR_output_dir, "confident_tir_from_ltr.fa")
         Hybrid_confident_helitron_path = os.path.join(LTR_output_dir, "confident_helitron_from_ltr.fa")
@@ -141,10 +141,10 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
         # 判断是否需要重新运行 LTR 模块
         is_rerun = not all(file_exist(f) for f in check_files)
         if not is_recover or is_rerun:
-            run_HybridLTR(ref_rename_path, LTR_output_dir, HybridLTR_home, threads, miu, recover, debug, is_output_lib,
+            run_FiLTR(ref_rename_path, LTR_output_dir, FiLTR_home, threads, miu, recover, debug, is_output_lib,
                           log)
-            if os.path.exists(HybridLTR_intact_LTR_path):
-                shutil.copy(HybridLTR_intact_LTR_path, intact_LTR_path)
+            if os.path.exists(FiLTR_intact_LTR_path):
+                shutil.copy(FiLTR_intact_LTR_path, intact_LTR_path)
             if os.path.exists(Hybrid_ltr_terminal):
                 shutil.copy(Hybrid_ltr_terminal, confident_ltr_terminal)
             if os.path.exists(Hybrid_ltr_internal):
@@ -214,7 +214,7 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_HybridLTR, is_recover
 
                 # 1. recover intact-LTRs from 'ltr_cons_path'
                 # 2. classify intact-LTRs and assign label to 'ltr_cons_path'
-                ltr_names, ltr_contigs = read_fasta(confident_ltr_cut_path)
+                ltr_names, ltr_contigs = read_fasta(confident_ltr)
                 intact_ltr_names, intact_ltr_contigs = read_fasta(intact_LTR_path)
                 filter_intact_ltr_contigs = {}
                 for name in ltr_names:
@@ -309,8 +309,8 @@ if __name__ == '__main__':
                         help='Please enter the directory for output. Use an absolute path.')
     parser.add_argument('--recover', metavar='recover',
                         help='Whether to enable recovery mode to avoid starting from the beginning, 1: true, 0: false.')
-    parser.add_argument('--use_HybridLTR', metavar='use_HybridLTR',
-                        help='Whether to use HybridLTR to identify LTRs, 1: true, 0: false.')
+    parser.add_argument('--use_FiLTR', metavar='use_FiLTR',
+                        help='Whether to use FiLTR to identify LTRs, 1: true, 0: false.')
     parser.add_argument('--use_NeuralTE', metavar='use_NeuralTE',
                         help='Whether to use NeuralTE to classify TEs, 1: true, 0: false.')
     parser.add_argument('--miu', metavar='miu',
@@ -332,7 +332,7 @@ if __name__ == '__main__':
     threads = int(args.t)
     tmp_output_dir = args.tmp_output_dir
     recover = args.recover
-    use_HybridLTR = int(args.use_HybridLTR)
+    use_FiLTR = int(args.use_FiLTR)
     use_NeuralTE = int(args.use_NeuralTE)
     miu = args.miu
     is_wicker = args.is_wicker
@@ -367,7 +367,7 @@ if __name__ == '__main__':
     try:
         create_or_clear_directory(temp_dir)
 
-        run_judge_LTR_detection(temp_dir, reference, use_HybridLTR, is_recover, threads, miu, recover, debug,
+        run_judge_LTR_detection(temp_dir, reference, use_FiLTR, is_recover, threads, miu, recover, debug,
                           is_output_lib, use_NeuralTE, is_wicker, prev_TE, log)
 
         # 计算完之后将结果拷贝回输出目录
@@ -376,7 +376,7 @@ if __name__ == '__main__':
     except Exception as e:
         # 如果出现异常，打印错误信息并删除临时目录
         print(f"An error occurred: {e}")
-        if os.path.exists(temp_dir):
+        if os.path.exists(temp_dir) and debug != 1:
             shutil.rmtree(temp_dir)
         raise  # 重新抛出异常，以便上层代码可以处理
 
