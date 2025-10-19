@@ -47,6 +47,7 @@ if __name__ == '__main__':
             'confident_ltr\\.terminal\\.fa',
             'intact_LTR\\.list',
             'intact_LTR\\.fa',
+            'filtered_single_copy_LTRs\\.txt',
             'intact_LTR\\.fa\\.classified',
             'confident_TE\\.cons\\.fa\\.classified',
             'longest_repeats(_\\d+)?\\.flanked\\.fa',
