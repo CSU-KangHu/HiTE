@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "OtherPeps.lib",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/configs/../databases/OtherPeps.lib",
+  "number-of-letters": 7466658,
+  "number-of-sequences": 10225,
+  "last-updated": "2025-10-18T03:58:00",
+  "number-of-volumes": 1,
+  "bytes-total": 8675348,
+  "bytes-to-cache": 7558860,
+  "files": [
+    "OtherPeps.lib.pdb",
+    "OtherPeps.lib.phr",
+    "OtherPeps.lib.pin",
+    "OtherPeps.lib.pot",
+    "OtherPeps.lib.psq",
+    "OtherPeps.lib.ptf",
+    "OtherPeps.lib.pto"
+  ]
+}

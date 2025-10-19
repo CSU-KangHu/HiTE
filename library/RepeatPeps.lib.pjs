@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "RepeatPeps.lib",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/library/RepeatPeps.lib",
+  "number-of-letters": 16150283,
+  "number-of-sequences": 18011,
+  "last-updated": "2025-05-10T14:03:00",
+  "number-of-volumes": 1,
+  "bytes-total": 19568994,
+  "bytes-to-cache": 16312535,
+  "files": [
+    "RepeatPeps.lib.pdb",
+    "RepeatPeps.lib.phr",
+    "RepeatPeps.lib.pin",
+    "RepeatPeps.lib.pot",
+    "RepeatPeps.lib.psq",
+    "RepeatPeps.lib.ptf",
+    "RepeatPeps.lib.pto"
+  ]
+}

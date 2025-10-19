@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "HelitronPeps.lib",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/library/HelitronPeps.lib",
+  "number-of-letters": 185905,
+  "number-of-sequences": 124,
+  "last-updated": "2025-01-07T16:49:00",
+  "number-of-volumes": 1,
+  "bytes-total": 237318,
+  "bytes-to-cache": 187182,
+  "files": [
+    "HelitronPeps.lib.pdb",
+    "HelitronPeps.lib.phr",
+    "HelitronPeps.lib.pin",
+    "HelitronPeps.lib.pot",
+    "HelitronPeps.lib.psq",
+    "HelitronPeps.lib.ptf",
+    "HelitronPeps.lib.pto"
+  ]
+}

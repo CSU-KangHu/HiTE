@@ -104,6 +104,7 @@ process pan_run_hite_single {
     path "confident_ltr.terminal.fa", emit: ch_ltr_terminal
     path "confident_ltr.internal.fa", emit: ch_ltr_internal
     path "confident_ltr_cut.fa", emit: ch_ltr_cut
+    path "filtered_single_copy_LTRs.txt", emit: ch_filtered_single_ltr
     path "intact_LTR.fa", emit: ch_intact_ltr
     path "intact_LTR.fa.classified", emit: ch_intact_classified_ltr
     path "confident_helitron.fa", emit: ch_helitron
@@ -426,6 +427,7 @@ workflow {
             def genome_json = new JsonSlurper().parseText(genome_data) // 使用 JsonSlurper 解析 JSON
             genome_json.genome_info.collect { [it.genome_name, it.raw_name, it.reference, it.gene_gtf, it.RNA_seq] }
         }
+
     genome_info_list.map { genome_name, raw_name, reference, gene_gtf, RNA_seq ->
             [genome_name, raw_name, reference, params.te_type, params.miu, params.debug]
         }.set { hite_input_channel }

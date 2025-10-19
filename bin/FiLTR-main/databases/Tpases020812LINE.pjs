@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "Tpases020812LINE",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/configs/../databases/Tpases020812LINE",
+  "number-of-letters": 1876363,
+  "number-of-sequences": 2330,
+  "last-updated": "2025-10-18T03:58:00",
+  "number-of-volumes": 1,
+  "bytes-total": 2284172,
+  "bytes-to-cache": 1897518,
+  "files": [
+    "Tpases020812LINE.pdb",
+    "Tpases020812LINE.phr",
+    "Tpases020812LINE.pin",
+    "Tpases020812LINE.pot",
+    "Tpases020812LINE.psq",
+    "Tpases020812LINE.ptf",
+    "Tpases020812LINE.pto"
+  ]
+}

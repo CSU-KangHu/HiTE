@@ -6002,7 +6002,7 @@ def filter_single_ltr(output_path, intact_output_path, leftLtr2Candidates, ltr_l
     judge_ltr_from_both_ends_frame_for_intactLTR(output_dir, intact_output_path, threads, type, log, sliding_window_size=sliding_window_size)
 
 
-def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, internal_ltrs,
+def filter_single_copy_ltr(output_path, filtered_output_path, single_copy_internals_file, ltr_copies, internal_ltrs,
                            ltr_protein_db, other_protein_db, tmp_output_dir, threads,
                            reference, leftLtr2Candidates, ltr_lines, log, debug):
     # # 我们只保留具有 TSD + TG...CA 结构的单拷贝 或者 内部具有完整protein的。
@@ -6083,9 +6083,8 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
 
     remain_intact_count = 0
     filtered_intact_count = 0
-    with open(output_path, 'w') as f_save:
+    with open(output_path, 'w') as f_save, open(filtered_output_path, 'w') as f_filtered:
         for name in ltr_copies.keys():
-            internal_seq = internal_ltrs[name]
             if len(ltr_copies[name]) >= 2:
                 cur_is_ltr = 1
                 remain_intact_count += 1
@@ -6093,6 +6092,7 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
                 if name in is_single_ltr_has_intact_other_protein and is_single_ltr_has_intact_other_protein[name]:
                     cur_is_ltr = 0
                     filtered_intact_count += 1
+                    f_filtered.write(name + '\t' + 'has_intact_other_protein' + '\n')
                 else:
                     if (name in is_single_ltr_has_intact_protein and is_single_ltr_has_intact_protein[name]) \
                             and (name in is_single_ltr_has_structure and is_single_ltr_has_structure[name]):
@@ -6101,6 +6101,14 @@ def filter_single_copy_ltr(output_path, single_copy_internals_file, ltr_copies, 
                     else:
                         cur_is_ltr = 0
                         filtered_intact_count += 1
+                        # 添加过滤原因
+                        filter_reason = []
+                        if name not in is_single_ltr_has_intact_protein or not is_single_ltr_has_intact_protein[name]:
+                            filter_reason.append('no_intact_protein')
+                        if name not in is_single_ltr_has_structure or not is_single_ltr_has_structure[name]:
+                            filter_reason.append('no_structure')
+                        reason = '|'.join(filter_reason) if filter_reason else 'other'
+                        f_filtered.write(name + '\t' + reason + '\n')
             f_save.write(name + '\t' + str(cur_is_ltr) + '\n')
     if log is not None:
         log.logger.info('Filter the number of non-intact LTR: ' + str(filtered_intact_count) + ', remaining LTR num: ' + str(remain_intact_count))

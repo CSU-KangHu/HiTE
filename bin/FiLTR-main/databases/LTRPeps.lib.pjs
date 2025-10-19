@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "LTRPeps.lib",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/configs/../databases/LTRPeps.lib",
+  "number-of-letters": 8683625,
+  "number-of-sequences": 7786,
+  "last-updated": "2025-10-18T03:57:00",
+  "number-of-volumes": 1,
+  "bytes-total": 9589897,
+  "bytes-to-cache": 8753876,
+  "files": [
+    "LTRPeps.lib.pdb",
+    "LTRPeps.lib.phr",
+    "LTRPeps.lib.pin",
+    "LTRPeps.lib.pot",
+    "LTRPeps.lib.psq",
+    "LTRPeps.lib.ptf",
+    "LTRPeps.lib.pto"
+  ]
+}

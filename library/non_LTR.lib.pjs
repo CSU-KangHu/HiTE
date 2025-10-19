@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "non_LTR.lib",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/library/non_LTR.lib",
+  "number-of-letters": 31000877,
+  "number-of-sequences": 8899,
+  "last-updated": "2025-01-07T16:50:00",
+  "number-of-volumes": 1,
+  "bytes-total": 32013673,
+  "bytes-to-cache": 31081113,
+  "files": [
+    "non_LTR.lib.pdb",
+    "non_LTR.lib.phr",
+    "non_LTR.lib.pin",
+    "non_LTR.lib.pot",
+    "non_LTR.lib.psq",
+    "non_LTR.lib.ptf",
+    "non_LTR.lib.pto"
+  ]
+}

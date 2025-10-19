@@ -673,7 +673,7 @@ if __name__ == "__main__":
         for TE_type in pan_genome_copies_dict.keys():
             cur_temp_dir, batch_member_files = pan_genome_copies_dict[TE_type]
             real_TEs = os.path.join(temp_dir, 'real_' + TE_type + '.fa')
-            filter_true_TEs(batch_member_files, real_TEs, cur_temp_dir, subset_script_path, TE_type, plant)
+            filter_true_TEs(batch_member_files, real_TEs, cur_temp_dir, subset_script_path, TE_type, plant, threads)
 
             confident_recover_TE_path = os.path.join(temp_dir, 'confident_recover_' + TE_type + '.fa')
             # 生成非冗余序列

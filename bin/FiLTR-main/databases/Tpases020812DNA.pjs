@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "Tpases020812DNA",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/bin/FiLTR-main/configs/../databases/Tpases020812DNA",
+  "number-of-letters": 1394362,
+  "number-of-sequences": 2341,
+  "last-updated": "2025-10-18T03:58:00",
+  "number-of-volumes": 1,
+  "bytes-total": 1837927,
+  "bytes-to-cache": 1415616,
+  "files": [
+    "Tpases020812DNA.pdb",
+    "Tpases020812DNA.phr",
+    "Tpases020812DNA.pin",
+    "Tpases020812DNA.pot",
+    "Tpases020812DNA.psq",
+    "Tpases020812DNA.ptf",
+    "Tpases020812DNA.pto"
+  ]
+}

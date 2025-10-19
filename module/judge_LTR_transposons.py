@@ -116,26 +116,28 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_FiLTR, is_recover, th
     confident_ltr_internal = tmp_output_dir + '/confident_ltr.internal.fa'
     confident_intact_ltr_list = tmp_output_dir + '/intact_LTR.list'
     intact_LTR_path = tmp_output_dir + '/intact_LTR.fa'
+    filtered_single_copy_LTRs_path = tmp_output_dir + '/filtered_single_copy_LTRs.txt'
 
     confident_tir_path = os.path.join(tmp_output_dir, "confident_tir_from_ltr.fa")
     confident_helitron_path = os.path.join(tmp_output_dir, "confident_helitron_from_ltr.fa")
     confident_non_ltr_path = os.path.join(tmp_output_dir, "confident_non_ltr_from_ltr.fa")
 
     if use_FiLTR:
-        LTR_output_dir = tmp_output_dir + '/HybridLTR_output'
+        LTR_output_dir = tmp_output_dir + '/FiLTR_output'
         confident_ltr = LTR_output_dir + '/confident_ltr.fa'
-        Hybrid_ltr_terminal = LTR_output_dir + '/confident_ltr.terminal.fa'
-        Hybrid_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
-        Hybrid_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
+        FiLTR_ltr_terminal = LTR_output_dir + '/confident_ltr.terminal.fa'
+        FiLTR_ltr_internal = LTR_output_dir + '/confident_ltr.internal.fa'
+        FiLTR_intact_ltr_list = LTR_output_dir + '/intact_LTR.list'
         FiLTR_intact_LTR_path = LTR_output_dir + '/intact_LTR.fa'
+        FiLTR_filtered_single_copy_LTRs_path = LTR_output_dir + '/filtered_single_copy_LTRs.txt'
 
-        Hybrid_confident_tir_path = os.path.join(LTR_output_dir, "confident_tir_from_ltr.fa")
-        Hybrid_confident_helitron_path = os.path.join(LTR_output_dir, "confident_helitron_from_ltr.fa")
-        Hybrid_confident_non_ltr_path = os.path.join(LTR_output_dir, "confident_non_ltr_from_ltr.fa")
+        FiLTR_confident_tir_path = os.path.join(LTR_output_dir, "confident_tir_from_ltr.fa")
+        FiLTR_confident_helitron_path = os.path.join(LTR_output_dir, "confident_helitron_from_ltr.fa")
+        FiLTR_confident_non_ltr_path = os.path.join(LTR_output_dir, "confident_non_ltr_from_ltr.fa")
 
         check_files = [
             confident_ltr_terminal, confident_ltr_internal, confident_ltr_cut_path,
-            confident_intact_ltr_list, intact_LTR_path
+            confident_intact_ltr_list, intact_LTR_path, filtered_single_copy_LTRs_path
         ]
 
         # 判断是否需要重新运行 LTR 模块
@@ -143,21 +145,23 @@ def run_judge_LTR_detection(tmp_output_dir, reference, use_FiLTR, is_recover, th
         if not is_recover or is_rerun:
             run_FiLTR(ref_rename_path, LTR_output_dir, FiLTR_home, threads, miu, recover, debug, is_output_lib,
                           log)
+            if os.path.exists(FiLTR_filtered_single_copy_LTRs_path):
+                shutil.copy(FiLTR_filtered_single_copy_LTRs_path, filtered_single_copy_LTRs_path)
             if os.path.exists(FiLTR_intact_LTR_path):
                 shutil.copy(FiLTR_intact_LTR_path, intact_LTR_path)
-            if os.path.exists(Hybrid_ltr_terminal):
-                shutil.copy(Hybrid_ltr_terminal, confident_ltr_terminal)
-            if os.path.exists(Hybrid_ltr_internal):
-                shutil.copy(Hybrid_ltr_internal, confident_ltr_internal)
-            if os.path.exists(Hybrid_intact_ltr_list):
-                shutil.copy(Hybrid_intact_ltr_list, confident_intact_ltr_list)
+            if os.path.exists(FiLTR_ltr_terminal):
+                shutil.copy(FiLTR_ltr_terminal, confident_ltr_terminal)
+            if os.path.exists(FiLTR_ltr_internal):
+                shutil.copy(FiLTR_ltr_internal, confident_ltr_internal)
+            if os.path.exists(FiLTR_intact_ltr_list):
+                shutil.copy(FiLTR_intact_ltr_list, confident_intact_ltr_list)
 
-            if os.path.exists(Hybrid_confident_tir_path):
-                shutil.copy(Hybrid_confident_tir_path, confident_tir_path)
-            if os.path.exists(Hybrid_confident_helitron_path):
-                shutil.copy(Hybrid_confident_helitron_path, confident_helitron_path)
-            if os.path.exists(Hybrid_confident_non_ltr_path):
-                shutil.copy(Hybrid_confident_non_ltr_path, confident_non_ltr_path)
+            if os.path.exists(FiLTR_confident_tir_path):
+                shutil.copy(FiLTR_confident_tir_path, confident_tir_path)
+            if os.path.exists(FiLTR_confident_helitron_path):
+                shutil.copy(FiLTR_confident_helitron_path, confident_helitron_path)
+            if os.path.exists(FiLTR_confident_non_ltr_path):
+                shutil.copy(FiLTR_confident_non_ltr_path, confident_non_ltr_path)
 
             if os.path.exists(confident_ltr):
                 shutil.copy(confident_ltr, confident_ltr_cut_path)
@@ -319,7 +323,7 @@ if __name__ == '__main__':
                         help='Use Wicker or RepeatMasker classification labels, 1: Wicker, 0: RepeatMasker.')
     parser.add_argument('--is_output_lib', metavar='is_output_lib',
                         help='Whether to output LTR library.')
-    parser.add_argument('--debug', metavar='recover',
+    parser.add_argument('--debug', metavar='recover', type=int, default=0,
                         help='Open debug mode, and temporary files will be kept, 1: true, 0: false.')
     parser.add_argument('-w', '--work_dir', nargs="?", default='/tmp', help="The temporary work directory for HiTE.")
     parser.add_argument('--prev_TE', metavar='prev_TE',

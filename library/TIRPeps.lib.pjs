@@ -1,0 +1,22 @@
+{
+  "version": "1.2",
+  "dbname": "TIRPeps.lib",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "/public/home/hpc194701009/test/test/HiTE/library/TIRPeps.lib",
+  "number-of-letters": 2726449,
+  "number-of-sequences": 4642,
+  "last-updated": "2025-01-07T16:45:00",
+  "number-of-volumes": 1,
+  "bytes-total": 3308989,
+  "bytes-to-cache": 2768372,
+  "files": [
+    "TIRPeps.lib.pdb",
+    "TIRPeps.lib.phr",
+    "TIRPeps.lib.pin",
+    "TIRPeps.lib.pot",
+    "TIRPeps.lib.psq",
+    "TIRPeps.lib.ptf",
+    "TIRPeps.lib.pto"
+  ]
+}

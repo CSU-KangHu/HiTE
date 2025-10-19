@@ -717,7 +717,8 @@ if __name__ == '__main__':
             ltr_protein_db = lib_dir + '/LTRPeps.lib'
             other_protein_db = lib_dir + '/OtherPeps.lib'
             single_copy_internals_file = tmp_output_dir + '/single_copy_internal.fa'
-            filter_single_copy_ltr(intact_output_path, single_copy_internals_file, ltr_copies, internal_ltrs,
+            filtered_single_copy_LTRs = tmp_output_dir + '/filtered_single_copy_LTRs.txt'
+            filter_single_copy_ltr(intact_output_path, filtered_single_copy_LTRs, single_copy_internals_file, ltr_copies, internal_ltrs,
                                    ltr_protein_db, other_protein_db, tmp_output_dir, threads, reference,
                                    leftLtr2Candidates, ltr_lines, log, debug)
         else:

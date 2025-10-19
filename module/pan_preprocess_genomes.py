@@ -147,6 +147,10 @@ if __name__ == '__main__':
     RNA_dir = args.RNA_dir
     pan_genomes_dir = args.pan_genomes_dir
 
+    genes_dir = os.path.realpath(genes_dir)
+    RNA_dir = os.path.realpath(RNA_dir)
+    pan_genomes_dir = os.path.realpath(pan_genomes_dir)
+
     log = Logger(output_dir + '/panHiTE.log', level='debug')
 
     preprocess_genomes(genome_list, genes_dir, RNA_dir, pan_genomes_dir, output_dir, log)
