@@ -41,19 +41,22 @@ if __name__ == "__main__":
     genome_name = args.genome_name
     reference = args.reference
     RNA_dir = args.RNA_dir
+    RNA_seq = args.RNA_seq
     threads = args.threads
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
     reference = os.path.realpath(reference)
 
-    RNA_seq = {}  # 默认空字典
+    preprocessed_RNA_seq = preprocess_RNA_seq(RNA_seq)
 
-    if preprocess_RNA_seq and isinstance(preprocess_RNA_seq, str):  # 确保非空且是字符串
+    RNA_seq_dict = {}  # 默认空字典
+
+    if preprocessed_RNA_seq and isinstance(preprocessed_RNA_seq, str):  # 确保非空且是字符串
         try:
-            RNA_seq = json.loads(preprocess_RNA_seq)
+            RNA_seq_dict = json.loads(preprocessed_RNA_seq)
         except (json.JSONDecodeError, TypeError):  # 捕获 JSON 解析错误或类型错误
-            RNA_seq = {}  # 解析失败时设为空字典
+            RNA_seq_dict = {}  # 解析失败时设为空字典
 
     # 处理输出目录
     output_dir = os.path.abspath(args.output_dir)
@@ -70,9 +73,9 @@ if __name__ == "__main__":
         create_or_clear_directory(temp_dir)
         # Step 7.1: 生成 BAM 文件
         log.logger.info("Start generating BAM files for RNA-seq data...")
-        if 'Status' in RNA_seq:
-            genome_name += '.' + RNA_seq['Status']
-        generate_bam_for_RNA_seq(genome_name, reference, RNA_seq, threads, RNA_dir, temp_dir, log)
+        if 'Status' in RNA_seq_dict:
+            genome_name += '.' + RNA_seq_dict['Status']
+        generate_bam_for_RNA_seq(genome_name, reference, RNA_seq_dict, threads, RNA_dir, temp_dir, log)
         log.logger.info("BAM file generation completed.")
 
         # 计算完之后将结果拷贝回输出目录
