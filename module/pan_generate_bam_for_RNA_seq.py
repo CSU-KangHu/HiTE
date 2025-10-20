@@ -45,6 +45,8 @@ if __name__ == "__main__":
     work_dir = args.work_dir
     work_dir = os.path.abspath(work_dir)
 
+    reference = os.path.realpath(reference)
+
     RNA_seq = {}  # 默认空字典
 
     if preprocess_RNA_seq and isinstance(preprocess_RNA_seq, str):  # 确保非空且是字符串
