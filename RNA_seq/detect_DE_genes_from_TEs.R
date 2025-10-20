@@ -210,6 +210,7 @@ volcano_plot <- ggplot(valid_genes, aes(x = fold_change, y = -log10(P_adjust_val
   geom_hline(yintercept = -log10(0.05), linetype = "dotdash", color = "black") +  # 添加显著性阈值线
   geom_vline(xintercept = c(-1, 1), linetype = "dotdash", color = "black")  # 添加 Fold Change 阈值线
   theme(legend.position = "none")
+print(volcano_plot)
 dev.off()
 
 significant_genes <- valid_genes %>%
