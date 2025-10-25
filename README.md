@@ -118,11 +118,14 @@ docker run -v ${host_path}:${container_path} kanghu/hite:3.3.3 python main.py \
  # --thread 40 \
  # --out_dir /home/hukang/HiTE/demo/test/
 ```
+
+<!--
 For those unable to download images from Docker Hub, we have uploaded the Docker and Singularity images to Zenodo: [https://zenodo.org/records/15761664](https://zenodo.org/records/15761664).
 ```sh
 # Load the Docker image
 docker load -i hite_docker_3.3.3.tar
 ```
+-->
 
 ### <a name="install_nextflow"></a>Option 4. Run with nextflow
 Nextflow is built on top of the popular programming language, Groovy, and supports the execution of workflows 

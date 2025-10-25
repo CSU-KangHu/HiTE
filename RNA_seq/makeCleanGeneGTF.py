@@ -11,16 +11,55 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(cur_dir)
 
 
-def run_command(cmd):
+def run_command(cmd, timeout=600, output_file=None):
     """
-    Run a shell command and check for errors.
+    Run a shell command safely with timeout and detailed error handling.
+
+    Args:
+        cmd (str): Shell command to run.
+        timeout (int): Timeout in seconds (default 600).
+        output_file (str or None): If provided, write stdout to this file instead of capturing.
+
+    Returns:
+        str: Standard output text (if output_file is None).
     """
-    print(f"Running command: {cmd}")
-    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        print(f"Error running command: {result.stderr}")
-        raise RuntimeError(result.stderr)
-    return result.stdout
+    print(f"[INFO] Running command: {cmd}")
+
+    try:
+        if output_file:
+            # 将标准输出直接写入文件，避免缓冲区阻塞
+            with open(output_file, "w") as f:
+                result = subprocess.run(
+                    cmd,
+                    shell=True,
+                    stdout=f,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=timeout
+                )
+            # 返回空字符串或文件路径
+            if result.returncode != 0:
+                print(f"[ERROR] Command failed with stderr:\n{result.stderr}")
+                raise RuntimeError(result.stderr)
+            return output_file
+        else:
+            # 捕获 stdout
+            result = subprocess.run(
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=timeout
+            )
+            if result.returncode != 0:
+                print(f"[ERROR] Command failed with stderr:\n{result.stderr}")
+                raise RuntimeError(result.stderr)
+            return result.stdout
+
+    except subprocess.TimeoutExpired:
+        print(f"[TIMEOUT] Command timed out after {timeout} seconds:\n{cmd}", file=sys.stderr)
+        raise
 
 
 def convert_gff_to_gtf(input_gff, output_gtf, temp_dir):
@@ -32,7 +71,7 @@ def convert_gff_to_gtf(input_gff, output_gtf, temp_dir):
     run_command(f"gffread {input_gff} -T -o {temp_gtf}")
 
     print("Ensuring GTF is in Ensembl-compatible format using gtftk...")
-    run_command(f"gtftk convert_ensembl -i {temp_gtf} > {output_gtf}")
+    run_command(f"gtftk convert_ensembl -i {temp_gtf}", output_file=output_gtf)
 
     # Remove intermediate file
     os.remove(temp_gtf)
@@ -47,9 +86,9 @@ def extract_coding_genes(input_gtf, temp_dir):
     temp_coding_gtf = os.path.join(temp_dir, "temp_coding.gtf")
     temp_cds_gtf = os.path.join(temp_dir, "temp_cds.gtf")
 
-    run_command(f"gtftk select_by_key -k feature -v CDS -i {input_gtf} > {temp_cds_gtf}")
-    run_command(f"gtftk tabulate -k transcript_id,gene_id --unique --no-header -i {temp_cds_gtf} > {temp_coding_mapid}")
-    run_command(f"perl " + cur_dir + f"/gtf_extract.pl {input_gtf} {temp_coding_mapid} > {temp_coding_gtf}")
+    run_command(f"gtftk select_by_key -k feature -v CDS -i {input_gtf}", output_file=temp_cds_gtf)
+    run_command(f"gtftk tabulate -k transcript_id,gene_id --unique --no-header -i {temp_cds_gtf}", output_file=temp_coding_mapid)
+    run_command(f"perl " + cur_dir + f"/gtf_extract.pl {input_gtf} {temp_coding_mapid}", output_file=temp_coding_gtf)
 
     return temp_coding_gtf
 

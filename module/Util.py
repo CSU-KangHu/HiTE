@@ -100,7 +100,7 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, H
     HelitronScanner_command = 'cd ' + temp_dir + ' && ' + 'sh ' + sh_dir + '/run_helitron_scanner.sh ' \
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR + '> /dev/null 2>&1'
     # 在某些情况下，未知原因会导致HelitronScanner执行卡死，我们给每个进程限制最大的运行时间 10 min，如果还不结束就直接kill掉
-    timeout = 600  # 10min
+    timeout = 1800  # 30min
     run_command_with_timeout(HelitronScanner_command, timeout)
 
     cur_helitron_out = temp_dir + '/' + str(partition_index) + '.HelitronScanner.draw.hel.fa'
@@ -12601,7 +12601,7 @@ def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kw
         raw_RNA2 = kwargs['raw_RNA2']
 
         ILLUMINACLIP_path = os.path.join(conda_prefix, 'share/trimmomatic/adapters/TruSeq3-PE.fa')
-        paired_trim_RNA1, paired_trim_RNA2, temp_files = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads)
+        paired_trim_RNA1, paired_trim_RNA2, temp_files = PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads, conda_prefix)
 
         os.system(hisat2_build)
         hisat2_align = 'hisat2 -x ' + genome_name + ' -1 ' + paired_trim_RNA1 + ' -2 ' + paired_trim_RNA2 + ' -S ' + output_sam + ' -p ' + str(threads)
@@ -12609,7 +12609,7 @@ def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kw
     else:
         raw_RNA = kwargs['raw_RNA']
         ILLUMINACLIP_path = os.path.join(conda_prefix, 'share/trimmomatic/adapters/TruSeq3-SE.fa')
-        trim_RNA, temp_files = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads)
+        trim_RNA, temp_files = SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads, conda_prefix)
 
         os.system(hisat2_build)
         hisat2_align = 'hisat2 -x ' + genome_name + ' -U ' + trim_RNA + ' -S ' + output_sam + ' -p ' + str(threads)
@@ -12624,7 +12624,7 @@ def generate_bam(genome_path, genome_name, output_dir, threads, is_PE=True, **kw
     os.system(sorted_command)
     return sorted_bam
 
-def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads):
+def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads, conda_prefix):
     temp_files = []
     # 1. 先获取文件的名称，以方便后续构建临时文件
     raw_RNA1_dir = os.path.dirname(raw_RNA1)
@@ -12644,15 +12644,17 @@ def PE_RNA_trim(raw_RNA1, raw_RNA2, ILLUMINACLIP_path, threads):
     temp_files.append(unpaired_trim_RNA2)
 
     # 2.调用 trimmomatic 去掉低质量和测序adapter
-    trimmomatic_command = 'trimmomatic PE ' + raw_RNA1 + ' ' + raw_RNA2 + ' ' + paired_trim_RNA1 + ' ' + \
+    trimmomatic_command = 'java -jar ' + conda_prefix + '/share/trimmomatic/trimmomatic.jar PE ' + raw_RNA1 + \
+                          ' ' + raw_RNA2 + ' ' + paired_trim_RNA1 + ' ' + \
                           unpaired_trim_RNA1 + ' ' + paired_trim_RNA2 + ' ' + unpaired_trim_RNA2 + ' ' + \
                           'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
                           ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 -phred33 ' + '-threads ' + str(threads)
+
     os.system(trimmomatic_command)
     return paired_trim_RNA1, paired_trim_RNA2, temp_files
 
 
-def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
+def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads, conda_prefix):
     temp_files = []
     # 1. 先获取文件的名称，以方便后续构建临时文件
     raw_RNA_dir = os.path.dirname(raw_RNA)
@@ -12662,7 +12664,7 @@ def SE_RNA_trim(raw_RNA, ILLUMINACLIP_path, threads):
     temp_files.append(trim_RNA)
 
     # 2.调用 trimmomatic 去掉低质量和测序adapter
-    trimmomatic_command = 'trimmomatic SE ' + raw_RNA + ' ' + trim_RNA + ' ' + \
+    trimmomatic_command = 'java -jar ' + conda_prefix + '/share/trimmomatic/trimmomatic.jar SE ' + raw_RNA + ' ' + trim_RNA + ' ' + \
                           'ILLUMINACLIP:' + ILLUMINACLIP_path + ':2:30:10' + \
                           ' LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33 ' + '-threads ' + str(threads)
     os.system(trimmomatic_command)

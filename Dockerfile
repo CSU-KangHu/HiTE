@@ -1,7 +1,7 @@
 FROM continuumio/miniconda3
 
 # Author and maintainer
-MAINTAINER Kang Hu <kanghu@csu.edu.cn>
+LABEL maintainer="Kang Hu <kanghucsu@gmail.com>"
 LABEL description="HiTE: A fast and accurate dynamic boundary adjustment approach for full-length Transposable Elements detection and annotation in Genome Assemblies" \
       author="kanghu@csu.edu.cn"
 
@@ -31,8 +31,8 @@ SHELL ["conda", "run", "-n", "HiTE", "/bin/bash", "-c"]
 RUN echo "source activate HiTE" >> ~/.bashrc
 
 # avoid different perl version conflict
-ENV PERL5LIB /
-ENV PATH /HiTE/tools:/HiTE/module:/opt/conda/envs/${DNAME}/bin:$PATH
+ENV PERL5LIB=/
+ENV PATH=/HiTE/tools:/HiTE/module:/opt/conda/envs/${DNAME}/bin:$PATH
 USER root
 
 WORKDIR /HiTE

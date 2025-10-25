@@ -9627,7 +9627,7 @@ def run_HelitronScanner(sh_dir, temp_dir, cur_candidate_Helitrons_path, HSDIR, H
                               + str(partition_index) + ' ' + cur_candidate_Helitrons_path + ' ' + HSDIR + ' ' + HSJAR + ' > /dev/null 2>&1'
     # os.system(HelitronScanner_command + '> /dev/null 2>&1')
     # 在某些情况下，未知原因会导致HelitronScanner执行卡死，我们给每个进程限制最大的运行时间 5 min，如果还不结束就直接kill掉
-    timeout = 300  # 5min
+    timeout = 1800  # 30min
     try:
         return_code = run_command_with_timeout(HelitronScanner_command, timeout)
     except TimeoutError as e:

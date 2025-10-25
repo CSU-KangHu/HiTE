@@ -310,6 +310,8 @@ process pan_generate_bam_for_RNA_seq {
     """
     pan_generate_bam_for_RNA_seq.py --genome_name ${genome_name} --reference ${reference} \
     --RNA_seq '${RNA_seq}' --RNA_dir ${RNA_dir} --threads ${cores}  > ${genome_name}.pan_generate_bam_for_RNA_seq.log 2>&1
+
+    sync
     """
 }
 

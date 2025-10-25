@@ -182,10 +182,12 @@ if __name__ == '__main__':
     elif species == "cb":
         lib_path = lib_module + "/cbrrep.ref"
     elif species == "zebrafish":
-        lib_path = lib_module + '/zebrep.ref'
+        # lib_path = lib_module + '/zebrep.ref'
         # lib_path = lib_module + "/zebrafish.ltr.ref"
+        lib_path = lib_module + '/zebrep.no_ltr.ref'
     elif species == "maize":
-        lib_path = lib_module + "/maize.ltr.ref"
+        # lib_path = lib_module + "/maize.ltr.ref"
+        lib_path = lib_module + "/maize.ref"
     elif species == "ath":
         #lib_path = lib_module + "/ath.ltr.ref"
         lib_path = lib_module + "/athrep.ref"
@@ -212,6 +214,9 @@ if __name__ == '__main__':
     if tmp_output_dir is None:
         tmp_output_dir = os.getcwd()
     tmp_output_dir = os.path.abspath(tmp_output_dir)
+
+    if not os.path.exists(tmp_output_dir):
+        os.makedirs(tmp_output_dir)
 
     log = Logger(tmp_output_dir+'/benchmarking.log', level='debug')
 
