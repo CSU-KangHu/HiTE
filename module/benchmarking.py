@@ -191,6 +191,9 @@ if __name__ == '__main__':
     elif species == "ath":
         #lib_path = lib_module + "/ath.ltr.ref"
         lib_path = lib_module + "/athrep.ref"
+    elif species == "xentr":
+        # lib_path = lib_module + "/xentr.ref"
+        lib_path = lib_module + "/xentr.no_ltr.ref"
     elif species == "chicken":
         lib_path = lib_module + "/chicken.ref"
     elif species == "zebrafinch":

@@ -433,7 +433,7 @@ if __name__ == '__main__':
             starttime = time.time()
             log.logger.info('Start step1: Remove redundant contigs from a genome assembly using minimap2')
             genome_clean_command = 'genome_clean.py ' \
-                                           + ' -i ' + raw_reference \
+                                           + ' -i ' + str(raw_reference) \
                                            + ' -o ' + reference_clean \
                                            + ' -t ' + str(threads) \
                                            + ' -w ' + str(work_dir)
@@ -761,7 +761,7 @@ if __name__ == '__main__':
         TEClass_home = project_dir + '/classification'
         annotate_genome_command = 'pan_annotate_genome.py --threads ' + str(threads) \
                                   + ' --panTE_lib ' + confident_TE_consensus + ' --genome_name HiTE ' \
-                                  + ' --reference ' + raw_reference + ' --annotate ' + str(annotate) \
+                                  + ' --reference ' + str(raw_reference) + ' --annotate ' + str(annotate) \
                                   + ' --output_dir ' + tmp_output_dir + ' -w ' + str(work_dir)
         log.logger.info(annotate_genome_command)
         os.system(annotate_genome_command)
@@ -777,7 +777,7 @@ if __name__ == '__main__':
                             + ' --BM_RM2 ' + str(BM_RM2) + ' --BM_EDTA ' + str(BM_EDTA) + ' --BM_HiTE ' + str(BM_HiTE) \
                             + ' --coverage_threshold ' + str(coverage_threshold) + ' -t ' + str(threads) \
                             + ' --TE_lib ' + str(confident_TE_consensus) \
-                            + ' -r ' + raw_reference + ' --recover ' + str(recover) + ' -w ' + str(work_dir)
+                            + ' -r ' + str(raw_reference) + ' --recover ' + str(recover) + ' -w ' + str(work_dir)
         if EDTA_home is not None and EDTA_home.strip() != '':
             benchmarking_command += ' --EDTA_home ' + str(EDTA_home)
         if species is None or species.strip() == '':

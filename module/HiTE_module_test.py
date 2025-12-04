@@ -4836,24 +4836,24 @@ if __name__ == '__main__':
     #     shutil.rmtree(temp_dir)
 
 
-    # panHiTE, panEDTA 和 Repbase 库三者的交集关系
-    # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
-    # 尝试使用BM_RM2的结果调整clusters
-    # cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
-    # cluster_file = '/home/hukang/test/demo/maize_lib_compare/maize_merge.fa.cons.clstr'
-    cluster_file = '/home/hukang/test/demo/ath_merge.fa.cons.clstr'
-    clusters = parse_clstr_file(cluster_file)
-    new_clusters = defaultdict()
-    # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
-    seq_name2cluster_id = defaultdict()
-    for cluster, sequences in clusters.items():
-        names = []
-        for seq in sequences:
-            seq = seq.split('#')[0]
-            names.append(seq)
-            seq_name2cluster_id[seq] = cluster
-        new_clusters[cluster] = names
-    clusters = new_clusters
+    # # panHiTE, panEDTA 和 Repbase 库三者的交集关系
+    # # cd-hit-est不准确，很多序列其实和Repbase重叠，但是cd-hit-est无法聚类。比如：panHiTE_39-TIR_51#DNA/MULE能和MuDR-N3_AT比对上。
+    # # 尝试使用BM_RM2的结果调整clusters
+    # # cluster_file = '/home/hukang/test/demo/three_lib_compare/three_panTE.lib.cons.clstr'
+    # # cluster_file = '/home/hukang/test/demo/maize_lib_compare/maize_merge.fa.cons.clstr'
+    # cluster_file = '/home/hukang/test/demo/ath_merge.fa.cons.clstr'
+    # clusters = parse_clstr_file(cluster_file)
+    # new_clusters = defaultdict()
+    # # 遍历簇，记录sequence_name对应cluster_id，便于快速查询
+    # seq_name2cluster_id = defaultdict()
+    # for cluster, sequences in clusters.items():
+    #     names = []
+    #     for seq in sequences:
+    #         seq = seq.split('#')[0]
+    #         names.append(seq)
+    #         seq_name2cluster_id[seq] = cluster
+    #     new_clusters[cluster] = names
+    # clusters = new_clusters
 
     # file_path = '/home/hukang/test/demo/three_lib_compare/repbase_panHiTE_rm2_test/file_final.0.1.txt'
     # with open(file_path, 'r') as f:
@@ -4913,95 +4913,95 @@ if __name__ == '__main__':
     #             if panHiTE_cluster_id in clusters:
     #                 del clusters[panHiTE_cluster_id]
 
-    total_panHiTE = []
-    total_panEDTA = []
-    total_Repbase = []
-
-    only_panHiTE = []
-    only_panEDTA = []
-    only_Repbase = []
-
-    panHiTE_vs_panEDTA = []
-    panHiTE_vs_Repbase = []
-    panEDTA_vs_Repbase = []
-    panHiTE_vs_panEDTA_vs_Repbase = []
-
-    for cluster, sequences in clusters.items():
-        total_sources = set()
-        unique_sequences = []
-        for seq in sequences:
-            source = seq.split('_')[0]  # 获取序列的来源
-            if source not in total_sources:
-                unique_sequences.append(seq)
-                if source == 'panHiTE':
-                    total_panHiTE.append(seq)
-                elif source == 'panEDTA':
-                    total_panEDTA.append(seq)
-                elif source == 'Repbase':
-                    total_Repbase.append(seq)
-            total_sources.add(source)
-        if len(total_sources) == 1:
-            seq = sequences[0]
-            source = seq.split('_')[0]  # 获取序列的来源
-            if source == 'panHiTE':
-                only_panHiTE.append(seq)
-            elif source == 'panEDTA':
-                only_panEDTA.append(seq)
-            elif source == 'Repbase':
-                only_Repbase.append(seq)
-        elif len(total_sources) == 2:
-            if 'panHiTE' in total_sources and 'panEDTA' in total_sources:
-                panHiTE_vs_panEDTA.append(unique_sequences)
-            elif 'panHiTE' in total_sources and 'Repbase' in total_sources:
-                panHiTE_vs_Repbase.append(unique_sequences)
-            elif 'panEDTA' in total_sources and 'Repbase' in total_sources:
-                panEDTA_vs_Repbase.append(unique_sequences)
-        elif len(total_sources) == 3:
-            panHiTE_vs_panEDTA_vs_Repbase.append(unique_sequences)
-
-    # 绘制韦恩图
-    plt.figure(figsize=(6, 6))
-    venn = venn3(
-        subsets=(
-            len(only_panEDTA),
-            len(only_panHiTE),
-            len(panHiTE_vs_panEDTA),
-            len(only_Repbase),
-            len(panEDTA_vs_Repbase),
-            len(panHiTE_vs_Repbase),
-            len(panHiTE_vs_panEDTA_vs_Repbase)
-        ),
-        set_labels=('panEDTA', 'panHiTE', 'Repbase')
-    )
-
-    # plt.title("Venn Diagram of Sequence Intersections")
-    plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
-    # plt.savefig('/home/hukang/test/demo/maize_lib_compare/output_plot.png')
-
-    # 定义存储文件的路径
-    output_dir = "/home/hukang/test/demo/three_lib_compare/"
-    # output_dir = "/home/hukang/test/demo/maize_lib_compare"
-
-    # 需要保存的集合及对应的文件名
-    output_files = {
-        "total_panHiTE.txt": total_panHiTE,
-        "total_panEDTA.txt": total_panEDTA,
-        "total_Repbase.txt": total_Repbase,
-        "only_panHiTE.txt": only_panHiTE,
-        "only_panEDTA.txt": only_panEDTA,
-        "only_Repbase.txt": only_Repbase,
-        "panHiTE_vs_panEDTA.txt": panHiTE_vs_panEDTA,
-        "panHiTE_vs_Repbase.txt": panHiTE_vs_Repbase,
-        "panEDTA_vs_Repbase.txt": panEDTA_vs_Repbase,
-        "panHiTE_vs_panEDTA_vs_Repbase.txt": panHiTE_vs_panEDTA_vs_Repbase
-    }
-
-    # 遍历字典，写入文件
-    for filename, data_set in output_files.items():
-        file_path = output_dir + filename
-        with open(file_path, "w") as f:
-            for item in data_set:
-                f.write(str(item) + "\n")  # 每个序列单独占一行
+    # total_panHiTE = []
+    # total_panEDTA = []
+    # total_Repbase = []
+    #
+    # only_panHiTE = []
+    # only_panEDTA = []
+    # only_Repbase = []
+    #
+    # panHiTE_vs_panEDTA = []
+    # panHiTE_vs_Repbase = []
+    # panEDTA_vs_Repbase = []
+    # panHiTE_vs_panEDTA_vs_Repbase = []
+    #
+    # for cluster, sequences in clusters.items():
+    #     total_sources = set()
+    #     unique_sequences = []
+    #     for seq in sequences:
+    #         source = seq.split('_')[0]  # 获取序列的来源
+    #         if source not in total_sources:
+    #             unique_sequences.append(seq)
+    #             if source == 'panHiTE':
+    #                 total_panHiTE.append(seq)
+    #             elif source == 'panEDTA':
+    #                 total_panEDTA.append(seq)
+    #             elif source == 'Repbase':
+    #                 total_Repbase.append(seq)
+    #         total_sources.add(source)
+    #     if len(total_sources) == 1:
+    #         seq = sequences[0]
+    #         source = seq.split('_')[0]  # 获取序列的来源
+    #         if source == 'panHiTE':
+    #             only_panHiTE.append(seq)
+    #         elif source == 'panEDTA':
+    #             only_panEDTA.append(seq)
+    #         elif source == 'Repbase':
+    #             only_Repbase.append(seq)
+    #     elif len(total_sources) == 2:
+    #         if 'panHiTE' in total_sources and 'panEDTA' in total_sources:
+    #             panHiTE_vs_panEDTA.append(unique_sequences)
+    #         elif 'panHiTE' in total_sources and 'Repbase' in total_sources:
+    #             panHiTE_vs_Repbase.append(unique_sequences)
+    #         elif 'panEDTA' in total_sources and 'Repbase' in total_sources:
+    #             panEDTA_vs_Repbase.append(unique_sequences)
+    #     elif len(total_sources) == 3:
+    #         panHiTE_vs_panEDTA_vs_Repbase.append(unique_sequences)
+    #
+    # # 绘制韦恩图
+    # plt.figure(figsize=(6, 6))
+    # venn = venn3(
+    #     subsets=(
+    #         len(only_panEDTA),
+    #         len(only_panHiTE),
+    #         len(panHiTE_vs_panEDTA),
+    #         len(only_Repbase),
+    #         len(panEDTA_vs_Repbase),
+    #         len(panHiTE_vs_Repbase),
+    #         len(panHiTE_vs_panEDTA_vs_Repbase)
+    #     ),
+    #     set_labels=('panEDTA', 'panHiTE', 'Repbase')
+    # )
+    #
+    # # plt.title("Venn Diagram of Sequence Intersections")
+    # plt.savefig('/home/hukang/test/demo/three_lib_compare/output_plot.png')
+    # # plt.savefig('/home/hukang/test/demo/maize_lib_compare/output_plot.png')
+    #
+    # # 定义存储文件的路径
+    # output_dir = "/home/hukang/test/demo/three_lib_compare/"
+    # # output_dir = "/home/hukang/test/demo/maize_lib_compare"
+    #
+    # # 需要保存的集合及对应的文件名
+    # output_files = {
+    #     "total_panHiTE.txt": total_panHiTE,
+    #     "total_panEDTA.txt": total_panEDTA,
+    #     "total_Repbase.txt": total_Repbase,
+    #     "only_panHiTE.txt": only_panHiTE,
+    #     "only_panEDTA.txt": only_panEDTA,
+    #     "only_Repbase.txt": only_Repbase,
+    #     "panHiTE_vs_panEDTA.txt": panHiTE_vs_panEDTA,
+    #     "panHiTE_vs_Repbase.txt": panHiTE_vs_Repbase,
+    #     "panEDTA_vs_Repbase.txt": panEDTA_vs_Repbase,
+    #     "panHiTE_vs_panEDTA_vs_Repbase.txt": panHiTE_vs_panEDTA_vs_Repbase
+    # }
+    #
+    # # 遍历字典，写入文件
+    # for filename, data_set in output_files.items():
+    #     file_path = output_dir + filename
+    #     with open(file_path, "w") as f:
+    #         for item in data_set:
+    #             f.write(str(item) + "\n")  # 每个序列单独占一行
 
 
     # # 我们想知道 panHiTE unique 里除去-LTR之外，有多少包含完整domain

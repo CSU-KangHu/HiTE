@@ -232,11 +232,11 @@ if __name__ == '__main__':
     except Exception as e:
         # 如果出现异常，打印错误信息并删除临时目录
         print(f"An error occurred: {e}")
-        if os.path.exists(temp_dir):
+        if os.path.exists(temp_dir) and debug != 1:
             shutil.rmtree(temp_dir)
         raise  # 重新抛出异常，以便上层代码可以处理
 
     else:
         # 如果没有异常，删除临时目录
-        if os.path.exists(temp_dir):
+        if os.path.exists(temp_dir) and debug != 1:
             shutil.rmtree(temp_dir)
