@@ -48,7 +48,7 @@ git clone https://github.com/CSU-KangHu/HiTE.git
 
 For common issues related to installation and usage, please visit: [https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage](https://github.com/CSU-KangHu/HiTE/wiki/Issues-with-installation-and-usage)
 
-### <a name="install_conda"></a>Option 1. Run with conda
+### <a name="install_conda"></a>Option 1. Run with conda (recommended)
 ```sh
 # Find the **yml** file in the project directory and run
 cd HiTE
@@ -72,7 +72,9 @@ python main.py \
  # --out_dir /home/hukang/HiTE/demo/test/
 ```
 
+
 ### <a name="install_singularity"></a>Option 2. Run with Singularity
+The provided container image may not always reflect the latest updates, which can lead to small bugs in some cases.
 ```sh
 # pull singularity image (once for all). There will be a HiTE.sif file.
 singularity pull HiTE.sif docker://kanghu/hite:3.3.3
@@ -96,6 +98,7 @@ singularity run -B ${host_path}:${container_path} ${pathTo/HiTE.sif} python /HiT
 ```
 
 ### <a name="install_docker"></a>Option 3. Run with Docker
+The provided container image may not always reflect the latest updates, which can lead to small bugs in some cases.
 ```sh
 # pull docker image (once for all).
 docker pull kanghu/hite:3.3.3
